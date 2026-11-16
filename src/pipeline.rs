@@ -3,6 +3,7 @@
 //! unsupported color fails closed.
 
 use std::fmt;
+use std::num::NonZeroUsize;
 use std::time::{Duration, Instant};
 
 use crate::color::ColorEncoding;
@@ -29,7 +30,27 @@ pub use crate::encoder_backend::{
 pub use crate::own_avif::LibavifBackend;
 pub use crate::quality::Filter as ResizeFilter;
 pub use crate::resize_geometry::{ResizeFit, ResizeOptions};
-pub use ferrisma_kernels::{IsaLevel as KernelLevel, LevelReason as KernelLevelReason};
+
+/// One setting of an option type in the construction style of the facade
+/// (ADR-0040 amendment of 2026-11-16): a private field, a `with_*` method
+/// that returns the changed value, and a getter of the same name as the
+/// field. Adding a setting adds two methods and breaks no caller.
+macro_rules! setting {
+    ($(#[doc = $doc:literal])* $field:ident, $with:ident: $ty:ty) => {
+        $(#[doc = $doc])*
+        #[must_use]
+        pub fn $field(&self) -> $ty {
+            self.$field
+        }
+
+        #[doc = concat!("The same value with another [`Self::", stringify!($field), "`].")]
+        #[must_use]
+        pub fn $with(mut self, $field: $ty) -> Self {
+            self.$field = $field;
+            self
+        }
+    };
+}
 
 /// Chroma layout of AVIF output ([`AvifOptions::chroma`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -57,49 +78,166 @@ pub enum OutputFormat {
     JpegXl,
 }
 
-/// Settings for the built-in JPEG XL encoder (ADR-0039). The workspace
-/// encoder admits two profiles today; every other value is rejected with
-/// [`ProcessingErrorKind::InvalidOptions`] before any pixel is decoded, and
-/// the encoder never falls back to another profile.
-#[derive(Clone, Copy, Debug, PartialEq)]
+/// Bits per sample of the output, one setting of every format that has more
+/// than one depth ([`AvifOptions::depth`], [`JpegXlOptions::depth`]; WebP is
+/// 8-bit by its format). The rule is ADR-0021's amendment of 2026-11-15:
+/// the output follows the input's depth, capped at what the output admits,
+/// unless a depth is given. Non-exhaustive (since 2026-11-16; an
+/// `Option<u8>` before), so that a later release can add a float output or
+/// "follow the input, at most N bits" without breaking a caller.
+///
+/// ```
+/// use ferrisma::pipeline::{AvifOptions, BitDepth};
+///
+/// let ten_bit = AvifOptions::default().with_depth(BitDepth::Exact(10));
+/// assert_eq!(ten_bit.depth(), BitDepth::Exact(10));
+/// assert_eq!(AvifOptions::default().depth(), BitDepth::FollowInput);
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
 #[non_exhaustive]
-pub enum JpegXlOptions {
-    /// Lossless Modular encoding. Only effort 2 (libjxl's "thunder") is
-    /// admitted by the workspace encoder.
-    Lossless {
-        /// libjxl effort level; only `2` is admitted today.
-        effort: u8,
-        /// Bits per sample, as [`AvifOptions::depth`]: `None` (the default)
-        /// follows the input (8 to 16, `cjxl`'s rule), `Some(8..=16)` is
-        /// explicit. Lossless color above 12 bits makes libjxl require
-        /// codestream level 10, and the output is then the ISOBMFF container
-        /// with a `jxll` box, as `cjxl` writes it. Added 2026-11-15; before,
-        /// every output was 8-bit.
-        depth: Option<u8>,
-    },
-    /// Lossy `VarDCT` encoding in XYB at libjxl effort 7 ("squirrel"),
-    /// with libjxl's patch search always off (the workspace encoder cannot
-    /// write the patch reference frame yet), so text-like content encodes
-    /// too.
-    ///
-    /// Images with alpha below the largest code are admitted: the alpha
-    /// channel is written as one straight (unassociated) extra channel at
-    /// the color depth, coded losslessly, and color under fully transparent
-    /// pixels is not kept (libjxl's `keep_invisible` default). Fully opaque
-    /// alpha is omitted. Alpha above 12 bits makes the output a container
-    /// (codestream level 10).
-    Lossy {
+pub enum BitDepth {
+    /// The input's depth, capped at the largest the output admits (AVIF
+    /// 12, JPEG XL 16), as the original tools do (`avifenc`, `cjxl`).
+    #[default]
+    FollowInput,
+    /// Exactly this many bits per sample; a depth the output does not
+    /// admit is refused with [`ProcessingErrorKind::InvalidOptions`] before
+    /// any pixel is decoded.
+    Exact(u8),
+}
+
+impl BitDepth {
+    /// The explicit depth, for the depth rule.
+    fn requested(self) -> Option<u8> {
+        match self {
+            Self::FollowInput => None,
+            Self::Exact(depth) => Some(depth),
+        }
+    }
+}
+
+/// Lossless JPEG XL ([`JpegXlOptions::Lossless`]): Modular encoding at
+/// libjxl's effort 2 ("thunder"), the only effort the workspace encoder
+/// admits.
+///
+/// ```
+/// use ferrisma::pipeline::{BitDepth, JpegXlLossless, JpegXlOptions};
+///
+/// let lossless = JpegXlOptions::Lossless(JpegXlLossless::default().with_depth(BitDepth::Exact(16)));
+/// assert_eq!(lossless.depth(), BitDepth::Exact(16));
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct JpegXlLossless {
+    effort: u8,
+    depth: BitDepth,
+}
+
+impl Default for JpegXlLossless {
+    /// Effort 2, the depth of the input.
+    fn default() -> Self {
+        Self {
+            effort: 2,
+            depth: BitDepth::FollowInput,
+        }
+    }
+}
+
+impl JpegXlLossless {
+    setting!(
+        /// libjxl effort level; only `2` is admitted today, another value is
+        /// refused before decoding.
+        effort, with_effort: u8
+    );
+    setting!(
+        /// Bits per sample: [`BitDepth::FollowInput`] (the default) follows
+        /// the input (8 to 16, `cjxl`'s rule), [`BitDepth::Exact`] with 8
+        /// to 16 is explicit. Lossless color above 12 bits makes libjxl
+        /// require codestream level 10, and the output is then the ISOBMFF
+        /// container with a `jxll` box, as `cjxl` writes it.
+        depth, with_depth: BitDepth
+    );
+}
+
+/// Lossy JPEG XL ([`JpegXlOptions::Lossy`]): `VarDCT` in XYB at libjxl
+/// effort 7 ("squirrel"), with libjxl's patch search always off (the
+/// workspace encoder cannot write the patch reference frame yet), so
+/// text-like content encodes too.
+///
+/// Images with alpha below the largest code are admitted: the alpha
+/// channel is written as one straight (unassociated) extra channel at the
+/// color depth, coded losslessly, and color under fully transparent pixels
+/// is not kept (libjxl's `keep_invisible` default). Fully opaque alpha is
+/// omitted. Alpha above 12 bits makes the output a container (codestream
+/// level 10).
+///
+/// ```
+/// use ferrisma::pipeline::{JpegXlLossy, JpegXlOptions};
+///
+/// let lossy = JpegXlOptions::Lossy(JpegXlLossy::default().with_distance(0.5));
+/// assert!(matches!(lossy, JpegXlOptions::Lossy(ref profile) if profile.distance() == 0.5));
+/// ```
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct JpegXlLossy {
+    distance: f32,
+    depth: BitDepth,
+}
+
+impl Default for JpegXlLossy {
+    /// Distance 1.0, libjxl's own default, with patches off (ADR-0039;
+    /// owner decision 2026-11-15), at the depth of the input.
+    fn default() -> Self {
+        Self {
+            distance: 1.0,
+            depth: BitDepth::FollowInput,
+        }
+    }
+}
+
+impl JpegXlLossy {
+    setting!(
         /// Butteraugli distance, libjxl's quality target: the maximum
         /// perceptual difference the encoder aims for, in units of a just
         /// noticeable difference. `1.0` is libjxl's default ("visually
         /// lossless"); lower is closer to the input and larger. Admitted:
-        /// `0.05 <= distance < 3.0` (dot detection starts at 3.0 and is not
-        /// translated yet).
-        distance: f32,
-        /// Bits per sample, as for [`Self::Lossless`]: `None` follows the
-        /// input (8 to 16), `Some(8..=16)` is explicit.
-        depth: Option<u8>,
-    },
+        /// `0.05 <= distance < 3.0` ([`JpegXlOptions::MIN_LOSSY_DISTANCE`],
+        /// [`JpegXlOptions::MAX_LOSSY_DISTANCE`]; dot detection starts at
+        /// 3.0 and is not translated yet).
+        distance, with_distance: f32
+    );
+    setting!(
+        /// Bits per sample, as [`JpegXlLossless::depth`]: 8 to 16, or the
+        /// input's.
+        depth, with_depth: BitDepth
+    );
+}
+
+/// Settings for the built-in JPEG XL encoder (ADR-0039), one profile per
+/// variant. The workspace encoder admits two profiles today; every other
+/// value is rejected with [`ProcessingErrorKind::InvalidOptions`] before
+/// any pixel is decoded, and the encoder never falls back to another
+/// profile. Each variant carries its own settings type, so a profile can
+/// gain a setting without breaking a caller (since 2026-11-16; the
+/// variants had inline fields before).
+///
+/// ```
+/// use ferrisma::pipeline::{BitDepth, JpegXlLossy, JpegXlOptions, OutputSettings};
+///
+/// let output = OutputSettings::JpegXl(JpegXlOptions::Lossy(
+///     JpegXlLossy::default()
+///         .with_distance(0.5)
+///         .with_depth(BitDepth::Exact(12)),
+/// ));
+/// assert!(matches!(output, OutputSettings::JpegXl(JpegXlOptions::Lossy(_))));
+/// ```
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub enum JpegXlOptions {
+    /// Lossless Modular encoding at libjxl's effort 2.
+    Lossless(JpegXlLossless),
+    /// Lossy `VarDCT` encoding at a Butteraugli distance.
+    Lossy(JpegXlLossy),
 }
 
 impl JpegXlOptions {
@@ -110,18 +248,19 @@ impl JpegXlOptions {
 
     /// The depth setting of either profile.
     #[must_use]
-    pub fn depth(&self) -> Option<u8> {
-        match *self {
-            Self::Lossless { depth, .. } | Self::Lossy { depth, .. } => depth,
+    pub fn depth(&self) -> BitDepth {
+        match self {
+            Self::Lossless(profile) => profile.depth,
+            Self::Lossy(profile) => profile.depth,
         }
     }
 
     /// The same profile with another depth setting.
     #[must_use]
-    pub fn with_depth(self, depth: Option<u8>) -> Self {
+    pub fn with_depth(self, depth: BitDepth) -> Self {
         match self {
-            Self::Lossless { effort, .. } => Self::Lossless { effort, depth },
-            Self::Lossy { distance, .. } => Self::Lossy { distance, depth },
+            Self::Lossless(profile) => Self::Lossless(profile.with_depth(depth)),
+            Self::Lossy(profile) => Self::Lossy(profile.with_depth(depth)),
         }
     }
 }
@@ -130,39 +269,101 @@ impl Default for JpegXlOptions {
     /// Lossy at distance 1.0, libjxl's own default, with patches off
     /// (ADR-0039; owner decision 2026-11-15).
     fn default() -> Self {
-        Self::Lossy {
-            distance: 1.0,
-            depth: None,
+        Self::Lossy(JpegXlLossy::default())
+    }
+}
+
+/// Lossy WebP ([`WebpOptions::Lossy`]): VP8 at libwebp's quality and
+/// method (`cwebp -q`, `-m`).
+///
+/// ```
+/// use ferrisma::pipeline::{WebpLossy, WebpOptions};
+///
+/// let lossy = WebpOptions::Lossy(WebpLossy::default().with_quality(80.0).with_method(6));
+/// assert!(matches!(lossy, WebpOptions::Lossy(ref profile) if profile.method() == 6));
+/// ```
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct WebpLossy {
+    quality: f32,
+    method: u8,
+}
+
+impl Default for WebpLossy {
+    /// libwebp's defaults: quality 75, method 4.
+    fn default() -> Self {
+        Self {
+            quality: 75.0,
+            method: WebpOptions::DEFAULT_METHOD,
         }
     }
 }
 
-/// Settings for the built-in still WebP encoder, on libwebp's own scales
-/// (ADR-0043 D4: no scale is mapped onto another encoder's). Each libwebp
-/// concept has one control: lossy output takes libwebp's `quality` and
-/// `method` (`cwebp -q`, `-m`); lossless output takes libwebp's lossless
-/// preset level (`cwebp -z`), which sets libwebp's method and quality
-/// itself. Must stay at the default for other outputs.
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[non_exhaustive]
-pub enum WebpOptions {
-    /// Lossy VP8 at libwebp's quality and method.
-    Lossy {
+impl WebpLossy {
+    setting!(
         /// libwebp quality, 1 through 100; default 75 (libwebp's).
-        quality: f32,
+        quality, with_quality: f32
+    );
+    setting!(
         /// libwebp method, 0 (fastest) through 6 (slowest, smallest);
         /// default 4 (libwebp's `WebPConfigInit`, `cwebp -m`). Every value
         /// is passed unchanged. Until 2026-11-15 this was a `speed` 1–10
         /// mapped onto the methods, which gave three pairs of speeds the
         /// same bytes.
-        method: u8,
-    },
-    /// Lossless VP8L at libwebp's preset level (`WebPConfigLosslessPreset`):
-    /// 0 is fastest, 9 gives the smallest files.
-    Lossless {
-        /// Preset level from 0 through 9.
-        level: u8,
-    },
+        method, with_method: u8
+    );
+}
+
+/// Lossless WebP ([`WebpOptions::Lossless`]): VP8L at libwebp's preset
+/// level (`WebPConfigLosslessPreset`, `cwebp -z`), which sets libwebp's
+/// method and quality itself. There is no default level; the constructor
+/// takes it.
+///
+/// ```
+/// use ferrisma::pipeline::{WebpLossless, WebpOptions};
+///
+/// let smallest = WebpOptions::Lossless(WebpLossless::new(9));
+/// assert!(matches!(smallest, WebpOptions::Lossless(ref profile) if profile.level() == 9));
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct WebpLossless {
+    level: u8,
+}
+
+impl WebpLossless {
+    /// Lossless at preset `level`, 0 (fastest) through 9 (smallest files);
+    /// another value is refused before decoding.
+    #[must_use]
+    pub fn new(level: u8) -> Self {
+        Self { level }
+    }
+
+    setting!(
+        /// The preset level, 0 through 9.
+        level, with_level: u8
+    );
+}
+
+/// Settings for the built-in still WebP encoder, on libwebp's own scales
+/// (ADR-0043 D4: no scale is mapped onto another encoder's), one profile
+/// per variant: each libwebp concept has one control. Each variant carries
+/// its own settings type, so a profile can gain a setting without breaking
+/// a caller (since 2026-11-16; the variants had inline fields before).
+///
+/// ```
+/// use ferrisma::pipeline::{OutputSettings, WebpLossless, WebpOptions};
+///
+/// let output = OutputSettings::WebP(WebpOptions::Lossless(WebpLossless::new(6)));
+/// assert!(matches!(output, OutputSettings::WebP(WebpOptions::Lossless(_))));
+/// ```
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub enum WebpOptions {
+    /// Lossy VP8 at libwebp's quality and method.
+    Lossy(WebpLossy),
+    /// Lossless VP8L at libwebp's preset level.
+    Lossless(WebpLossless),
 }
 
 impl WebpOptions {
@@ -175,45 +376,36 @@ impl WebpOptions {
 impl Default for WebpOptions {
     /// Lossy at libwebp's defaults: quality 75, method 4.
     fn default() -> Self {
-        Self::Lossy {
-            quality: 75.0,
-            method: Self::DEFAULT_METHOD,
-        }
+        Self::Lossy(WebpLossy::default())
     }
 }
 
 /// Settings for the built-in AVIF writer, libavif with its AOM encoder
 /// (ADR-0037), on libavif's own scales (ADR-0043 D4). The defaults are those
 /// of the original tool, `avifenc` of the pinned libavif 1.4.2 (ADR-0037,
-/// 2026-11-15). Must stay at the default for other outputs. External AVIF backends receive it in
-/// [`EncodeRequest::avif`] and validate it on their own.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// 2026-11-15). External AVIF backends receive it in
+/// [`EncodeRequest::output`] and validate it on their own.
+///
+/// ```
+/// use ferrisma::pipeline::{AvifOptions, BitDepth, ChromaSubsampling, OutputSettings};
+///
+/// let output = OutputSettings::Avif(
+///     AvifOptions::default()
+///         .with_quality(80)
+///         .with_speed(4)
+///         .with_depth(BitDepth::Exact(10))
+///         .with_chroma(ChromaSubsampling::Yuv420),
+/// );
+/// assert!(matches!(output, OutputSettings::Avif(ref avif) if avif.quality() == 80));
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct AvifOptions {
-    /// Color quality, libavif's `avifEncoder::quality`: 0 (worst) through
-    /// 100 (lossless quantizer); default 60 (`avifenc`).
-    pub quality: u8,
-    /// Alpha quality, libavif's `avifEncoder::qualityAlpha`, on the same
-    /// scale; used only when an alpha sample is below 255; default 60.
-    /// Explicit: `avifenc` copies the color quality into it when it is not
-    /// given, so its default is the color default, and this field does not
-    /// follow `quality` when only that one is changed.
-    pub alpha_quality: u8,
-    /// AOM speed (`cpu-used`), 0 (slowest) through 10 (fastest); default 6
-    /// (`avifenc`).
-    pub speed: u8,
-    /// AV1 bit depth: `None` (the default) follows the input, as `avifenc`
-    /// does: the largest of 8, 10 and 12 that is at most the input's depth
-    /// (a 16-bit input becomes 12, AVIF's largest, as `avifenc` writes a
-    /// 16-bit PNG). `Some(8 | 10 | 12)` is explicit; another value is
-    /// refused. The samples are quantized at that depth by the engine (owner
-    /// decision of 2026-11-15, ADR-0021 amendment): a deeper input keeps
-    /// its precision, and a higher explicit depth carries correctly scaled
-    /// content. [`Discarded::PrecisionReduced`] is reported exactly when the
-    /// output depth is below the input's. Until 2026-11-15 this was a `u8`,
-    /// 8 or 10 (default 8), and every AVIF carried 8-bit content.
-    pub depth: Option<u8>,
-    /// Chroma layout; default 4:4:4 (`avifenc` for RGB input).
-    pub chroma: ChromaSubsampling,
+    quality: u8,
+    alpha_quality: u8,
+    speed: u8,
+    depth: BitDepth,
+    chroma: ChromaSubsampling,
 }
 
 impl Default for AvifOptions {
@@ -222,9 +414,110 @@ impl Default for AvifOptions {
             quality: 60,
             alpha_quality: 60,
             speed: 6,
-            depth: None,
+            depth: BitDepth::FollowInput,
             chroma: ChromaSubsampling::Yuv444,
         }
+    }
+}
+
+impl AvifOptions {
+    setting!(
+        /// Color quality, libavif's `avifEncoder::quality`: 0 (worst) through
+        /// 100 (lossless quantizer); default 60 (`avifenc`).
+        quality, with_quality: u8
+    );
+    setting!(
+        /// Alpha quality, libavif's `avifEncoder::qualityAlpha`, on the same
+        /// scale; used only when an alpha sample is below 255; default 60.
+        /// Explicit: `avifenc` copies the color quality into it when it is not
+        /// given, so its default is the color default, and this setting does
+        /// not follow `quality` when only that one is changed.
+        alpha_quality, with_alpha_quality: u8
+    );
+    setting!(
+        /// AOM speed (`cpu-used`), 0 (slowest) through 10 (fastest); default 6
+        /// (`avifenc`).
+        speed, with_speed: u8
+    );
+    setting!(
+        /// AV1 bit depth: [`BitDepth::FollowInput`] (the default) follows the
+        /// input, as `avifenc` does: the largest of 8, 10 and 12 that is at
+        /// most the input's depth (a 16-bit input becomes 12, AVIF's largest,
+        /// as `avifenc` writes a 16-bit PNG). [`BitDepth::Exact`] with 8, 10
+        /// or 12 is explicit; another value is refused. The samples are
+        /// quantized at that depth by the engine (owner decision of
+        /// 2026-11-15, ADR-0021 amendment): a deeper input keeps its
+        /// precision, and a higher explicit depth carries correctly scaled
+        /// content. [`Discarded::PrecisionReduced`] is reported exactly when
+        /// the output depth is below the input's.
+        depth, with_depth: BitDepth
+    );
+    setting!(
+        /// Chroma layout; default 4:4:4 (`avifenc` for RGB input).
+        chroma, with_chroma: ChromaSubsampling
+    );
+}
+
+/// The output format and its encoder's settings, one variant per format
+/// (since 2026-11-16; before, `TransformOptions` carried an output format
+/// and the settings of all three formats, and the settings of the formats
+/// not selected had to stay at their defaults). Only the selected format's
+/// settings exist, so none can be ignored (ADR-0042). Non-exhaustive: new
+/// formats are added as variants.
+///
+/// ```
+/// use ferrisma::pipeline::{OutputFormat, OutputSettings, WebpLossy, WebpOptions};
+///
+/// let webp = OutputSettings::WebP(WebpOptions::Lossy(WebpLossy::default().with_quality(90.0)));
+/// assert_eq!(webp.format(), OutputFormat::WebP);
+/// assert_eq!(OutputSettings::default().format(), OutputFormat::Avif);
+/// ```
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub enum OutputSettings {
+    /// AVIF through the built-in libavif/AOM writer or an AVIF backend.
+    Avif(AvifOptions),
+    /// Still WebP through the built-in libwebp encoder or a WebP backend.
+    WebP(WebpOptions),
+    /// A JPEG XL codestream through the built-in libjxl encoder.
+    JpegXl(JpegXlOptions),
+}
+
+impl OutputSettings {
+    /// The format these settings encode.
+    #[must_use]
+    pub fn format(&self) -> OutputFormat {
+        match self {
+            Self::Avif(_) => OutputFormat::Avif,
+            Self::WebP(_) => OutputFormat::WebP,
+            Self::JpegXl(_) => OutputFormat::JpegXl,
+        }
+    }
+
+    /// The default settings of `format`'s encoder.
+    #[must_use]
+    pub fn default_for(format: OutputFormat) -> Self {
+        match format {
+            OutputFormat::Avif => Self::Avif(AvifOptions::default()),
+            OutputFormat::WebP => Self::WebP(WebpOptions::default()),
+            OutputFormat::JpegXl => Self::JpegXl(JpegXlOptions::default()),
+        }
+    }
+
+    /// The explicit output depth of the selected format, if it has one.
+    fn requested_depth(&self) -> Option<u8> {
+        match self {
+            Self::Avif(avif) => avif.depth.requested(),
+            Self::JpegXl(jpeg_xl) => jpeg_xl.depth().requested(),
+            Self::WebP(_) => None,
+        }
+    }
+}
+
+impl Default for OutputSettings {
+    /// AVIF at `avifenc`'s defaults.
+    fn default() -> Self {
+        Self::Avif(AvifOptions::default())
     }
 }
 
@@ -276,108 +569,412 @@ pub enum WorkingPrecision {
     F64Reference,
 }
 
-/// A crop rectangle in upright display coordinates, after orientation.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// SIMD level of the resample kernels (ADR-0020): the ceiling of
+/// [`TransformOptions::kernel_level_ceiling`] and the level reported in
+/// [`ProcessingReport::kernel_level`]. Ferrisma's own type since
+/// 2026-11-16 (a re-export of `ferrisma_kernels::IsaLevel` before), so a
+/// release of the kernels crate cannot change it. Levels are ordered from
+/// `Scalar` up; a ceiling the machine does not reach selects the best level
+/// below it. Only levels with kernels are offered: SVE2, which the kernels
+/// crate detects but has no kernels for, is not a value (ADR-0042: an option
+/// value without effect is not offered).
+///
+/// ```
+/// use ferrisma::pipeline::{KernelLevel, OutputGeometry, TransformOptions};
+///
+/// let scalar = TransformOptions::new(OutputGeometry::Exact { width: 64, height: 64 })
+///     .with_kernel_level_ceiling(Some(KernelLevel::Scalar));
+/// assert!(KernelLevel::Scalar < KernelLevel::Avx512);
+/// # let _ = scalar;
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[non_exhaustive]
+pub enum KernelLevel {
+    /// Portable Rust, the reference body.
+    Scalar,
+    /// 128-bit Advanced SIMD (the `AArch64` baseline).
+    Neon,
+    /// 256-bit AVX2 with FMA (x86-64-v3).
+    Avx2,
+    /// 512-bit AVX-512 F/BW/CD/DQ/VL with FMA (x86-64-v4); never selected
+    /// without an explicit ceiling (decision D6 of ADR-0020).
+    Avx512,
+}
+
+/// Why [`ProcessingReport::kernel_level`] was selected. Ferrisma's own type
+/// since 2026-11-16 (a re-export of `ferrisma_kernels::LevelReason`
+/// before).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum KernelLevelReason {
+    /// The highest level of the machine, and it has kernels.
+    Detected,
+    /// The machine supports more, but that level has no kernels (SVE2).
+    Fallback,
+    /// Limited by [`TransformOptions::kernel_level_ceiling`]; also the
+    /// reason of the `f64` reference executor, which is always `Scalar`.
+    Ceiling,
+    /// Limited by the default ceiling (AVX2 on x86-64, NEON on AArch64):
+    /// the machine supports an implemented level above it, which runs only
+    /// on explicit request.
+    DefaultCeiling,
+}
+
+impl KernelLevel {
+    /// The kernels crate's level for a ceiling.
+    fn to_kernels(self) -> ferrisma_kernels::IsaLevel {
+        match self {
+            Self::Scalar => ferrisma_kernels::IsaLevel::Scalar,
+            Self::Neon => ferrisma_kernels::IsaLevel::Neon,
+            Self::Avx2 => ferrisma_kernels::IsaLevel::Avx2,
+            Self::Avx512 => ferrisma_kernels::IsaLevel::Avx512,
+        }
+    }
+
+    /// The level the kernels selected; `None` for a level without kernels,
+    /// which the kernels crate never selects.
+    fn from_kernels(level: ferrisma_kernels::IsaLevel) -> Option<Self> {
+        match level {
+            ferrisma_kernels::IsaLevel::Scalar => Some(Self::Scalar),
+            ferrisma_kernels::IsaLevel::Neon => Some(Self::Neon),
+            ferrisma_kernels::IsaLevel::Avx2 => Some(Self::Avx2),
+            ferrisma_kernels::IsaLevel::Avx512 => Some(Self::Avx512),
+            _ => None,
+        }
+    }
+}
+
+impl KernelLevelReason {
+    /// The kernels crate's reason.
+    fn from_kernels(reason: ferrisma_kernels::LevelReason) -> Option<Self> {
+        match reason {
+            ferrisma_kernels::LevelReason::Detected => Some(Self::Detected),
+            ferrisma_kernels::LevelReason::Fallback => Some(Self::Fallback),
+            ferrisma_kernels::LevelReason::Ceiling => Some(Self::Ceiling),
+            ferrisma_kernels::LevelReason::DefaultCeiling => Some(Self::DefaultCeiling),
+            _ => None,
+        }
+    }
+}
+
+/// How many threads a stage uses: chosen by the engine, or an explicit
+/// count (problem 9 of ADR-0040, since 2026-11-16; before, a `usize` with
+/// `0` for "automatic"). A count above [`Threads::MAX`] is refused with
+/// [`ProcessingErrorKind::InvalidOptions`] wherever it is given, by
+/// [`transcode`] and by [`Engine::new`] alike, never clamped.
+/// Non-exhaustive, so that a later release can add, for example, "at most
+/// N" without breaking a caller.
+///
+/// ```
+/// use std::num::NonZeroUsize;
+///
+/// use ferrisma::pipeline::{OutputGeometry, Threads, TransformOptions};
+///
+/// let four = Threads::Count(NonZeroUsize::new(4).unwrap());
+/// let options = TransformOptions::new(OutputGeometry::Exact { width: 64, height: 64 })
+///     .with_transform_threads(four)
+///     .with_encoder_threads(Threads::Automatic);
+/// assert_eq!(options.transform_threads(), four);
+/// assert_eq!(Threads::ONE, Threads::Count(NonZeroUsize::MIN));
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum Threads {
+    /// The available cores (`std::thread::available_parallelism`), at most
+    /// [`Threads::MAX`]; one when the count cannot be determined.
+    Automatic,
+    /// Exactly this many threads, at most [`Threads::MAX`].
+    Count(NonZeroUsize),
+}
+
+impl Threads {
+    /// One thread: the sequential path.
+    pub const ONE: Self = Self::Count(NonZeroUsize::MIN);
+    /// The largest count the engine starts for one stage or batch.
+    pub const MAX: usize = crate::thread_spawn::MAX_WORKERS;
+
+    /// The count this setting stands for on this machine; refuses an
+    /// explicit count above [`Threads::MAX`] (the one validation of every
+    /// path).
+    fn resolve(self) -> Result<usize, ProcessingError> {
+        match self {
+            Self::Automatic => Ok(std::thread::available_parallelism()
+                .map_or(1, NonZeroUsize::get)
+                .min(Self::MAX)),
+            Self::Count(count) if count.get() <= Self::MAX => Ok(count.get()),
+            Self::Count(_) => Err(ProcessingError::new(
+                ProcessingErrorKind::InvalidOptions,
+                "a thread count must be at most 256",
+            )),
+        }
+    }
+}
+
+/// A rectangle in upright display coordinates, after orientation: the crop
+/// of [`TransformOptions::crop`], and the rectangles of [`DecoderWork`].
+/// Constructed with [`Crop::new`] and read through its getters (since
+/// 2026-11-16; public fields before).
+///
+/// ```
+/// use ferrisma::pipeline::Crop;
+///
+/// let crop = Crop::new(16, 8, 320, 240);
+/// assert_eq!((crop.x(), crop.y(), crop.width(), crop.height()), (16, 8, 320, 240));
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub struct Crop {
-    /// Left edge in pixels.
-    pub x: u32,
-    /// Top edge in pixels.
-    pub y: u32,
-    /// Width in pixels; must be nonzero.
-    pub width: u32,
-    /// Height in pixels; must be nonzero.
-    pub height: u32,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
 }
 
-/// Explicit output geometry, quality, profile assumption and memory budget.
-/// Encoder scratch allocations are opaque and not constrained by the budget.
-#[derive(Clone, Copy, Debug)]
-pub struct TransformOptions {
-    /// Encoded output format. Each format has its own settings below, on
-    /// its encoder's own scales; the settings of the other formats must
-    /// stay at their defaults, or the transcode is refused before decoding
-    /// (until 2026-11-15 the AVIF settings were the format-independent
-    /// looking `quality`, `speed`, `chroma_subsampling` and `avif_depth`).
-    pub output_format: OutputFormat,
-    /// AVIF settings; must stay at the default for other formats.
-    pub avif: AvifOptions,
-    /// WebP settings; must stay at the default for other formats.
-    pub webp: WebpOptions,
-    /// JPEG XL settings; must stay at the default for other formats.
-    pub jpeg_xl: JpegXlOptions,
-    /// Exact output width. [`transcode_resized`] and
-    /// [`transcode_resized_with`] take the size from [`ResizeOptions`] and
-    /// refuse a value other than the default (1) with
-    /// [`ProcessingErrorKind::InvalidOptions`] instead of ignoring it.
-    pub output_width: u32,
-    /// Exact output height; as `output_width`, refused by the resize entry
-    /// points unless it is the default (1).
-    pub output_height: u32,
-    /// Optional crop in upright display coordinates, applied before resizing.
-    pub crop: Option<Crop>,
-    /// Resampling filter.
-    pub filter: ResizeFilter,
-    /// Working precision of the resample chain.
-    pub precision: WorkingPrecision,
-    /// Highest SIMD kernel level to use; `None` picks the best the machine
-    /// supports up to AVX2 on x86-64 and NEON on aarch64
-    /// (`ferrisma_kernels::DEFAULT_CEILING`, decision D6 of ADR-0020), so
-    /// the default output does not depend on AVX-512. `Some(KernelLevel::Avx512)`
-    /// is the explicit opt-in to AVX-512. Changing it never changes the
-    /// result beyond the ADR-0021 bound; it exists for verification,
-    /// benchmarks and bug reports.
-    pub kernel_level_ceiling: Option<KernelLevel>,
-    /// Threads for the decode-transform row pipeline (ADR-0022): 0 means
-    /// all available cores (capped at 256), 1 the sequential path; explicit
-    /// values must be at most 256. The output is
-    /// byte-identical for every value.
-    pub transform_threads: usize,
-    /// How missing or rendered ICC color is handled.
-    pub profile_policy: InputProfilePolicy,
-    /// AV1 encoder threads: 0 means available cores (capped at 256), and
-    /// explicit values must be at most 256. libavif uses automatic tiling and
-    /// its encoded bytes can depend on the selected thread count. The
-    /// built-in WebP and JPEG XL encoders are serial and require 1.
-    pub encoder_threads: usize,
-    /// Engine-managed memory budget in bytes. Opaque codec scratch memory is
-    /// not bounded by it; see [`ProcessingReport`].
-    pub max_managed_bytes: usize,
-    /// Maximum compressed input size, checked before initializing any codec.
-    pub max_input_bytes: usize,
-    /// Maximum decoded input pixels; AVIF preflights coded frame dimensions.
-    pub max_input_pixels: u64,
-    /// Maximum retained encoded output bytes. Today the WebP and lossy
-    /// JPEG XL writers stop while writing, and AVIF, lossless JPEG XL and
-    /// external backends are checked after their encoder returns. When the
-    /// limit is checked describes this release, not a promise: a later
-    /// release may stop an encoder earlier.
-    pub max_output_bytes: usize,
-}
-
-impl Default for TransformOptions {
-    fn default() -> Self {
+impl Crop {
+    /// The rectangle with its left edge at `x`, its top edge at `y`, and
+    /// `width` by `height` pixels. A zero width or height, or a rectangle
+    /// outside the image, is refused by the transcode with
+    /// [`ProcessingErrorKind::InvalidOptions`].
+    #[must_use]
+    pub fn new(x: u32, y: u32, width: u32, height: u32) -> Self {
         Self {
-            output_format: OutputFormat::Avif,
-            avif: AvifOptions::default(),
-            webp: WebpOptions::default(),
-            jpeg_xl: JpegXlOptions::default(),
-            output_width: 1,
-            output_height: 1,
+            x,
+            y,
+            width,
+            height,
+        }
+    }
+
+    /// Left edge in pixels.
+    #[must_use]
+    pub fn x(&self) -> u32 {
+        self.x
+    }
+
+    /// Top edge in pixels.
+    #[must_use]
+    pub fn y(&self) -> u32 {
+        self.y
+    }
+
+    /// Width in pixels.
+    #[must_use]
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    /// Height in pixels.
+    #[must_use]
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+}
+
+/// The size of the output (problem 3 of ADR-0040, since 2026-11-16): an
+/// exact size, or aspect-aware thumbnail geometry. It replaces the
+/// `output_width`/`output_height` fields, whose default of 1 stood for
+/// "not set", and the separate `transcode_resized` entry points.
+/// Non-exhaustive: a later release may add geometry (for example the
+/// source's own size) as a variant.
+///
+/// ```
+/// use ferrisma::pipeline::{OutputGeometry, ResizeFit, ResizeOptions, TransformOptions};
+///
+/// let exact = TransformOptions::new(OutputGeometry::Exact { width: 640, height: 480 });
+/// let thumbnail = TransformOptions::new(OutputGeometry::Resize(
+///     ResizeOptions::default()
+///         .with_width(320)
+///         .with_height(320)
+///         .with_fit(ResizeFit::Cover),
+/// ));
+/// assert_ne!(exact.geometry(), thumbnail.geometry());
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum OutputGeometry {
+    /// Exactly `width` by `height` pixels; both must be nonzero, or the
+    /// transcode is refused with [`ProcessingErrorKind::InvalidOptions`].
+    Exact {
+        /// Output width in pixels.
+        width: u32,
+        /// Output height in pixels.
+        height: u32,
+    },
+    /// Aspect-aware thumbnail geometry (ADR-0034); see [`ResizeOptions`]
+    /// for integer rounding and crop semantics.
+    Resize(ResizeOptions),
+}
+
+/// Everything one transcode is asked to do: the output and its encoder
+/// settings, the geometry, the color policy, the execution and the limits.
+/// Encoder scratch allocations are opaque and not constrained by the budget.
+///
+/// Constructed with [`TransformOptions::new`], which takes the one setting
+/// without a default (the geometry), and changed with the `with_*` methods,
+/// each of which returns the changed value; read with the getters of the
+/// same names (ADR-0040 amendment of 2026-11-16: struct literals, which
+/// any added setting would break, are not possible outside the crate).
+///
+/// ```
+/// use ferrisma::pipeline::{
+///     AvifOptions, Crop, InputProfilePolicy, OutputGeometry, OutputSettings, TransformOptions,
+/// };
+///
+/// let options = TransformOptions::new(OutputGeometry::Exact { width: 320, height: 240 })
+///     .with_output(OutputSettings::Avif(AvifOptions::default().with_quality(70)))
+///     .with_crop(Some(Crop::new(0, 0, 1600, 1200)))
+///     .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
+///     .with_max_managed_bytes(512 << 20);
+/// assert_eq!(options.max_managed_bytes(), 512 << 20);
+/// ```
+#[derive(Clone, Debug)]
+#[non_exhaustive]
+pub struct TransformOptions {
+    output: OutputSettings,
+    geometry: OutputGeometry,
+    crop: Option<Crop>,
+    filter: ResizeFilter,
+    precision: WorkingPrecision,
+    kernel_level_ceiling: Option<KernelLevel>,
+    transform_threads: Threads,
+    profile_policy: InputProfilePolicy,
+    encoder_threads: Threads,
+    max_managed_bytes: usize,
+    max_input_bytes: usize,
+    max_input_pixels: u64,
+    max_output_bytes: usize,
+}
+
+impl TransformOptions {
+    /// Default compressed input limit: 64 MiB.
+    const DEFAULT_MAX_INPUT_BYTES: usize = 64 * 1024 * 1024;
+    /// Default decoded pixel limit: 100 million pixels.
+    const DEFAULT_MAX_INPUT_PIXELS: u64 = 100_000_000;
+
+    /// The options for `geometry` with every other setting at its default:
+    /// AVIF at `avifenc`'s defaults, no crop, Lanczos3, the `f32` executor,
+    /// the default kernel ceiling, automatic transform threads, one encoder
+    /// thread, the strict color policy, and the default limits (a 2 GiB
+    /// managed budget, 64 MiB of input, 100 million input pixels, 256 MiB of
+    /// output).
+    #[must_use]
+    pub fn new(geometry: OutputGeometry) -> Self {
+        Self {
+            output: OutputSettings::default(),
+            geometry,
             crop: None,
             filter: ResizeFilter::Lanczos3,
             precision: WorkingPrecision::F32,
             kernel_level_ceiling: None,
-            transform_threads: 0,
+            transform_threads: Threads::Automatic,
             profile_policy: InputProfilePolicy::Strict,
-            encoder_threads: 1,
-            // 1 GiB since 2026-11-15 (owner decision, ADR-0004 amendment);
-            // 256 MiB before.
-            max_managed_bytes: 1024 * 1024 * 1024,
-            max_input_bytes: 64 * 1024 * 1024,
-            max_input_pixels: 100_000_000,
+            encoder_threads: Threads::ONE,
+            // 2 GiB since 2026-11-16 (owner decision, ADR-0004 amendment);
+            // 1 GiB from 2026-11-15, 256 MiB before.
+            max_managed_bytes: 2 * 1024 * 1024 * 1024,
+            max_input_bytes: Self::DEFAULT_MAX_INPUT_BYTES,
+            max_input_pixels: Self::DEFAULT_MAX_INPUT_PIXELS,
             max_output_bytes: 256 * 1024 * 1024,
         }
     }
+
+    /// The output format and its encoder's settings, on that encoder's own
+    /// scales (ADR-0043 D4).
+    #[must_use]
+    pub fn output(&self) -> &OutputSettings {
+        &self.output
+    }
+
+    /// The same options with another output format or encoder settings.
+    #[must_use]
+    pub fn with_output(mut self, output: OutputSettings) -> Self {
+        self.output = output;
+        self
+    }
+
+    /// The output size: exact, or aspect-aware thumbnail geometry.
+    #[must_use]
+    pub fn geometry(&self) -> &OutputGeometry {
+        &self.geometry
+    }
+
+    /// The same options with another output size.
+    #[must_use]
+    pub fn with_geometry(mut self, geometry: OutputGeometry) -> Self {
+        self.geometry = geometry;
+        self
+    }
+
+    setting!(
+        /// Optional crop in upright display coordinates, applied before
+        /// resizing; `None` (the default) is the whole image.
+        crop, with_crop: Option<Crop>
+    );
+    setting!(
+        /// Resampling filter; default Lanczos3.
+        filter, with_filter: ResizeFilter
+    );
+    setting!(
+        /// Working precision of the resample chain; default `F32`.
+        precision, with_precision: WorkingPrecision
+    );
+    setting!(
+        /// Highest SIMD kernel level to use; `None` (the default) picks the
+        /// best the machine supports up to AVX2 on x86-64 and NEON on
+        /// aarch64 (decision D6 of ADR-0020), so the default output does not
+        /// depend on AVX-512. `Some(KernelLevel::Avx512)` is the explicit
+        /// opt-in to AVX-512. Changing it never changes the result beyond
+        /// the ADR-0021 bound; it exists for verification, benchmarks and
+        /// bug reports.
+        kernel_level_ceiling, with_kernel_level_ceiling: Option<KernelLevel>
+    );
+    setting!(
+        /// Threads for the decode-transform row pipeline (ADR-0022):
+        /// [`Threads::Automatic`] (the default) means all available cores
+        /// (at most 256), [`Threads::ONE`] the sequential path; an explicit
+        /// count above 256 is refused. The output is byte-identical for
+        /// every value. (A `usize` with 0 for "automatic" until 2026-11-16.)
+        transform_threads, with_transform_threads: Threads
+    );
+    setting!(
+        /// How missing or rendered ICC color is handled; default
+        /// [`InputProfilePolicy::Strict`].
+        profile_policy, with_profile_policy: InputProfilePolicy
+    );
+    setting!(
+        /// AV1 encoder threads: [`Threads::Automatic`] means the available
+        /// cores (at most 256), an explicit count must be at most 256;
+        /// default [`Threads::ONE`]. libavif uses automatic tiling and its
+        /// encoded bytes can depend on the selected thread count. The
+        /// built-in WebP and JPEG XL encoders are serial and require
+        /// [`Threads::ONE`].
+        encoder_threads, with_encoder_threads: Threads
+    );
+    setting!(
+        /// Engine-managed memory budget in bytes; default 2 GiB (since
+        /// 2026-11-16; 1 GiB from 2026-11-15, 256 MiB before). Opaque codec
+        /// scratch memory is not bounded by it; see [`ProcessingReport`].
+        max_managed_bytes, with_max_managed_bytes: usize
+    );
+    setting!(
+        /// Maximum compressed input size, checked before initializing any
+        /// codec; default 64 MiB.
+        max_input_bytes, with_max_input_bytes: usize
+    );
+    setting!(
+        /// Maximum decoded input pixels; AVIF preflights coded frame
+        /// dimensions; default 100 million.
+        max_input_pixels, with_max_input_pixels: u64
+    );
+    setting!(
+        /// Maximum retained encoded output bytes; default 256 MiB. Today the
+        /// WebP and lossy JPEG XL writers stop while writing, and AVIF,
+        /// lossless JPEG XL and external backends are checked after their
+        /// encoder returns. When the limit is checked describes this
+        /// release, not a promise: a later release may stop an encoder
+        /// earlier.
+        max_output_bytes, with_max_output_bytes: usize
+    );
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -392,8 +989,11 @@ pub enum SourceAccess {
 
 /// Wall-clock time per pipeline stage, measured with `std::time::Instant`.
 /// These are observations of one run on one machine, not throughput claims;
-/// the stages overlap only where documented on each field.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// the stages overlap only where documented on each field. Read through its
+/// public fields; new fields may be added (`#[non_exhaustive]`), and since
+/// 2026-11-16 it is `Clone` but not `Copy`, so that a later field need not
+/// be `Copy`.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct StageTimings {
     /// Option validation, container and header parsing, orientation and ICC
@@ -417,8 +1017,10 @@ pub struct StageTimings {
 /// What the decoder was asked for, what it returned and which work it
 /// necessarily performed (ADR-0012, ADR-0023). Counts are pixels and rows,
 /// not time. Only [`WorkCount::Exact`] values bound the work from above: a
-/// codec that returns a crop may still have decoded far more.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// codec that returns a crop may still have decoded far more. Read through
+/// its public fields; new fields may be added, and since 2026-11-16 it is
+/// not `Copy` (a later report of several regions or tiles need not be).
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct DecoderWork {
     /// The upright source crop that feeds the resize, in display
@@ -496,7 +1098,20 @@ pub enum ColorSignal {
 }
 
 /// Report known materializations separately from opaque codec memory.
-#[derive(Clone, Copy, Debug)]
+///
+/// Read through its public fields; new fields may be added in a minor
+/// release (`#[non_exhaustive]`: it cannot be constructed or exhaustively
+/// destructured outside Ferrisma). `Clone` but not `Copy` since 2026-11-16,
+/// so that a later field (a list of regions, a name that is not
+/// `'static`) does not break callers.
+///
+/// ```no_run
+/// # fn report(output: &ferrisma::pipeline::Output) {
+/// let report = &output.report;
+/// println!("{} -> {}, peak {} bytes", report.decoder_backend, report.encoder_backend, report.peak_managed_bytes);
+/// # }
+/// ```
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct ProcessingReport {
     /// How the source region was obtained.
@@ -536,14 +1151,19 @@ pub struct ProcessingReport {
     /// and the `f64` reference.
     pub transform_threads: usize,
     /// The decoder that read the input and produced the source pixels
-    /// (issue #217). Built-in readers: `"libjpeg-turbo-rs"` (JPEG),
-    /// `"libwebp-rs"` (WebP), `"libjxl-rs"` (JPEG XL) and `"libavif-rs/aom"`
-    /// (AVIF), one per format. The strings are observations; new readers add
+    /// (issue #217). Built-in readers: `"libjpeg-turbo"` (JPEG),
+    /// `"libwebp"` (WebP), `"libjxl"` (JPEG XL) and `"libavif/aom"`
+    /// (AVIF), one per format. Each names the original codec the reader is
+    /// a port of, not the Rust package, so a renamed package does not change
+    /// it (owner decision of 2026-11-16; until then the package names
+    /// `"libjpeg-turbo-rs"`, `"libwebp-rs"`, `"libjxl-rs"` and
+    /// `"libavif-rs/aom"`). The strings are observations; new readers add
     /// new values.
     pub decoder_backend: &'static str,
-    /// The encoder that wrote the output: `"libavif-rs/aom"` (AVIF),
-    /// `"libwebp-rs"` (WebP), `"libjxl-rs"` (JPEG XL), or the
-    /// [`EncoderBackend::name`] of an external backend (ADR-0024).
+    /// The encoder that wrote the output: `"libavif/aom"` (AVIF),
+    /// `"libwebp"` (WebP), `"libjxl"` (JPEG XL), the ported originals as
+    /// for [`Self::decoder_backend`] (the package names until 2026-11-16),
+    /// or the [`EncoderBackend::name`] of an external backend (ADR-0024).
     pub encoder_backend: &'static str,
     /// Bits per sample of the decoded input, color and alpha (the larger):
     /// 8 for JPEG and WebP, 8, 10 or 12 for AVIF, 1 to 16 for JPEG XL
@@ -601,6 +1221,14 @@ pub enum ProcessingErrorKind {
     UnsupportedColor,
     /// The managed-memory budget is exhausted or an allocation failed.
     ResourceExhausted,
+    /// The encoded output is larger than `max_output_bytes`
+    /// ([`TransformOptions::max_output_bytes`]). Since 2026-11-16; before,
+    /// this was reported as [`Self::ResourceExhausted`], and the WebP and
+    /// lossy JPEG XL writers' message described the memory budget. When the
+    /// limit is checked (while writing or after the encoder returns) is not
+    /// promised; the kind is the same either way. The command line exits
+    /// with status 1 for it, as for every processing error.
+    OutputLimitExceeded,
     /// Processing was cancelled by the output sink.
     Cancelled,
     /// The encoder failed.
@@ -787,6 +1415,7 @@ impl From<Error> for ProcessingError {
             Error::AllocationFailed | Error::ThreadSpawnFailed | Error::BudgetExceeded { .. } => {
                 Kind::ResourceExhausted
             }
+            Error::OutputLimitExceeded { .. } => Kind::OutputLimitExceeded,
             Error::Cancelled => Kind::Cancelled,
             Error::EncodeFailed => Kind::EncodeFailed,
             Error::IncompleteOutput => Kind::Internal,
@@ -923,30 +1552,50 @@ fn open_source<'a>(
 /// was opened, so the name always belongs to a compiled backend.
 fn decoder_backend(format: ImageFormat) -> &'static str {
     match format {
-        ImageFormat::Jpeg => "libjpeg-turbo-rs",
-        ImageFormat::WebP => "libwebp-rs",
-        ImageFormat::JpegXl => "libjxl-rs",
-        ImageFormat::Avif => "libavif-rs/aom",
+        ImageFormat::Jpeg => "libjpeg-turbo",
+        ImageFormat::WebP => "libwebp",
+        ImageFormat::JpegXl => "libjxl",
+        ImageFormat::Avif => "libavif/aom",
     }
 }
 
-/// Limits applied before and after parsing a JPEG or WebP header.
-#[derive(Clone, Copy, Debug)]
+/// Limits applied before and after parsing a JPEG or WebP header, in the
+/// construction style of [`TransformOptions`] (since 2026-11-16; public
+/// fields before).
+///
+/// ```
+/// use ferrisma::pipeline::InspectionLimits;
+///
+/// let limits = InspectionLimits::default().with_max_input_pixels(50_000_000);
+/// assert_eq!(limits.max_input_pixels(), 50_000_000);
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct InspectionLimits {
-    /// Maximum compressed input size in bytes; must be nonzero.
-    pub max_input_bytes: usize,
-    /// Maximum stored pixel count; must be nonzero.
-    pub max_input_pixels: u64,
+    max_input_bytes: usize,
+    max_input_pixels: u64,
 }
 
 impl Default for InspectionLimits {
+    /// The input limits of [`TransformOptions::new`]: 64 MiB and 100
+    /// million pixels.
     fn default() -> Self {
-        let options = TransformOptions::default();
         Self {
-            max_input_bytes: options.max_input_bytes,
-            max_input_pixels: options.max_input_pixels,
+            max_input_bytes: TransformOptions::DEFAULT_MAX_INPUT_BYTES,
+            max_input_pixels: TransformOptions::DEFAULT_MAX_INPUT_PIXELS,
         }
     }
+}
+
+impl InspectionLimits {
+    setting!(
+        /// Maximum compressed input size in bytes; must be nonzero.
+        max_input_bytes, with_max_input_bytes: usize
+    );
+    setting!(
+        /// Maximum stored pixel count; must be nonzero.
+        max_input_pixels, with_max_input_pixels: u64
+    );
 }
 
 /// Metadata for samples emitted by a JPEG or WebP decoder, before any
@@ -967,8 +1616,50 @@ pub struct ImageMetadata {
     pub has_alpha: bool,
     /// ICC profile describing the decoder's emitted samples, if any.
     pub rendered_icc: Option<Vec<u8>>,
-    /// CICP (primaries, transfer, matrix, full range) of the emitted samples, if any.
-    pub rendered_cicp: Option<[u8; 4]>,
+    /// CICP of the emitted samples, if any (a [`Cicp`] since 2026-11-16;
+    /// `[u8; 4]` before).
+    pub rendered_cicp: Option<Cicp>,
+}
+
+/// Coding-independent code points (ITU-T H.273) that describe decoded
+/// samples, as a decoder reports them in [`ImageMetadata::rendered_cicp`]:
+/// evidence, not a conversion. Named fields since 2026-11-16 (problem 8 of
+/// ADR-0040; a `[u8; 4]` of primaries, transfer, matrix and full range
+/// before); `#[non_exhaustive]`, so it cannot be constructed outside
+/// Ferrisma and may gain fields.
+///
+/// ```no_run
+/// # fn show(metadata: &ferrisma::pipeline::ImageMetadata) {
+/// if let Some(cicp) = metadata.rendered_cicp {
+///     let srgb = cicp.color_primaries == 1 && cicp.transfer_characteristics == 13;
+///     println!("sRGB: {srgb}, full range: {}", cicp.full_range);
+/// }
+/// # }
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub struct Cicp {
+    /// `ColourPrimaries` (H.273 table 2): 1 is BT.709/sRGB, 12 Display P3.
+    pub color_primaries: u8,
+    /// `TransferCharacteristics` (H.273 table 3): 13 is sRGB, 8 linear,
+    /// 16 PQ, 18 HLG.
+    pub transfer_characteristics: u8,
+    /// `MatrixCoefficients` (H.273 table 4): 0 is identity (RGB).
+    pub matrix_coefficients: u8,
+    /// `VideoFullRangeFlag`: full-range samples.
+    pub full_range: bool,
+}
+
+impl Cicp {
+    /// The engine's internal order: primaries, transfer, matrix, full range.
+    fn from_codes([primaries, transfer, matrix, full_range]: [u8; 4]) -> Self {
+        Self {
+            color_primaries: primaries,
+            transfer_characteristics: transfer,
+            matrix_coefficients: matrix,
+            full_range: full_range != 0,
+        }
+    }
 }
 
 /// Inspect JPEG or WebP headers without requesting pixel decoding. Limits do
@@ -982,7 +1673,7 @@ pub struct ImageMetadata {
 pub fn inspect(
     encoded: &[u8],
     format: ImageFormat,
-    limits: InspectionLimits,
+    limits: &InspectionLimits,
 ) -> Result<ImageMetadata, ProcessingError> {
     contain_panic(|| inspect_headers(encoded, format, limits))
 }
@@ -990,7 +1681,7 @@ pub fn inspect(
 fn inspect_headers(
     encoded: &[u8],
     format: ImageFormat,
-    limits: InspectionLimits,
+    limits: &InspectionLimits,
 ) -> Result<ImageMetadata, ProcessingError> {
     if limits.max_input_bytes == 0 || limits.max_input_pixels == 0 {
         return Err(ProcessingError::new(
@@ -1027,17 +1718,34 @@ fn inspect_headers(
         height: display.height,
         has_alpha: info.layout == crate::decoder::ChannelLayout::Rgba,
         rendered_icc: info.rendered_icc.clone(),
-        rendered_cicp: info.rendered_cicp,
+        rendered_cicp: info.rendered_cicp.map(Cicp::from_codes),
     })
 }
 
-/// Convert one input to the output format of `options` (AVIF, WebP or
-/// JPEG XL) at the exact size `output_width` by `output_height`. Quality and
-/// profile constraints are enforced before executing a pixel transform. The
-/// encoder's known input frames are reserved in the managed budget and
-/// reported. Today the executor requests one decoder region for the output
+/// Convert one input to the output of `options` (AVIF, WebP or JPEG XL,
+/// [`TransformOptions::output`]) at the size of
+/// [`TransformOptions::geometry`]: exact, or aspect-aware thumbnail
+/// geometry (ADR-0034). Quality and profile constraints are enforced before
+/// executing a pixel transform. The encoder's known input frames are
+/// reserved in the managed budget and reported. Today the executor requests
+/// one decoder region for the output
 /// ([`ProcessingReport::decoder_requests`] reports how many it sent); that
 /// describes this release, not a promise.
+///
+/// ```no_run
+/// use ferrisma::pipeline::{
+///     ImageFormat, InputProfilePolicy, OutputGeometry, OutputSettings, ResizeOptions,
+///     TransformOptions, WebpOptions, transcode,
+/// };
+///
+/// let jpeg = std::fs::read("photo.jpg")?;
+/// let options = TransformOptions::new(OutputGeometry::Resize(ResizeOptions::default().with_width(320)))
+///     .with_output(OutputSettings::WebP(WebpOptions::default()))
+///     .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing);
+/// let output = transcode(&jpeg, ImageFormat::Jpeg, &options)?;
+/// std::fs::write("thumbnail.webp", &output.bytes)?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 ///
 /// # Errors
 /// Returns an error for unsupported codec features, ambiguous profiles,
@@ -1049,18 +1757,16 @@ fn inspect_headers(
 pub fn transcode(
     encoded: &[u8],
     format: ImageFormat,
-    options: TransformOptions,
+    options: &TransformOptions,
 ) -> Result<Output, ProcessingError> {
-    guarded_run(encoded, format, options, None, None)
+    guarded_run(encoded, format, options, None)
 }
 
 /// [`transcode`] with another encoder (ADR-0024): the same decode, color,
 /// crop, resample and quantization, then the output rows go to `backend`
-/// instead of the built-in sink. Every encoder setting (`avif`, `webp`,
-/// `jpeg_xl`, `encoder_threads`) is passed to the backend in an
-/// [`EncodeRequest`]; the backend validates it on its own scale and refuses
-/// what it cannot honor (since 2026-11-15 the AVIF depth is part of the
-/// request, in [`AvifOptions`]).
+/// instead of the built-in sink. The output settings and the encoder
+/// threads are passed to the backend in an [`EncodeRequest`]; the backend
+/// validates them on its own scale and refuses what it cannot honor.
 ///
 /// # Errors
 /// As [`transcode`], plus the backend's errors, mapped to their
@@ -1068,43 +1774,10 @@ pub fn transcode(
 pub fn transcode_with(
     encoded: &[u8],
     format: ImageFormat,
-    options: TransformOptions,
+    options: &TransformOptions,
     backend: &dyn EncoderBackend,
 ) -> Result<Output, ProcessingError> {
-    guarded_run(encoded, format, options, Some(backend), None)
-}
-
-/// Transcode using aspect-aware thumbnail geometry. The size comes from
-/// `resize`; the `output_width` and `output_height` fields of `options` must
-/// stay at their defaults. All other options apply. See [`ResizeOptions`]
-/// and ADR-0034 for integer rounding and crop semantics.
-///
-/// # Errors
-/// Returns the same errors as [`transcode`], including invalid resize
-/// geometry, and [`ProcessingErrorKind::InvalidOptions`] when
-/// `output_width` or `output_height` differs from its default (until
-/// 2026-11-15 they were ignored).
-pub fn transcode_resized(
-    encoded: &[u8],
-    format: ImageFormat,
-    options: TransformOptions,
-    resize: ResizeOptions,
-) -> Result<Output, ProcessingError> {
-    guarded_run(encoded, format, options, None, Some(resize))
-}
-
-/// [`transcode_resized`] with a caller-provided encoder backend.
-///
-/// # Errors
-/// Returns the same errors as [`transcode_with`] and [`transcode_resized`].
-pub fn transcode_resized_with(
-    encoded: &[u8],
-    format: ImageFormat,
-    options: TransformOptions,
-    resize: ResizeOptions,
-    backend: &dyn EncoderBackend,
-) -> Result<Output, ProcessingError> {
-    guarded_run(encoded, format, options, Some(backend), Some(resize))
+    guarded_run(encoded, format, options, Some(backend))
 }
 
 /// The panic boundary of the public entry points (ADR-0040 amendment of
@@ -1124,7 +1797,7 @@ pub fn transcode_resized_with(
 ///   worker's panic on this thread, where it is caught). No budget accounting
 ///   outlives the call, so a later call starts from a fresh budget.
 /// - What the caller passes in is read-only to the engine: the input bytes,
-///   the `Copy` options and `&dyn EncoderBackend`. The engine holds no lock
+///   the options (borrowed) and `&dyn EncoderBackend`. The engine holds no lock
 ///   or counter of its own across the boundary that a panic could leave
 ///   poisoned or half-updated (the batch's result slots are written only
 ///   after the catch, with the item's result).
@@ -1165,25 +1838,20 @@ fn contain_panic<T>(
 fn guarded_run(
     encoded: &[u8],
     format: ImageFormat,
-    options: TransformOptions,
+    options: &TransformOptions,
     backend: Option<&dyn EncoderBackend>,
-    resize: Option<ResizeOptions>,
 ) -> Result<Output, ProcessingError> {
-    contain_panic(|| run(encoded, format, options, backend, resize))
+    contain_panic(|| run(encoded, format, options, backend))
 }
 
 /// Thread counts above 256 are invalid everywhere, in a batch too (owner
-/// decision of 2026-11-15: an option is refused rather than ignored).
-fn validate_thread_counts(options: &TransformOptions) -> Result<(), ProcessingError> {
-    if options.transform_threads > crate::thread_spawn::MAX_WORKERS
-        || options.encoder_threads > crate::thread_spawn::MAX_WORKERS
-    {
-        return Err(ProcessingError::new(
-            ProcessingErrorKind::InvalidOptions,
-            "transform and encoder threads must be between 0 and 256",
-        ));
-    }
-    Ok(())
+/// decision of 2026-11-15: an option is refused rather than ignored); the
+/// resolved transform and encoder threads.
+fn validate_thread_counts(options: &TransformOptions) -> Result<(usize, usize), ProcessingError> {
+    Ok((
+        options.transform_threads.resolve()?,
+        options.encoder_threads.resolve()?,
+    ))
 }
 
 /// The output side of one transcode: the built-in sink or a backend's.
@@ -1266,9 +1934,8 @@ impl Sink<'_> {
 fn run(
     encoded: &[u8],
     format: ImageFormat,
-    options: TransformOptions,
+    options: &TransformOptions,
     backend: Option<&dyn EncoderBackend>,
-    resize: Option<ResizeOptions>,
 ) -> Result<Output, ProcessingError> {
     let started = Instant::now();
     if options.max_output_bytes == 0 {
@@ -1277,26 +1944,15 @@ fn run(
             "max_output_bytes must be nonzero",
         ));
     }
-    // A setting of another output is refused, never ignored (ADR-0043 D4).
-    let avif = options.avif == AvifOptions::default();
-    let webp = options.webp == WebpOptions::default();
-    let jpeg_xl = options.jpeg_xl == JpegXlOptions::default();
-    if !match options.output_format {
-        OutputFormat::Avif => webp && jpeg_xl,
-        OutputFormat::WebP => avif && jpeg_xl,
-        OutputFormat::JpegXl => avif && webp,
-    } {
-        return Err(ProcessingError::new(
-            ProcessingErrorKind::InvalidOptions,
-            "encoder options do not match the selected output format",
-        ));
-    }
-    validate_thread_counts(&options)?;
-    // The built-in WebP encoder is serial, as is the JPEG XL one; 0 would
-    // mean "available cores" and be reported as such.
+    // Only the selected output's settings exist (since 2026-11-16), so no
+    // other output's setting can be ignored (ADR-0043 D4, ADR-0042).
+    let output_format = options.output.format();
+    let (transform_threads, encoder_threads) = validate_thread_counts(options)?;
+    // The built-in WebP encoder is serial, as is the JPEG XL one;
+    // `Automatic` would mean "available cores" and be reported as such.
     if backend.is_none()
-        && options.output_format == OutputFormat::WebP
-        && options.encoder_threads != 1
+        && output_format == OutputFormat::WebP
+        && options.encoder_threads != Threads::ONE
     {
         return Err(ProcessingError::new(
             ProcessingErrorKind::InvalidOptions,
@@ -1306,44 +1962,26 @@ fn run(
     // The built-in AVIF writer is the workspace libavif/AOM backend; it
     // reads every AVIF setting from the request.
     #[cfg(feature = "avif-write")]
-    let own = (backend.is_none() && options.output_format == OutputFormat::Avif)
-        .then_some(LibavifBackend);
+    let own = (backend.is_none() && output_format == OutputFormat::Avif).then(LibavifBackend::new);
     #[cfg(feature = "avif-write")]
     let backend = backend.or(own.as_ref().map(|encoder| encoder as &dyn EncoderBackend));
     if let Some(backend) = backend
-        && backend.format() != options.output_format
+        && backend.format() != output_format
     {
         return Err(ProcessingError::new(
             ProcessingErrorKind::InvalidOptions,
             "output format does not match encoder backend",
         ));
     }
-    let encoder_threads = match options.encoder_threads {
-        0 => std::thread::available_parallelism()
-            .map_or(1, std::num::NonZero::get)
-            .min(crate::thread_spawn::MAX_WORKERS),
-        threads => threads,
-    };
     #[cfg(feature = "jpeg-xl-write")]
-    if backend.is_none() && options.output_format == OutputFormat::JpegXl {
-        JxlSink::validate(&options)?;
+    if backend.is_none() && output_format == OutputFormat::JpegXl {
+        JxlSink::validate(options)?;
     }
-    if let Some(resize) = resize {
-        // Owner decision of 2026-11-15 (ADR-0042): an option that would be
-        // ignored is refused. The aspect-aware entry points take their
-        // size from `ResizeOptions`; a changed exact size is a mistake.
-        let default = TransformOptions::default();
-        if (options.output_width, options.output_height)
-            != (default.output_width, default.output_height)
-        {
-            return Err(ProcessingError::new(
-                ProcessingErrorKind::InvalidOptions,
-                "output_width and output_height are not used with ResizeOptions; leave them at their defaults",
-            ));
+    match &options.geometry {
+        OutputGeometry::Exact { width, height } => {
+            Size::new(*width, *height)?;
         }
-        crate::resize_geometry::validate(resize)?;
-    } else {
-        Size::new(options.output_width, options.output_height)?;
+        OutputGeometry::Resize(resize) => crate::resize_geometry::validate(resize)?,
     }
     if options.max_input_bytes == 0 || options.max_input_pixels == 0 {
         return Err(ProcessingError::new(
@@ -1357,12 +1995,9 @@ fn run(
             "compressed image exceeds max_input_bytes",
         ));
     }
-    let transform_threads = match (options.precision, options.transform_threads) {
-        (WorkingPrecision::F64Reference, _) => 1,
-        (WorkingPrecision::F32, 0) => std::thread::available_parallelism()
-            .map_or(1, std::num::NonZero::get)
-            .min(crate::thread_spawn::MAX_WORKERS),
-        (WorkingPrecision::F32, threads) => threads,
+    let transform_threads = match options.precision {
+        WorkingPrecision::F64Reference => 1,
+        WorkingPrecision::F32 => transform_threads,
     };
     let mut source = open_source(encoded, format, options.max_input_pixels)?;
     // Alpha is processed straight (ADR-0014); an association the reader
@@ -1487,13 +2122,9 @@ fn run(
     if !crop.fits(size) {
         return Err(Error::OutOfBounds.into());
     }
-    let (crop, target_size) = if let Some(resize) = resize {
-        crate::resize_geometry::resolve(crop, resize)?
-    } else {
-        (
-            crop,
-            Size::new(options.output_width, options.output_height)?,
-        )
+    let (crop, target_size) = match &options.geometry {
+        OutputGeometry::Exact { width, height } => (crop, Size::new(*width, *height)?),
+        OutputGeometry::Resize(resize) => crate::resize_geometry::resolve(crop, resize)?,
     };
 
     let mut graph = Graph::new();
@@ -1513,28 +2144,24 @@ fn run(
     // 2026-11-15), one for every output: the input's depth, capped at what
     // the output admits; a reduction is the pipeline's to report.
     let input_depth = actual.info().depth;
-    let admitted: &[u8] = match (backend, options.output_format) {
+    let admitted: &[u8] = match (backend, output_format) {
         (Some(backend), _) => backend.row_depths(),
         // cjxl's integer depths (ADR-0021 amendment of 2026-11-15).
         (None, OutputFormat::JpegXl) => &[8, 9, 10, 11, 12, 13, 14, 15, 16],
         // WebP is 8-bit by its format.
         (None, _) => &[crate::output_depth::EIGHT],
     };
-    let requested = match options.output_format {
-        OutputFormat::Avif => options.avif.depth,
-        OutputFormat::JpegXl => options.jpeg_xl.depth(),
-        OutputFormat::WebP => None,
-    };
     let output_depth =
-        crate::output_depth::resolve(requested, input_depth, admitted).map_err(|_| {
-            ProcessingError::new(
-                ProcessingErrorKind::InvalidOptions,
-                "the requested output depth is not one this encoder writes",
-            )
-        })?;
+        crate::output_depth::resolve(options.output.requested_depth(), input_depth, admitted)
+            .map_err(|_| {
+                ProcessingError::new(
+                    ProcessingErrorKind::InvalidOptions,
+                    "the requested output depth is not one this encoder writes",
+                )
+            })?;
     discarded.insert_if(output_depth < input_depth, Discarded::PrecisionReduced);
     let mut output_sink = match backend {
-        None => match options.output_format {
+        None => match output_format {
             // With `avif-write` the AOM writer is the backend above.
             OutputFormat::Avif => {
                 return Err(ProcessingError::new(
@@ -1576,10 +2203,7 @@ fn run(
         },
         Some(backend) => {
             let request = EncodeRequest {
-                format: options.output_format,
-                avif: options.avif,
-                webp: options.webp,
-                jpeg_xl: options.jpeg_xl,
+                output: options.output.clone(),
                 width: target_size.width,
                 height: target_size.height,
                 has_alpha: transparent,
@@ -1596,22 +2220,36 @@ fn run(
         }
     };
     let encoder_backend = backend.map_or(
-        match options.output_format {
-            OutputFormat::Avif => "libavif-rs/aom",
-            OutputFormat::WebP => "libwebp-rs",
-            OutputFormat::JpegXl => "libjxl-rs",
+        match output_format {
+            OutputFormat::Avif => "libavif/aom",
+            OutputFormat::WebP => "libwebp",
+            OutputFormat::JpegXl => "libjxl",
         },
         EncoderBackend::name,
     );
     let open = started.elapsed();
     let request = Rect::new(0, 0, target_size.width, target_size.height)?;
     let kernels = match options.kernel_level_ceiling {
-        Some(ceiling) => ferrisma_kernels::Kernels::with_ceiling(ceiling),
+        Some(ceiling) => ferrisma_kernels::Kernels::with_ceiling(ceiling.to_kernels()),
         None => ferrisma_kernels::Kernels::best(),
     };
     let (kernel_level, kernel_level_reason) = match options.precision {
-        WorkingPrecision::F32 => (kernels.level(), kernels.reason()),
-        WorkingPrecision::F64Reference => (KernelLevel::Scalar, KernelLevelReason::Ceiling),
+        WorkingPrecision::F32 => (
+            KernelLevel::from_kernels(kernels.level()),
+            KernelLevelReason::from_kernels(kernels.reason()),
+        ),
+        WorkingPrecision::F64Reference => {
+            (Some(KernelLevel::Scalar), Some(KernelLevelReason::Ceiling))
+        }
+    };
+    // The kernels select only levels they implement, with one of the four
+    // reasons; anything else is a defect of this mapping, not of the input.
+    let (Some(kernel_level), Some(kernel_level_reason)) = (kernel_level, kernel_level_reason)
+    else {
+        return Err(ProcessingError::new(
+            ProcessingErrorKind::Internal,
+            "the kernels selected a level or reason this release does not name",
+        ));
     };
     let processed = match options.precision {
         WorkingPrecision::F32 => execute_fast(
@@ -1640,17 +2278,18 @@ fn run(
     let processed = processed.map_err(|error| output_sink.explain(error))?;
     let encode_started = Instant::now();
     let encoded_image = output_sink.finish()?;
-    if encoded_image.format != options.output_format {
+    if encoded_image.format != output_format {
         return Err(ProcessingError::new(
             ProcessingErrorKind::EncodeFailed,
             "encoder backend returned a different output format",
         ));
     }
     if encoded_image.bytes.len() > options.max_output_bytes {
-        return Err(ProcessingError::new(
-            ProcessingErrorKind::ResourceExhausted,
-            "encoded output exceeds max_output_bytes",
-        ));
+        return Err(Error::OutputLimitExceeded {
+            needed: encoded_image.bytes.len(),
+            limit: options.max_output_bytes,
+        }
+        .into());
     }
     let encode = encode_started.elapsed();
     let input_access = match processed.decoder.access {
@@ -1702,7 +2341,7 @@ fn run(
         },
     };
     Ok(Output {
-        format: options.output_format,
+        format: output_format,
         bytes: encoded_image.bytes,
         width: target_size.width,
         height: target_size.height,
@@ -1710,18 +2349,59 @@ fn run(
     })
 }
 
-/// One image of a batch: compressed bytes, their format and the options.
-#[derive(Clone, Copy, Debug)]
+/// One image of a batch: compressed bytes, their format and the options,
+/// constructed with [`BatchItem::new`] and read through its getters (since
+/// 2026-11-16; public fields before).
+///
+/// The engine replaces both thread counts of the options with 1 and reports
+/// the 1. A count that [`transcode`] refuses (above 256) is refused for this
+/// item with [`ProcessingErrorKind::InvalidOptions`] (until 2026-11-15 it was
+/// accepted and replaced).
+///
+/// ```
+/// use ferrisma::pipeline::{BatchItem, ImageFormat, OutputGeometry, TransformOptions};
+///
+/// let jpeg: &[u8] = &[0xff, 0xd8];
+/// let options = TransformOptions::new(OutputGeometry::Exact { width: 64, height: 64 });
+/// let item = BatchItem::new(jpeg, ImageFormat::Jpeg, options);
+/// assert_eq!(item.format(), ImageFormat::Jpeg);
+/// ```
+#[derive(Clone, Debug)]
+#[non_exhaustive]
 pub struct BatchItem<'a> {
+    encoded: &'a [u8],
+    format: ImageFormat,
+    options: TransformOptions,
+}
+
+impl<'a> BatchItem<'a> {
+    /// The image `encoded` in `format`, transcoded with `options`.
+    #[must_use]
+    pub fn new(encoded: &'a [u8], format: ImageFormat, options: TransformOptions) -> Self {
+        Self {
+            encoded,
+            format,
+            options,
+        }
+    }
+
     /// Compressed input bytes.
-    pub encoded: &'a [u8],
+    #[must_use]
+    pub fn encoded(&self) -> &'a [u8] {
+        self.encoded
+    }
+
     /// Input format.
-    pub format: ImageFormat,
-    /// Options; the engine replaces both thread counts with 1 and reports
-    /// the 1. A count that [`transcode`] refuses (above 256) is refused for
-    /// this item with [`ProcessingErrorKind::InvalidOptions`] (until
-    /// 2026-11-15 it was accepted and replaced).
-    pub options: TransformOptions,
+    #[must_use]
+    pub fn format(&self) -> ImageFormat {
+        self.format
+    }
+
+    /// The options, before the engine replaces the thread counts.
+    #[must_use]
+    pub fn options(&self) -> &TransformOptions {
+        &self.options
+    }
 }
 
 /// Runs many images in parallel (ADR-0022). The engine schedules whole
@@ -1732,21 +2412,34 @@ pub struct BatchItem<'a> {
 ///
 /// Each image keeps its own `max_managed_bytes` budget, so the engine's
 /// managed memory is bounded by `threads` times the largest per-image budget.
-#[derive(Clone, Copy, Debug)]
+/// `Clone` but not `Copy` since 2026-11-16, so that an engine can later own
+/// state such as a worker pool.
+#[derive(Clone, Debug)]
 pub struct Engine {
     threads: usize,
 }
 
 impl Engine {
-    /// An engine with up to 256 workers; 0 means available cores (also capped).
-    #[must_use]
-    pub fn new(threads: usize) -> Self {
-        let threads = match threads {
-            0 => std::thread::available_parallelism().map_or(1, std::num::NonZero::get),
-            threads => threads,
-        }
-        .min(crate::thread_spawn::MAX_WORKERS);
-        Self { threads }
+    /// An engine with `threads` workers: [`Threads::Automatic`] for the
+    /// available cores (at most 256), or an explicit count.
+    ///
+    /// ```
+    /// use ferrisma::pipeline::{Engine, Threads};
+    ///
+    /// let engine = Engine::new(Threads::Automatic)?;
+    /// assert!((1..=Threads::MAX).contains(&engine.threads()));
+    /// # Ok::<(), ferrisma::pipeline::ProcessingError>(())
+    /// ```
+    ///
+    /// # Errors
+    /// [`ProcessingErrorKind::InvalidOptions`] for a count above
+    /// [`Threads::MAX`], the same validation as [`transcode`]'s thread
+    /// counts (since 2026-11-16; before, `Engine::new(usize)` took 0 for
+    /// "automatic" and clamped a larger count to 256 silently).
+    pub fn new(threads: Threads) -> Result<Self, ProcessingError> {
+        Ok(Self {
+            threads: threads.resolve()?,
+        })
     }
 
     /// Number of workers.
@@ -1812,12 +2505,12 @@ fn batch(
                     // results (until 2026-11-16 the scope re-panicked).
                     let result = contain_panic(|| {
                         validate_thread_counts(&item.options)?;
-                        let options = TransformOptions {
-                            transform_threads: 1,
-                            encoder_threads: 1,
-                            ..item.options
-                        };
-                        run(item.encoded, item.format, options, backend, None)
+                        let options = item
+                            .options
+                            .clone()
+                            .with_transform_threads(Threads::ONE)
+                            .with_encoder_threads(Threads::ONE);
+                        run(item.encoded, item.format, &options, backend)
                     });
                     if let Ok(mut slot) = results[index].lock() {
                         *slot = Some(result);
@@ -1866,16 +2559,89 @@ mod worker_limit_tests {
     use super::{Engine, ProcessingError, ProcessingErrorKind};
     use crate::error::Error;
 
+    /// `Engine::new` refuses a count above 256 as `transcode` does, with
+    /// the same validation, instead of clamping it (since 2026-11-16; before,
+    /// `Engine::new(usize::MAX).threads()` was 256).
     #[test]
-    fn batch_worker_count_is_bounded_for_explicit_and_automatic_requests() {
-        assert_eq!(Engine::new(1).threads(), 1);
-        assert_eq!(Engine::new(256).threads(), 256);
-        assert_eq!(Engine::new(usize::MAX).threads(), 256);
-        assert!((1..=256).contains(&Engine::new(0).threads()));
-        assert!(Engine::new(256).transcode_batch(&[]).is_empty());
+    fn batch_worker_count_is_validated_for_explicit_and_automatic_requests() {
+        use super::Threads;
+        use std::num::NonZeroUsize;
+        assert_eq!(Engine::new(Threads::ONE).unwrap().threads(), 1);
+        let count = |n| Threads::Count(NonZeroUsize::new(n).unwrap());
+        assert_eq!(Engine::new(count(256)).unwrap().threads(), 256);
+        for refused in [count(257), Threads::Count(NonZeroUsize::MAX)] {
+            let error = Engine::new(refused).unwrap_err();
+            assert_eq!(error.kind(), ProcessingErrorKind::InvalidOptions);
+            assert_eq!(error.to_string(), "a thread count must be at most 256");
+        }
+        assert!((1..=256).contains(&Engine::new(Threads::Automatic).unwrap().threads()));
+        assert!(
+            Engine::new(count(256))
+                .unwrap()
+                .transcode_batch(&[])
+                .is_empty()
+        );
         assert_eq!(
             ProcessingError::from(Error::ThreadSpawnFailed).kind(),
             ProcessingErrorKind::ResourceExhausted
         );
+    }
+}
+
+#[cfg(test)]
+mod kernel_level_tests {
+    use super::{KernelLevel, KernelLevelReason};
+    use ferrisma_kernels::{IsaLevel, LevelReason};
+
+    /// Ferrisma's own kernel enums map onto the kernels crate's: every
+    /// offered ceiling round-trips, every level with kernels and every
+    /// reason has a name, and SVE2, which has no kernels, is not offered.
+    #[test]
+    fn the_own_kernel_enums_map_onto_the_kernels_crate() {
+        for level in [
+            KernelLevel::Scalar,
+            KernelLevel::Neon,
+            KernelLevel::Avx2,
+            KernelLevel::Avx512,
+        ] {
+            assert!(level.to_kernels().is_implemented(), "{level:?}");
+            assert_eq!(KernelLevel::from_kernels(level.to_kernels()), Some(level));
+        }
+        assert_eq!(KernelLevel::from_kernels(IsaLevel::Sve2), None);
+        assert!(!IsaLevel::Sve2.is_implemented());
+        assert!(KernelLevel::Scalar < KernelLevel::Neon && KernelLevel::Avx2 < KernelLevel::Avx512);
+        for (reason, own) in [
+            (LevelReason::Detected, KernelLevelReason::Detected),
+            (LevelReason::Fallback, KernelLevelReason::Fallback),
+            (LevelReason::Ceiling, KernelLevelReason::Ceiling),
+            (
+                LevelReason::DefaultCeiling,
+                KernelLevelReason::DefaultCeiling,
+            ),
+        ] {
+            assert_eq!(KernelLevelReason::from_kernels(reason), Some(own));
+        }
+        let best = ferrisma_kernels::Kernels::best();
+        assert!(KernelLevel::from_kernels(best.level()).is_some());
+    }
+}
+
+#[cfg(test)]
+mod cicp_tests {
+    use super::Cicp;
+
+    #[test]
+    fn cicp_names_the_four_code_points_in_order() {
+        let srgb = Cicp::from_codes([1, 13, 0, 1]);
+        assert_eq!(
+            (
+                srgb.color_primaries,
+                srgb.transfer_characteristics,
+                srgb.matrix_coefficients,
+                srgb.full_range
+            ),
+            (1, 13, 0, true)
+        );
+        assert!(!Cicp::from_codes([12, 16, 9, 0]).full_range);
     }
 }

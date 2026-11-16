@@ -8,9 +8,11 @@
 use std::error::Error;
 use std::time::Instant;
 
+use ferrisma::pipeline::Threads;
 use ferrisma::pipeline::{
     AvifOptions, BatchItem, Engine, ImageFormat, InputProfilePolicy, TransformOptions, transcode,
 };
+use ferrisma::pipeline::{BitDepth, OutputGeometry, OutputSettings};
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = std::env::args().collect();
@@ -30,37 +32,35 @@ fn main() -> Result<(), Box<dyn Error>> {
         .collect();
     files.sort();
     let data: Vec<Vec<u8>> = files.iter().map(std::fs::read).collect::<Result<_, _>>()?;
-    let base = TransformOptions {
-        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        // libavif's quality scale; the batch records before 2026-11-15 used
-        // rav1e's, which is not comparable at the same number, and 10 bits
-        // (the default before 2026-11-15; `avifenc`'s default for 8-bit
-        // input, 8, since).
-        avif: AvifOptions {
-            quality: 80,
-            depth: Some(10),
-            ..AvifOptions::default()
-        },
-        ..TransformOptions::default()
-    };
+    let base = TransformOptions::new(OutputGeometry::Exact {
+        width: 1,
+        height: 1,
+    })
+    // libavif's quality scale; the batch records before 2026-11-15 used
+    // rav1e's, which is not comparable at the same number, and 10 bits
+    // (the default before 2026-11-15; `avifenc`'s default for 8-bit
+    // input, 8, since).
+    .with_output(OutputSettings::Avif(
+        AvifOptions::default()
+            .with_quality(80)
+            .with_depth(BitDepth::Exact(10)),
+    ))
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing);
     let height = args
         .get(4)
         .map_or(Ok(width * 2 / 3), |value| value.parse::<u32>())?;
-    let options = TransformOptions {
-        output_width: width,
-        output_height: height,
-        ..base
-    };
+    let options = base
+        .clone()
+        .with_geometry(OutputGeometry::Exact { width, height });
     let items: Vec<BatchItem<'_>> = data
         .iter()
-        .map(|encoded| BatchItem {
-            encoded,
-            format: ImageFormat::Jpeg,
-            options,
-        })
+        .map(|encoded| BatchItem::new(encoded, ImageFormat::Jpeg, options.clone()))
         .collect();
 
-    let engine = Engine::new(threads);
+    let engine = Engine::new(
+        std::num::NonZeroUsize::new(threads).map_or(Threads::Automatic, Threads::Count),
+    )
+    .unwrap();
     let started = Instant::now();
     let results = engine.transcode_batch(&items);
     let batch = started.elapsed().as_secs_f64();
@@ -68,12 +68,12 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let started = Instant::now();
     for item in &items {
-        let single = TransformOptions {
-            transform_threads: 1,
-            encoder_threads: 1,
-            ..item.options
-        };
-        transcode(item.encoded, item.format, single)?;
+        let single = item
+            .options()
+            .clone()
+            .with_transform_threads(Threads::ONE)
+            .with_encoder_threads(Threads::ONE);
+        transcode(item.encoded(), item.format(), &single)?;
     }
     let sequential = started.elapsed().as_secs_f64();
 

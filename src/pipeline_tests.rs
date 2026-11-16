@@ -1,4 +1,6 @@
 #![cfg(all(feature = "jpeg-read", feature = "avif-write"))]
+use crate::pipeline::Threads;
+use crate::pipeline::{AvifOptions, OutputGeometry, OutputSettings};
 use crate::pipeline::{
     ImageFormat, InputProfilePolicy, ProcessingErrorKind, ResizeFilter, TransformOptions, transcode,
 };
@@ -6,20 +8,17 @@ use crate::pipeline::{
 #[test]
 fn real_jpeg_reaches_valid_bytes_through_m1_graph() {
     let encoded = include_bytes!("../tests/fixtures/sample.jpg");
-    let options = TransformOptions {
-        output_width: 3,
-        output_height: 3,
-        filter: ResizeFilter::Area,
-        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        avif: crate::pipeline::AvifOptions {
-            quality: 85,
-            speed: 9,
-            ..crate::pipeline::AvifOptions::default()
-        },
-        max_managed_bytes: 1024 * 1024,
-        ..TransformOptions::default()
-    };
-    let image = transcode(encoded, ImageFormat::Jpeg, options).unwrap();
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: 3,
+        height: 3,
+    })
+    .with_output(OutputSettings::Avif(
+        AvifOptions::default().with_quality(85).with_speed(9),
+    ))
+    .with_filter(ResizeFilter::Area)
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
+    .with_max_managed_bytes(1024 * 1024);
+    let image = transcode(encoded, ImageFormat::Jpeg, &options).unwrap();
     assert!(image.bytes.len() > 40);
     assert_eq!(&image.bytes[4..8], b"ftyp");
     assert_eq!(image.report.decoder_requests, 1);
@@ -40,10 +39,9 @@ fn real_jpeg_reaches_valid_bytes_through_m1_graph() {
     let reference = transcode(
         encoded,
         ImageFormat::Jpeg,
-        TransformOptions {
-            precision: crate::pipeline::WorkingPrecision::F64Reference,
-            ..options
-        },
+        &options
+            .clone()
+            .with_precision(crate::pipeline::WorkingPrecision::F64Reference),
     )
     .unwrap();
     assert_eq!(
@@ -56,14 +54,13 @@ fn real_jpeg_reaches_valid_bytes_through_m1_graph() {
 #[test]
 fn missing_color_information_requires_an_explicit_override() {
     let encoded = include_bytes!("../tests/fixtures/sample.jpg");
-    let options = TransformOptions {
-        output_width: 2,
-        output_height: 2,
-        profile_policy: InputProfilePolicy::Strict,
-        ..TransformOptions::default()
-    };
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: 2,
+        height: 2,
+    })
+    .with_profile_policy(InputProfilePolicy::Strict);
     assert_eq!(
-        transcode(encoded, ImageFormat::Jpeg, options)
+        transcode(encoded, ImageFormat::Jpeg, &options)
             .unwrap_err()
             .kind(),
         ProcessingErrorKind::UnsupportedColor
@@ -76,20 +73,16 @@ fn produced_avif_is_accepted_by_an_independent_decoder() {
     use crate::codecs::avif::AvifSource;
     use crate::decoder::DecodeSource;
 
-    let options = TransformOptions {
-        output_width: 4,
-        output_height: 3,
-        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        avif: crate::pipeline::AvifOptions {
-            speed: 9,
-            ..crate::pipeline::AvifOptions::default()
-        },
-        ..TransformOptions::default()
-    };
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: 4,
+        height: 3,
+    })
+    .with_output(OutputSettings::Avif(AvifOptions::default().with_speed(9)))
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing);
     let encoded = transcode(
         include_bytes!("../tests/fixtures/sample.jpg"),
         ImageFormat::Jpeg,
-        options,
+        &options,
     )
     .unwrap();
     let decoded = AvifSource::new(&encoded.bytes).unwrap();
@@ -107,21 +100,17 @@ fn produced_avif_is_accepted_by_an_independent_decoder() {
 #[test]
 fn jpeg_xl_icc_is_explicitly_transformed_and_encoded_from_a_full_frame() {
     use crate::pipeline::SourceAccess;
-    let options = TransformOptions {
-        output_width: 3,
-        output_height: 2,
-        profile_policy: InputProfilePolicy::UseRenderedIcc,
-        avif: crate::pipeline::AvifOptions {
-            speed: 9,
-            ..crate::pipeline::AvifOptions::default()
-        },
-        max_managed_bytes: 1024 * 1024,
-        ..TransformOptions::default()
-    };
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: 3,
+        height: 2,
+    })
+    .with_output(OutputSettings::Avif(AvifOptions::default().with_speed(9)))
+    .with_profile_policy(InputProfilePolicy::UseRenderedIcc)
+    .with_max_managed_bytes(1024 * 1024);
     let image = transcode(
         include_bytes!("../tests/fixtures/sample.jxl"),
         ImageFormat::JpegXl,
-        options,
+        &options,
     )
     .unwrap();
     assert_eq!(&image.bytes[4..8], b"ftyp");
@@ -134,24 +123,17 @@ fn jpeg_xl_icc_is_explicitly_transformed_and_encoded_from_a_full_frame() {
 #[test]
 fn compressed_bytes_and_decoded_pixel_caps_reject_before_processing() {
     let jpeg = include_bytes!("../tests/fixtures/sample.jpg");
-    let options = TransformOptions {
-        output_width: 1,
-        output_height: 1,
-        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        avif: crate::pipeline::AvifOptions {
-            speed: 10,
-            ..crate::pipeline::AvifOptions::default()
-        },
-        ..TransformOptions::default()
-    };
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: 1,
+        height: 1,
+    })
+    .with_output(OutputSettings::Avif(AvifOptions::default().with_speed(10)))
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing);
     assert!(
         transcode(
             jpeg,
             ImageFormat::Jpeg,
-            TransformOptions {
-                max_input_bytes: 1,
-                ..options
-            },
+            &options.clone().with_max_input_bytes(1)
         )
         .is_err()
     );
@@ -159,10 +141,7 @@ fn compressed_bytes_and_decoded_pixel_caps_reject_before_processing() {
         transcode(
             jpeg,
             ImageFormat::Jpeg,
-            TransformOptions {
-                max_input_pixels: 1,
-                ..options
-            },
+            &options.clone().with_max_input_pixels(1)
         )
         .is_err()
     );
@@ -170,10 +149,7 @@ fn compressed_bytes_and_decoded_pixel_caps_reject_before_processing() {
         transcode(
             jpeg,
             ImageFormat::Jpeg,
-            TransformOptions {
-                max_input_pixels: 0,
-                ..options
-            },
+            &options.clone().with_max_input_pixels(0)
         )
         .is_err()
     );
@@ -185,30 +161,22 @@ fn signalled_srgb_avif_transcodes_under_the_strict_profile_policy() {
     let srgb = transcode(
         include_bytes!("../tests/fixtures/sample.jpg"),
         ImageFormat::Jpeg,
-        TransformOptions {
-            output_width: 8,
-            output_height: 6,
-            profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-            avif: crate::pipeline::AvifOptions {
-                speed: 10,
-                ..crate::pipeline::AvifOptions::default()
-            },
-            ..TransformOptions::default()
-        },
+        &TransformOptions::new(OutputGeometry::Exact {
+            width: 8,
+            height: 6,
+        })
+        .with_output(OutputSettings::Avif(AvifOptions::default().with_speed(10)))
+        .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing),
     )
     .unwrap();
     let again = transcode(
         &srgb.bytes,
         ImageFormat::Avif,
-        TransformOptions {
-            output_width: 4,
-            output_height: 3,
-            avif: crate::pipeline::AvifOptions {
-                speed: 10,
-                ..crate::pipeline::AvifOptions::default()
-            },
-            ..TransformOptions::default()
-        },
+        &TransformOptions::new(OutputGeometry::Exact {
+            width: 4,
+            height: 3,
+        })
+        .with_output(OutputSettings::Avif(AvifOptions::default().with_speed(10))),
     )
     .unwrap();
     assert_eq!(&again.bytes[4..8], b"ftyp");
@@ -222,47 +190,32 @@ fn signalled_srgb_avif_transcodes_under_the_strict_profile_policy() {
         again.report.color_signal,
         crate::pipeline::ColorSignal::Cicp
     );
-    assert_eq!(again.report.decoder_backend, "libavif-rs/aom");
+    assert_eq!(again.report.decoder_backend, "libavif/aom");
 }
 
 #[test]
 fn exif_rotated_jpeg_is_cropped_in_display_coordinates() {
     let rotated = include_bytes!("../tests/fixtures/orientation/jpeg-6.jpg");
-    let options = TransformOptions {
-        output_width: 4,
-        output_height: 6,
-        // The stored image is 24×16; EXIF 6 displays it as 16×24.
-        crop: Some(crate::pipeline::Crop {
-            x: 0,
-            y: 4,
-            width: 16,
-            height: 20,
-        }),
-        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        avif: crate::pipeline::AvifOptions {
-            speed: 10,
-            ..crate::pipeline::AvifOptions::default()
-        },
-        ..TransformOptions::default()
-    };
-    let output = transcode(rotated, ImageFormat::Jpeg, options).unwrap();
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: 4,
+        height: 6,
+    })
+    .with_output(OutputSettings::Avif(AvifOptions::default().with_speed(10)))
+    // The stored image is 24×16; EXIF 6 displays it as 16×24.
+    .with_crop(Some(crate::pipeline::Crop::new(0, 4, 16, 20)))
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing);
+    let output = transcode(rotated, ImageFormat::Jpeg, &options).unwrap();
     assert_eq!(&output.bytes[4..8], b"ftyp");
     assert_eq!(output.report.orientation_buffer_bytes, 16 * 20 * 3);
     // The same crop extends past the stored height if orientation is ignored.
-    let upright = TransformOptions {
-        crop: Some(crate::pipeline::Crop {
-            x: 0,
-            y: 4,
-            width: 16,
-            height: 20,
-        }),
-        ..options
-    };
+    let upright = options
+        .clone()
+        .with_crop(Some(crate::pipeline::Crop::new(0, 4, 16, 20)));
     assert!(
         transcode(
             include_bytes!("../tests/fixtures/orientation/jpeg-1.jpg"),
             ImageFormat::Jpeg,
-            upright,
+            &upright
         )
         .is_err()
     );
@@ -271,29 +224,22 @@ fn exif_rotated_jpeg_is_cropped_in_display_coordinates() {
 #[test]
 fn encoder_threads_trade_determinism_for_latency_explicitly() {
     let encoded = include_bytes!("../tests/fixtures/sample.jpg");
-    let options = TransformOptions {
-        output_width: 64,
-        output_height: 48,
-        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        avif: crate::pipeline::AvifOptions {
-            speed: 10,
-            ..crate::pipeline::AvifOptions::default()
-        },
-        ..TransformOptions::default()
-    };
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: 64,
+        height: 48,
+    })
+    .with_output(OutputSettings::Avif(AvifOptions::default().with_speed(10)))
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing);
     // One thread (the default): byte-identical output on every run.
-    let first = transcode(encoded, ImageFormat::Jpeg, options).unwrap();
-    let second = transcode(encoded, ImageFormat::Jpeg, options).unwrap();
+    let first = transcode(encoded, ImageFormat::Jpeg, &options).unwrap();
+    let second = transcode(encoded, ImageFormat::Jpeg, &options).unwrap();
     assert_eq!(first.bytes, second.bytes);
     assert_eq!(first.report.encoder_threads, 1);
     // 0 resolves to the available cores and still yields a valid file.
     let all = transcode(
         encoded,
         ImageFormat::Jpeg,
-        TransformOptions {
-            encoder_threads: 0,
-            ..options
-        },
+        &options.clone().with_encoder_threads(Threads::Automatic),
     )
     .unwrap();
     assert!(all.report.encoder_threads >= 1);
@@ -302,10 +248,9 @@ fn encoder_threads_trade_determinism_for_latency_explicitly() {
         transcode(
             encoded,
             ImageFormat::Jpeg,
-            TransformOptions {
-                encoder_threads: 100_000,
-                ..options
-            },
+            &options.clone().with_encoder_threads(Threads::Count(
+                std::num::NonZeroUsize::new(100_000).unwrap()
+            ))
         )
         .unwrap_err()
         .kind(),
@@ -317,40 +262,38 @@ fn encoder_threads_trade_determinism_for_latency_explicitly() {
 fn engine_batches_match_single_image_results_in_order() {
     use crate::pipeline::{BatchItem, Engine};
     let jpeg = include_bytes!("../tests/fixtures/sample.jpg");
-    let options = TransformOptions {
-        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        avif: crate::pipeline::AvifOptions {
-            speed: 10,
-            ..crate::pipeline::AvifOptions::default()
-        },
-        transform_threads: 1,
-        encoder_threads: 1,
-        ..TransformOptions::default()
-    };
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: 1,
+        height: 1,
+    })
+    .with_output(OutputSettings::Avif(AvifOptions::default().with_speed(10)))
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
+    .with_transform_threads(Threads::ONE)
+    .with_encoder_threads(Threads::ONE);
     let sizes = [(3, 3), (8, 6), (5, 9), (1, 1), (12, 4), (7, 7)];
     let items: Vec<BatchItem<'_>> = sizes
         .iter()
-        .map(|&(width, height)| BatchItem {
-            encoded: jpeg,
-            format: ImageFormat::Jpeg,
-            options: TransformOptions {
-                output_width: width,
-                output_height: height,
-                ..options
-            },
+        .map(|&(width, height)| {
+            BatchItem::new(
+                jpeg,
+                ImageFormat::Jpeg,
+                options
+                    .clone()
+                    .with_geometry(OutputGeometry::Exact { width, height }),
+            )
         })
-        .chain(std::iter::once(BatchItem {
-            encoded: &jpeg[..10],
-            format: ImageFormat::Jpeg,
-            options,
-        }))
+        .chain(std::iter::once(BatchItem::new(
+            &jpeg[..10],
+            ImageFormat::Jpeg,
+            options.clone(),
+        )))
         .collect();
-    let engine = Engine::new(3);
+    let engine = Engine::new(Threads::Count(std::num::NonZeroUsize::new(3).unwrap())).unwrap();
     assert_eq!(engine.threads(), 3);
     let results = engine.transcode_batch(&items);
     assert_eq!(results.len(), items.len());
     for (item, result) in items.iter().zip(&results).take(sizes.len()) {
-        let single = transcode(item.encoded, item.format, item.options).unwrap();
+        let single = transcode(item.encoded(), item.format(), &item.options().clone()).unwrap();
         let batched = result.as_ref().unwrap();
         assert_eq!(single.bytes, batched.bytes);
         assert_eq!(batched.report.transform_threads, 1);
@@ -361,7 +304,7 @@ fn engine_batches_match_single_image_results_in_order() {
         results.last().unwrap().as_ref().unwrap_err().kind(),
         ProcessingErrorKind::MalformedInput
     );
-    assert!(Engine::new(0).threads() >= 1);
+    assert!(Engine::new(Threads::Automatic).unwrap().threads() >= 1);
     assert!(engine.transcode_batch(&[]).is_empty());
 }
 
@@ -403,10 +346,10 @@ mod backend {
                     "no thanks",
                 ));
             }
-            self.requests.lock().unwrap().push(*request);
+            self.requests.lock().unwrap().push(request.clone());
             Ok(Box::new(Rows {
                 backend: self,
-                request: *request,
+                request: request.clone(),
                 next: 0,
                 bytes: Vec::new(),
             }))
@@ -445,32 +388,32 @@ mod backend {
 
 #[test]
 fn a_backend_receives_the_request_and_every_output_row() {
-    use crate::pipeline::{ChromaSubsampling, transcode_with};
+    use crate::pipeline::{BitDepth, ChromaSubsampling, transcode_with};
     let jpeg = include_bytes!("../tests/fixtures/sample.jpg");
-    let options = TransformOptions {
-        output_width: 7,
-        output_height: 5,
-        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        // Every AVIF setting reaches the backend, which validates them on
-        // its own scale (the depth too, since 2026-11-15).
-        avif: crate::pipeline::AvifOptions {
-            quality: 42,
-            alpha_quality: 17,
-            speed: 0,
-            depth: Some(8),
-            chroma: ChromaSubsampling::Yuv420,
-        },
-        encoder_threads: 3,
-        ..TransformOptions::default()
-    };
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: 7,
+        height: 5,
+    })
+    // Every AVIF setting reaches the backend, which validates them on
+    // its own scale (the depth too, since 2026-11-15).
+    .with_output(OutputSettings::Avif(
+        AvifOptions::default()
+            .with_quality(42)
+            .with_alpha_quality(17)
+            .with_speed(0)
+            .with_depth(BitDepth::Exact(8))
+            .with_chroma(ChromaSubsampling::Yuv420),
+    ))
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
+    .with_encoder_threads(Threads::Count(std::num::NonZeroUsize::new(3).unwrap()));
     let recorder = backend::Recorder::default();
-    let output = transcode_with(jpeg, ImageFormat::Jpeg, options, &recorder).unwrap();
+    let output = transcode_with(jpeg, ImageFormat::Jpeg, &options, &recorder).unwrap();
     let requests = recorder.requests.lock().unwrap().clone();
     assert_eq!(requests.len(), 1);
-    let request = requests[0];
+    let request = &requests[0];
     assert_eq!((request.width, request.height), (7, 5));
     assert!(!request.has_alpha);
-    assert_eq!(request.avif, options.avif);
+    assert_eq!(&request.output, options.output());
     assert_eq!(request.threads, 3);
     // The "encoding" is the rows: opaque straight RGBA8, 7 x 5 pixels.
     assert_eq!(output.bytes.len(), 7 * 5 * 4);
@@ -483,27 +426,22 @@ fn a_backend_receives_the_request_and_every_output_row() {
     let default_backend = transcode(
         jpeg,
         ImageFormat::Jpeg,
-        TransformOptions {
-            avif: crate::pipeline::AvifOptions {
-                speed: 9,
-                ..crate::pipeline::AvifOptions::default()
-            },
-            ..options
-        },
+        &options
+            .clone()
+            .with_output(OutputSettings::Avif(AvifOptions::default().with_speed(9))),
     )
     .unwrap()
     .report
     .encoder_backend;
-    assert_eq!(default_backend, "libavif-rs/aom");
+    assert_eq!(default_backend, "libavif/aom");
     // The rows do not depend on the transform thread count.
     for threads in [1, 4] {
         let again = transcode_with(
             jpeg,
             ImageFormat::Jpeg,
-            TransformOptions {
-                transform_threads: threads,
-                ..options
-            },
+            &options.clone().with_transform_threads(
+                std::num::NonZeroUsize::new(threads).map_or(Threads::Automatic, Threads::Count),
+            ),
             &recorder,
         )
         .unwrap();
@@ -515,12 +453,11 @@ fn a_backend_receives_the_request_and_every_output_row() {
 fn backend_errors_keep_their_kind_and_message() {
     use crate::pipeline::transcode_with;
     let jpeg = include_bytes!("../tests/fixtures/sample.jpg");
-    let options = TransformOptions {
-        output_width: 6,
-        output_height: 4,
-        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        ..TransformOptions::default()
-    };
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: 6,
+        height: 4,
+    })
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing);
     let cases = [
         (
             backend::Recorder {
@@ -555,10 +492,7 @@ fn backend_errors_keep_their_kind_and_message() {
             let error = transcode_with(
                 jpeg,
                 ImageFormat::Jpeg,
-                TransformOptions {
-                    precision,
-                    ..options
-                },
+                &options.clone().with_precision(precision),
                 &recorder,
             )
             .unwrap_err();
@@ -568,7 +502,7 @@ fn backend_errors_keep_their_kind_and_message() {
     }
     // Input errors are reported as before, without asking the backend.
     let recorder = backend::Recorder::default();
-    let error = transcode_with(&jpeg[..10], ImageFormat::Jpeg, options, &recorder).unwrap_err();
+    let error = transcode_with(&jpeg[..10], ImageFormat::Jpeg, &options, &recorder).unwrap_err();
     assert_eq!(error.kind(), ProcessingErrorKind::MalformedInput);
     assert!(recorder.requests.lock().unwrap().is_empty());
 }
@@ -579,26 +513,26 @@ fn engine_batches_run_one_backend_encoder_per_image() {
     let jpeg = include_bytes!("../tests/fixtures/sample.jpg");
     let items: Vec<BatchItem<'_>> = [(3, 3), (8, 6), (5, 9), (12, 4)]
         .iter()
-        .map(|&(width, height)| BatchItem {
-            encoded: jpeg,
-            format: ImageFormat::Jpeg,
-            options: TransformOptions {
-                output_width: width,
-                output_height: height,
-                profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-                encoder_threads: 0,
-                ..TransformOptions::default()
-            },
+        .map(|&(width, height)| {
+            BatchItem::new(
+                jpeg,
+                ImageFormat::Jpeg,
+                TransformOptions::new(OutputGeometry::Exact { width, height })
+                    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
+                    .with_encoder_threads(Threads::Automatic),
+            )
         })
         .collect();
     let recorder = backend::Recorder::default();
-    let results = Engine::new(3).transcode_batch_with(&items, &recorder);
+    let results = Engine::new(Threads::Count(std::num::NonZeroUsize::new(3).unwrap()))
+        .unwrap()
+        .transcode_batch_with(&items, &recorder);
     for (item, result) in items.iter().zip(&results) {
         let output = result.as_ref().unwrap();
-        assert_eq!(
-            output.bytes.len(),
-            (item.options.output_width * item.options.output_height * 4) as usize
-        );
+        let OutputGeometry::Exact { width, height } = *item.options().geometry() else {
+            panic!("exact geometry");
+        };
+        assert_eq!(output.bytes.len(), (width * height * 4) as usize);
         assert_eq!(output.report.encoder_backend, "recorder");
     }
     let requests = recorder.requests.lock().unwrap();
@@ -619,7 +553,8 @@ mod deep_rows {
         EncodeError, EncodeRequest, EncodedImage, EncoderBackend, RowEncoder,
     };
     use crate::pipeline::{
-        Discarded, ImageFormat, InputProfilePolicy, OutputFormat, TransformOptions, transcode_with,
+        Discarded, ImageFormat, InputProfilePolicy, OutputFormat, OutputGeometry, OutputSettings,
+        TransformOptions, transcode_with,
     };
 
     const ANDROID: &str = concat!(
@@ -646,7 +581,7 @@ mod deep_rows {
             self.depths
         }
         fn begin(&self, request: &EncodeRequest) -> Result<Box<dyn RowEncoder + '_>, EncodeError> {
-            self.requests.lock().unwrap().push(*request);
+            self.requests.lock().unwrap().push(request.clone());
             Ok(Box::new(Rows(self)))
         }
     }
@@ -674,14 +609,13 @@ mod deep_rows {
             depths,
             ..Deep::default()
         };
-        let options = TransformOptions {
-            output_width: 64,
-            output_height: 64,
-            profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-            ..TransformOptions::default()
-        };
-        let output = transcode_with(&bytes, ImageFormat::Avif, options, &backend).unwrap();
-        let request = backend.requests.lock().unwrap()[0];
+        let options = TransformOptions::new(OutputGeometry::Exact {
+            width: 64,
+            height: 64,
+        })
+        .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing);
+        let output = transcode_with(&bytes, ImageFormat::Avif, &options, &backend).unwrap();
+        let request = backend.requests.lock().unwrap()[0].clone();
         let rows = backend.rows.lock().unwrap().clone();
         let reduced = output
             .report
@@ -740,14 +674,10 @@ mod deep_rows {
             depths: &[8, 10, 12, 16],
             ..Deep::default()
         };
-        let options = TransformOptions {
-            output_width: width,
-            output_height: height,
-            profile_policy: InputProfilePolicy::Strict,
-            ..TransformOptions::default()
-        };
-        let output = transcode_with(bytes, ImageFormat::Avif, options, &backend).unwrap();
-        let request = backend.requests.lock().unwrap()[0];
+        let options = TransformOptions::new(OutputGeometry::Exact { width, height })
+            .with_profile_policy(InputProfilePolicy::Strict);
+        let output = transcode_with(bytes, ImageFormat::Avif, &options, &backend).unwrap();
+        let request = backend.requests.lock().unwrap()[0].clone();
         let rows = backend.rows.lock().unwrap().clone();
         let reduced = output
             .report
@@ -777,16 +707,11 @@ mod deep_rows {
                 let transcoded = transcode(
                     &input,
                     ImageFormat::Avif,
-                    TransformOptions {
-                        output_width: width,
-                        output_height: height,
-                        profile_policy: InputProfilePolicy::Strict,
-                        avif: AvifOptions {
-                            quality: 100,
-                            ..AvifOptions::default()
-                        },
-                        ..TransformOptions::default()
-                    },
+                    &TransformOptions::new(OutputGeometry::Exact { width, height })
+                        .with_output(OutputSettings::Avif(
+                            AvifOptions::default().with_quality(100),
+                        ))
+                        .with_profile_policy(InputProfilePolicy::Strict),
                 )
                 .unwrap();
                 assert!(

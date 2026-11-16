@@ -6,11 +6,13 @@
 //! external encoder takes part in.
 #![cfg(feature = "jpeg-read")]
 
+use ferrisma::pipeline::Threads;
 use ferrisma::pipeline::{
     BatchItem, EncodeError, EncodeRequest, EncodedImage, EncoderBackend, Engine, ImageFormat,
     InputProfilePolicy, OutputFormat, ProcessingErrorKind, RowEncoder, TransformOptions,
     transcode_with,
 };
+use ferrisma::pipeline::{OutputGeometry, OutputSettings};
 
 const JPEG: &[u8] = include_bytes!("fixtures/sample.jpg");
 
@@ -83,16 +85,17 @@ impl RowEncoder for Rows {
 }
 
 fn options(transform_threads: usize) -> TransformOptions {
-    TransformOptions {
-        output_format: OutputFormat::WebP,
-        output_width: 8,
-        output_height: 8,
-        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        transform_threads,
-        // Room for one reservation of the test backend, not for two.
-        max_managed_bytes: 1 << 20,
-        ..TransformOptions::default()
-    }
+    TransformOptions::new(OutputGeometry::Exact {
+        width: 8,
+        height: 8,
+    })
+    .with_output(OutputSettings::default_for(OutputFormat::WebP))
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
+    .with_transform_threads(
+        std::num::NonZeroUsize::new(transform_threads).map_or(Threads::Automatic, Threads::Count),
+    )
+    // Room for one reservation of the test backend, not for two.
+    .with_max_managed_bytes(1 << 20)
 }
 
 #[test]
@@ -104,7 +107,7 @@ fn a_panic_in_any_backend_stage_is_returned_as_internal() {
             Stage::WriteRow,
             Stage::Finish,
         ] {
-            let error = transcode_with(JPEG, ImageFormat::Jpeg, options(threads), &Backend(stage))
+            let error = transcode_with(JPEG, ImageFormat::Jpeg, &options(threads), &Backend(stage))
                 .expect_err("the panic must become an error");
             assert_eq!(error.kind(), ProcessingErrorKind::Internal, "{stage:?}");
             assert_eq!(error.refusal_reason(), None);
@@ -119,7 +122,7 @@ fn a_panic_in_any_backend_stage_is_returned_as_internal() {
             let output = transcode_with(
                 JPEG,
                 ImageFormat::Jpeg,
-                options(threads),
+                &options(threads),
                 &Backend(Stage::Never),
             )
             .expect("a call after a caught panic succeeds");
@@ -129,7 +132,7 @@ fn a_panic_in_any_backend_stage_is_returned_as_internal() {
     let opaque = transcode_with(
         JPEG,
         ImageFormat::Jpeg,
-        options(1),
+        &options(1),
         &Backend(Stage::OpaquePayload),
     )
     .unwrap_err();
@@ -142,13 +145,9 @@ fn a_panic_in_any_backend_stage_is_returned_as_internal() {
 
 #[test]
 fn a_panicking_batch_item_fails_alone() {
-    let item = BatchItem {
-        encoded: JPEG,
-        format: ImageFormat::Jpeg,
-        options: options(1),
-    };
-    let items = [item; 6];
-    let engine = Engine::new(3);
+    let item = BatchItem::new(JPEG, ImageFormat::Jpeg, options(1));
+    let items: [BatchItem<'_>; 6] = std::array::from_fn(|_| item.clone());
+    let engine = Engine::new(Threads::Count(std::num::NonZeroUsize::new(3).unwrap())).unwrap();
     for stage in [Stage::Begin, Stage::WriteRow, Stage::Finish] {
         // The backend is shared by the items; it panics for one of them.
         struct OneOf {

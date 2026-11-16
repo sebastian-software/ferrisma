@@ -7,5 +7,5 @@ use std::process::ExitCode;
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
-    ferrisma::cli::main(&args, Some(&ferrisma_libavif::LibavifBackend))
+    ferrisma::cli::main(&args, Some(&ferrisma_libavif::LibavifBackend::new()))
 }

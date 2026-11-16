@@ -12,10 +12,12 @@ use std::sync::Mutex;
 
 use crate::decoder::DecodeSource;
 use crate::error::Error;
+use crate::pipeline::Threads;
 use crate::pipeline::{
     EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat, InputProfilePolicy,
     OutputFormat, ProcessingErrorKind, ResizeFilter, RowEncoder, TransformOptions, transcode_with,
 };
+use crate::pipeline::{OutputGeometry, OutputSettings};
 
 #[allow(
     clippy::cast_possible_truncation,
@@ -130,15 +132,14 @@ fn run(
     transcode_with(
         bytes,
         ImageFormat::JpegXl,
-        TransformOptions {
-            output_format: OutputFormat::WebP,
-            output_width: size.0,
-            output_height: size.1,
-            filter: ResizeFilter::Area,
-            profile_policy: policy,
-            transform_threads: 1,
-            ..TransformOptions::default()
-        },
+        &TransformOptions::new(OutputGeometry::Exact {
+            width: size.0,
+            height: size.1,
+        })
+        .with_output(OutputSettings::default_for(OutputFormat::WebP))
+        .with_filter(ResizeFilter::Area)
+        .with_profile_policy(policy)
+        .with_transform_threads(Threads::ONE),
         &capture,
     )
     .map_err(|error| error.kind())?;

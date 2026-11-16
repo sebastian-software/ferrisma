@@ -9,11 +9,13 @@
 // Each test needs its own feature combination.
 #![allow(dead_code, unused_imports)]
 
+use ferrisma::pipeline::Threads;
 use ferrisma::pipeline::{
     ColorSignal, EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat,
     InputProfilePolicy, Output, OutputFormat, ProcessingError, ProcessingErrorKind, RefusalReason,
     RowEncoder, TransformOptions, transcode_with,
 };
+use ferrisma::pipeline::{OutputGeometry, OutputSettings};
 
 struct Discard;
 struct DiscardRows;
@@ -44,15 +46,14 @@ fn run(
     format: ImageFormat,
     profile_policy: InputProfilePolicy,
 ) -> Result<Output, ProcessingError> {
-    let options = TransformOptions {
-        output_format: OutputFormat::WebP,
-        output_width: 4,
-        output_height: 4,
-        transform_threads: 1,
-        profile_policy,
-        ..TransformOptions::default()
-    };
-    transcode_with(bytes, format, options, &Discard)
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: 4,
+        height: 4,
+    })
+    .with_output(OutputSettings::default_for(OutputFormat::WebP))
+    .with_transform_threads(Threads::ONE)
+    .with_profile_policy(profile_policy);
+    transcode_with(bytes, format, &options, &Discard)
 }
 
 fn jpeg(profile_policy: InputProfilePolicy) -> Result<Output, ProcessingError> {
@@ -100,12 +101,12 @@ fn other_errors_have_no_refusal_reason() {
         refusal(truncated),
         (ProcessingErrorKind::MalformedInput, None)
     );
-    let options = TransformOptions {
-        output_format: OutputFormat::WebP,
-        output_width: 0,
-        ..TransformOptions::default()
-    };
-    let error = transcode_with(bytes, ImageFormat::Jpeg, options, &Discard).unwrap_err();
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: 0,
+        height: 1,
+    })
+    .with_output(OutputSettings::default_for(OutputFormat::WebP));
+    let error = transcode_with(bytes, ImageFormat::Jpeg, &options, &Discard).unwrap_err();
     assert_eq!(
         (error.kind(), error.refusal_reason()),
         (ProcessingErrorKind::InvalidOptions, None)

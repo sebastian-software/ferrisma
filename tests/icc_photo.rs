@@ -26,10 +26,12 @@
 )]
 mod resize_oracle;
 
+use ferrisma::pipeline::Threads;
 use ferrisma::pipeline::{
     Crop, EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat,
     InputProfilePolicy, OutputFormat, ResizeFilter, RowEncoder, TransformOptions, transcode_with,
 };
+use ferrisma::pipeline::{OutputGeometry, OutputSettings};
 use std::sync::Mutex;
 use webp::api::encode::{PixelLayout, PixelRows, encode_lossless};
 
@@ -66,16 +68,15 @@ fn run(bytes: &[u8], format: ImageFormat, crop: Option<Crop>) -> Vec<u8> {
     transcode_with(
         bytes,
         format,
-        TransformOptions {
-            output_format: OutputFormat::WebP,
-            output_width: WIDTH,
-            output_height: HEIGHT,
-            crop,
-            filter: ResizeFilter::Area,
-            profile_policy: InputProfilePolicy::UseRenderedIcc,
-            transform_threads: 1,
-            ..TransformOptions::default()
-        },
+        &TransformOptions::new(OutputGeometry::Exact {
+            width: WIDTH,
+            height: HEIGHT,
+        })
+        .with_output(OutputSettings::default_for(OutputFormat::WebP))
+        .with_crop(crop)
+        .with_filter(ResizeFilter::Area)
+        .with_profile_policy(InputProfilePolicy::UseRenderedIcc)
+        .with_transform_threads(Threads::ONE),
         &capture,
     )
     .unwrap();
@@ -129,12 +130,7 @@ fn real_srgb_icc_photograph_matches_littlecms() {
     let actual = run(
         jpeg,
         ImageFormat::Jpeg,
-        Some(Crop {
-            x: 150,
-            y: 100,
-            width: WIDTH,
-            height: HEIGHT,
-        }),
+        Some(Crop::new(150, 100, WIDTH, HEIGHT)),
     );
     assert_matches(&actual, &littlecms("paris-crop-srgb-icc"), "paris sRGB ICC");
 }

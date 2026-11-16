@@ -25,9 +25,9 @@ mod consumer {
     use std::process::ExitCode;
 
     use ferrisma::pipeline::{
-        ImageFormat, InputProfilePolicy, InspectionLimits, Output, OutputFormat, ProcessingError,
-        ProcessingErrorKind, RefusalReason, ResizeFit, ResizeOptions, TransformOptions,
-        WebpOptions, inspect, transcode_resized,
+        ImageFormat, InputProfilePolicy, InspectionLimits, Output, OutputGeometry, OutputSettings,
+        ProcessingError, ProcessingErrorKind, RefusalReason, ResizeFit, ResizeOptions,
+        TransformOptions, WebpLossy, WebpOptions, inspect, transcode,
     };
 
     /// Service limits. Every value is explicit; none relies on a default.
@@ -46,12 +46,16 @@ mod consumer {
         output_bytes: 4 * 1024 * 1024,
     };
 
-    const THUMBNAIL: ResizeOptions = ResizeOptions {
-        width: Some(512),
-        height: Some(512),
-        fit: ResizeFit::Inside,
-        without_enlargement: true,
-    };
+    /// Thumbnails fit inside 512 by 512 and are never enlarged.
+    fn thumbnail_geometry() -> OutputGeometry {
+        OutputGeometry::Resize(
+            ResizeOptions::default()
+                .with_width(512)
+                .with_height(512)
+                .with_fit(ResizeFit::Inside)
+                .with_without_enlargement(true),
+        )
+    }
 
     /// What the service does with a failure.
     #[derive(Debug, PartialEq, Eq)]
@@ -71,9 +75,11 @@ mod consumer {
     /// category must not crash or silently succeed.
     fn disposition(error: &ProcessingError) -> Disposition {
         match error.kind() {
-            ProcessingErrorKind::InputLimitExceeded | ProcessingErrorKind::MalformedInput => {
-                Disposition::Reject
-            }
+            // An output above the limit is this upload's at these
+            // settings: report it, as an input above the limit.
+            ProcessingErrorKind::InputLimitExceeded
+            | ProcessingErrorKind::OutputLimitExceeded
+            | ProcessingErrorKind::MalformedInput => Disposition::Reject,
             // A format this build does not include is a property of the
             // deployment, not of the upload.
             ProcessingErrorKind::UnsupportedInput
@@ -115,21 +121,22 @@ mod consumer {
         Ok((bytes.len() <= limit).then_some(bytes))
     }
 
+    /// Every option is built in the facade's one construction style: the
+    /// geometry first, then a `with_*` method per setting (ADR-0040,
+    /// 2026-11-16).
     fn options(limits: Limits, policy: InputProfilePolicy) -> TransformOptions {
-        TransformOptions {
-            output_format: OutputFormat::WebP,
+        TransformOptions::new(thumbnail_geometry())
             // libwebp's own scales: quality 1-100, method 0 (fastest) to 6.
-            webp: WebpOptions::Lossy {
-                quality: 80.0,
-                method: WebpOptions::DEFAULT_METHOD,
-            },
-            profile_policy: policy,
-            max_input_bytes: limits.input_bytes,
-            max_input_pixels: limits.input_pixels,
-            max_managed_bytes: limits.managed_bytes,
-            max_output_bytes: limits.output_bytes,
-            ..TransformOptions::default()
-        }
+            .with_output(OutputSettings::WebP(WebpOptions::Lossy(
+                WebpLossy::default()
+                    .with_quality(80.0)
+                    .with_method(WebpOptions::DEFAULT_METHOD),
+            )))
+            .with_profile_policy(policy)
+            .with_max_input_bytes(limits.input_bytes)
+            .with_max_input_pixels(limits.input_pixels)
+            .with_max_managed_bytes(limits.managed_bytes)
+            .with_max_output_bytes(limits.output_bytes)
     }
 
     /// Choose the color policy from header evidence. Missing color evidence is
@@ -149,11 +156,10 @@ mod consumer {
                 InputProfilePolicy::Strict
             });
         }
-        let inspection = InspectionLimits {
-            max_input_bytes: limits.input_bytes,
-            max_input_pixels: limits.input_pixels,
-        };
-        let metadata = inspect(bytes, format, inspection)?;
+        let inspection = InspectionLimits::default()
+            .with_max_input_bytes(limits.input_bytes)
+            .with_max_input_pixels(limits.input_pixels);
+        let metadata = inspect(bytes, format, &inspection)?;
         let untagged = metadata.rendered_icc.is_none() && metadata.rendered_cicp.is_none();
         Ok(if untagged && assume_srgb {
             InputProfilePolicy::AssumeSrgbIfMissing
@@ -169,7 +175,7 @@ mod consumer {
         assume_srgb: bool,
     ) -> Result<Output, ProcessingError> {
         let policy = policy(bytes, format, limits, assume_srgb)?;
-        transcode_resized(bytes, format, options(limits, policy), THUMBNAIL)
+        transcode(bytes, format, &options(limits, policy))
     }
 
     fn describe(output: &Output) -> String {
@@ -286,7 +292,7 @@ mod consumer {
         let half = &jpeg[..jpeg.len() / 2];
         let garbage = [0_u8; 64];
         let run = |bytes: &[u8], format, options| {
-            transcode_resized(bytes, format, options, THUMBNAIL).map(|output| describe(&output))
+            transcode(bytes, format, &options).map(|output| describe(&output))
         };
         let limited = |limits| options(limits, InputProfilePolicy::AssumeSrgbIfMissing);
         let cases: Vec<(
@@ -296,7 +302,7 @@ mod consumer {
         )> = vec![
             (
                 "untagged JPEG, explicit sRGB assumption",
-                run(&jpeg, ImageFormat::Jpeg, assumed),
+                run(&jpeg, ImageFormat::Jpeg, assumed.clone()),
                 None,
             ),
             (
@@ -307,17 +313,17 @@ mod consumer {
             ),
             (
                 "untagged JPEG under the strict default policy",
-                run(&jpeg, ImageFormat::Jpeg, strict),
+                run(&jpeg, ImageFormat::Jpeg, strict.clone()),
                 Some(ProcessingErrorKind::UnsupportedColor),
             ),
             (
                 "truncated JPEG",
-                run(half, ImageFormat::Jpeg, assumed),
+                run(half, ImageFormat::Jpeg, assumed.clone()),
                 Some(ProcessingErrorKind::MalformedInput),
             ),
             (
                 "bytes that are not a WebP file",
-                run(&garbage, ImageFormat::WebP, assumed),
+                run(&garbage, ImageFormat::WebP, assumed.clone()),
                 Some(ProcessingErrorKind::MalformedInput),
             ),
             (
@@ -366,21 +372,20 @@ mod consumer {
                         ..SERVICE_LIMITS
                     }),
                 ),
-                Some(ProcessingErrorKind::ResourceExhausted),
+                Some(ProcessingErrorKind::OutputLimitExceeded),
             ),
             (
-                // The thumbnail size comes from `THUMBNAIL`; an exact size
-                // beside it would be ignored, so it is refused (owner
-                // decision of 2026-11-15).
-                "exact output size beside the resize options",
+                // A zero size is refused before decoding. (Until 2026-11-16
+                // this case gave an exact size beside the resize options,
+                // which the one geometry setting cannot express any more.)
+                "zero output width",
                 run(
                     &jpeg,
                     ImageFormat::Jpeg,
-                    TransformOptions {
-                        output_width: 64,
-                        output_height: 64,
-                        ..assumed
-                    },
+                    assumed.clone().with_geometry(OutputGeometry::Exact {
+                        width: 0,
+                        height: 64,
+                    }),
                 ),
                 Some(ProcessingErrorKind::InvalidOptions),
             ),
@@ -389,10 +394,9 @@ mod consumer {
                 inspect(
                     &jpeg,
                     ImageFormat::Jpeg,
-                    InspectionLimits {
-                        max_input_bytes: SERVICE_LIMITS.input_bytes,
-                        max_input_pixels: 16,
-                    },
+                    &InspectionLimits::default()
+                        .with_max_input_bytes(SERVICE_LIMITS.input_bytes)
+                        .with_max_input_pixels(16),
                 )
                 .map(|metadata| format!("{}x{} header", metadata.width, metadata.height)),
                 Some(ProcessingErrorKind::InputLimitExceeded),
