@@ -398,7 +398,7 @@ def check_tests(env, partition, filter, target=None, keep_going=False):
         # Every listed name belongs to exactly one partition. A name shared by
         # several test binaries runs in each of them within that partition.
         names = listed()
-        selected = names[index - 1::count]
+        selected = partition_names(names, index, count)
         print(f"Partition {index}/{count}: {len(selected)} of {len(names)} test names", flush=True)
         scalar_selected = [name for name in selected if name not in simd]
         simd_selected = [name for name in selected if name in simd]
@@ -409,6 +409,58 @@ def check_tests(env, partition, filter, target=None, keep_going=False):
     if failures:
         raise SystemExit(f"{len(failures)} test invocation(s) failed: "
                          + "; ".join(f"exit {error.returncode}" for error in failures))
+
+
+# The tests that take most of a shard's time: whole encodes of large images
+# against the original (the encoder's gate sizes up to 4000x3000 and their
+# streaming, output-processor and container variants), and the SIMD
+# whole-encode gates, whose binary runs its tests one at a time. Heaviest
+# first, from the hosted runs of 2026-11-16 (ordinary and sanitized oracle).
+# They are dealt out before the other tests, so that each partition gets its
+# share: a round robin over the sorted names put three of the largest into
+# one shard, which then ran past the job's time limit. The list only orders
+# the partitions; every listed test still runs in exactly one of them, and a
+# name that no test has any more fails the stage, so the list stays current.
+HEAVY_TESTS = [
+    "enc_public_streaming_gate_4000x3000_matches_the_original_target",
+    "encoder_public::encoder_container::public_encoder_output_mode_2_gate_4000x3000_matches_original",
+    "enc_public_lossy_small_large_and_settings_match_the_original_target",
+    "encoder_public::public_encoder_streaming_gate_4000x3000_d1_matches_original",
+    "encoder_public::public_encoder_streaming_gate_4000x3000_d2_matches_original",
+    "encoder_public::encoder_container::public_encoder_output_mode_2_gate_2049_matches_original",
+    "encoder_public::public_encoder_streaming_gate_2048x1536_matches_original",
+    "encoder_public::encoder_container::public_encoder_output_mode_2_gate_2048x1536_matches_original",
+    "encoder_public::public_encoder_output_processor_matches_original",
+    "encoder_public::public_encoder_streaming_gate_2049_d1_matches_original",
+    "encoder_public::public_encoder_streaming_gate_2049_d2_matches_original",
+    "encoder_public::public_encoder_lossy_vardct_streaming_matches_original",
+    "encoder_public::encoder_container::public_encoder_streaming_suite_container_instances_match_original",
+    "encoder_public::public_encoder_streaming_gate_1024_matches_original",
+    "enc_public_streaming_gate_sizes_match_the_original_target",
+    "encoder_public::encoder_container::public_encoder_container_output_processor_matches_original",
+    "encoder_public::encoder_lossless::public_encoder_lossless_gate_4000x3000_matches_original",
+    "encoder_public::encoder_container::public_encoder_output_mode_2_gate_1024_matches_original",
+    "encoder_public::public_encoder_lossy_vardct_large_sizes_match_original",
+    "encoder_public::public_encoder_streaming_gate_768_matches_original",
+]
+
+
+def partition_names(names, index, count):
+    """The names of partition `index` of `count`: HEAVY_TESTS in their order,
+    then the other names, dealt out in alternating direction (1..count,
+    count..1, ...)."""
+    missing = [name for name in HEAVY_TESTS if name not in names]
+    if missing:
+        raise SystemExit(f"HEAVY_TESTS names tests that do not exist: {missing}")
+    order = [*HEAVY_TESTS, *(name for name in names if name not in HEAVY_TESTS)]
+    selected = []
+    for position, name in enumerate(order):
+        slot = position % count
+        if (position // count) % 2:
+            slot = count - 1 - slot
+        if slot == index - 1:
+            selected.append(name)
+    return selected
 
 
 def partition(value):
