@@ -39,7 +39,8 @@ def main():
     parser.add_argument("--baseline", type=Path, default=ROOT / "build/baseline")
     parser.add_argument("--port", type=Path, default=ROOT / "build/port")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "build/differential")
-    parser.add_argument('--decoder-codec', help='Select the same explicit original decoder on both sides')
+    parser.add_argument('--decoder-codec', help='Select the same explicit original decoder on both sides; without '
+                        "it both use libavif's AUTO choice (AOM in the root, AVIF_CODEC_DAV1D=OFF, port ADR 0061)")
     parser.add_argument("--diagnose-float", action="store_true",
                         help="Diagnose PNG mismatches against a separate C oracle with FP contraction disabled")
     args = parser.parse_args()

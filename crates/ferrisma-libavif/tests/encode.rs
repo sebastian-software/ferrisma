@@ -70,9 +70,11 @@ struct Decoded {
     chroma: u32,
 }
 
-/// Decode with libavif-rs's own decoder (its dav1d port, validated byte for
-/// byte against upstream libavif). `avif-decode` cannot be linked here: its
-/// rav1d exports the same `dav1d_*` C symbols as libavif-rs's dav1d port.
+/// Decode with libavif-rs's own decoder, validated byte for byte against
+/// upstream libavif. The AUTO choice decodes with the libaom translation:
+/// libavif-rs is libavif built with AVIF_CODEC_DAV1D=OFF (port ADR 0061);
+/// until then it chose the dav1d port. The checks and tolerances below did
+/// not change with that.
 fn decode(file: &[u8]) -> Decoded {
     use avif::{avif as image_api, read, reformat};
     // SAFETY (whole block): every object comes from its libavif constructor,

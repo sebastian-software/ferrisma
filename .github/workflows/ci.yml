@@ -155,7 +155,7 @@ jobs:
       - run: test "$(uname -m)" = arm64
       - run: cargo fetch --locked
       # Selecting these consumers together also checks that AVIF input and the
-      # libavif encoder link in the same binary without duplicate dav1d symbols.
+      # libavif encoder link in the same binary without duplicate symbols.
       - run: cargo test -p ferrisma -p ferrisma-avif-read -p ferrisma-avif-write -p ferrisma-jxl-decoder -p ferrisma-jxl-encoder -p ferrisma-libavif --all-targets --all-features --locked
       - run: cargo clippy -p ferrisma -p ferrisma-avif-read -p ferrisma-avif-write -p ferrisma-jxl-decoder -p ferrisma-jxl-encoder -p ferrisma-libavif --all-targets --all-features --no-deps --locked -- -D warnings
       - name: Verify concurrent SharpYUV cold initialization on ARM64

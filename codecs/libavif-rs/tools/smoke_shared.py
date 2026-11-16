@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Exercise the Rust dylib's C ABI, initialization, decode, encode, and cleanup."""
+"""Exercise the Rust dylib's C ABI, initialization, decode, encode, and cleanup.
+
+The decode uses libavif's AUTO codec choice, which is AOM in the root
+(AVIF_CODEC_DAV1D=OFF, port ADR 0061).
+"""
 import ctypes as C
 import argparse
 from pathlib import Path

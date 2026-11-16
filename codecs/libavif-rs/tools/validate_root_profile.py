@@ -234,7 +234,10 @@ def main():
          '--port', executions['rust'] / 'results.xml', '--report', output / 'parity.json',
          '--baseline-log', executions['c'] / 'LastTest.log', '--port-log', executions['rust'] / 'LastTest.log'])
     # Exact bytes and the shared ABI smoke use the ordinary references; the
-    # sanitized comparison executes the complete original suites only.
+    # sanitized comparison executes the complete original suites only. The
+    # default pass keeps libavif's AUTO decoder choice: AOM since
+    # AVIF_CODEC_DAV1D=OFF (port ADR 0061), libgav1 where that engine is
+    # selected; the explicit `aom` pass stays separate.
     for decoder in ([] if args.tier == 'regression' or args.sanitizer else ['default', 'aom']):
         run(['python3', 'tools/differential.py', '--baseline', baseline, '--port', port,
              '--output-dir', output / f'bytes-{decoder}', *(['--decoder-codec', decoder] if decoder != 'default' else [])])
