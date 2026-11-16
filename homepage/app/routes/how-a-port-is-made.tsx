@@ -156,7 +156,7 @@ export default function HowAPortIsMade() {
         <p className="fx-section-link">
           <a href={path("guide/quality-gate")}>Where each port stands</a>
           <a href={path(ADR_0004)}>The JPEG XL port</a>
-          <a href={path("#ports")}>Back to the four ports</a>
+          <a href={path("how-it-is-built#ports")}>Back to the four ports</a>
         </p>
       </MonoSection>
 
@@ -169,7 +169,7 @@ export default function HowAPortIsMade() {
             <MonoAction href={path("guide/quality-gate")} primary>
               Read the quality gate
             </MonoAction>
-            <MonoAction href={path("")}>Back to the overview</MonoAction>
+            <MonoAction href={path("how-it-is-built")}>How Ferrisma is built</MonoAction>
           </>
         }
       />

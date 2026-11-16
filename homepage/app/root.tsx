@@ -35,6 +35,7 @@ const sections = [
     label: "Guide",
     pages: [
       ["Getting started", "/guide/getting-started"],
+      ["How Ferrisma is built", "/how-it-is-built"],
       ["How a port is made", "/how-a-port-is-made"],
       ["Status", "/guide/status"],
       ["Quality gate", "/guide/quality-gate"],
@@ -64,8 +65,8 @@ const links = [
   <ArdoActiveLink key="guide" to="/guide/getting-started">
     Guide
   </ArdoActiveLink>,
-  <ArdoActiveLink key="gate" to="/guide/quality-gate">
-    Quality gate
+  <ArdoActiveLink key="built" to="/how-it-is-built">
+    How it is built
   </ArdoActiveLink>,
   <ArdoActiveLink key="codecs" to="/codecs/jpeg">
     Codecs
@@ -159,7 +160,14 @@ export default function Root() {
   const config = useArdoConfig();
   const canonical = config.siteUrl ? new URL(path || "/", config.siteUrl).href : undefined;
   // Pages on the homepage's layout: no documentation sidebar, no MDX wrapper.
-  const home = ["", "/", "/how-a-port-is-made", "/how-a-port-is-made/"].includes(path);
+  const home = [
+    "",
+    "/",
+    "/how-it-is-built",
+    "/how-it-is-built/",
+    "/how-a-port-is-made",
+    "/how-a-port-is-made/",
+  ].includes(path);
   return (
     <MonoPage className={home ? "fx-site" : "mono-docs fx-docs"}>
       {home && canonical && <link rel="canonical" href={canonical} />}
