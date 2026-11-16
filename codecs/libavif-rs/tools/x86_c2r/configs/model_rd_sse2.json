@@ -1,0 +1,18 @@
+{
+ "aligned_externs": [],
+ "comment_start": 12,
+ "consts": {},
+ "extern_c": [],
+ "feature": "sse2",
+ "macros": {},
+ "output": "model_rd_sse2.rs",
+ "prelude": "preludes/prelude_rdopt.h",
+ "public": [],
+ "public_all": false,
+ "rtcd": [
+  "av1_interp_cubic_rate_dist_sse2"
+ ],
+ "skip": [],
+ "source": "upstream/aom/av1/encoder/x86/model_rd_sse2.c",
+ "structs": {}
+}

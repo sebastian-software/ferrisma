@@ -1,5 +1,5 @@
 // Supplementary transcription of upstream/aom/test/cfl_test.cc for its NEON
-// instantiations: CFLSubAvgTest.SubAvgTest, CFLSubsampleLBDTest
+// instantiations and, on x86-64, its SSE2, SSSE3 and AVX2 ones: CFLSubAvgTest.SubAvgTest, CFLSubsampleLBDTest
 // (SubsampleLBD420/422/444Test), CFLSubsampleHBDTest
 // (SubsampleHBD420/422/444Test), CFLPredictTest.PredictTest and
 // CFLPredictHBDTest.PredictHBDTest. Each parameter resets the generator to
@@ -8,7 +8,7 @@
 // `cfl_get_*_neon` against those of `cfl_get_*_c` exactly over the original
 // width x height region at stride CFL_BUF_LINE. The DISABLED_*Speed tests are
 // not transcribed.
-#![cfg(target_arch = "aarch64")]
+#![cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
 use aom::av1__common__cfl::{
     cfl_get_luma_subsampling_420_hbd_c, cfl_get_luma_subsampling_420_lbd_c,
     cfl_get_luma_subsampling_422_hbd_c, cfl_get_luma_subsampling_422_lbd_c,
@@ -17,7 +17,14 @@ use aom::av1__common__cfl::{
     cfl_predict_hbd_fn, cfl_predict_lbd_fn, cfl_subsample_hbd_fn, cfl_subsample_lbd_fn,
     cfl_subtract_average_fn,
 };
+#[cfg(target_arch = "aarch64")]
 use aom::simd::av1__common__arm__cfl_neon::*;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::av1__common__x86__cfl_avx2::*;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::av1__common__x86__cfl_sse2::*;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::av1__common__x86__cfl_ssse3::*;
 
 use super::acm_random::ACMRandom;
 
@@ -63,6 +70,7 @@ fn assert_eq_region<A: PartialEq + core::fmt::Debug>(a: &[A], b: &[A], width: us
 }
 
 /// TEST_P(CFLSubAvgTest, SubAvgTest)
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn cfl_sub_avg_neon() {
     for tx in ALL_CFL_TX_SIZES {
@@ -127,6 +135,7 @@ type GetLbd = unsafe extern "C-unwind" fn(u8) -> cfl_subsample_lbd_fn;
 type GetHbd = unsafe extern "C-unwind" fn(u8) -> cfl_subsample_hbd_fn;
 
 /// CFLSubsampleLBDTest.SubsampleLBD{420,422,444}Test
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn cfl_subsample_lbd_neon() {
     let cases: [(GetLbd, GetLbd, &str, usize, usize); 3] = [
@@ -146,6 +155,7 @@ fn cfl_subsample_lbd_neon() {
 }
 
 /// CFLSubsampleHBDTest.SubsampleHBD{420,422,444}Test
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn cfl_subsample_hbd_neon() {
     let cases: [(GetHbd, GetHbd, &str, usize, usize); 3] = [
@@ -183,6 +193,7 @@ fn rand_data<I: Copy>(rnd: &mut ACMRandom, bd: i32, width: usize, height: usize,
 }
 
 /// TEST_P(CFLPredictTest, PredictTest)
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn cfl_predict_lbd_neon() {
     for tx in ALL_CFL_TX_SIZES {
@@ -211,6 +222,7 @@ fn cfl_predict_lbd_neon() {
 }
 
 /// TEST_P(CFLPredictHBDTest, PredictHBDTest)
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn cfl_predict_hbd_neon() {
     let bd = 12;
@@ -220,6 +232,294 @@ fn cfl_predict_hbd_neon() {
         // SAFETY: plain table lookups.
         let (predict, predict_ref): (cfl_predict_hbd_fn, cfl_predict_hbd_fn) =
             unsafe { (cfl_get_predict_hbd_fn_neon(tx), cfl_get_predict_hbd_fn_c(tx)) };
+        let (predict, predict_ref) = (predict.unwrap(), predict_ref.unwrap());
+        let mut chroma = Box::new(Aligned([0u16; CFL_BUF_SQUARE]));
+        let mut chroma_ref = Box::new(Aligned([0u16; CFL_BUF_SQUARE]));
+        let mut luma = Box::new(Aligned([0i16; CFL_BUF_SQUARE]));
+        let mut luma_ref = Box::new(Aligned([0i16; CFL_BUF_SQUARE]));
+        for it in 0..NUM_ITERATIONS {
+            let alpha_q3 = rand_data(&mut rnd, bd, width, height, &mut chroma.0,
+                                     &mut chroma_ref.0, &mut luma.0, &mut luma_ref.0,
+                                     |v| v as u16);
+            // SAFETY: CFL_BUF_SQUARE buffers at stride CFL_BUF_LINE.
+            unsafe {
+                predict(luma.0.as_ptr(), chroma.0.as_mut_ptr(), CFL_BUF_LINE as i32, alpha_q3, bd);
+                predict_ref(luma_ref.0.as_ptr(), chroma_ref.0.as_mut_ptr(), CFL_BUF_LINE as i32,
+                            alpha_q3, bd);
+            }
+            assert_eq_region(&chroma.0[..], &chroma_ref.0[..], width, height, "PredictHBD", tx, it);
+        }
+    }
+}
+
+// x86-64 instantiations (SSE2 CFLSubAvgTest, SSSE3 and AVX2 subsample and predict, AVX2
+// CFLSubAvgTest) of cfl_test.cc.
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn cfl_sub_avg_sse2() {
+    if !std::is_x86_feature_detected!("sse2") {
+        return;
+    }
+    for tx in ALL_CFL_TX_SIZES {
+        let (width, height) = (TX_SIZE_WIDE[tx as usize], TX_SIZE_HIGH[tx as usize]);
+        let mut rnd = ACMRandom::with_seed(ACMRandom::deterministic_seed());
+        // SAFETY: plain table lookups.
+        let (sub_avg, sub_avg_ref): (cfl_subtract_average_fn, cfl_subtract_average_fn) =
+            unsafe { (cfl_get_subtract_average_fn_sse2(tx), cfl_get_subtract_average_fn_c(tx)) };
+        let (sub_avg, sub_avg_ref) = (sub_avg.unwrap(), sub_avg_ref.unwrap());
+        let mut data = Box::new([0u16; CFL_BUF_SQUARE]);
+        let mut data_ref = Box::new([0u16; CFL_BUF_SQUARE]);
+        let mut dst = Box::new([0i16; CFL_BUF_SQUARE]);
+        let mut dst_ref = Box::new([0i16; CFL_BUF_SQUARE]);
+        for it in 0..NUM_ITERATIONS {
+            for j in 0..height {
+                for i in 0..width {
+                    let d = rnd.rand15();
+                    data[j * CFL_BUF_LINE + i] = d;
+                    data_ref[j * CFL_BUF_LINE + i] = d;
+                }
+            }
+            // SAFETY: CFL_BUF_SQUARE buffers at stride CFL_BUF_LINE.
+            unsafe {
+                sub_avg(data.as_ptr(), dst.as_mut_ptr());
+                sub_avg_ref(data_ref.as_ptr(), dst_ref.as_mut_ptr());
+            }
+            assert_eq_region(&dst[..], &dst_ref[..], width, height, "SubAvg", tx, it);
+        }
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn cfl_sub_avg_avx2() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    for tx in ALL_CFL_TX_SIZES {
+        let (width, height) = (TX_SIZE_WIDE[tx as usize], TX_SIZE_HIGH[tx as usize]);
+        let mut rnd = ACMRandom::with_seed(ACMRandom::deterministic_seed());
+        // SAFETY: plain table lookups.
+        let (sub_avg, sub_avg_ref): (cfl_subtract_average_fn, cfl_subtract_average_fn) =
+            unsafe { (cfl_get_subtract_average_fn_avx2(tx), cfl_get_subtract_average_fn_c(tx)) };
+        let (sub_avg, sub_avg_ref) = (sub_avg.unwrap(), sub_avg_ref.unwrap());
+        let mut data = Box::new([0u16; CFL_BUF_SQUARE]);
+        let mut data_ref = Box::new([0u16; CFL_BUF_SQUARE]);
+        let mut dst = Box::new([0i16; CFL_BUF_SQUARE]);
+        let mut dst_ref = Box::new([0i16; CFL_BUF_SQUARE]);
+        for it in 0..NUM_ITERATIONS {
+            for j in 0..height {
+                for i in 0..width {
+                    let d = rnd.rand15();
+                    data[j * CFL_BUF_LINE + i] = d;
+                    data_ref[j * CFL_BUF_LINE + i] = d;
+                }
+            }
+            // SAFETY: CFL_BUF_SQUARE buffers at stride CFL_BUF_LINE.
+            unsafe {
+                sub_avg(data.as_ptr(), dst.as_mut_ptr());
+                sub_avg_ref(data_ref.as_ptr(), dst_ref.as_mut_ptr());
+            }
+            assert_eq_region(&dst[..], &dst_ref[..], width, height, "SubAvg", tx, it);
+        }
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn cfl_subsample_lbd_ssse3() {
+    if !std::is_x86_feature_detected!("ssse3") {
+        return;
+    }
+    let cases: [(GetLbd, GetLbd, &str, usize, usize); 3] = [
+        (cfl_get_luma_subsampling_420_lbd_ssse3, cfl_get_luma_subsampling_420_lbd_c, "LBD420", 1, 1),
+        (cfl_get_luma_subsampling_422_lbd_ssse3, cfl_get_luma_subsampling_422_lbd_c, "LBD422", 1, 0),
+        (cfl_get_luma_subsampling_444_lbd_ssse3, cfl_get_luma_subsampling_444_lbd_c, "LBD444", 0, 0),
+    ];
+    for tx in ALL_CFL_TX_SIZES {
+        let (width, height) = (TX_SIZE_WIDE[tx as usize], TX_SIZE_HIGH[tx as usize]);
+        for (get, get_ref, what, sw, sh) in cases {
+            // SAFETY: plain table lookups.
+            let (fun, fun_ref) = unsafe { (get(tx).unwrap(), get_ref(tx).unwrap()) };
+            subsample_test::<u8>(fun, fun_ref, tx, width >> sw, height >> sh, ACMRandom::rand8,
+                                 what);
+        }
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn cfl_subsample_lbd_avx2() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    let cases: [(GetLbd, GetLbd, &str, usize, usize); 3] = [
+        (cfl_get_luma_subsampling_420_lbd_avx2, cfl_get_luma_subsampling_420_lbd_c, "LBD420", 1, 1),
+        (cfl_get_luma_subsampling_422_lbd_avx2, cfl_get_luma_subsampling_422_lbd_c, "LBD422", 1, 0),
+        (cfl_get_luma_subsampling_444_lbd_avx2, cfl_get_luma_subsampling_444_lbd_c, "LBD444", 0, 0),
+    ];
+    for tx in ALL_CFL_TX_SIZES {
+        let (width, height) = (TX_SIZE_WIDE[tx as usize], TX_SIZE_HIGH[tx as usize]);
+        for (get, get_ref, what, sw, sh) in cases {
+            // SAFETY: plain table lookups.
+            let (fun, fun_ref) = unsafe { (get(tx).unwrap(), get_ref(tx).unwrap()) };
+            subsample_test::<u8>(fun, fun_ref, tx, width >> sw, height >> sh, ACMRandom::rand8,
+                                 what);
+        }
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn cfl_subsample_hbd_ssse3() {
+    if !std::is_x86_feature_detected!("ssse3") {
+        return;
+    }
+    let cases: [(GetHbd, GetHbd, &str, usize, usize); 3] = [
+        (cfl_get_luma_subsampling_420_hbd_ssse3, cfl_get_luma_subsampling_420_hbd_c, "HBD420", 1, 1),
+        (cfl_get_luma_subsampling_422_hbd_ssse3, cfl_get_luma_subsampling_422_hbd_c, "HBD422", 1, 0),
+        (cfl_get_luma_subsampling_444_hbd_ssse3, cfl_get_luma_subsampling_444_hbd_c, "HBD444", 0, 0),
+    ];
+    for tx in ALL_CFL_TX_SIZES {
+        let (width, height) = (TX_SIZE_WIDE[tx as usize], TX_SIZE_HIGH[tx as usize]);
+        for (get, get_ref, what, sw, sh) in cases {
+            // SAFETY: plain table lookups.
+            let (fun, fun_ref) = unsafe { (get(tx).unwrap(), get_ref(tx).unwrap()) };
+            subsample_test::<u16>(fun, fun_ref, tx, width >> sw, height >> sh, ACMRandom::rand12,
+                                  what);
+        }
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn cfl_subsample_hbd_avx2() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    let cases: [(GetHbd, GetHbd, &str, usize, usize); 3] = [
+        (cfl_get_luma_subsampling_420_hbd_avx2, cfl_get_luma_subsampling_420_hbd_c, "HBD420", 1, 1),
+        (cfl_get_luma_subsampling_422_hbd_avx2, cfl_get_luma_subsampling_422_hbd_c, "HBD422", 1, 0),
+        (cfl_get_luma_subsampling_444_hbd_avx2, cfl_get_luma_subsampling_444_hbd_c, "HBD444", 0, 0),
+    ];
+    for tx in ALL_CFL_TX_SIZES {
+        let (width, height) = (TX_SIZE_WIDE[tx as usize], TX_SIZE_HIGH[tx as usize]);
+        for (get, get_ref, what, sw, sh) in cases {
+            // SAFETY: plain table lookups.
+            let (fun, fun_ref) = unsafe { (get(tx).unwrap(), get_ref(tx).unwrap()) };
+            subsample_test::<u16>(fun, fun_ref, tx, width >> sw, height >> sh, ACMRandom::rand12,
+                                  what);
+        }
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn cfl_predict_lbd_ssse3() {
+    if !std::is_x86_feature_detected!("ssse3") {
+        return;
+    }
+    for tx in ALL_CFL_TX_SIZES {
+        let (width, height) = (TX_SIZE_WIDE[tx as usize], TX_SIZE_HIGH[tx as usize]);
+        let mut rnd = ACMRandom::with_seed(ACMRandom::deterministic_seed());
+        // SAFETY: plain table lookups.
+        let (predict, predict_ref): (cfl_predict_lbd_fn, cfl_predict_lbd_fn) =
+            unsafe { (cfl_get_predict_lbd_fn_ssse3(tx), cfl_get_predict_lbd_fn_c(tx)) };
+        let (predict, predict_ref) = (predict.unwrap(), predict_ref.unwrap());
+        let mut chroma = Box::new(Aligned([0u8; CFL_BUF_SQUARE]));
+        let mut chroma_ref = Box::new(Aligned([0u8; CFL_BUF_SQUARE]));
+        let mut luma = Box::new(Aligned([0i16; CFL_BUF_SQUARE]));
+        let mut luma_ref = Box::new(Aligned([0i16; CFL_BUF_SQUARE]));
+        for it in 0..NUM_ITERATIONS {
+            let alpha_q3 = rand_data(&mut rnd, 8, width, height, &mut chroma.0, &mut chroma_ref.0,
+                                     &mut luma.0, &mut luma_ref.0, |v| v as u8);
+            // SAFETY: CFL_BUF_SQUARE buffers at stride CFL_BUF_LINE.
+            unsafe {
+                predict(luma.0.as_ptr(), chroma.0.as_mut_ptr(), CFL_BUF_LINE as i32, alpha_q3);
+                predict_ref(luma_ref.0.as_ptr(), chroma_ref.0.as_mut_ptr(), CFL_BUF_LINE as i32,
+                            alpha_q3);
+            }
+            assert_eq_region(&chroma.0[..], &chroma_ref.0[..], width, height, "PredictLBD", tx, it);
+        }
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn cfl_predict_lbd_avx2() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    for tx in ALL_CFL_TX_SIZES {
+        let (width, height) = (TX_SIZE_WIDE[tx as usize], TX_SIZE_HIGH[tx as usize]);
+        let mut rnd = ACMRandom::with_seed(ACMRandom::deterministic_seed());
+        // SAFETY: plain table lookups.
+        let (predict, predict_ref): (cfl_predict_lbd_fn, cfl_predict_lbd_fn) =
+            unsafe { (cfl_get_predict_lbd_fn_avx2(tx), cfl_get_predict_lbd_fn_c(tx)) };
+        let (predict, predict_ref) = (predict.unwrap(), predict_ref.unwrap());
+        let mut chroma = Box::new(Aligned([0u8; CFL_BUF_SQUARE]));
+        let mut chroma_ref = Box::new(Aligned([0u8; CFL_BUF_SQUARE]));
+        let mut luma = Box::new(Aligned([0i16; CFL_BUF_SQUARE]));
+        let mut luma_ref = Box::new(Aligned([0i16; CFL_BUF_SQUARE]));
+        for it in 0..NUM_ITERATIONS {
+            let alpha_q3 = rand_data(&mut rnd, 8, width, height, &mut chroma.0, &mut chroma_ref.0,
+                                     &mut luma.0, &mut luma_ref.0, |v| v as u8);
+            // SAFETY: CFL_BUF_SQUARE buffers at stride CFL_BUF_LINE.
+            unsafe {
+                predict(luma.0.as_ptr(), chroma.0.as_mut_ptr(), CFL_BUF_LINE as i32, alpha_q3);
+                predict_ref(luma_ref.0.as_ptr(), chroma_ref.0.as_mut_ptr(), CFL_BUF_LINE as i32,
+                            alpha_q3);
+            }
+            assert_eq_region(&chroma.0[..], &chroma_ref.0[..], width, height, "PredictLBD", tx, it);
+        }
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn cfl_predict_hbd_ssse3() {
+    if !std::is_x86_feature_detected!("ssse3") {
+        return;
+    }
+    let bd = 12;
+    for tx in ALL_CFL_TX_SIZES {
+        let (width, height) = (TX_SIZE_WIDE[tx as usize], TX_SIZE_HIGH[tx as usize]);
+        let mut rnd = ACMRandom::with_seed(ACMRandom::deterministic_seed());
+        // SAFETY: plain table lookups.
+        let (predict, predict_ref): (cfl_predict_hbd_fn, cfl_predict_hbd_fn) =
+            unsafe { (cfl_get_predict_hbd_fn_ssse3(tx), cfl_get_predict_hbd_fn_c(tx)) };
+        let (predict, predict_ref) = (predict.unwrap(), predict_ref.unwrap());
+        let mut chroma = Box::new(Aligned([0u16; CFL_BUF_SQUARE]));
+        let mut chroma_ref = Box::new(Aligned([0u16; CFL_BUF_SQUARE]));
+        let mut luma = Box::new(Aligned([0i16; CFL_BUF_SQUARE]));
+        let mut luma_ref = Box::new(Aligned([0i16; CFL_BUF_SQUARE]));
+        for it in 0..NUM_ITERATIONS {
+            let alpha_q3 = rand_data(&mut rnd, bd, width, height, &mut chroma.0,
+                                     &mut chroma_ref.0, &mut luma.0, &mut luma_ref.0,
+                                     |v| v as u16);
+            // SAFETY: CFL_BUF_SQUARE buffers at stride CFL_BUF_LINE.
+            unsafe {
+                predict(luma.0.as_ptr(), chroma.0.as_mut_ptr(), CFL_BUF_LINE as i32, alpha_q3, bd);
+                predict_ref(luma_ref.0.as_ptr(), chroma_ref.0.as_mut_ptr(), CFL_BUF_LINE as i32,
+                            alpha_q3, bd);
+            }
+            assert_eq_region(&chroma.0[..], &chroma_ref.0[..], width, height, "PredictHBD", tx, it);
+        }
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn cfl_predict_hbd_avx2() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    let bd = 12;
+    for tx in ALL_CFL_TX_SIZES {
+        let (width, height) = (TX_SIZE_WIDE[tx as usize], TX_SIZE_HIGH[tx as usize]);
+        let mut rnd = ACMRandom::with_seed(ACMRandom::deterministic_seed());
+        // SAFETY: plain table lookups.
+        let (predict, predict_ref): (cfl_predict_hbd_fn, cfl_predict_hbd_fn) =
+            unsafe { (cfl_get_predict_hbd_fn_avx2(tx), cfl_get_predict_hbd_fn_c(tx)) };
         let (predict, predict_ref) = (predict.unwrap(), predict_ref.unwrap());
         let mut chroma = Box::new(Aligned([0u16; CFL_BUF_SQUARE]));
         let mut chroma_ref = Box::new(Aligned([0u16; CFL_BUF_SQUARE]));

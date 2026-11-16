@@ -371,6 +371,114 @@ def forward_transform():
           + run('highbd_fwd_txfm_sse4_fwht.json'))
 
 
+CFL_HEAD = ('\n// av1/common/blockd.h\n'
+            'pub const CFL_BUF_LINE: i32 = 32;\n'
+            'pub const CFL_BUF_LINE_I128: i32 = CFL_BUF_LINE >> 3;\n'
+            'pub const CFL_BUF_LINE_I256: i32 = CFL_BUF_LINE >> 4;\n'
+            '// av1/common/enums.h\n'
+            'const TX_SIZES_ALL: i32 = 19;\n\n'
+            '// av1/common/cfl.h and config/av1_rtcd.h: the function types the RTCD getters return.\n'
+            'pub type cfl_subsample_lbd_fn = Option<unsafe extern "C-unwind" fn(*const u8, i32, *mut u16)>;\n'
+            'pub type cfl_subsample_hbd_fn = Option<unsafe extern "C-unwind" fn(*const u16, i32, *mut u16)>;\n'
+            'pub type cfl_subtract_average_fn = Option<unsafe extern "C-unwind" fn(*const u16, *mut i16)>;\n'
+            'pub type cfl_predict_lbd_fn = Option<unsafe extern "C-unwind" fn(*const i16, *mut u8, i32, i32)>;\n'
+            'pub type cfl_predict_hbd_fn = Option<unsafe extern "C-unwind" fn(*const i16, *mut u16, i32, i32, i32)>;\n')
+CFL_NOTE = ('// The size wrappers and RTCD getters that the CFL_* macros of av1/common/cfl.h generate are\n'
+            '// expanded with the C preprocessor before printing (tools/x86_c2r/c2r.py `cpp`); the\n'
+            '// wrappers keep the C ABI because the getters return them as C function pointers.\n')
+
+
+def cfl():
+    x = 'use crate::simd::aom_dsp__x86__synonyms::*;\n'
+    simple_file('av1/common/x86/cfl_sse2.rs', 'cfl_sse2.json', 'av1/common/x86/cfl_sse2.c', 'sse2', x, CFL_HEAD,
+                note=CFL_NOTE)
+    simple_file('av1/common/x86/cfl_ssse3.rs', 'cfl_ssse3.json', 'av1/common/x86/cfl_ssse3.c', 'ssse3', x,
+                CFL_HEAD.replace('pub const CFL', 'const CFL').replace('pub type', 'type'), note=CFL_NOTE)
+    simple_file('av1/common/x86/cfl_avx2.rs', 'cfl_avx2.json', 'av1/common/x86/cfl_avx2.c', 'avx2',
+                x + 'use crate::simd::aom_dsp__x86__synonyms_avx2::*;\n'
+                'use crate::simd::av1__common__x86__cfl_ssse3::*;\nuse crate::simd::av1__common__x86__cfl_sse2::*;\n',
+                CFL_HEAD.replace('pub const CFL', 'const CFL').replace('pub type', 'type'), note=CFL_NOTE)
+
+
+LR_NOTE = ('// The restoration and filter macros of av1/common/restoration.h, aom_dsp/aom_filter.h,\n'
+           '// av1/common/enums.h, aom_dsp/aom_dsp_common.h, aom_ports/mem.h and av1/common/convolve.h\n'
+           '// are expanded with the C preprocessor before printing (tools/x86_c2r/c2r.py `cpp`).\n')
+LR_ALIGNED16 = '\n#[repr(C, align(16))]\nstruct Aligned16<T>(T);\n'
+
+
+def loop_restoration():
+    x = 'use crate::simd::aom_dsp__x86__synonyms::*;\n'
+    y = x + 'use crate::simd::aom_dsp__x86__synonyms_avx2::*;\n'
+    write('aom_dsp/x86/convolve_avx2.rs', LIC(year_of('aom_dsp/x86/convolve_avx2.h'))
+          + '\n// Translated from upstream/aom/aom_dsp/x86/convolve_avx2.h (ADR 0056, ADR 0058).\n'
+          '// Only the tables and inline functions the Wiener filter of\n'
+          '// av1/common/x86/wiener_convolve_avx2.c uses are translated (convolve, convolve_lowbd_x and\n'
+          '// the filter tables); the inter-prediction convolutions are not (working decision O2,\n'
+          '// 2026-11-13, delegated, revisable by the owner). They were\n// ' + PRINTER + '.\n'
+          + NOTES.format(feat='avx2') + y
+          + '\n#[repr(C, align(32))]\npub struct Aligned32<T>(pub T);\n\n' + run('convolve_avx2_h.json'))
+    wiener = ('use crate::av1__common__convolve::{\n    av1_highbd_wiener_convolve_add_src_c, av1_wiener_convolve_add_src_c, WienerConvolveParams,\n};\n')
+    for rel, cfg, src, feat, uses in [
+            ('av1/common/x86/wiener_convolve_sse2.rs', 'wiener_convolve_sse2.json', 'av1/common/x86/wiener_convolve_sse2.c',
+             'sse2', x + wiener),
+            ('av1/common/x86/wiener_convolve_avx2.rs', 'wiener_convolve_avx2.json', 'av1/common/x86/wiener_convolve_avx2.c',
+             'avx2', y + wiener + 'use crate::simd::aom_dsp__x86__convolve_avx2::*;\n'),
+            ('av1/common/x86/highbd_wiener_convolve_ssse3.rs', 'highbd_wiener_convolve_ssse3.json',
+             'av1/common/x86/highbd_wiener_convolve_ssse3.c', 'ssse3', x + wiener),
+            ('av1/common/x86/highbd_wiener_convolve_avx2.rs', 'highbd_wiener_convolve_avx2.json',
+             'av1/common/x86/highbd_wiener_convolve_avx2.c', 'avx2', y + wiener + 'use crate::simd::aom_dsp__x86__convolve_avx2::*;\n'),
+            ('av1/common/x86/selfguided_sse4.rs', 'selfguided_sse4.json', 'av1/common/x86/selfguided_sse4.c', 'sse4.1',
+             x + 'use crate::av1__common__restoration::{\n    av1_decode_xq, av1_one_by_x, av1_sgr_params, av1_x_by_xplus1, sgr_params_type,\n};\n'
+             'use crate::aom_mem__aom_mem::{aom_free, aom_memalign};\n'),
+            ('av1/common/x86/selfguided_avx2.rs', 'selfguided_avx2.json', 'av1/common/x86/selfguided_avx2.c', 'avx2',
+             y + 'use crate::av1__common__restoration::{\n    av1_decode_xq, av1_one_by_x, av1_sgr_params, av1_x_by_xplus1, sgr_params_type,\n};\n'
+             'use crate::aom_mem__aom_mem::{aom_free, aom_memalign};\n'
+             'use crate::simd::av1__common__x86__selfguided_sse4::{\n'
+             '    av1_apply_selfguided_restoration_sse4_1, av1_selfguided_restoration_sse4_1,\n};\n')]:
+        extra = LR_ALIGNED16 if feat in ('sse2', 'ssse3') else ''
+        simple_file(rel, cfg, src, feat, uses, extra, note=LR_NOTE)
+
+
+HORVER_NOTE = ('// The final floating-point block is the same sequence of single-precision\n'
+               '// conversions and operations as the original, with no contraction, and calls\n'
+               "// the C library's sqrtf as the original does.\n")
+SQRTF = '\nextern "C" {\n    fn sqrtf(_: f32) -> f32;\n}\n'
+
+
+def mem_sse2():
+    write('aom_dsp/x86/mem_sse2.rs', LIC(year_of('aom_dsp/x86/mem_sse2.h'))
+          + '\n// Translated from upstream/aom/aom_dsp/x86/mem_sse2.h (ADR 0056, ADR 0058).\n'
+          '// Only the functions the translated x86 kernels call are translated; they were\n// ' + PRINTER + '.\n'
+          + NOTES.format(feat='sse2') + '\n' + run('mem_sse2_h.json'))
+
+
+def horver_correlation():
+    mem_sse2()
+    x = 'use crate::simd::aom_dsp__x86__synonyms::*;\n'
+    simple_file('av1/encoder/x86/rdopt_sse4.rs', 'rdopt_sse4.json', 'av1/encoder/x86/rdopt_sse4.c', 'sse4.1',
+                x, SQRTF, note=HORVER_NOTE)
+    simple_file('av1/encoder/x86/rdopt_avx2.rs', 'rdopt_avx2.json', 'av1/encoder/x86/rdopt_avx2.c', 'avx2',
+                x + 'use crate::simd::aom_dsp__x86__mem_sse2::loadu_int64;\n'
+                'use crate::simd::aom_dsp__x86__synonyms_avx2::*;\n', SQRTF, note=HORVER_NOTE)
+
+
+NZ_NOTE = ('// The TX_PAD_HOR, SIG_COEF_CONTEXTS_2D and TX_CLASS constants and get_txb_bhl,\n'
+           '// get_txb_wide and get_txb_high (with av1_get_adjusted_tx_size and\n'
+           '// tx_size_high_log2) of av1/common/txb_common.h, blockd.h and common_data.h\n'
+           '// were transcribed by hand (tools/x86_c2r/parts/txb_common_sse2.hand.rs).\n')
+
+
+def nz_map_contexts():
+    simple_file('av1/encoder/x86/encodetxb_sse2.rs', 'encodetxb_sse2.json', 'av1/encoder/x86/encodetxb_sse2.c', 'sse2',
+                'use crate::simd::aom_dsp__x86__mem_sse2::{load_8bit_4x4_to_1_reg_sse2, load_8bit_8x2_to_1_reg_sse2};\n'
+                'use crate::simd::av1__common__x86__av1_inv_txfm_ssse3::{tx_size_high, tx_size_wide};\n',
+                '\n' + part('txb_common_sse2.hand.rs'), note=NZ_NOTE)
+
+
+def interp_cubic_rate_dist():
+    simple_file('av1/encoder/x86/model_rd_sse2.rs', 'model_rd_sse2.json', 'av1/encoder/x86/model_rd_sse2.c', 'sse2', '')
+
+
 def main():
     global OUT, WORK
     parser = argparse.ArgumentParser(description=__doc__)
@@ -387,6 +495,11 @@ def main():
         sse_and_sum_squares()
         txb()
         forward_transform()
+        cfl()
+        loop_restoration()
+        horver_correlation()
+        nz_map_contexts()
+        interp_cubic_rate_dist()
         if args.check:
             bad = []
             for path in sorted(OUT.rglob('*.rs')):
@@ -394,6 +507,9 @@ def main():
                 if path.read_bytes() != (SIMD / rel).read_bytes():
                     bad.append(str(rel))
             print(f'{len(list(OUT.rglob("*.rs")))} files, {len(bad)} differ: {bad}')
+            # The integer aliases enable_aom_dispatch.py adds to the Linux RTCD units.
+            subprocess.run([sys.executable, str(ROOT / 'tools/enable_aom_dispatch.py'), '--linux', '--check'],
+                           check=True)
             if bad:
                 raise SystemExit(1)
 

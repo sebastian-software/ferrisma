@@ -1,0 +1,24 @@
+{
+ "aligned_externs": [],
+ "comment_start": 12,
+ "consts": {
+  "SIG_COEF_CONTEXTS_2D": "i32",
+  "TX_CLASS_2D": "u8",
+  "TX_CLASS_HORIZ": "u8",
+  "TX_CLASS_VERT": "u8",
+  "TX_PAD_HOR": "i32"
+ },
+ "extern_c": [],
+ "feature": "sse2",
+ "macros": {},
+ "output": "encodetxb_sse2.rs",
+ "prelude": "preludes/prelude_txb_sse2.h",
+ "public": [],
+ "public_all": false,
+ "rtcd": [
+  "av1_get_nz_map_contexts_sse2"
+ ],
+ "skip": [],
+ "source": "upstream/aom/av1/encoder/x86/encodetxb_sse2.c",
+ "structs": {}
+}

@@ -1,5 +1,5 @@
 // Supplementary transcription of upstream/aom/test/encodetxb_test.cc for the
-// NEON instantiations: EncodeTxbTest.GetNzMapContexts
+// NEON instantiations (and the x86 SSE2, SSE4_1 and AVX2 ones): EncodeTxbTest.GetNzMapContexts
 // (av1_get_nz_map_contexts_neon) and EncodeTxbInitLevelTest.match
 // (av1_txb_init_levels_neon over every TX_SIZE). Seeds, loops, data
 // generation and the checks follow the original. Note the original's
@@ -14,6 +14,7 @@ use aom::simd::av1__encoder__arm__encodetxb_neon::*;
 #[cfg(target_arch = "x86_64")]
 use aom::simd::{
     av1__encoder__x86__encodetxb_avx2::av1_txb_init_levels_avx2,
+    av1__encoder__x86__encodetxb_sse2::av1_get_nz_map_contexts_sse2,
     av1__encoder__x86__encodetxb_sse4::av1_txb_init_levels_sse4_1,
 };
 
@@ -147,6 +148,20 @@ impl EncodeTxbTest {
             }
         }
     }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn get_nz_map_contexts_sse2() {
+    let mut t = EncodeTxbTest {
+        func: av1_get_nz_map_contexts_sse2,
+        rnd: ACMRandom::new(),
+        levels_buf: Box::new([0; TX_PAD_2D]),
+        levels: 0,
+        coeff_contexts_ref: Box::new(Aligned16([0; MAX_TX_SQUARE])),
+        coeff_contexts: Box::new(Aligned16([0; MAX_TX_SQUARE])),
+    };
+    t.get_nz_map_contexts_run();
 }
 
 #[cfg(target_arch = "aarch64")]

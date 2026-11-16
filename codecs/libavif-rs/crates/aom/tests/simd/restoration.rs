@@ -1,5 +1,5 @@
 // Supplementary transcription of the loop-restoration apply tests for the
-// Neon instantiations:
+// Neon and the x86 (SSE2, SSSE3, SSE4.1, AVX2) instantiations:
 // - upstream/aom/test/hiprec_convolve_test.cc with
 //   test/hiprec_convolve_test_util.cc (AV1HiprecConvolveTest.CheckOutput and
 //   AV1HighbdHiprecConvolveTest.CheckOutput): av1_wiener_convolve_add_src_neon
@@ -11,18 +11,45 @@
 //   AV1HighbdSelfguidedFilterTest.CorrectnessTest at 8, 10 and 12 bits):
 //   av1_apply_selfguided_restoration_neon against
 //   av1_apply_selfguided_restoration_c.
+// The x86 tests take the instantiations of the same files (SSE2 and AVX2 for
+// the 8-bit Wiener filter, SSSE3 and AVX2 for the high-bitdepth one, SSE4.1 and
+// AVX2 for the self-guided filter) and skip on a CPU without the feature.
 // The DISABLED_SpeedTest cases are not transcribed. No original test
-// instantiates av1_selfguided_restoration_neon; `selfguided_restoration_*`
+// instantiates av1_selfguided_restoration_neon (or its x86 versions); `selfguided_restoration_*`
 // below is a supplementary exact comparison against
 // av1_selfguided_restoration_c on the inputs of the selfguided correctness
 // test (not part of the original suite).
-#![cfg(target_arch = "aarch64")]
+#![cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
+#[cfg(target_arch = "aarch64")]
 use aom::av1__common__restoration::WienerConvolveParams;
+#[cfg(target_arch = "aarch64")]
 use aom::simd::av1__common__arm__highbd_wiener_convolve_neon::av1_highbd_wiener_convolve_add_src_neon;
+#[cfg(target_arch = "aarch64")]
 use aom::simd::av1__common__arm__selfguided_neon::{
     av1_apply_selfguided_restoration_neon, av1_selfguided_restoration_neon,
 };
+#[cfg(target_arch = "aarch64")]
 use aom::simd::av1__common__arm__wiener_convolve_neon::av1_wiener_convolve_add_src_neon;
+// The x86 kernels take the record of av1/common/convolve.h as the printer
+// translated it.
+#[cfg(target_arch = "x86_64")]
+use aom::av1__common__convolve::WienerConvolveParams;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::av1__common__x86__highbd_wiener_convolve_avx2::av1_highbd_wiener_convolve_add_src_avx2;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::av1__common__x86__highbd_wiener_convolve_ssse3::av1_highbd_wiener_convolve_add_src_ssse3;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::av1__common__x86__selfguided_avx2::{
+    av1_apply_selfguided_restoration_avx2, av1_selfguided_restoration_avx2,
+};
+#[cfg(target_arch = "x86_64")]
+use aom::simd::av1__common__x86__selfguided_sse4::{
+    av1_apply_selfguided_restoration_sse4_1, av1_selfguided_restoration_sse4_1,
+};
+#[cfg(target_arch = "x86_64")]
+use aom::simd::av1__common__x86__wiener_convolve_avx2::av1_wiener_convolve_add_src_avx2;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::av1__common__x86__wiener_convolve_sse2::av1_wiener_convolve_add_src_sse2;
 
 use super::acm_random::ACMRandom;
 
@@ -305,9 +332,14 @@ fn highbd_hiprec_check_output(out_w: i32, out_h: i32, num_iters: i32, bd: i32,
     blocks
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn hiprec_convolve_neon_check_output() {
-    let func: HiprecConvolveFunc = av1_wiener_convolve_add_src_neon;
+    hiprec_convolve_check_output(av1_wiener_convolve_add_src_neon);
+}
+
+/// AV1HiprecConvolveTest.CheckOutput for one instantiation.
+fn hiprec_convolve_check_output(func: HiprecConvolveFunc) {
     // libaom_test::AV1HiprecConvolve::BuildParams
     let params: [(i32, i32, i32); 14] = [
         (8, 8, 50000), (8, 4, 50000), (64, 24, 1000), (64, 64, 1000), (64, 56, 1000),
@@ -321,9 +353,14 @@ fn hiprec_convolve_neon_check_output() {
     assert!(blocks > 0);
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn highbd_hiprec_convolve_neon_check_output() {
-    let func: HighbdHiprecConvolveFunc = av1_highbd_wiener_convolve_add_src_neon;
+    highbd_hiprec_convolve_check_output(av1_highbd_wiener_convolve_add_src_neon);
+}
+
+/// AV1HighbdHiprecConvolveTest.CheckOutput for one instantiation.
+fn highbd_hiprec_convolve_check_output(func: HighbdHiprecConvolveFunc) {
     // libaom_test::AV1HighbdHiprecConvolve::BuildParams
     let params: [(i32, i32, i32, i32); 9] = [
         (8, 8, 50000, 8), (64, 64, 1000, 8), (32, 8, 10000, 8), (8, 8, 50000, 10),
@@ -431,11 +468,13 @@ fn selfguided_correctness(tst_fun: SgrFunc, bit_depth: Option<i32>) {
     }
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn selfguided_filter_neon_correctness() {
     selfguided_correctness(av1_apply_selfguided_restoration_neon, None);
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn highbd_selfguided_filter_neon_correctness() {
     for bd in [8, 10, 12] {
@@ -513,10 +552,108 @@ fn selfguided_restoration_compare(tst_fun: SelfguidedFunc, bit_depth: Option<i32
     }
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn selfguided_restoration_neon_supplementary() {
     selfguided_restoration_compare(av1_selfguided_restoration_neon, None);
     for bd in [8, 10, 12] {
         selfguided_restoration_compare(av1_selfguided_restoration_neon, Some(bd));
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn hiprec_convolve_sse2_check_output() {
+    hiprec_convolve_check_output(av1_wiener_convolve_add_src_sse2);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn hiprec_convolve_avx2_check_output() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    hiprec_convolve_check_output(av1_wiener_convolve_add_src_avx2);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn highbd_hiprec_convolve_ssse3_check_output() {
+    if !std::is_x86_feature_detected!("ssse3") {
+        return;
+    }
+    highbd_hiprec_convolve_check_output(av1_highbd_wiener_convolve_add_src_ssse3);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn highbd_hiprec_convolve_avx2_check_output() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    highbd_hiprec_convolve_check_output(av1_highbd_wiener_convolve_add_src_avx2);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn selfguided_filter_sse4_1_correctness() {
+    if !std::is_x86_feature_detected!("sse4.1") {
+        return;
+    }
+    selfguided_correctness(av1_apply_selfguided_restoration_sse4_1, None);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn selfguided_filter_avx2_correctness() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    selfguided_correctness(av1_apply_selfguided_restoration_avx2, None);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn highbd_selfguided_filter_sse4_1_correctness() {
+    if !std::is_x86_feature_detected!("sse4.1") {
+        return;
+    }
+    for bd in [8, 10, 12] {
+        selfguided_correctness(av1_apply_selfguided_restoration_sse4_1, Some(bd));
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn highbd_selfguided_filter_avx2_correctness() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    for bd in [8, 10, 12] {
+        selfguided_correctness(av1_apply_selfguided_restoration_avx2, Some(bd));
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn selfguided_restoration_sse4_1_supplementary() {
+    if !std::is_x86_feature_detected!("sse4.1") {
+        return;
+    }
+    selfguided_restoration_compare(av1_selfguided_restoration_sse4_1, None);
+    for bd in [8, 10, 12] {
+        selfguided_restoration_compare(av1_selfguided_restoration_sse4_1, Some(bd));
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn selfguided_restoration_avx2_supplementary() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    selfguided_restoration_compare(av1_selfguided_restoration_avx2, None);
+    for bd in [8, 10, 12] {
+        selfguided_restoration_compare(av1_selfguided_restoration_avx2, Some(bd));
     }
 }
