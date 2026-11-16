@@ -6,7 +6,7 @@ PHASE is prepare, ceiling, match, time, batch, stages, sweepmatch, sweep or
 all. See docs/benchmarks/M2-sharp-comparison.md for the method.
 
 Ferrisma encodes AVIF with its only encoder, the workspace libavif/AOM writer
-(report `encoder=libavif-rs/aom`). The rav1e-versus-libavif phases
+(report `encoder=libavif/aom`; `libavif-rs/aom` before 2026-11-16). The rav1e-versus-libavif phases
 (encoder-match, encoder-check, encoder-time) were retired with rav1e on
 2026-11-15; their record is docs/benchmarks/encoder-adoption.md and
 docs/benchmarks/M2-avif-encoder-default-evidence-2026-11-12.md.

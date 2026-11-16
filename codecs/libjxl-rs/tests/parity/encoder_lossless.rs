@@ -120,6 +120,7 @@ fn compare_lossless(family: &str, requests: Vec<String>) {
 #[test]
 fn public_encoder_lossless_one_shot_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let sizes = [
         (1, 1),
         (7, 7),
@@ -177,6 +178,7 @@ fn public_encoder_lossless_one_shot_matches_original() {
 #[test]
 fn public_encoder_lossless_streaming_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let cases = [
         (768, 768, -1, -1),
         (768, 769, 2, -1),
@@ -257,6 +259,7 @@ fn lossless_gate_histories(xsize: usize, ysize: usize, seed: usize) -> Vec<Strin
 #[test]
 fn public_encoder_lossless_gate_sizes_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let mut requests = Vec::new();
     for (index, (xsize, ysize)) in [(768, 768), (1024, 1024), (2048, 1536)]
         .into_iter()
@@ -271,6 +274,7 @@ fn public_encoder_lossless_gate_sizes_match_original() {
 #[test]
 fn public_encoder_lossless_gate_2049_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     compare_gate("lossless-gate-2049", lossless_gate_histories(2049, 2049, 1));
 }
 
@@ -278,6 +282,7 @@ fn public_encoder_lossless_gate_2049_matches_original() {
 #[test]
 fn public_encoder_lossless_gate_4000x3000_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     compare_gate(
         "lossless-gate-4000x3000",
         lossless_gate_histories(4000, 3000, 2),
@@ -293,6 +298,7 @@ fn public_encoder_lossless_gate_4000x3000_matches_original() {
 #[test]
 fn public_encoder_lossless_chunked_frame_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let cases: [(usize, usize, i32, bool); 8] = [
         (17, 19, -1, true),
         (257, 259, 2, false),
@@ -372,6 +378,7 @@ fn public_encoder_lossless_chunked_frame_matches_original() {
 #[test]
 fn public_encoder_lossless_container_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let prefixes = ["U1 ", "L10 ", "", "U1 "];
     let cases = [
         (9, 17, -1, -1),
@@ -415,6 +422,7 @@ fn public_encoder_lossless_container_matches_original() {
 #[test]
 fn public_encoder_lossless_decode_back_matches_original_decoder() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let cases = [
         (1, 1, -1),
         (9, 17, -1),
@@ -459,6 +467,7 @@ fn public_encoder_lossless_decode_back_matches_original_decoder() {
 #[test]
 fn public_encoder_lossless_streaming_takes_the_original_streaming_path() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let cases = [
         (768, 768, -1, true),
         (2049, 300, 1, true),

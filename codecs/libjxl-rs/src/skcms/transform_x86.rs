@@ -33,24 +33,31 @@ struct F<const N: usize>([f32; N]);
 impl<const N: usize> F<N> {
     const ZERO: Self = Self([0.0; N]);
     const ONE: Self = Self([1.0; N]);
+    #[inline(always)]
     fn splat(v: f32) -> Self {
         Self([v; N])
     }
+    #[inline(always)]
     fn bits(self) -> [u32; N] {
         self.0.map(f32::to_bits)
     }
+    #[inline(always)]
     fn from_bits(v: [u32; N]) -> Self {
         Self(v.map(f32::from_bits))
     }
+    #[inline(always)]
     fn less(self, rhs: Self) -> [bool; N] {
         std::array::from_fn(|i| self.0[i] < rhs.0[i])
     }
+    #[inline(always)]
     fn greater(self, rhs: Self) -> [bool; N] {
         rhs.less(self)
     }
+    #[inline(always)]
     fn equal(self, rhs: Self) -> [bool; N] {
         std::array::from_fn(|i| self.0[i] == rhs.0[i])
     }
+    #[inline(always)]
     fn select(c: [bool; N], t: Self, e: Self) -> Self {
         Self(std::array::from_fn(|i| if c[i] { t.0[i] } else { e.0[i] }))
     }
@@ -75,6 +82,7 @@ impl<const N: usize> F<N> {
         Self(out)
     }
 
+    #[inline(always)]
     fn i32(self) -> [i32; N] {
         const { assert!(N == 8 || N == 16) };
         let mut out = [0i32; N];
@@ -93,6 +101,7 @@ impl<const N: usize> F<N> {
     /// The actual SKX object converts U16_from_F with VCVTTPS2UDQ, which
     /// returns 2^32-1 for NaN and unrepresentable lanes. Rust 1.85 has no
     /// stable AVX-512 intrinsic, so each lane applies that instruction rule.
+    #[inline(always)]
     fn u32(self) -> [u32; N] {
         self.0.map(|v| {
             if v > -1.0 && v < 4294967296.0 {
@@ -102,9 +111,11 @@ impl<const N: usize> F<N> {
             }
         })
     }
+    #[inline(always)]
     fn fixed(self) -> [u32; N] {
         (self + 0.5).i32().map(|v| v as u32)
     }
+    #[inline(always)]
     fn floor(self) -> Self {
         // SAFETY: AVX was established; rounding accesses no memory. SKX's
         // _mm512_mask_floor_ps uses the same _MM_FROUND_FLOOR lane operation.
@@ -112,12 +123,15 @@ impl<const N: usize> F<N> {
             _mm256_round_ps::<_MM_FROUND_FLOOR>(x)
         })
     }
+    #[inline(always)]
     fn min(self, y: Self) -> Self {
         Self::select(self.greater(y), y, self)
     }
+    #[inline(always)]
     fn max(self, y: Self) -> Self {
         Self::select(self.less(y), y, self)
     }
+    #[inline(always)]
     fn madd(self, b: Self, c: Self) -> Self {
         if N == 16 {
             // SAFETY: SKX implies the FMA feature established by cpu_type().
@@ -139,12 +153,14 @@ macro_rules! arithmetic {
         }
         impl<const N: usize> $trait<f32> for F<N> {
             type Output = Self;
+            #[inline(always)]
             fn $method(self, rhs: f32) -> Self {
                 self.$method(Self::splat(rhs))
             }
         }
         impl<const N: usize> $trait<F<N>> for f32 {
             type Output = F<N>;
+            #[inline(always)]
             fn $method(self, rhs: F<N>) -> F<N> {
                 F::splat(self).$method(rhs)
             }
@@ -160,6 +176,7 @@ arithmetic!(Div, div, _mm256_div_ps);
     clippy::excessive_precision,
     reason = "Retain original source literals."
 )]
+#[inline(always)]
 fn approx_log2<const N: usize>(x: F<N>) -> F<N> {
     let bits = x.bits();
     let e = F(bits.map(|v| (v as i32) as f32)) * (1.0 / (1 << 23) as f32);
@@ -170,6 +187,7 @@ fn approx_log2<const N: usize>(x: F<N>) -> F<N> {
     clippy::excessive_precision,
     reason = "Retain original source literals."
 )]
+#[inline(always)]
 fn approx_exp2<const N: usize>(x: F<N>) -> F<N> {
     let fract = x - x.floor();
     let fbits = (1 << 23) as f32
@@ -183,6 +201,7 @@ fn approx_exp2<const N: usize>(x: F<N>) -> F<N> {
             .map(|v| v as u32),
     )
 }
+#[inline(always)]
 fn approx_pow<const N: usize>(x: F<N>, y: f32) -> F<N> {
     let z = x.equal(F::ZERO);
     let o = x.equal(F::ONE);
@@ -192,6 +211,7 @@ fn approx_pow<const N: usize>(x: F<N>, y: f32) -> F<N> {
         approx_exp2(approx_log2(x) * y),
     )
 }
+#[inline(always)]
 fn strip_sign<const N: usize>(x: F<N>) -> (F<N>, [u32; N]) {
     let bits = x.bits();
     (
@@ -199,10 +219,12 @@ fn strip_sign<const N: usize>(x: F<N>) -> (F<N>, [u32; N]) {
         bits.map(|v| v & 0x80000000),
     )
 }
+#[inline(always)]
 fn apply_sign<const N: usize>(x: F<N>, s: [u32; N]) -> F<N> {
     let bits = x.bits();
     F::from_bits(std::array::from_fn(|i| bits[i] | s[i]))
 }
+#[inline(always)]
 fn apply_tf<const N: usize>(tf: Tf, x: F<N>) -> F<N> {
     let (x, s) = strip_sign(x);
     apply_sign(
@@ -214,10 +236,12 @@ fn apply_tf<const N: usize>(tf: Tf, x: F<N>) -> F<N> {
         s,
     )
 }
+#[inline(always)]
 fn apply_gamma<const N: usize>(tf: Tf, x: F<N>) -> F<N> {
     let (x, s) = strip_sign(x);
     apply_sign(approx_pow(x, tf.g), s)
 }
+#[inline(always)]
 fn apply_pq<const N: usize>(tf: Tf, x: F<N>) -> F<N> {
     let (x, s) = strip_sign(x);
     let p = approx_pow(x, tf.c);
@@ -238,6 +262,7 @@ fn apply_pq<const N: usize>(tf: Tf, x: F<N>) -> F<N> {
     clippy::approx_constant,
     reason = "Retain original source approximation constant."
 )]
+#[inline(always)]
 fn apply_hlg<const N: usize>(tf: Tf, x: F<N>) -> F<N> {
     let (x, s) = strip_sign(x);
     let xr = x * tf.a;
@@ -256,6 +281,7 @@ fn apply_hlg<const N: usize>(tf: Tf, x: F<N>) -> F<N> {
     clippy::approx_constant,
     reason = "Retain original source approximation constant."
 )]
+#[inline(always)]
 fn apply_hlginv<const N: usize>(tf: Tf, x: F<N>) -> F<N> {
     let (x, s) = strip_sign(x);
     let x = x / (tf.f + 1.0);
@@ -272,6 +298,7 @@ fn apply_hlginv<const N: usize>(tf: Tf, x: F<N>) -> F<N> {
     clippy::excessive_precision,
     reason = "Retain original source literals."
 )]
+#[inline(always)]
 fn compute_y<const N: usize>(x: F<N>, y: F<N>, z: F<N>) -> F<N> {
     if N == 16 {
         // SKX fuses the source's contracted R and B products after rounding
@@ -281,10 +308,12 @@ fn compute_y<const N: usize>(x: F<N>, y: F<N>, z: F<N>) -> F<N> {
         F::splat(0.02102382).madd(z, F::splat(1.00995452).madd(y, -0.02831655 * x))
     }
 }
+#[inline(always)]
 fn minus_ulp<const N: usize>(v: F<N>) -> F<N> {
     F::from_bits(v.bits().map(|v| v.wrapping_sub(1)))
 }
 
+#[inline(always)]
 fn half_to_f<const N: usize>(half: [u16; N]) -> F<N> {
     const { assert!(N == 8 || N == 16) };
     let mut out = [0.0; N];
@@ -300,6 +329,7 @@ fn half_to_f<const N: usize>(half: [u16; N]) -> F<N> {
     }
     F(out)
 }
+#[inline(always)]
 fn f_to_half<const N: usize>(f: F<N>) -> [u16; N] {
     const { assert!(N == 8 || N == 16) };
     let mut out = [0u16; N];
@@ -319,6 +349,7 @@ fn f_to_half<const N: usize>(f: F<N>) -> [u16; N] {
 /// # Safety
 /// The active table count/pointers and every reached source index must be
 /// initialized and readable. All inactive union bytes remain unobserved.
+#[inline(always)]
 unsafe fn table<const N: usize>(curve: *const Curve, v: F<N>) -> F<N> {
     // SAFETY: caller establishes the active table branch and its live backing.
     unsafe {
@@ -357,6 +388,7 @@ unsafe fn table<const N: usize>(curve: *const Curve, v: F<N>) -> F<N> {
 /// # Safety
 /// Grid dimensions and pointers have the source's initialized active shape and
 /// readable backing, including the original one/two-byte gather look-behind.
+#[inline(always)]
 unsafe fn clut<const N: usize>(
     dim: usize,
     outputs: usize,
@@ -454,6 +486,7 @@ unsafe fn clut<const N: usize>(
 
 /// # Safety
 /// A complete N-pixel span, with original typed alignment, must be readable.
+#[inline(always)]
 unsafe fn load_pixels<const N: usize>(op: Op, src: *const u8, rgba: &mut [F<N>; 4]) {
     use Op::*;
     // SAFETY: caller establishes all reached N-pixel input bytes; the source
@@ -556,6 +589,7 @@ unsafe fn load_pixels<const N: usize>(op: Op, src: *const u8, rgba: &mut [F<N>; 
 /// # Safety
 /// Destination has the source's writable N-pixel span and typed alignment.
 #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
+#[inline(always)]
 unsafe fn store_pixels<const N: usize>(op: Op, dst: *mut u8, rgba: [F<N>; 4]) {
     use Op::*;
     let [r, g, b, a] = rgba;
@@ -572,42 +606,51 @@ unsafe fn store_pixels<const N: usize>(op: Op, dst: *mut u8, rgba: [F<N>; 4]) {
             store_ga88 | store_4444 | store_565 | store_8888 | store_1010102 | store_101010x_XR
             | store_10101010_XR => {
                 let mut words = [0u64; N];
-                let mut write = |v: F<N>, scale: f32, shift: usize, mask: u64| {
+                // A nested function rather than a closure, so that it inlines
+                // into the engine's attribute context.
+                #[inline(always)]
+                fn write<const N: usize>(
+                    words: &mut [u64; N],
+                    v: F<N>,
+                    scale: f32,
+                    shift: usize,
+                    mask: u64,
+                ) {
                     let q = (v * scale).fixed();
                     for i in 0..N {
                         words[i] |= ((q[i] as u64) & mask) << shift;
                     }
-                };
+                }
                 let bytes = match op {
                     store_ga88 => {
-                        write(g, 255.0, 0, 65535);
-                        write(a, 255.0, 8, 65535);
+                        write(&mut words, g, 255.0, 0, 65535);
+                        write(&mut words, a, 255.0, 8, 65535);
                         2
                     }
                     store_4444 => {
-                        write(r, 15.0, 12, 65535);
-                        write(g, 15.0, 8, 65535);
-                        write(b, 15.0, 4, 65535);
-                        write(a, 15.0, 0, 65535);
+                        write(&mut words, r, 15.0, 12, 65535);
+                        write(&mut words, g, 15.0, 8, 65535);
+                        write(&mut words, b, 15.0, 4, 65535);
+                        write(&mut words, a, 15.0, 0, 65535);
                         2
                     }
                     store_565 => {
-                        write(r, 31.0, 0, 65535);
-                        write(g, 63.0, 5, 65535);
-                        write(b, 31.0, 11, 65535);
+                        write(&mut words, r, 31.0, 0, 65535);
+                        write(&mut words, g, 63.0, 5, 65535);
+                        write(&mut words, b, 31.0, 11, 65535);
                         2
                     }
                     store_8888 => {
                         for (c, v) in rgba.into_iter().enumerate() {
-                            write(v, 255.0, c * 8, u32::MAX as u64);
+                            write(&mut words, v, 255.0, c * 8, u32::MAX as u64);
                         }
                         4
                     }
                     store_1010102 => {
-                        write(r, 1023.0, 0, u32::MAX as u64);
-                        write(g, 1023.0, 10, u32::MAX as u64);
-                        write(b, 1023.0, 20, u32::MAX as u64);
-                        write(a, 3.0, 30, u32::MAX as u64);
+                        write(&mut words, r, 1023.0, 0, u32::MAX as u64);
+                        write(&mut words, g, 1023.0, 10, u32::MAX as u64);
+                        write(&mut words, b, 1023.0, 20, u32::MAX as u64);
+                        write(&mut words, a, 3.0, 30, u32::MAX as u64);
                         4
                     }
                     store_101010x_XR | store_10101010_XR => {
@@ -698,16 +741,54 @@ unsafe fn store_pixels<const N: usize>(op: Op, dst: *mut u8, rgba: [F<N>; 4]) {
     }
 }
 
+/// The engines' lane counts: 8 for HSW, 16 for SKX.
+struct Lanes<const N: usize>;
+/// The transfer functions of one engine, each an out-of-line function of
+/// that engine's attribute context, in the order of the opcodes' groups
+/// (gamma, generic, PQ, HLG, inverse HLG). The original's stages call them as
+/// `SI` functions of the engine's translation unit; a function of its own per
+/// transfer function keeps every helper in the `#[target_feature]` context
+/// (port ADR 0004, "One attribute context per kernel on x86-64") while the
+/// call shape stays that of the table of function pointers it replaces.
+trait Engine<const N: usize> {
+    const TRANSFER: [unsafe fn(Tf, F<N>) -> F<N>; 5];
+}
+macro_rules! transfer_in_context {
+    ($features:literal, $n:literal, $($name:ident => $f:ident),*) => {
+        $(
+            #[target_feature(enable = $features)]
+            unsafe fn $name(tf: Tf, x: F<$n>) -> F<$n> {
+                $f(tf, x)
+            }
+        )*
+    };
+}
+transfer_in_context!("avx,avx2,f16c", 8, gamma_hsw => apply_gamma, tf_hsw => apply_tf,
+    pq_hsw => apply_pq, hlg_hsw => apply_hlg, hlginv_hsw => apply_hlginv);
+transfer_in_context!("avx,avx2,f16c,fma", 16, gamma_skx => apply_gamma, tf_skx => apply_tf,
+    pq_skx => apply_pq, hlg_skx => apply_hlg, hlginv_skx => apply_hlginv);
+impl Engine<8> for Lanes<8> {
+    const TRANSFER: [unsafe fn(Tf, F<8>) -> F<8>; 5] =
+        [gamma_hsw, tf_hsw, pq_hsw, hlg_hsw, hlginv_hsw];
+}
+impl Engine<16> for Lanes<16> {
+    const TRANSFER: [unsafe fn(Tf, F<16>) -> F<16>; 5] =
+        [gamma_skx, tf_skx, pq_skx, hlg_skx, hlginv_skx];
+}
+
 /// # Safety
 /// Program/context pointers, source/output spans and active context objects
 /// satisfy all original stage preconditions. Context pointees remain live for
 /// execution; source and destination aliases are permitted as in the source.
+#[inline(always)]
 unsafe fn exec_stages<const N: usize>(
     program: &[Op],
     contexts: &[*const ()],
     src: *const u8,
     dst: *mut u8,
-) {
+) where
+    Lanes<N>: Engine<N>,
+{
     use Op::*;
     let mut v = [F::<N>::ZERO, F::ZERO, F::ZERO, F::ONE];
     for (&op, &arg) in program.iter().zip(contexts) {
@@ -750,16 +831,21 @@ unsafe fn exec_stages<const N: usize>(
                     let rows: [F<N>; 3] = unsafe {
                         if op == matrix_3x3 {
                             let m = arg.cast::<Matrix3x3>();
-                            std::array::from_fn(|c| {
+                            let mut rows = [F::ZERO; 3];
+                            for (c, row) in rows.iter_mut().enumerate() {
                                 let q = (*m).vals[c];
-                                F::splat(q[2]).madd(b, F::splat(q[0]).madd(r, q[1] * g))
-                            })
+                                *row = F::splat(q[2]).madd(b, F::splat(q[0]).madd(r, q[1] * g));
+                            }
+                            rows
                         } else {
                             let m = arg.cast::<Matrix3x4>();
-                            std::array::from_fn(|c| {
+                            let mut rows = [F::ZERO; 3];
+                            for (c, row) in rows.iter_mut().enumerate() {
                                 let q = (*m).vals[c];
-                                F::splat(q[2]).madd(b, F::splat(q[0]).madd(r, q[1] * g)) + q[3]
-                            })
+                                *row =
+                                    F::splat(q[2]).madd(b, F::splat(q[0]).madd(r, q[1] * g)) + q[3];
+                            }
+                            rows
                         }
                     };
                     v[..3].copy_from_slice(&rows);
@@ -771,26 +857,28 @@ unsafe fn exec_stages<const N: usize>(
                     let y = (l + 16.0) * (1.0 / 116.0);
                     let x = aa.madd(F::splat(1.0 / 500.0), y);
                     let z = F::splat(-1.0 / 200.0).madd(bb, y);
-                    let f = |v: F<N>| {
+                    #[inline(always)]
+                    fn f<const N: usize>(v: F<N>) -> F<N> {
                         let cube = v * v * v;
                         F::select(
                             cube.greater(F::splat(0.008856)),
                             cube,
                             (v - (16.0 / 116.0)) * (1.0 / 7.787),
                         )
-                    };
+                    }
                     v[0] = f(x) * 0.9642;
                     v[1] = f(y);
                     v[2] = f(z) * 0.8249;
                 }
                 xyz_to_lab => {
-                    let f = |x: F<N>| {
+                    #[inline(always)]
+                    fn f<const N: usize>(x: F<N>) -> F<N> {
                         F::select(
                             x.greater(F::splat(0.008856)),
                             approx_pow(x, 1.0 / 3.0),
                             x.madd(F::splat(7.787), F::splat(16.0 / 116.0)),
                         )
-                    };
+                    }
                     let x = f(r * (1.0 / 0.9642));
                     let y = f(g);
                     let z = f(b * (1.0 / 0.8249));
@@ -827,25 +915,27 @@ unsafe fn exec_stages<const N: usize>(
                             }
                         }
                     };
-                    let (base, apply): (i32, fn(Tf, F<N>) -> F<N>) =
-                        if (op as i32) <= gamma_rgb as i32 {
-                            (gamma_r as i32, apply_gamma)
-                        } else if (op as i32) <= tf_rgb as i32 {
-                            (tf_r as i32, apply_tf)
-                        } else if (op as i32) <= pq_rgb as i32 {
-                            (pq_r as i32, apply_pq)
-                        } else if (op as i32) <= hlg_rgb as i32 {
-                            (hlg_r as i32, apply_hlg)
-                        } else {
-                            (hlginv_r as i32, apply_hlginv)
-                        };
+                    let (base, kind): (i32, usize) = if (op as i32) <= gamma_rgb as i32 {
+                        (gamma_r as i32, 0)
+                    } else if (op as i32) <= tf_rgb as i32 {
+                        (tf_r as i32, 1)
+                    } else if (op as i32) <= pq_rgb as i32 {
+                        (pq_r as i32, 2)
+                    } else if (op as i32) <= hlg_rgb as i32 {
+                        (hlg_r as i32, 3)
+                    } else {
+                        (hlginv_r as i32, 4)
+                    };
+                    let apply = <Lanes<N> as Engine<N>>::TRANSFER[kind];
                     let channel = op as i32 - base;
                     if channel == 4 {
                         for x in &mut v[..3] {
-                            *x = apply(tf, *x);
+                            // SAFETY: the engine entry point established its CPU features.
+                            *x = unsafe { apply(tf, *x) };
                         }
                     } else {
-                        v[channel as usize] = apply(tf, v[channel as usize]);
+                        // SAFETY: as above.
+                        v[channel as usize] = unsafe { apply(tf, v[channel as usize]) };
                     }
                 }
                 hlg_ootf_scale => {
@@ -914,6 +1004,7 @@ unsafe fn exec_stages<const N: usize>(
 ///
 /// # Safety
 /// As for [`run_program_hsw`], without the CPU feature requirement.
+#[inline(always)]
 unsafe fn run_program<const N: usize>(
     program: &[Op],
     contexts: &[*const ()],
@@ -922,7 +1013,9 @@ unsafe fn run_program<const N: usize>(
     mut n: i32,
     src_bpp: usize,
     dst_bpp: usize,
-) {
+) where
+    Lanes<N>: Engine<N>,
+{
     let mut i = 0usize;
     while n >= N as i32 {
         // SAFETY: caller establishes the complete N-pixel group spans.

@@ -179,6 +179,7 @@ impl<T: Sample> Plane<T> {
             .as_ref()
             .map_or(MemoryManagerPtr::NULL, AlignedMemory::memory_manager)
     }
+    #[inline(always)]
     fn row_at(&self, offset: usize, length: usize) -> &[T] {
         let Some(memory) = self.base.bytes.as_ref() else {
             assert_eq!(length, 0);
@@ -194,6 +195,7 @@ impl<T: Sample> Plane<T> {
         // valid. Its shared owner borrow keeps storage live and prevents mutation.
         unsafe { std::slice::from_raw_parts(bytes.as_ptr().cast::<T>(), length / size_of::<T>()) }
     }
+    #[inline(always)]
     fn row_at_mut(&mut self, offset: usize, length: usize) -> &mut [T] {
         let Some(memory) = self.base.bytes.as_mut() else {
             assert_eq!(length, 0);
@@ -210,10 +212,12 @@ impl<T: Sample> Plane<T> {
             std::slice::from_raw_parts_mut(bytes.as_mut_ptr().cast::<T>(), length / size_of::<T>())
         }
     }
+    #[inline(always)]
     pub fn row(&self, y: usize) -> &[T] {
         assert!(y < self.ysize());
         self.row_at(y.wrapping_mul(self.bytes_per_row()), self.bytes_per_row())
     }
+    #[inline(always)]
     pub fn row_mut(&mut self, y: usize) -> &mut [T] {
         assert!(y < self.ysize());
         self.row_at_mut(y.wrapping_mul(self.bytes_per_row()), self.bytes_per_row())

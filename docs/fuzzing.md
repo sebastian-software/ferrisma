@@ -160,7 +160,7 @@ The `transcode` target runs each AVIF-output input through the workspace
 AOM writer at both 10 and 8 bits (`avif_depths`, `run_case_at_depth`), as
 the former `transcode` (rav1e) and `transcode_own_avif` lanes did together;
 WebP-output inputs run once. Tests assert the reported encoder is
-`libavif-rs/aom` for every AVIF output. Encoder choice and
+`libavif/aom` (`libavif-rs/aom` until 2026-11-16) for every AVIF output. Encoder choice and
 bit depth are explicit lane settings and do not consume or rewrite image bytes.
 
 Artifacts include the source commit and tree, toolchain, host, lockfile hashes,
@@ -442,7 +442,7 @@ commit `984910f8`. "Before decode" means before pixel data is rendered.
 | Pixel cap, JPEG | Header-only `JpegSource::new`; the facade checks `max_input_pixels` before the first scanline request. |
 | Pixel cap, JXL-Oxide | Construction parses the header and buffers frame data (bounded by the compressed size); the facade checks the pixel cap before rendering. Unrenderable colour encodings are rejected at construction (above). Obsolete since 2026-11-15: jxl-oxide is not a reader any more. |
 | Geometry overflow | Pixel counts use `u64`; budget reservations use `checked_add`/`checked_mul` and fallible `try_reserve_exact`; region and row sizes use checked conversions. |
-| Engine allocation admission | `MemoryBudget` (`max_managed_bytes`, default 1 GiB since 2026-11-15, 256 MiB before; the fuzz driver sets its own 2 MiB) admits every engine row, frame, orientation and encoder-frame buffer; the 8192×1 driver lane is rejected by planning before encode. |
+| Engine allocation admission | `MemoryBudget` (`max_managed_bytes`, default 2 GiB since 2026-11-16, 1 GiB from 2026-11-15, 256 MiB before; the fuzz driver sets its own 2 MiB) admits every engine row, frame, orientation and encoder-frame buffer; the 8192×1 driver lane is rejected by planning before encode. |
 | Opaque codec memory | Not admitted: libjpeg-turbo-rs, JXL-Oxide render buffers, libavif/AOM parser state, libjxl-rs, libwebp-rs, rav1e and libavif encoder internals. Reports flag this with `opaque_decoder_memory`/`opaque_encoder_memory`. Since 2026-11-15 JXL-Oxide's `AllocTracker` bounds its buffered frame data by `max_input_bytes` while the file is read ([run 43690971661](#hosted-smoke-run-43690971661-2026-11-15)); its render buffers and its encoded-ICC buffer were still unbounded when jxl-oxide left the runtime on 2026-11-15, which made both moot. |
 | Output cap | `max_output_bytes` is checked after the encoder returns its complete output, not incrementally. |
 | Cancellation | No caller-driven cancellation or deadline exists. `ProcessingErrorKind::Cancelled` arises only when an output sink or backend aborts. A hostile input is bounded by the byte/pixel caps and the caller's process limits, not by a time budget. |

@@ -170,3 +170,6 @@ pub mod enc_modular_simd_simd;
 // (#118, tests/parity/encoder_step1_checkpoints.rs).
 pub mod enc_checkpoints;
 // end encoder step 1
+// encoder aq: the SIMD AdaptiveQuantizationMap (port ADR 0004, "Encoder path").
+pub mod enc_adaptive_quantization_simd;
+// end encoder aq

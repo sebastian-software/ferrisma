@@ -58,22 +58,29 @@ impl Kernel for GabRow<'_> {
         let w0 = d.set(self.w[0]);
         let w1 = d.set(self.w[1]);
         let w2 = d.set(self.w[2]);
-        for i in 0..self.iterations {
-            let x = i * D::LANES + 1;
-            let t = d.load(&row_t[x..]);
-            let tl = d.load(&row_t[x - 1..]);
-            let tr = d.load(&row_t[x + 1..]);
-            let m = d.load(&row_m[x..]);
-            let l = d.load(&row_m[x - 1..]);
-            let r = d.load(&row_m[x + 1..]);
-            let b = d.load(&row_b[x..]);
-            let bl = d.load(&row_b[x - 1..]);
-            let br = d.load(&row_b[x + 1..]);
+        // Each vector reads one window of `Lanes + 2` samples per row (the
+        // source's row + x - 1 .. row + x + Lanes + 1) and writes one output
+        // vector, so the nine loads and the store need no per-load checks.
+        let n = self.iterations * D::LANES;
+        for (i, out) in self.out[..n].chunks_exact_mut(D::LANES).enumerate() {
+            let o = i * D::LANES;
+            let wt = &row_t[o..o + D::LANES + 2];
+            let wm = &row_m[o..o + D::LANES + 2];
+            let wb = &row_b[o..o + D::LANES + 2];
+            let t = d.load(&wt[1..]);
+            let tl = d.load(wt);
+            let tr = d.load(&wt[2..]);
+            let m = d.load(&wm[1..]);
+            let l = d.load(wm);
+            let r = d.load(&wm[2..]);
+            let b = d.load(&wb[1..]);
+            let bl = d.load(wb);
+            let br = d.load(&wb[2..]);
             let sum0 = m;
             let sum1 = d.add(d.add(l, r), d.add(t, b));
             let sum2 = d.add(d.add(tl, tr), d.add(bl, br));
             let pixels = d.mul_add(sum2, w2, d.mul_add(sum1, w1, d.mul(sum0, w0)));
-            d.store(pixels, &mut self.out[x - 1..]);
+            d.store(pixels, out);
         }
     }
 }

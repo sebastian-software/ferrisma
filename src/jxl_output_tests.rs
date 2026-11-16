@@ -12,22 +12,15 @@ use crate::jxl_sink::{
     lossy_codec_reservation_bytes,
 };
 use crate::memory::MemoryBudget;
-use crate::pipeline::{
-    ChromaSubsampling, JpegXlOptions, OutputFormat, ProcessingErrorKind, TransformOptions,
-};
+use crate::pipeline::Threads;
+use crate::pipeline::{AvifOptions, JpegXlLossless, JpegXlLossy, OutputGeometry, OutputSettings};
+use crate::pipeline::{ChromaSubsampling, JpegXlOptions, ProcessingErrorKind, TransformOptions};
 
 /// Lossless output options; the lossy tests are in `jxl_lossy_tests`.
 fn options(width: u32, height: u32) -> TransformOptions {
-    TransformOptions {
-        output_format: OutputFormat::JpegXl,
-        jpeg_xl: JpegXlOptions::Lossless {
-            effort: 2,
-            depth: None,
-        },
-        output_width: width,
-        output_height: height,
-        ..TransformOptions::default()
-    }
+    TransformOptions::new(OutputGeometry::Exact { width, height }).with_output(
+        OutputSettings::JpegXl(JpegXlOptions::Lossless(JpegXlLossless::default())),
+    )
 }
 
 /// Deterministic photo-like content: gradients plus a hashed texture, and
@@ -62,7 +55,7 @@ fn encode(
     budget: &MemoryBudget,
 ) -> Result<Vec<u8>, Error> {
     let size = Size::new(width as u32, height as u32).unwrap();
-    let mut sink = JxlSink::new(size, options(size.width, size.height), budget)?;
+    let mut sink = JxlSink::new(size, &options(size.width, size.height), budget)?;
     for (y, row) in data.chunks_exact(width * 4).enumerate() {
         sink.write_row(y as u32, row)?;
     }
@@ -75,47 +68,38 @@ fn rejects_requests_outside_the_admitted_profile_before_allocating() {
     let size = Size::new(8, 8).unwrap();
     for (changed, expected) in [
         (
-            TransformOptions {
-                jpeg_xl: JpegXlOptions::Lossless {
-                    effort: 7,
-                    depth: None,
-                },
-                ..options(8, 8)
-            },
+            options(8, 8).with_output(OutputSettings::JpegXl(JpegXlOptions::Lossless(
+                JpegXlLossless::default().with_effort(7),
+            ))),
             "effort",
         ),
         (
-            TransformOptions {
-                encoder_threads: 2,
-                ..options(8, 8)
-            },
+            options(8, 8)
+                .with_encoder_threads(Threads::Count(std::num::NonZeroUsize::new(2).unwrap())),
             "serial",
         ),
     ] {
-        let error = JxlSink::new(size, changed, &budget).err().unwrap();
+        let error = JxlSink::new(size, &changed, &budget).err().unwrap();
         assert!(matches!(error, Error::UnsupportedEncoderProfile(_)));
         assert!(error.to_string().contains(expected), "{error}");
     }
-    let chroma = TransformOptions {
-        avif: crate::pipeline::AvifOptions {
-            chroma: ChromaSubsampling::Yuv420,
-            ..crate::pipeline::AvifOptions::default()
-        },
-        ..options(8, 8)
-    };
+    // Another output's settings never reach this sink; it refuses them.
+    let chroma = options(8, 8).with_output(OutputSettings::Avif(
+        AvifOptions::default().with_chroma(ChromaSubsampling::Yuv420),
+    ));
     assert_eq!(
-        JxlSink::new(size, chroma, &budget).err(),
+        JxlSink::new(size, &chroma, &budget).err(),
         Some(Error::InvalidEncodeOptions)
     );
     // Level 5 limits: 2^18 per side and 2^28 pixels.
     let wide = Size::new((1 << 18) + 1, 1).unwrap();
     assert!(matches!(
-        JxlSink::new(wide, options(wide.width, 1), &budget).err(),
+        JxlSink::new(wide, &options(wide.width, 1), &budget).err(),
         Some(Error::UnsupportedEncoderProfile(_))
     ));
     let area = Size::new(1 << 15, (1 << 13) + 1).unwrap();
     assert!(matches!(
-        JxlSink::new(area, options(area.width, area.height), &budget).err(),
+        JxlSink::new(area, &options(area.width, area.height), &budget).err(),
         Some(Error::UnsupportedEncoderProfile(_))
     ));
     assert_eq!(budget.snapshot().peak, 0);
@@ -519,7 +503,7 @@ fn model_covers_every_measured_peak_with_margin() {
 fn incomplete_or_misordered_rows_are_rejected() {
     let budget = MemoryBudget::new(1 << 20);
     let size = Size::new(4, 2).unwrap();
-    let mut sink = JxlSink::new(size, options(4, 2), &budget).unwrap();
+    let mut sink = JxlSink::new(size, &options(4, 2), &budget).unwrap();
     assert!(sink.write_row(1, &[0; 16]).is_err());
     sink.write_row(0, &[0; 16]).unwrap();
     assert!(sink.write_row(1, &[0; 12]).is_err());
@@ -581,44 +565,24 @@ fn lossless_output_equals_the_original_cjxl_bytes() {
     }
 }
 
+/// A profile the workspace encoder does not admit and a thread count it
+/// cannot honor are refused before decoding. (Until 2026-11-16 this test
+/// was `facade_rejects_mismatched_and_disabled_settings_before_decoding`
+/// and also refused AVIF and WebP settings beside JPEG XL output, and JPEG
+/// XL settings beside WebP output; the options can no longer express
+/// those.)
 #[test]
-fn facade_rejects_mismatched_and_disabled_settings_before_decoding() {
+fn facade_rejects_unadmitted_settings_before_decoding() {
     // Invalid compressed input proves the check precedes opening a decoder.
     let garbage = b"not an image";
     for options in [
-        TransformOptions {
-            avif: crate::pipeline::AvifOptions {
-                quality: 50,
-                ..crate::pipeline::AvifOptions::default()
-            },
-            ..options(8, 8)
-        },
-        TransformOptions {
-            webp: crate::pipeline::WebpOptions::Lossless { level: 4 },
-            ..options(8, 8)
-        },
-        TransformOptions {
-            jpeg_xl: JpegXlOptions::Lossless {
-                effort: 3,
-                depth: None,
-            },
-            ..options(8, 8)
-        },
-        TransformOptions {
-            encoder_threads: 0,
-            ..options(8, 8)
-        },
-        TransformOptions {
-            output_format: OutputFormat::WebP,
-            jpeg_xl: JpegXlOptions::Lossless {
-                effort: 3,
-                depth: None,
-            },
-            ..options(8, 8)
-        },
+        options(8, 8).with_output(OutputSettings::JpegXl(JpegXlOptions::Lossless(
+            JpegXlLossless::default().with_effort(3),
+        ))),
+        options(8, 8).with_encoder_threads(Threads::Automatic),
     ] {
         let error =
-            crate::pipeline::transcode(garbage, crate::pipeline::ImageFormat::JpegXl, options)
+            crate::pipeline::transcode(garbage, crate::pipeline::ImageFormat::JpegXl, &options)
                 .unwrap_err();
         assert_eq!(error.kind(), ProcessingErrorKind::InvalidOptions, "{error}");
     }
@@ -786,10 +750,7 @@ mod pipeline_round_trip {
     }
 
     fn srgb(width: u32, height: u32) -> TransformOptions {
-        TransformOptions {
-            profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-            ..options(width, height)
-        }
+        options(width, height).with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
     }
 
     #[test]
@@ -797,14 +758,14 @@ mod pipeline_round_trip {
         // A downscale (resampled, quantized rows) and a same-size transcode.
         for (alpha, (width, height)) in [(false, (120, 90)), (true, (120, 90)), (true, (64, 48))] {
             let input = webp(120, 90, alpha);
-            let output = transcode(&input, ImageFormat::WebP, srgb(width, height)).unwrap();
+            let output = transcode(&input, ImageFormat::WebP, &srgb(width, height)).unwrap();
             assert_eq!(output.format, OutputFormat::JpegXl);
-            assert_eq!(output.report.encoder_backend, "libjxl-rs");
+            assert_eq!(output.report.encoder_backend, "libjxl");
             assert!(output.report.opaque_encoder_memory);
             let (w, h) = (width as usize, height as usize);
             assert!(output.report.encoder_output_frame_bytes >= w * h * 4);
             let expected =
-                transcode_with(&input, ImageFormat::WebP, srgb(width, height), &Rows).unwrap();
+                transcode_with(&input, ImageFormat::WebP, &srgb(width, height), &Rows).unwrap();
             let (dw, dh, channels, samples) = decode_oxide(&output.bytes);
             assert_eq!((dw, dh), (width, height));
             assert_eq!(to_rgba(channels, &samples), expected.bytes);
@@ -816,24 +777,18 @@ mod pipeline_round_trip {
     #[test]
     fn encoded_output_limit_applies_at_the_exact_byte() {
         let input = webp(40, 30, true);
-        let full = transcode(&input, ImageFormat::WebP, srgb(40, 30)).unwrap();
-        let exact = TransformOptions {
-            max_output_bytes: full.bytes.len(),
-            ..srgb(40, 30)
-        };
+        let full = transcode(&input, ImageFormat::WebP, &srgb(40, 30)).unwrap();
+        let exact = srgb(40, 30).with_max_output_bytes(full.bytes.len());
         assert_eq!(
-            transcode(&input, ImageFormat::WebP, exact).unwrap().bytes,
+            transcode(&input, ImageFormat::WebP, &exact).unwrap().bytes,
             full.bytes
         );
-        let short = TransformOptions {
-            max_output_bytes: full.bytes.len() - 1,
-            ..srgb(40, 30)
-        };
+        let short = srgb(40, 30).with_max_output_bytes(full.bytes.len() - 1);
         assert_eq!(
-            transcode(&input, ImageFormat::WebP, short)
+            transcode(&input, ImageFormat::WebP, &short)
                 .unwrap_err()
                 .kind(),
-            ProcessingErrorKind::ResourceExhausted
+            ProcessingErrorKind::OutputLimitExceeded
         );
     }
 
@@ -844,10 +799,10 @@ mod pipeline_round_trip {
         let input = include_bytes!("../tests/fixtures/orientation/jpeg-6.jpg");
         let reference = include_bytes!("../tests/fixtures/orientation/jpeg-6.rgb");
         let options = srgb(16, 24);
-        let output = transcode(input, ImageFormat::Jpeg, options).unwrap();
+        let output = transcode(input, ImageFormat::Jpeg, &options).unwrap();
         let (w, h, channels, samples) = decode_oxide(&output.bytes);
         assert_eq!((w, h, channels), (16, 24, 3));
-        let expected = transcode_with(input, ImageFormat::Jpeg, options, &Rows).unwrap();
+        let expected = transcode_with(input, ImageFormat::Jpeg, &options, &Rows).unwrap();
         assert_eq!(to_rgba(channels, &samples), expected.bytes);
         // The independent libjpeg upright reference matches exactly on this
         // fixture (measured 2026-11-12); the fixture README allows up to 2
@@ -898,10 +853,7 @@ fn encode_deep(
     let budget = MemoryBudget::new(256 << 20);
     let mut sink = JxlSink::with_depth(
         Size::new(width as u32, height as u32)?,
-        TransformOptions {
-            jpeg_xl,
-            ..options(width as u32, height as u32)
-        },
+        &options(width as u32, height as u32).with_output(OutputSettings::JpegXl(jpeg_xl)),
         &budget,
         depth,
     )?;
@@ -919,21 +871,15 @@ fn encode_deep(
 #[test]
 #[allow(clippy::too_many_lines)] // One table of nine original files.
 fn deep_output_equals_the_original_cjxl_bytes() {
-    const LOSSLESS: JpegXlOptions = JpegXlOptions::Lossless {
-        effort: 2,
-        depth: None,
-    };
-    const LOSSY: JpegXlOptions = JpegXlOptions::Lossy {
-        distance: 1.0,
-        depth: None,
-    };
+    let lossless = JpegXlOptions::Lossless(JpegXlLossless::default());
+    let lossy = JpegXlOptions::Lossy(JpegXlLossy::default().with_distance(1.0));
     for (width, height, depth, alpha, mode, reference) in [
         (
             37,
             19,
             16,
             false,
-            LOSSLESS,
+            lossless.clone(),
             &include_bytes!("../tests/fixtures/jxl-deep/d16-37x19-a0-lossless.jxl")[..],
         ),
         (
@@ -941,7 +887,7 @@ fn deep_output_equals_the_original_cjxl_bytes() {
             19,
             16,
             true,
-            LOSSLESS,
+            lossless.clone(),
             &include_bytes!("../tests/fixtures/jxl-deep/d16-37x19-a1-lossless.jxl")[..],
         ),
         (
@@ -949,7 +895,7 @@ fn deep_output_equals_the_original_cjxl_bytes() {
             19,
             10,
             false,
-            LOSSLESS,
+            lossless.clone(),
             &include_bytes!("../tests/fixtures/jxl-deep/d10-37x19-a0-lossless.jxl")[..],
         ),
         (
@@ -957,7 +903,7 @@ fn deep_output_equals_the_original_cjxl_bytes() {
             19,
             12,
             true,
-            LOSSLESS,
+            lossless.clone(),
             &include_bytes!("../tests/fixtures/jxl-deep/d12-37x19-a1-lossless.jxl")[..],
         ),
         (
@@ -965,7 +911,7 @@ fn deep_output_equals_the_original_cjxl_bytes() {
             40,
             16,
             true,
-            LOSSLESS,
+            lossless.clone(),
             &include_bytes!("../tests/fixtures/jxl-deep/d16-2049x40-a1-lossless.jxl")[..],
         ),
         (
@@ -973,7 +919,7 @@ fn deep_output_equals_the_original_cjxl_bytes() {
             19,
             16,
             false,
-            LOSSY,
+            lossy.clone(),
             &include_bytes!("../tests/fixtures/jxl-deep/d16-37x19-a0-d1.jxl")[..],
         ),
         (
@@ -981,7 +927,7 @@ fn deep_output_equals_the_original_cjxl_bytes() {
             19,
             10,
             false,
-            LOSSY,
+            lossy.clone(),
             &include_bytes!("../tests/fixtures/jxl-deep/d10-37x19-a0-d1.jxl")[..],
         ),
         (
@@ -989,7 +935,7 @@ fn deep_output_equals_the_original_cjxl_bytes() {
             19,
             12,
             true,
-            LOSSY,
+            lossy.clone(),
             &include_bytes!("../tests/fixtures/jxl-deep/d12-37x19-a1-d1.jxl")[..],
         ),
         (
@@ -997,7 +943,7 @@ fn deep_output_equals_the_original_cjxl_bytes() {
             40,
             10,
             false,
-            LOSSY,
+            lossy.clone(),
             &include_bytes!("../tests/fixtures/jxl-deep/d10-2049x40-a0-d1.jxl")[..],
         ),
     ] {
@@ -1006,7 +952,7 @@ fn deep_output_equals_the_original_cjxl_bytes() {
             height,
             depth,
             &deep_rows(width, height, depth, alpha),
-            mode,
+            mode.clone(),
         )
         .unwrap();
         assert!(
@@ -1046,10 +992,7 @@ fn a_sixteen_bit_lossless_round_trip_is_exact() {
         let output = transcode(
             input,
             ImageFormat::JpegXl,
-            TransformOptions {
-                profile_policy: InputProfilePolicy::Strict,
-                ..options(width as u32, height as u32)
-            },
+            &options(width as u32, height as u32).with_profile_policy(InputProfilePolicy::Strict),
         )
         .unwrap();
         assert!(
@@ -1070,7 +1013,14 @@ fn a_sixteen_bit_lossless_round_trip_is_exact() {
                 pixel[..3].fill(0);
             }
         }
-        let reference = encode_deep(width, height, 16, &expected, options(1, 1).jpeg_xl).unwrap();
+        let reference = encode_deep(
+            width,
+            height,
+            16,
+            &expected,
+            JpegXlOptions::Lossless(JpegXlLossless::default()),
+        )
+        .unwrap();
         assert!(output.bytes == reference, "alpha={alpha}: samples changed");
     }
 }
