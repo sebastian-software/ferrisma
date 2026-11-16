@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 
 from brotli_check_support import prepare as prepare_brotli_observers
@@ -167,6 +168,29 @@ def check_attribute_context():
 # end codegen check
 
 
+def cross_processor(arch, build):
+    """CMake arguments that make an Apple cross build see the target processor.
+
+    O9 (owner decision 2026-11-15, port ADR 0004): upstream's
+    third_party/skcms.cmake compiles skcms's HSW (and SKX) engine only when
+    CMAKE_SYSTEM_PROCESSOR is x86_64. On an ARM64 Mac CMake sets it to the
+    host's arm64 and ignores a -DCMAKE_SYSTEM_PROCESSOR given without a
+    CMAKE_SYSTEM_NAME (it is a cross-compilation setting), so the cross
+    build left both engines out. CMAKE_APPLE_SILICON_PROCESSOR is CMake's
+    own switch for this case: it makes the host processor, and therefore
+    CMAKE_SYSTEM_PROCESSOR, x86_64 without entering cross-compiling mode,
+    as on a native x86-64 Mac. The original's source is untouched. CMake
+    records the processor once per build directory, so a directory
+    configured before is configured afresh.
+    """
+    for recorded in build.glob("CMakeFiles/*/CMakeSystem.cmake"):
+        if f'set(CMAKE_SYSTEM_PROCESSOR "{arch}")' not in recorded.read_text():
+            shutil.rmtree(build / "CMakeFiles")
+            (build / "CMakeCache.txt").unlink(missing_ok=True)
+            break
+    return [f"-DCMAKE_APPLE_SILICON_PROCESSOR={arch}"]
+
+
 def cross_arguments(target, build):
     """CMake arguments for an oracle of another Apple architecture (run under Rosetta)."""
     if target is None:
@@ -183,7 +207,7 @@ def cross_arguments(target, build):
                            f'exec "{compiler}" -arch {arch} "$@"\n')
         wrapper.chmod(0o755)
         wrappers.append(wrapper)
-    return [f"-DCMAKE_OSX_ARCHITECTURES={arch}", f"-DORACLE_RUST_TARGET={target}",
+    return [f"-DCMAKE_OSX_ARCHITECTURES={arch}", *cross_processor(arch, build), f"-DORACLE_RUST_TARGET={target}",
             f"-DCMAKE_C_COMPILER={wrappers[0]}", f"-DCMAKE_CXX_COMPILER={wrappers[1]}"]
 
 
@@ -235,8 +259,9 @@ def build_simd_oracle(rust_target=None):
     target = {"arm64": "NEON", "aarch64": "NEON", "x86_64": "AVX2", "AMD64": "AVX2"}.get(machine)
     if target is None:
         raise SystemExit(f"No SIMD oracle target for {machine}")
-    cross = ["-DCMAKE_OSX_ARCHITECTURES=x86_64"] if machine == "x86_64" and platform.machine() != "x86_64" else []
     build = ROOT / "target" / f"oracle-{target.lower()}"
+    cross = (["-DCMAKE_OSX_ARCHITECTURES=x86_64", *cross_processor("x86_64", build)]
+             if machine == "x86_64" and platform.machine() != "x86_64" else [])
     run("cmake", "-S", "tools/oracle", "-B", build, "-DCMAKE_BUILD_TYPE=Release", f"-DORACLE_HWY_TARGET={target}", *cross)
     run("cmake", "--build", build, "--target", "jxl_oracle", "--parallel", "4")
     return {"JXL_CPP_ORACLE_SIMD": str(build / "jxl_oracle")}
@@ -314,10 +339,13 @@ def check_tests(env, partition, filter, target=None, keep_going=False):
     # stage still fails when any test fails. A test of the same name in
     # another binary would move with the SIMD group.
     # Under Rosetta 2 the SIMD parity tests also need AVX2 reported to their
-    # own process, and every other test must run without it: the cross-built
-    # scalar references contain only the baseline skcms engine (upstream's
-    # third_party/skcms.cmake keys HSW on CMAKE_SYSTEM_PROCESSOR, the ARM64
-    # host), so a port that detects AVX2 would run HSW against baseline.
+    # own process; every other test runs without it, so port and original
+    # both select skcms's baseline engine there. The cross-built references
+    # contain the HSW engine since O9 (cross_processor), so setting
+    # ROSETTA_ADVERTISE_AVX=1 for the whole stage compares HSW with HSW as a
+    # native x86-64 run does; it is not the default because Rosetta 2
+    # mis-executes some AVX code (port ADR 0004, "The skcms HSW engine in its
+    # attribute context").
     simd = listed(*SIMD_TEST_ARGS)
     simd_env = dict(env, ROSETTA_ADVERTISE_AVX="1")
     simd_test = test if keep_going else [*test, "--no-fail-fast"]
