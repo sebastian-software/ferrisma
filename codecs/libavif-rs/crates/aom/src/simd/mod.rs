@@ -472,6 +472,10 @@ pub mod av1__encoder__x86__highbd_fwd_txfm_avx2;
 pub mod av1__encoder__x86__highbd_fwd_txfm_sse4;
 
 #[cfg(target_arch = "x86_64")]
+#[path = "av1/encoder/x86/model_rd_sse2.rs"]
+pub mod av1__encoder__x86__model_rd_sse2;
+
+#[cfg(target_arch = "x86_64")]
 #[path = "av1/encoder/x86/rdopt_avx2.rs"]
 pub mod av1__encoder__x86__rdopt_avx2;
 

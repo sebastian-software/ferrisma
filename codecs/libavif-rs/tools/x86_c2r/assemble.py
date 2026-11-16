@@ -475,6 +475,10 @@ def nz_map_contexts():
                 '\n' + part('txb_common_sse2.hand.rs'), note=NZ_NOTE)
 
 
+def interp_cubic_rate_dist():
+    simple_file('av1/encoder/x86/model_rd_sse2.rs', 'model_rd_sse2.json', 'av1/encoder/x86/model_rd_sse2.c', 'sse2', '')
+
+
 def main():
     global OUT, WORK
     parser = argparse.ArgumentParser(description=__doc__)
@@ -495,6 +499,7 @@ def main():
         loop_restoration()
         horver_correlation()
         nz_map_contexts()
+        interp_cubic_rate_dist()
         if args.check:
             bad = []
             for path in sorted(OUT.rglob('*.rs')):

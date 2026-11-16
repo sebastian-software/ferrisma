@@ -13,6 +13,8 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use core::arch::asm;
 extern "C-unwind" {
+    fn av1_interp_cubic_rate_dist_c(p1: *const core::ffi::c_double, p2: *const core::ffi::c_double, x: core::ffi::c_double, rate_dist_f: *mut core::ffi::c_double);
+    fn av1_interp_cubic_rate_dist_sse2(p1: *const core::ffi::c_double, p2: *const core::ffi::c_double, x: core::ffi::c_double, rate_dist_f: *mut core::ffi::c_double);
     fn av1_round_shift_array_c(arr: *mut int32_t, size: core::ffi::c_int, bit: core::ffi::c_int);
     fn av1_round_shift_array_sse4_1(arr: *mut int32_t, size: core::ffi::c_int, bit: core::ffi::c_int);
     fn av1_get_nz_map_contexts_c(levels: *const uint8_t, scan: *const int16_t, eob: core::ffi::c_int, tx_size: TX_SIZE, tx_class: TX_CLASS, coeff_contexts: *mut int8_t);
@@ -1275,6 +1277,8 @@ pub static mut av1_highbd_upsample_intra_edge: Option<
 > = None;
 #[no_mangle]
 pub static mut av1_highbd_wiener_convolve_add_src: Option<unsafe extern "C-unwind" fn(*const uint8_t, ptrdiff_t, *mut uint8_t, ptrdiff_t, *const int16_t, core::ffi::c_int, *const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const WienerConvolveParams, core::ffi::c_int) -> ()> = None;
+#[no_mangle]
+pub static mut av1_interp_cubic_rate_dist: Option<unsafe extern "C-unwind" fn(*const core::ffi::c_double, *const core::ffi::c_double, core::ffi::c_double, *mut core::ffi::c_double) -> ()> = None;
 #[no_mangle]
 pub static mut av1_inv_txfm_add: Option<unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()> = None;
 #[no_mangle]
@@ -2943,6 +2947,10 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
     }
     if flags & HAS_AVX2 != 0 {
         av1_highbd_wiener_convolve_add_src = Some(av1_highbd_wiener_convolve_add_src_avx2 as unsafe extern "C-unwind" fn(*const uint8_t, ptrdiff_t, *mut uint8_t, ptrdiff_t, *const int16_t, core::ffi::c_int, *const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const WienerConvolveParams, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*const uint8_t, ptrdiff_t, *mut uint8_t, ptrdiff_t, *const int16_t, core::ffi::c_int, *const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const WienerConvolveParams, core::ffi::c_int) -> ()>;
+    }
+    av1_interp_cubic_rate_dist = Some(av1_interp_cubic_rate_dist_c as unsafe extern "C-unwind" fn(*const core::ffi::c_double, *const core::ffi::c_double, core::ffi::c_double, *mut core::ffi::c_double) -> ()) as Option<unsafe extern "C-unwind" fn(*const core::ffi::c_double, *const core::ffi::c_double, core::ffi::c_double, *mut core::ffi::c_double) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        av1_interp_cubic_rate_dist = Some(av1_interp_cubic_rate_dist_sse2 as unsafe extern "C-unwind" fn(*const core::ffi::c_double, *const core::ffi::c_double, core::ffi::c_double, *mut core::ffi::c_double) -> ()) as Option<unsafe extern "C-unwind" fn(*const core::ffi::c_double, *const core::ffi::c_double, core::ffi::c_double, *mut core::ffi::c_double) -> ()>;
     }
     av1_inv_txfm_add = Some(av1_inv_txfm_add_c as unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()>;
     if flags & HAS_SSSE3 != 0 {

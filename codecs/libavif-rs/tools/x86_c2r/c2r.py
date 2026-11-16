@@ -679,7 +679,8 @@ class Printer:
         if p == 'void':
             return ('void',)
         if p in SCALAR:
-            return ('int', SCALAR[p])
+            r = SCALAR[p]
+            return ('float', r) if r in ('f32', 'f64') else ('int', r)
         raise Unsupported(f'{name}: intrinsic type {p}')
 
     # ---------------------------------------------------------------- statements

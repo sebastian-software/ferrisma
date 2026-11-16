@@ -38,6 +38,8 @@ mod mse_16bit;
 mod blk_sse_sum;
 #[path = "simd/round_shift_array.rs"]
 mod round_shift_array;
+#[path = "simd/model_rd.rs"]
+mod model_rd;
 #[path = "simd/intrapred.rs"]
 mod intrapred;
 #[path = "simd/lowbd_intrapred.rs"]

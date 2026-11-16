@@ -206,6 +206,7 @@ Kernels that exist only as NASM stay on `_c` (working decision O4).
 | Horizontal and vertical correlation | `av1/encoder/x86/rdopt_sse4.c`, `rdopt_avx2.c`, `loadu_int64` of `aom_dsp/x86/mem_sse2.h` | 1 (`av1_get_horver_correlation_full`, SSE4.1 and AVX2) | 82/82, 82/82, 82/82 |
 | Coefficient contexts | `av1/encoder/x86/encodetxb_sse2.c`, the 8-bit loads of `aom_dsp/x86/mem_sse2.h` | 1 (`av1_get_nz_map_contexts`, SSE2) | 82/82, 82/82, 82/82 |
 | Round shift | `av1/common/x86/av1_txfm_sse4.c` (translated by hand earlier with `av1_txfm_sse4.h`, `simd/av1/common/x86/av1_txfm_sse4.rs`) | 1 (`av1_round_shift_array`, SSE4.1) | 82/82, 82/82, 82/82 |
+| Cubic rate-distortion interpolation | `av1/encoder/x86/model_rd_sse2.c` | 1 (`av1_interp_cubic_rate_dist`, SSE2) | 82/82, 82/82, 82/82 |
 
 Kernel tests: `tests/simd/lowbd_inv_txfm.rs` now also transcribes the SSSE3
 and AVX2 instantiations of AV1LbdInvTxfm2d (`match`, `gt_int16`) and checks
@@ -272,7 +273,11 @@ the translated transforms pass the DECLARE_ALIGNED(32) buffers C2Rust kept
 aligned (`platform::Aligned32`). `round_shift_array.rs` adds the SSE4_1
 instantiation of AV1CompRoundShiftTest, and the transcriptions' scalar
 reference now selects `av1_round_shift_array_c` on x86-64 too (231 tests
-pass).
+pass). `model_rd.rs` transcribes InterpCubicTest.CheckOutput of
+`model_rd_test.cc` for the SSE2 instantiation (232 tests pass); the original
+keeps the operation order of `_c` on purpose, and the test requires equal
+doubles. The printer types the `double` parameters of intrinsics as floats, so
+`_mm_set1_pd(0.5)` keeps its literal.
 
 Since 2026-11-15 every family is verified before its push with all four
 translation profiles compiled (`cargo check -p libavif-aom --lib --tests` for

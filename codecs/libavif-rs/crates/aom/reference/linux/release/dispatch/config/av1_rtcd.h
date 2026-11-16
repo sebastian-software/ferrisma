@@ -443,7 +443,8 @@ void av1_highbd_wiener_convolve_add_src_avx2(const uint8_t *src, ptrdiff_t src_s
 RTCD_EXTERN void (*av1_highbd_wiener_convolve_add_src)(const uint8_t *src, ptrdiff_t src_stride, uint8_t *dst, ptrdiff_t dst_stride, const int16_t *filter_x, int x_step_q4, const int16_t *filter_y, int y_step_q4, int w, int h, const WienerConvolveParams *conv_params, int bd);
 
 void av1_interp_cubic_rate_dist_c(const double *p1, const double *p2, double x, double rate_dist_f[2]);
-#define av1_interp_cubic_rate_dist av1_interp_cubic_rate_dist_c
+void av1_interp_cubic_rate_dist_sse2(const double *p1, const double *p2, double x, double rate_dist_f[2]);
+RTCD_EXTERN void (*av1_interp_cubic_rate_dist)(const double *p1, const double *p2, double x, double rate_dist_f[2]);
 
 void av1_inv_txfm2d_add_16x16_c(const int32_t *input, uint16_t *output, int stride, TX_TYPE tx_type, int bd);
 #define av1_inv_txfm2d_add_16x16 av1_inv_txfm2d_add_16x16_c
@@ -788,6 +789,8 @@ static void setup_rtcd_internal(void)
     av1_highbd_wiener_convolve_add_src = av1_highbd_wiener_convolve_add_src_c;
     if (flags & HAS_SSSE3) av1_highbd_wiener_convolve_add_src = av1_highbd_wiener_convolve_add_src_ssse3;
     if (flags & HAS_AVX2) av1_highbd_wiener_convolve_add_src = av1_highbd_wiener_convolve_add_src_avx2;
+    av1_interp_cubic_rate_dist = av1_interp_cubic_rate_dist_c;
+    if (flags & HAS_SSE2) av1_interp_cubic_rate_dist = av1_interp_cubic_rate_dist_sse2;
     av1_inv_txfm_add = av1_inv_txfm_add_c;
     if (flags & HAS_SSSE3) av1_inv_txfm_add = av1_inv_txfm_add_ssse3;
     if (flags & HAS_AVX2) av1_inv_txfm_add = av1_inv_txfm_add_avx2;

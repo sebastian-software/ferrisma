@@ -13,6 +13,7 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
+    static mut av1_interp_cubic_rate_dist: Option<unsafe extern "C-unwind" fn(*const core::ffi::c_double, *const core::ffi::c_double, core::ffi::c_double, *mut core::ffi::c_double) -> ()>;
     fn aom_malloc(size: size_t) -> *mut core::ffi::c_void;
     fn aom_internal_error(
         info: *mut aom_internal_error_info,
@@ -8642,7 +8643,7 @@ pub unsafe extern "C-unwind" fn av1_model_rd_curvfit(
         .offset(dcat as isize))
         .as_ptr()
         .offset((xi - 1 as core::ffi::c_int) as isize) as *const core::ffi::c_double;
-    av1_interp_cubic_rate_dist_c(prate, pdist, xo, rate_dist_f);
+    av1_interp_cubic_rate_dist.expect("non-null function pointer")(prate, pdist, xo, rate_dist_f);
 }
 unsafe extern "C-unwind" fn get_entropy_contexts_plane(
     mut plane_bsize: BLOCK_SIZE,
