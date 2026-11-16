@@ -1,4 +1,10 @@
-import { useState } from "ardo/react";
+/*
+ * Ferrisma's homepage on Monografie, in the shape of the family kit's sample
+ * engine page: the instrument as the opening plate, then one reading column
+ * that widens for the drawings. Every fact comes from ../ferrisma.ts, which
+ * names its source document; the arc and the open questions are in
+ * DESIGN-NOTES.md.
+ */
 import type { ArdoMetaFunction } from "ardo/runtime";
 import {
   MonoAction,
@@ -7,155 +13,38 @@ import {
   MonoCode,
   MonoColophon,
   MonoEngraving,
-  MonoFacing,
   MonoPassage,
   MonoSection,
-  MonoSheet,
   MonoTerms,
   MonoWide,
 } from "ferramenta-family/monografie";
 
+import { AnatomyDrawing } from "../drawings/Anatomy";
+import { GateDrawing } from "../drawings/Gate";
+import { PipelineDrawing } from "../drawings/Pipeline";
+import { RefuseOrReportDrawing } from "../drawings/RefuseOrReport";
+import {
+  FAMILY_SITE,
+  GATE_AS_OF,
+  GATE_STATE,
+  JXL_DECODE_RECORD,
+  PORTS,
+  REPOSITORY,
+  SPEED,
+  SPEED_RECORD,
+  blob,
+  path,
+} from "../ferrisma";
+
 export const handle = { layout: "bare" };
 export const meta: ArdoMetaFunction = () => [
-  { title: "Ferrisma — your next image stack, built in Rust" },
+  { title: "Ferrisma: an image pipeline in Rust, on codecs translated from the originals" },
   {
     name: "description",
     content:
-      "A Rust image engine in development for modern web delivery. Modern codec ports, linear-light resizing, and a pipeline you can inspect from input to output.",
+      "Ferrisma reads JPEG, WebP, JPEG XL and AVIF, crops and resizes in linear light, and writes AVIF, WebP or JPEG XL. Its codecs are Rust translations of libjpeg-turbo, libwebp, libjxl and libavif, checked against the originals bit for bit. Experimental.",
   },
 ];
-const path = (route: string) => `${import.meta.env.BASE_URL}${route}`;
-const source = "https://github.com/sebastian-software/ferrisma";
-const stages = [
-  {
-    label: "Decode",
-    title: "Start with what the decoder actually emits.",
-    body: "JPEG, WebP, JPEG XL and AVIF input adapters describe the rendered pixels, their color metadata and their access capabilities. A format supporting regions does not mean every decoder can avoid a full frame.",
-    detail: "JPEG, WebP, JPEG XL and AVIF all use workspace ports; JPEG XL input goes through the libjxl-rs port and its safe bridge.",
-  },
-  {
-    label: "Orient & crop",
-    title: "Choose a region in the image you see.",
-    body: "Orientation is applied before cropping, so crop coordinates refer to the upright image. When reorientation needs a buffer, the engine charges it to the managed budget and includes it in the report.",
-    detail: "A crop request is not a promise of partial decoding.",
-  },
-  {
-    label: "Resize",
-    title: "Filter light, then return to display samples.",
-    body: "Supported color is converted to linear sRGB before Area or Lanczos3 resampling. The default f32 executor is checked against an f64 reference, with explicit bounds on numerical differences.",
-    detail: "CPU execution with scalar and runtime-selected SIMD kernels.",
-  },
-  {
-    label: "Encode",
-    title: "Make the output boundary explicit.",
-    body: "Write AVIF through the workspace libavif/AOM port, still WebP through its workspace port, or JPEG XL through the libjxl-rs port. The Rust facade and CLI expose the choice, and the report includes the encoder's known frame materialization.",
-    detail: "WebP and JPEG XL support lossy and lossless output; JPEG XL is lossy by default. JPEG output remains outside the current engine.",
-  },
-  {
-    label: "Report",
-    title: "Return the image and an account of the work.",
-    body: "The processing report includes decoder requests, known frame allocations, peak managed bytes, selected kernels, threads and stage timings. Flags identify codec memory the engine cannot account for.",
-    detail: "Engine-managed memory is not a total-process memory limit.",
-  },
-];
-
-function PipelineExplorer() {
-  const [selected, setSelected] = useState(0);
-  const stage = stages[selected];
-  return (
-    <figure className="fx-flow" aria-labelledby="flow-caption">
-      <figcaption id="flow-caption">Follow one image through the current SDR path</figcaption>
-      <ol className="fx-flow-stages" aria-label="Pipeline stages">
-        {stages.map((item, index) => (
-          <li key={item.label}>
-            <button
-              type="button"
-              aria-pressed={selected === index}
-              aria-controls="flow-explanation"
-              onClick={() => setSelected(index)}
-            >
-              <span className="fx-step-number" aria-hidden="true">
-                {index + 1}
-              </span>
-              {item.label}
-            </button>
-          </li>
-        ))}
-      </ol>
-      <div
-        id="flow-explanation"
-        className="fx-flow-explanation"
-        aria-live="polite"
-        aria-atomic="true"
-      >
-        <h3>{stage.title}</h3>
-        <p>{stage.body}</p>
-        <p className="fx-detail">{stage.detail}</p>
-      </div>
-    </figure>
-  );
-}
-
-function ColorIllustration() {
-  const [white, setWhite] = useState(50);
-  const weight = white / 100;
-  const encoded = Math.round(weight * 255);
-  const linear = Math.round(
-    255 * (weight <= 0.0031308 ? 12.92 * weight : 1.055 * weight ** (1 / 2.4) - 0.055),
-  );
-  return (
-    <div className="fx-color-example">
-      <MonoFacing>
-        <MonoSheet label="Average the stored sRGB values" meta="Encoded samples">
-          <div
-            className="fx-color-swatch"
-            style={{ backgroundColor: `rgb(${encoded} ${encoded} ${encoded})` }}
-            aria-hidden="true"
-          />
-          <p>
-            <strong>{encoded}</strong> / 255 per channel
-          </p>
-          <p className="fx-detail">
-            Mixing display values directly loses the relationship to light.
-          </p>
-        </MonoSheet>
-        <MonoSheet label="Average light, then encode sRGB" meta="Linear light">
-          <div
-            className="fx-color-swatch"
-            style={{ backgroundColor: `rgb(${linear} ${linear} ${linear})` }}
-            aria-hidden="true"
-          />
-          <p>
-            <strong>{linear}</strong> / 255 per channel
-          </p>
-          <p className="fx-detail">
-            This is the transfer-domain principle behind the supported resize path.
-          </p>
-        </MonoSheet>
-      </MonoFacing>
-      <div className="fx-color-control">
-        <label htmlFor="white-weight">White contribution to a black–white mix</label>
-        <div>
-          <span aria-hidden="true">0%</span>
-          <input
-            id="white-weight"
-            type="range"
-            min="0"
-            max="100"
-            value={white}
-            aria-valuetext={`${white}% white, ${100 - white}% black`}
-            onChange={(event) => setWhite(Number(event.currentTarget.value))}
-          />
-          <output htmlFor="white-weight">{white}%</output>
-        </div>
-      </div>
-      <MonoCaption>
-        An sRGB transfer illustration, not a browser execution of Ferrisma. At an equal mix, the two
-        results are 128 and 188. The Rust reference tests cover this midpoint.
-      </MonoCaption>
-    </div>
-  );
-}
 
 function Opening() {
   return (
@@ -169,48 +58,372 @@ function Opening() {
           alt="Ferrisma's instrument: a gently curved steel railway whose wagons carry a mountain picture under a guillotine, a smaller copy under a spindle press, and the same picture as square pixels under a loupe."
         />
       </figure>
-      <p className="mono-kicker">Ferrisma · A Rust image engine in development</p>
+      <p className="mono-kicker">Ferrisma · An image pipeline in Rust</p>
       <h1 id="fx-title">
-        Your next image stack.
-        <br />
-        Built in Rust.
+        Read, crop, resize and write images in Rust
+        <span className="mono-second">
+          on codecs translated from the originals, and held to them bit for bit
+        </span>
       </h1>
       <p className="mono-standfirst">
-        We're building a Rust alternative to Sharp for modern image delivery. Decode, crop,
-        resize and encode through one pipeline, with the codec ports, color math and CPU kernels
-        developed alongside it.
+        Ferrisma reads JPEG, WebP, JPEG XL and AVIF, turns the picture upright, crops and resizes
+        it in linear light, and writes AVIF, WebP or JPEG XL. Its four codecs are Rust
+        translations of libjpeg-turbo, libwebp, libjxl and libavif. For image services, build
+        tools and Rust applications that need to know what a conversion did to every picture.
       </p>
       <div className="mono-actions">
-        <MonoAction href={path("guide/getting-started")} primary detail="Build from source">
-          Build the pipeline
+        <MonoAction href={path("guide/getting-started")} primary detail="from the repository">
+          Build from source
         </MonoAction>
-        <MonoAction href="#vision" detail="The image stack we're building">
-          See the ambition
+        <MonoAction href="#gate" detail="the quality gate">
+          How the ports are checked
         </MonoAction>
       </div>
       <ul className="mono-facts fx-facts">
         <li>
-          <strong>JPEG · WebP · JXL · AVIF</strong>current engine inputs
+          <strong>JPEG · WebP · JPEG XL · AVIF</strong>read
         </li>
         <li>
-          <strong>AVIF · WebP · JXL</strong>current engine outputs
+          <strong>AVIF · WebP · JPEG XL</strong>written
         </li>
         <li>
-          <strong>4 codec ports</strong>developed with the engine
+          <strong>
+            <em>Bit for bit</em>
+          </strong>
+          what each port must match
         </li>
         <li>
-          <strong>Experimental</strong>engine under validation
+          <strong>Experimental</strong>no release yet
         </li>
       </ul>
       <nav className="fx-contents" aria-label="On this page">
-        <a href="#vision">The ambition</a>
         <a href="#pipeline">The pipeline</a>
-        <a href="#codecs">Codec workspace</a>
-        <a href="#color">Color</a>
-        <a href="#memory">Memory</a>
-        <a href="#evidence">Validation</a>
+        <a href="#ports">The ports</a>
+        <a href="#gate">The gate</a>
+        <a href="#report">Refuse or report</a>
+        <a href="#speed">Speed</a>
+        <a href="#status">Status</a>
       </nav>
     </section>
+  );
+}
+
+function Pipeline() {
+  return (
+    <MonoSection
+      id="pipeline"
+      title="One pass from file to file."
+      standfirst="Every picture takes the same route, whatever format it arrives in, and leaves with an account of what happened to it."
+    >
+      <MonoPassage
+        note={{
+          term: "Linear light",
+          children:
+            "Values proportional to light, rather than the curved values a file stores for display. Averaging black and white in light and encoding the result gives 188, not 128.",
+        }}
+      >
+        <p>
+          A file is decoded by the port of its format's original library. The pixels then move
+          into linear light, with the image's own color data read rather than guessed, so that a
+          resize mixes light instead of display values. Orientation comes first, so a crop refers
+          to the picture as you see it; then the crop, then the resize. At the end the samples are
+          quantized at the output's depth and encoded.
+        </p>
+      </MonoPassage>
+      <MonoWide>
+        <PipelineDrawing />
+      </MonoWide>
+      <MonoTerms
+        columns={2}
+        prose
+        className="fx-terms"
+        items={[
+          {
+            term: "Depth follows the input",
+            description:
+              "AVIF keeps 8, 10 or 12 bits and JPEG XL up to 16. WebP holds 8, and a deeper input says so in the report.",
+          },
+          {
+            term: "A budget for memory",
+            description:
+              "Every frame, row and scratch buffer the engine allocates is charged to one budget, 2 GiB by default; the peak comes back in the report. A codec's own scratch is flagged as outside it.",
+          },
+          {
+            term: "Errors, not crashes",
+            description:
+              "A panic inside a conversion comes back from the call as an error, so one bad file does not take the service down with it.",
+          },
+          {
+            term: "Many images at once",
+            description:
+              "A parallel row pipeline and batch execution, with scalar, NEON or AVX2 resampling kernels chosen at run time.",
+          },
+        ]}
+      />
+      <p className="fx-section-link">
+        <a href={path("guide/architecture")}>The architecture</a>
+        <a href={path("guide/color")}>The color contract</a>
+        <a href={path("guide/supported-matrix")}>Every supported input and output</a>
+      </p>
+    </MonoSection>
+  );
+}
+
+function Ports() {
+  return (
+    <MonoSection
+      id="ports"
+      title="Four codecs, translated from the originals."
+      standfirst="Not new codecs that aim to be compatible, but the original libraries, carried into Rust with their behavior intact."
+    >
+      <MonoPassage
+        note={{
+          side: "right",
+          term: "Port",
+          children:
+            "A translation of a library into another language that keeps its behavior: the same algorithms, branches and results. Each port here is checked against the original it translates.",
+        }}
+      >
+        <p>
+          libjpeg-turbo, libwebp, libjxl, and libavif with the AV1 codec libaom are the libraries
+          their formats are measured against: reference implementations, or in JPEG's case the
+          SIMD-accelerated descendant of the reference libjpeg. They hold years of careful work,
+          much of the fastest of it in hand-tuned vector code, and they are written in C and C++.
+        </p>
+        <p>
+          Ferrisma translates each of them into Rust at a pinned version, keeping what the
+          original decided instead of deciding it again. The reason is what Rust adds: memory
+          safety the compiler checks, with <code>unsafe</code> confined to small, argued
+          boundaries; one toolchain for the whole build; and no C compiler on the machine that
+          builds your application.
+        </p>
+      </MonoPassage>
+      <MonoWide>
+        <AnatomyDrawing />
+      </MonoWide>
+      <MonoPassage>
+        <p>
+          No assembly is a rule, not a hope. Where an original's fastest kernels exist only as
+          assembly, the port runs the translated scalar code until they are rebuilt with Rust
+          intrinsics and proven against the original; the JPEG port has done this for its x86-64
+          kernels. Six inline assembly sites remain in the JPEG XL port's Brotli decoder, held
+          by a guard while their replacement is decided.
+        </p>
+      </MonoPassage>
+      <p className="fx-section-link">
+        {PORTS.map((port) => (
+          <a key={port.format} href={path(port.docs)}>
+            The {port.format} port
+          </a>
+        ))}
+      </p>
+    </MonoSection>
+  );
+}
+
+function Gate() {
+  return (
+    <MonoSection
+      id="gate"
+      title="The same bytes as the original, or it is not done."
+      standfirst="Version 1.0 has one definition: every port produces exactly what its original produces, on ARM and on x86."
+    >
+      <MonoPassage
+        note={{
+          term: "Bit-identical",
+          children:
+            "The same bytes, the same integers, the same floating-point words, down to the sign of a zero. The only exemption is the payload of a NaN.",
+        }}
+      >
+        <p>
+          The comparison runs build against build. The port's scalar code is compared with the
+          original built without SIMD, and its SIMD code with the original's SIMD build at the
+          same level: NEON on AArch64, AVX2 and the SSE levels the original selects on x86-64. The
+          second half is the hard one, because hand-tuned vector code has to come out with the
+          same bits when it is rewritten with Rust intrinsics.
+        </p>
+      </MonoPassage>
+      <MonoWide>
+        <GateDrawing />
+      </MonoWide>
+      <h3 className="fx-subhead">Where each port stands</h3>
+      <MonoTerms
+        columns={2}
+        prose
+        className="fx-terms"
+        items={GATE_STATE.map((entry) => ({ term: entry.port, description: entry.state }))}
+      />
+      <MonoCaption>
+        As the <a href={path("guide/quality-gate")}>quality gate guide</a> records it on{" "}
+        {GATE_AS_OF}. No port meets the whole gate on both targets yet; that is the work between
+        here and 1.0.
+      </MonoCaption>
+    </MonoSection>
+  );
+}
+
+function Report() {
+  return (
+    <MonoSection
+      id="report"
+      title="Nothing disappears quietly."
+      standfirst="A converter that drops what it cannot handle hands you a different picture without saying so. Ferrisma refuses, or it tells you."
+    >
+      <p>
+        Every part of an input has one of three fates. Animation, HDR transfer functions and
+        unsupported alpha are refused, with an error that names the reason. EXIF, XMP, a gain map,
+        or an embedded profile once its colors are converted may be left out of a correct
+        picture, and the report lists each class that applied. Everything else is carried into
+        the output.
+      </p>
+      <MonoWide>
+        <RefuseOrReportDrawing />
+      </MonoWide>
+      <p>
+        The same holds across formats. Premultiplied alpha, a gray image or an orientation tag
+        leads to the same outcome whether it arrives as AVIF or as JPEG XL, unless a format cannot
+        represent it, and the error or report entry uses the same words for the same cause.
+      </p>
+      <p className="fx-section-link">
+        <a href={blob("docs/adr/0042-no-silent-loss-refuse-or-report.md")}>
+          The decision: refuse or report
+        </a>
+        <a href={blob("docs/adr/0043-formats-behave-alike.md")}>
+          The decision: formats behave alike
+        </a>
+      </p>
+    </MonoSection>
+  );
+}
+
+function Speed() {
+  return (
+    <MonoSection
+      id="speed"
+      title="Measured against the originals, gaps included."
+      standfirst="There is no speed gate for 1.0. Every codec is still timed against the original it translates, in the same job on the same machine."
+    >
+      <div>
+        <div
+          className="fx-table-wrap"
+          role="region"
+          aria-labelledby="fx-speed-caption"
+          tabIndex={0}
+        >
+          <table className="mono-table fx-speed">
+            <caption id="fx-speed-caption">
+              Port time divided by the original's SIMD build, one thread. Above 1× the port is
+              slower.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Operation</th>
+                <th scope="col" className="mono-num">
+                  x86-64
+                </th>
+                <th scope="col" className="mono-num">
+                  ARM64
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {SPEED.map((row) => (
+                <tr key={row.operation}>
+                  <th scope="row">
+                    {row.operation}
+                    {row.note !== undefined && <small>{row.note}</small>}
+                  </th>
+                  <td className="mono-num" data-gap={row.x86.startsWith("not") ? "" : undefined}>
+                    {row.x86}
+                  </td>
+                  <td className="mono-num">{row.arm}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <MonoCaption>
+          12-megapixel inputs on GitHub-hosted ubuntu-24.04 (x86-64) and macos-15 (ARM64), one job
+          per machine: <a href={SPEED_RECORD.href}>{SPEED_RECORD.title}</a>. JPEG XL decode, after
+          its SIMD path landed: eight inputs on one Apple M1 Pro,{" "}
+          <a href={JXL_DECODE_RECORD.href}>{JXL_DECODE_RECORD.title}</a>. Evidence for these
+          machines, not a universal claim.
+        </MonoCaption>
+      </div>
+      <p>
+        Most operations take between one and one and a half times as long as the original's SIMD
+        build. Two are far behind, and the table keeps them: WebP's lossy encoder on x86-64, and
+        JPEG XL's lossy encoder, which does not use its SIMD paths yet.
+      </p>
+      <p>
+        Reading AVIF goes through the translated libaom decoder, which is clearly slower than
+        stock libavif with dav1d. dav1d is fast because of its assembly, so the next step is to
+        rebuild its kernels with Rust intrinsics and measure them before the engine settles on a
+        decoder.
+      </p>
+    </MonoSection>
+  );
+}
+
+function Status() {
+  return (
+    <MonoSection
+      id="status"
+      title="Experimental, and plain about it."
+      standfirst="The pipeline runs today, built from source. Nothing functional is published yet."
+    >
+      <MonoWide>
+        <div className="fx-ledger">
+          <div>
+            <h3>Works today</h3>
+            <ul>
+              <li>The command-line tool and the Rust facade, built from the repository with Rust 1.99 or later.</li>
+              <li>Still images in SDR: JPEG, WebP, JPEG XL and AVIF in; AVIF, WebP and JPEG XL out, WebP and JPEG XL lossy or lossless.</li>
+              <li>Verified on macOS ARM64 and GNU Linux x86-64.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Not there yet</h3>
+            <ul>
+              <li>Published packages: the crate and the npm package at 0.0.0 are placeholders.</li>
+              <li>A stable API: the compatibility policy is still a proposal.</li>
+              <li>Animation, HDR and JPEG output.</li>
+              <li>Windows and other targets.</li>
+            </ul>
+          </div>
+        </div>
+      </MonoWide>
+      <MonoPassage
+        note={{
+          side: "right",
+          term: "--assume-srgb",
+          children:
+            "An image without color data is not sRGB by default. This flag says that it is, for this run.",
+        }}
+      >
+        <p>
+          To try it on your own images, clone the repository. This resizes a JPEG to 1600 × 900
+          and writes AVIF:
+        </p>
+      </MonoPassage>
+      <MonoCode caption="From a clone of the repository" file="Terminal">
+        {
+          "cargo run --release --features cli -- \\\n  photo.jpg scaled.avif 1600 900 \\\n  --assume-srgb --avif-quality=80 --avif-speed=8"
+        }
+      </MonoCode>
+      <MonoPassage>
+        <p>
+          Next on the way to 1.0: the gate on both targets for every port, dav1d's kernels rebuilt
+          in Rust, and the independent evidence for image quality, hardening, resources and
+          dependencies. Until then, releases will be 0.x previews.
+        </p>
+      </MonoPassage>
+      <p className="fx-section-link">
+        <a href={path("guide/status")}>Current status</a>
+        <a href={path("guide/release-gates")}>Open release gates</a>
+        <a href={path("guide/getting-started")}>Getting started</a>
+      </p>
+    </MonoSection>
   );
 }
 
@@ -219,533 +432,42 @@ export default function Home() {
     <div className="fx-home">
       <Opening />
       <MonoEngraving seed={10} />
-      <MonoSection
-        id="vision"
-        title="An image stack you can build on."
-        standfirst="For image services, media libraries and Rust applications that need to own the path from upload to delivery."
-      >
-        <MonoPassage>
-          <p>
-            A single upload becomes a thumbnail, a product image and a full-width photograph.
-            Each needs the right crop, color and format. Ferrisma's ambition is to make that
-            whole journey a coherent Rust workflow, with image quality and execution costs
-            visible at every stage.
-          </p>
-          <p>
-            The foundation is working today: four input formats, AVIF, WebP and JPEG XL output, linear-light
-            resizing and a processing report. We're building toward shared work across multiple
-            outputs and a complete stack of codec APIs. Those next steps remain design and
-            validation work; the current API is experimental.
-          </p>
-        </MonoPassage>
-        <MonoTerms
-          columns={2}
-          prose
-          items={[
-            {
-              term: "One source, many outputs",
-              description:
-                "The next step is a pipeline that can reuse decoded pixels and transforms across a family of sizes and formats.",
-            },
-            {
-              term: "Codecs beside the engine",
-              description:
-                "JPEG, WebP, JPEG XL and AVIF ports live with their consumers, so a codec fix and its effect on the pipeline can be reviewed together.",
-            },
-            {
-              term: "Quality starts with the pixels",
-              description:
-                "Color profiles, linear light and alpha association are part of the transform, from the reference math to the final samples.",
-            },
-            {
-              term: "Performance you can inspect",
-              description:
-                "Follow the selected kernels, thread counts, known buffers and stage timings. New fast paths are checked against a reference.",
-            },
-          ]}
-        />
-        <p className="fx-section-link">
-          <a href={path("guide/architecture")}>Explore the design</a>
-          <a href={path("guide/status")}>See what works today</a>
-        </p>
-      </MonoSection>
+      <Pipeline />
       <MonoEngraving seed={1} />
-      <MonoSection
-        id="pipeline"
-        title="Make every transform count."
-        standfirst="Deliver the right pixels, with the decisions behind them in view."
-      >
-        <MonoPassage
-          note={{
-            term: "Pipeline",
-            children:
-              "A sequence of decoding, geometry, color conversion, filtering and encoding operations.",
-          }}
-        >
-          <p>
-            A thumbnail needs more than fewer pixels. A portrait may carry an orientation tag. A
-            camera profile changes what its colors mean. A filter needs neighboring samples, and a
-            decoder may need a full image even when the caller asks for a small crop.
-          </p>
-          <p>
-            Ferrisma makes these decisions explicit. The current CPU path accepts supported SDR
-            input, applies orientation and crop, resizes in linear light, and encodes AVIF, WebP or JPEG XL.
-            Unsupported color and geometry return errors instead of silent reinterpretation.
-          </p>
-        </MonoPassage>
-        <MonoWide>
-          <PipelineExplorer />
-        </MonoWide>
-        <p className="fx-section-link">
-          <a href={path("guide/architecture")}>
-            Read the architecture and its implementation boundaries
-          </a>
-        </p>
-      </MonoSection>
-
+      <Ports />
       <MonoEngraving seed={2} />
-      <MonoSection
-        id="try"
-        title="A first image, from source."
-        standfirst="Build the experimental CLI, choose the output size, and make the input-color policy explicit."
-      >
-        <p>
-          The repository includes a working command-line path. The example below resizes a JPEG to
-          1600 × 900 and writes AVIF through the workspace libavif/AOM encoder. Run it from a clone of the
-          repository; the published <code>0.0.0</code> packages are placeholders. Choose a <code>.webp</code> output
-          for still WebP; add <code>--webp-lossless</code> instead of quality and speed for lossless
-          compression of the pipeline's finished sRGB8 samples. A <code>.jxl</code> output writes
-          JPEG XL, lossy by default; add <code>--jxl-lossless</code> for lossless.
-        </p>
-        <MonoWide>
-          <MonoCode caption="From the repository root" file="Terminal">
-            {
-              "cargo run --release --features cli -- \\\n  photo.jpg scaled.avif 1600 900 \\\n  --assume-srgb --avif-quality=80 --avif-speed=8"
-            }
-          </MonoCode>
-        </MonoWide>
-        <MonoPassage
-          note={{
-            side: "right",
-            term: "An explicit assumption",
-            children:
-              "An untagged image is not automatically sRGB. Use this flag only when that assumption fits your input.",
-          }}
-        >
-          <p>
-            <code>--assume-srgb</code> supplies a policy for missing color information. A supported
-            rendered RGB ICC profile has its own opt-in path, <code>--use-rendered-icc</code>.
-            Neither flag adds HDR support or resolves conflicting metadata by guessing.
-          </p>
-        </MonoPassage>
-        <details className="fx-rust-example">
-          <summary>Use the same pipeline from Rust</summary>
-          <p>
-            In a local consumer with the <code>jpeg-read</code> and <code>avif-write</code> features
-            enabled:
-          </p>
-          <MonoCode caption="The experimental public facade" file="main.rs">
-            {`use ferrisma::pipeline::{
-    transcode, ImageFormat, InputProfilePolicy,
-    TransformOptions,
-};
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let input = std::fs::read("photo.jpg")?;
-    let options = TransformOptions {
-        output_width: 1600,
-        output_height: 900,
-        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        ..TransformOptions::default()
-    };
-    let output = transcode(&input, ImageFormat::Jpeg, options)?;
-    std::fs::write("scaled.avif", &output.bytes)?;
-    println!("Peak managed bytes: {}", output.report.peak_managed_bytes);
-    Ok(())
-}`}
-          </MonoCode>
-        </details>
-        <p className="fx-section-link">
-          <a href={path("guide/getting-started")}>Toolchain, prerequisites and the first run</a>
-        </p>
-      </MonoSection>
-
+      <Gate />
       <MonoEngraving seed={3} />
-      <MonoSection
-        id="codecs"
-        title="Own the path from file to pixel."
-        standfirst="The engine and four codec ports are developed together, so changes can be followed all the way to the image."
-      >
-        <MonoPassage>
-          <p>
-            JPEG, WebP, JPEG XL and AVIF bring different APIs, histories and reference
-            implementations. Keeping their ports beside the engine makes an end-to-end change
-            reviewable in one pull request. Package licenses, provenance and eventual releases
-            remain independent.
-          </p>
-          <p>
-            JPEG and WebP use the workspace ports for input; WebP also uses its
-            port for output. AVIF input uses the workspace libavif/AOM port
-            through an isolated safe wrapper. JPEG XL input and output use the libjxl-rs
-            port, which is the only JPEG XL reader.
-          </p>
-        </MonoPassage>
-        <MonoWide>
-          <p className="fx-table-hint">Scroll horizontally to compare all four columns.</p>
-          <div
-            className="fx-table-wrap"
-            role="region"
-            aria-label="Codec capabilities and engine integration"
-            tabIndex={0}
-          >
-            <table className="fx-codec-table">
-              <thead>
-                <tr>
-                  <th scope="col">Format</th>
-                  <th scope="col">Through the engine today</th>
-                  <th scope="col">The workspace port</th>
-                  <th scope="col">Next boundary</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <th scope="row">
-                    <a href={path("codecs/jpeg")}>JPEG</a>
-                    <small>libjpeg-turbo-rs</small>
-                  </th>
-                  <td>
-                    Input through <code>libjpeg-turbo-rs</code>; full-resolution scanlines and
-                    crop/skip requests.
-                  </td>
-                  <td>8-bit decode, scaled decoding, crop/skip, metadata and safe scanlines.</td>
-                  <td>
-                    Broaden real-photo performance and memory evidence. JPEG encoding is outside
-                    the port's scope.
-                  </td>
-                </tr>
-                <tr>
-                  <th scope="row">
-                    <a href={path("codecs/webp")}>WebP</a>
-                    <small>libwebp-rs</small>
-                  </th>
-                  <td>
-                    Still-image input and lossy or lossless output through <code>libwebp-rs</code>,
-                    with budgeted pixel buffers and an explicit encoded-output limit.
-                  </td>
-                  <td>Decode and encode, incremental input, containers, animation and SharpYUV.</td>
-                  <td>Shared SharpYUV core with distinct WebP and AVIF adapters; animation remains outside the engine contract.</td>
-                </tr>
-                <tr>
-                  <th scope="row">
-                    <a href={path("codecs/jpeg-xl")}>JPEG XL</a>
-                    <small>libjxl-rs</small>
-                  </th>
-                  <td>
-                    Input and lossy or lossless output through the workspace port and its safe
-                    bridge. The reader has no region request, so every crop decodes a full frame.
-                  </td>
-                  <td>Incremental decoder and C-ABI surface with reference comparison suites.</td>
-                  <td>Provisional APIs, incomplete encoder and full selection/conformance gates.</td>
-                </tr>
-                <tr>
-                  <th scope="row">
-                    <a href={path("codecs/avif")}>AVIF</a>
-                    <small>libavif-rs and companions</small>
-                  </th>
-                  <td>
-                    Workspace libavif/AOM input and output, each through its own safe wrapper;
-                    the workspace AOM encoder is the only AVIF writer.
-                  </td>
-                  <td>Container, AOM, dav1d and SharpYUV ports with generated and owned Rust.</td>
-                  <td>
-                    Stable Rust 1.99 or later and supported native hosts (macOS ARM64, GNU Linux x86-64) for AVIF input/output; full Argon and
-                    release gates remain open.
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <MonoCaption>
-            Current integration is maintained in the{" "}
-            <a href={path("guide/status")}>status overview</a>. AVIF input and output
-            can share a binary; the former dav1d symbol collision is removed.
-          </MonoCaption>
-        </MonoWide>
-        <p className="fx-section-link">
-          <a href={path("guide/codec-development")}>
-            Work on a codec: setup, references and checks
-          </a>
-        </p>
-      </MonoSection>
-
+      <Report />
       <MonoEngraving seed={4} />
-      <MonoSection
-        id="color"
-        title="The numbers are only half the image."
-        standfirst="Color metadata says what a pixel means. The transfer function says how its values relate to light."
-      >
-        <MonoPassage
-          note={{
-            term: "Linear light",
-            children:
-              "Values proportional to light, rather than the nonlinear values stored for display.",
-          }}
-        >
-          <p>
-            Take black and white. Averaging their stored sRGB values gives 128. Averaging their
-            light and converting back to sRGB gives 188. A resize filter combines samples all over
-            an image, so the domain of that arithmetic is part of the result.
-          </p>
-        </MonoPassage>
-        <MonoWide>
-          <ColorIllustration />
-        </MonoWide>
-        <MonoPassage>
-          <p>
-            Ferrisma inspects the decoder's emitted samples, not just the original file's tags.
-            Supported RGB ICC conversion is explicit. ICC and CICP signals are not silently
-            prioritized, and P3, PQ or HLG samples are never simply relabeled as sRGB.
-          </p>
-          <p>
-            The production goal is broader than the current implementation. Today the pipeline is
-            SDR; HDR, contradictory metadata and unsupported alpha cases fail closed.
-          </p>
-        </MonoPassage>
-        <p className="fx-section-link">
-          <a href={path("guide/color")}>Inspect the color contract and its scope</a>
-        </p>
-      </MonoSection>
-
+      <Speed />
       <MonoEngraving seed={5} />
-      <MonoSection
-        id="memory"
-        title="Know where the image lives."
-        standfirst="A crop may be small. The work needed to produce it may not be."
-      >
-        <p>
-          The row executor keeps filtered rows in a bounded cache and releases them when they are no
-          longer needed. JPEG emits scanlines; WebP buffers the rows needed for a crop, including
-          preceding rows and filter context; AVIF input requires a decoded frame. Codec internals
-          can allocate additional memory, reorientation can need another buffer, and both output
-          encoders need a frame. WebP also reserves its predictable YUV planes before lossy encoding.
-        </p>
-        <MonoWide>
-          <figure className="fx-memory-path" aria-labelledby="memory-caption">
-            <div>
-              <span className="fx-buffer-frame" aria-hidden="true" />
-              <h3>Decoder boundary</h3>
-              <p>Requested regions, full-frame buffers and opaque codec memory.</p>
-            </div>
-            <div>
-              <span className="fx-buffer-rows" aria-hidden="true">
-                <i />
-                <i />
-                <i />
-                <i />
-              </span>
-              <h3>Engine working set</h3>
-              <p>Budgeted rows, resize planning, scratch space and orientation buffers.</p>
-            </div>
-            <div>
-              <span className="fx-buffer-frame fx-buffer-output" aria-hidden="true" />
-              <h3>Encoder boundary</h3>
-              <p>A reported output frame, plus opaque encoder allocations.</p>
-            </div>
-            <figcaption id="memory-caption">
-              Allocation categories in the current path; the shapes are not a memory-size
-              comparison.
-            </figcaption>
-          </figure>
-        </MonoWide>
-        <MonoPassage
-          note={{
-            side: "right",
-            term: "Processing report",
-            children:
-              "Returned alongside the encoded image, with stage timings and the selected execution settings.",
-          }}
-        >
-          <p>
-            Every result distinguishes known materializations from opaque allocations. The
-            managed-memory peak tells you what the engine tracked. It does not claim to cap the
-            whole process or describe every allocation inside a codec.
-          </p>
-        </MonoPassage>
-        <MonoTerms
-          columns={2}
-          items={[
-            {
-              term: "peak_managed_bytes",
-              description: "Peak bytes charged to the shared engine budget.",
-            },
-            {
-              term: "decoder_full_frame_buffers",
-              description: "Known full-frame buffers at the decode boundary.",
-            },
-            {
-              term: "orientation_buffer_bytes",
-              description: "The explicit cost of reorienting source samples.",
-            },
-            {
-              term: "opaque_encoder_memory",
-              description: "Signals allocations outside the engine's accounting.",
-            },
-          ]}
-        />
-      </MonoSection>
-
+      <Status />
       <MonoEngraving seed={6} />
-      <MonoSection
-        id="execution"
-        title="Optimize a result you can check."
-        standfirst="The reference comes first. Faster execution has to preserve the agreed behavior."
-      >
-        <p>
-          The default executor uses <code>f32</code> working values, compared against a scalar
-          <code> f64</code> reference. CPU kernels select scalar, NEON, AVX2 or AVX-512 paths at
-          runtime where available. The parallel row pipeline must produce the same bytes as
-          sequential execution; batch work can also run across images.
-        </p>
-        <p>
-          Performance is reported against the original each codec port translates, on named
-          machines and builds. These records are evidence, not a universal speed claim. GPU execution
-          and a general multi-output graph remain design work.
-        </p>
-        <p className="fx-section-link">
-          <a href={path("guide/architecture")}>Follow the execution design and its evidence</a>
-          <a href={`${source}/blob/main/docs/benchmarks/v1.0-three-column-2026-11-13.md`}>
-            Read the codec performance record
-          </a>
-        </p>
-      </MonoSection>
-
-      <MonoEngraving seed={7} />
-      <MonoSection
-        id="evidence"
-        title="Quick feedback. Deeper evidence."
-        standfirst="A shared repository needs checks that follow the change, with heavier reference work on its own schedule."
-      >
-        <MonoPassage
-          note={{
-            term: "Oracle",
-            children:
-              "A pinned reference implementation used to compare behavior. Each suite defines exactly what must agree.",
-          }}
-        >
-          <p>
-            A codec port needs more than tests of its own assumptions. The reference suites compare
-            Rust behavior with the original C or C++ implementation, using recorded upstream
-            revisions and comparison rules. There are three complementary levels.
-          </p>
-        </MonoPassage>
-        <MonoWide>
-          <div className="fx-validation">
-            <div>
-              <h3>On a pull request</h3>
-              <p>
-                Affected-component tests, retained reference fixtures, provenance, lint and
-                toolchain checks. Common changes fan out; website-only changes stay in website CI.
-              </p>
-              <p className="fx-detail">Fast feedback without rebuilding every live oracle.</p>
-            </div>
-            <div>
-              <h3>Nightly and deep branch runs</h3>
-              <p>
-                Live oracle comparisons, sanitizers, profiles and native architecture checks where
-                supported. Changes to SIMD, unsafe ABI, goldens or floating-point behavior need
-                relevant deep evidence.
-              </p>
-              <p className="fx-detail">A missing required oracle is a failure.</p>
-            </div>
-            <div>
-              <h3>Selected exhaustive runs</h3>
-              <p>
-                Long AOM original-consumer, recovery, translation and acceptance investigations run
-                explicitly, with their native environment and artifacts retained.
-              </p>
-              <p className="fx-detail">Release gates remain independent of a green PR.</p>
-            </div>
-          </div>
-        </MonoWide>
-        <MonoCode caption="Select the component you are changing" file="Repository root">
-          {"cargo xtask codecs --codec webp --stage pr"}
-        </MonoCode>
-        <p>
-          Required nightly failures block release. Expected output is not refreshed just to make a
-          test pass. The shared runner is Rust; existing harnesses move over incrementally while
-          preserving their evidence.
-        </p>
-        <p className="fx-section-link">
-          <a href={path("guide/validation")}>Validation policy</a>
-          <a href={`${source}/actions`}>Current GitHub Actions runs</a>
-        </p>
-      </MonoSection>
-
-      <MonoEngraving seed={8} />
-      <MonoSection
-        id="status"
-        title="Build with us. Check our work."
-        standfirst="The pipeline runs today. The path to a production release is open to inspect."
-      >
-        <p>
-          Try the SDR pipeline, inspect a result, or work on a codec. Ferrisma's engine is experimental,
-          with quality, hardening and distribution gates still open. The release
-          register records the evidence and the work ahead.
-        </p>
-        <MonoTerms
-          columns={2}
-          prose
-          items={[
-            {
-              term: "Image quality and hardening",
-              description: "Complete independent quality, security and resource evidence for M1.",
-            },
-            {
-              term: "Codec adoption",
-              description:
-                "Connect workspace ports through real end-to-end cases, preserving color, geometry and ownership.",
-            },
-            {
-              term: "Shared SharpYUV",
-              description:
-                "One conversion core now serves both codecs; native oracle checks and recorded performance costs govern adoption.",
-            },
-            {
-              term: "Release acceptance",
-              description:
-                "Review dependency licenses, native-host limits and the remaining release gates.",
-            },
-          ]}
-        />
-        <p className="fx-section-link">
-          <a href={path("guide/status")}>Current component status</a>
-          <a href={path("guide/release-gates")}>M1 evidence and open gates</a>
-        </p>
-      </MonoSection>
-      <MonoEngraving seed={9} />
       <div className="mono-axis">
         <MonoColophon>
-          Ferrisma is part of the Ferramenta family, made by Sebastian Software. The engine is MIT
-          OR Apache-2.0; codec packages retain their own licenses and attribution. Its instrument is
-          an original Blender scene built with the family's shared studio.
+          Ferrisma is one of the Ferramenta engines, made by Sebastian Software; each stands on
+          its own. The engine is MIT OR Apache-2.0, and the ports keep their originals' licenses
+          and attribution. The instrument at the top is a Blender scene built with the family's
+          shared studio.
         </MonoColophon>
       </div>
       <MonoClosing
-        title="Help build the next image stack."
-        standfirst="Start with your first image. Explore the Rust pipeline, work on a codec, and help shape the path from working engine to production foundation."
+        title="Build it. Check it. Tell us what breaks."
+        standfirst="Run your own images through the pipeline, compare a port with its original, or take on one of the open gates."
         actions={
           <>
             <MonoAction href={path("guide/getting-started")} primary>
-              Build the pipeline
+              Build from source
             </MonoAction>
-            <MonoAction href={path("guide/development")}>Contribute to Ferrisma</MonoAction>
+            <MonoAction href={path("guide/quality-gate")}>Read the quality gate</MonoAction>
           </>
         }
         links={
           <>
-            <a href={source}>GitHub repository</a>
-            <a href={path("guide/status")}>Project status</a>
-            <a href="https://ferramenta.dev">The Ferramenta family</a>
+            <a href={REPOSITORY}>GitHub repository</a>
+            <a href={path("guide/development")}>Contribute</a>
+            <a href={FAMILY_SITE}>The Ferramenta family</a>
           </>
         }
       />

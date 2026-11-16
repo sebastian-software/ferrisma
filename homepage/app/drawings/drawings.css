@@ -44,8 +44,10 @@
 }
 @media (max-width: 42rem) {
   .fx-drawing {
-    padding: 1.25rem 1rem 1rem;
-    margin-inline: -0.25rem;
+    padding: 1.25rem 0.5rem 1rem;
+  }
+  .fx-drawing > figcaption {
+    padding-inline: 0.5rem;
   }
 }
 
