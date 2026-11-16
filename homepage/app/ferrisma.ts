@@ -101,10 +101,10 @@ export const PORTS: Port[] = [
 
 /*
  * Where each port stands against the gate, as the quality gate guide records
- * it (docs/quality-gate.md, state of 2026-11-14 with the owner's decisions of
- * 2026-11-15). Short on purpose; the guide has the runs.
+ * it (docs/quality-gate.md, "Where each port stands (2026-11-16)", main at
+ * abd11e6a). Short on purpose; the guide has the runs.
  */
-export const GATE_AS_OF = "November 14, 2026";
+export const GATE_AS_OF = "November 16, 2026";
 export const GATE_STATE: { port: string; state: string }[] = [
   {
     port: "JPEG",
@@ -119,12 +119,12 @@ export const GATE_STATE: { port: string; state: string }[] = [
   {
     port: "JPEG XL",
     state:
-      "The decoder's NEON and AVX2 paths match the original word for word in the recorded runs. The encoder runs scalar only so far, so it meets the scalar half.",
+      "The decoder's NEON and AVX2 paths match the original word for word, AVX2 also in a hosted run on x86-64 hardware. Since November 16 the encoder runs its SIMD paths by default too; they match the original on NEON, and on AVX2 under Rosetta 2. A run on x86-64 hardware is still open for the encoder.",
   },
   {
     port: "AVIF",
     state:
-      "Scalar and NEON identical on AArch64; scalar and SSE4.1 identical on x86-64. The AVX2 comparison has not run yet.",
+      "Scalar and NEON identical on AArch64. On x86-64, scalar, SSE4.1 and AVX2 are identical under QEMU emulation; a run on x86-64 hardware is still open.",
   },
 ];
 
@@ -172,7 +172,7 @@ export const SPEED: SpeedRow[] = [
     operation: "JPEG XL lossy encode",
     x86: "16.45×",
     arm: "7.25×",
-    note: "the encoder does not select SIMD yet",
+    note: "measured before the encoder's SIMD path, the default since November 16",
   },
   { operation: "AVIF decode through libaom", x86: "1.35×", arm: "1.45×" },
   { operation: "AVIF encode, 10-bit", x86: "1.33×", arm: "1.38×" },

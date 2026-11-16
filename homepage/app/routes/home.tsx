@@ -353,7 +353,8 @@ function Speed() {
       <p>
         Most operations take between one and one and a half times as long as the original's SIMD
         build. Two are far behind, and the table keeps them: WebP's lossy encoder on x86-64, and
-        JPEG XL's lossy encoder, which does not use its SIMD paths yet.
+        JPEG XL's lossy encoder, measured here before its SIMD paths became the default on
+        November 16; it will be timed again in the next record.
       </p>
       <p>
         Reading AVIF goes through the translated libaom decoder, which is clearly slower than

@@ -137,9 +137,11 @@ the rename before this site can switch over.
 - **No registry entry** (see above).
 - **Figures that will move.** The speed table is a snapshot of the records of
   November 13 and 14, 2026; the JPEG XL rows predate the encoder's SIMD work;
-  there is no x86-64 JPEG XL decode figure in a record yet.
-- **The gate state** in `app/ferrisma.ts` is dated November 14, 2026 and
-  will go stale; it should follow `docs/quality-gate.md`.
+  there is no x86-64 JPEG XL decode figure in a record yet, and the JPEG XL
+  lossy encode row predates the encoder's SIMD default of November 16.
+- **The gate state** in `app/ferrisma.ts` is dated November 16, 2026
+  (`main` at `abd11e6a`) and follows the table "Where each port stands" in
+  `docs/quality-gate.md`; update both together.
 - **Crate names** of the ports will change (`plannedCrate` in
   `app/ferrisma.ts`).
 - The ferrisma.dev domain does not serve this site yet (#251).
@@ -167,3 +169,12 @@ renders (`#…-v10` becomes `#…-v1-0`); a test covers it.
    to the quality gate guide only, so the homepage cannot go stale?
 5. **The six inline assembly sites.** The page names them. Keep that candor on
    the homepage, or leave it to ADR-0044?
+
+## Decisions of round two (2026-11-16)
+
+The owner approved the direction. Working answers to the questions above:
+the headline stays; "experimental" stays as prominent as it is until a 0.x
+exists; the speed table shows every operation, gaps included, and no dav1d
+comparison until its kernels are complete on both targets; the dated
+per-port gate state stays, with the link to the guide; the sentence about the
+remaining assembly stays as long as it is true.

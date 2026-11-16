@@ -145,3 +145,15 @@
   font: 600 13px/1 var(--mono-sans);
   fill: var(--mono-oxide);
 }
+/* The narrowest phones: the sheet runs to the window's edges, so the narrow
+   layout keeps its lettering above 10.5px (the page gutter is 16px there). */
+@media (max-width: 26rem) {
+  .fx-drawing {
+    margin-inline: -16px;
+    padding-inline: 4px;
+    border-radius: 0;
+  }
+  .fx-drawing > figcaption {
+    padding-inline: 12px;
+  }
+}
