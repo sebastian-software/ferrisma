@@ -193,6 +193,12 @@ Cargo does not apply Ferrisma's workspace profiles to dependents.
   1 GiB since 2026-11-15 (owner decision, ADR-0004 amendment; 256 MiB
   before): a transcode that failed with `ResourceExhausted` at the old default
   may now succeed; an operator who wants the former bound sets it.
+- Since 2026-11-16 JPEG XL output reserves its measured peak (ADR-0004 and
+  ADR-0039 amendments): lossy JPEG XL above about 40.5 MP opaque, 25.5 MP
+  with alpha, 22.3 and 11.2 MP above 8 bits, and lossless with alpha above
+  about 30.7 MP (13.9 MP above 8 bits; 24.3 MP opaque above 8 bits) fails
+  with `ResourceExhausted` under the default budget where it passed before;
+  a larger `--budget-mb` admits it.
 - `--max-input-mb`, `--budget-mb`, and `--max-output-mb` count MiB
   (1,048,576 bytes); `--max-input-mpx` counts millions of pixels (10^6).
 - Exit status 0 means success, 2 a usage error, 1 a processing error

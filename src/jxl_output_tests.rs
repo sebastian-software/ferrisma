@@ -8,9 +8,8 @@
 use crate::error::Error;
 use crate::geometry::Size;
 use crate::jxl_sink::{
-    JxlSink, LOSSLESS_CHUNKED_BYTES_PER_PIXEL, LOSSLESS_CHUNKED_DC_GROUP_BYTES_PER_PIXEL,
-    LOSSLESS_ONE_SHOT_BYTES_PER_PIXEL, LOSSLESS_PEAK_CONSTANT_BYTES, known_codec_frame_bytes,
-    lossless_codec_reservation_bytes,
+    JxlSink, LOSSLESS_PEAK, known_codec_frame_bytes, lossless_codec_reservation_bytes,
+    lossy_codec_reservation_bytes,
 };
 use crate::memory::MemoryBudget;
 use crate::pipeline::{
@@ -128,12 +127,17 @@ fn rejects_requests_outside_the_admitted_profile_before_allocating() {
 /// **Contract changes, not refreshed pins.** Until 2026-11-13 the sink
 /// reserved only the planes known from the source path (about 28 B/px with
 /// the frame) against a measured 70-76 B/px; from 2026-11-13 it reserved the
-/// measured one-shot peak (76 B/px, 4/3 of it with alpha, derived). Since
-/// 2026-11-15 it encodes with the default buffering, chunked above 8 groups,
-/// and reserves the peaks measured for that path
-/// (`docs/benchmarks/v1.0-jxl-lossless-chunked-memory-2026-11-15.md`): every
-/// measured maximum below must fit in frame plus reservation.
+/// measured one-shot peak (76 B/px, 4/3 of it with alpha, derived). From
+/// 2026-11-15 it encoded with the default buffering, chunked above 8 groups,
+/// and reserved the peaks measured for that path
+/// (`docs/benchmarks/v1.0-jxl-lossless-chunked-memory-2026-11-15.md`). Since
+/// 2026-11-16 the model has a term for the second DC group and is fitted to
+/// 10 % above every peak on record
+/// (`docs/benchmarks/v1.0-jxl-encoder-memory-2026-11-16.md`,
+/// `model_covers_every_measured_peak_with_margin`); the 2026-11-15
+/// measurements below must still fit.
 #[test]
+#[allow(clippy::too_many_lines)] // One contract: formula pins, recorded peaks, budget boundaries.
 fn input_frame_and_measured_lossless_peaks_are_reserved() {
     let (width, height) = (9, 5);
     let pixels = width * height;
@@ -148,31 +152,46 @@ fn input_frame_and_measured_lossless_peaks_are_reserved() {
         known + pixels * 4 * 2
     );
     // One-shot (at most 8 groups): the per-pixel term and the constant,
-    // minus the input the measured process held (3 B/px RGB, 4 RGBA).
+    // minus the engine's frame (4 B/px), which the measured process held.
+    let [[opaque_model, alpha_model], _] = LOSSLESS_PEAK;
     let opaque = lossless_codec_reservation_bytes(width, height, false, 8).unwrap();
-    let [one_shot, one_shot_alpha] = LOSSLESS_ONE_SHOT_BYTES_PER_PIXEL;
     assert_eq!(
         opaque,
-        pixels * one_shot + LOSSLESS_PEAK_CONSTANT_BYTES - pixels * 3
+        pixels * opaque_model.one_shot + opaque_model.constant - frame
     );
     assert!(opaque > known);
     let alpha = lossless_codec_reservation_bytes(width, height, true, 8).unwrap();
     assert_eq!(
         alpha,
-        pixels * one_shot_alpha + LOSSLESS_PEAK_CONSTANT_BYTES - pixels * 4
+        pixels * alpha_model.one_shot + alpha_model.constant - frame
     );
-    // Chunked (more than 8 groups): the frame term plus one DC group.
-    let [chunked, _] = LOSSLESS_CHUNKED_BYTES_PER_PIXEL;
-    let [dc_group, _] = LOSSLESS_CHUNKED_DC_GROUP_BYTES_PER_PIXEL;
+    // Streaming (more than 8 groups): the frame term, the first DC group,
+    // the second DC group's retained term, the constant, minus the frame.
     let (w, h) = (6000, 4000);
+    let dc = 2048 * 2048;
     assert_eq!(
         lossless_codec_reservation_bytes(w, h, false, 8).unwrap(),
-        w * h * chunked + 2048 * 2048 * dc_group + LOSSLESS_PEAK_CONSTANT_BYTES - w * h * 3
+        w * h * opaque_model.frame
+            + dc * (opaque_model.dc_group + opaque_model.retained)
+            + opaque_model.constant
+            - w * h * 4
     );
-    // The measured peaks (RSS of a fresh process, the larger of two runs,
-    // the port's public encoder with the default buffering) fit in the
-    // engine's frame plus reservation. The one-shot 24 MP peak of the
-    // previous path (1,751 MB, 2026-11-15) is far above the new one.
+    // Between one and two DC groups the retained term counts the pixels
+    // beyond the first group.
+    let (w, h) = (2304, 2048);
+    assert_eq!(
+        lossless_codec_reservation_bytes(w, h, true, 8).unwrap(),
+        w * h * alpha_model.frame
+            + dc * alpha_model.dc_group
+            + (w * h - dc) * alpha_model.retained
+            + alpha_model.constant
+            - w * h * 4
+    );
+    // The 2026-11-15 measurements (RSS of a fresh process, the larger of
+    // two runs, the port's public encoder with the default buffering,
+    // holding the input once at 3 or 4 B/px) fit in the engine's frame
+    // plus reservation. The one-shot 24 MP peak of the previous path
+    // (1,751 MB, 2026-11-15) is far above the new one.
     for (w, h, alpha, measured) in [
         (512, 1024, false, 44_990_464),
         (512, 1024, true, 59_375_616),
@@ -203,7 +222,9 @@ fn input_frame_and_measured_lossless_peaks_are_reserved() {
     // Samples above 8 bits (2026-11-15, `v1.0-jxl-deep-memory-2026-11-15.md`):
     // 16-bit photographs (libavif's `weld_16bit.png`, mirrored to size),
     // the same method; the engine's frame is 8 B/px. Measured, not scaled
-    // from the 8-bit peaks.
+    // from the 8-bit peaks. (That record's tool held one input copy more
+    // than the sink, so these peaks are high by 4 or 8 B/px; they fit
+    // anyway.)
     for (w, h, alpha, measured) in [
         (512, 1024, false, 58_572_800),
         (512, 1024, true, 68_403_200),
@@ -246,6 +267,252 @@ fn input_frame_and_measured_lossless_peaks_are_reserved() {
     let data = rows(width, height, true);
     assert!(encode(width, height, &data, &MemoryBudget::new(frame + opaque)).is_err());
     encode(width, height, &data, &MemoryBudget::new(frame + alpha)).unwrap();
+}
+
+/// The recorded peaks of `model_covers_every_measured_peak_with_margin`.
+const MEASURED_PEAKS: &[(&str, usize, usize, bool, bool, u8, usize)] = &[
+    ("2026-11-15 c700x700", 700, 700, true, false, 8, 32_930_320),
+    ("n8", 700, 700, true, false, 8, 33_964_464),
+    ("2026-11-15 weld8", 512, 1024, true, false, 8, 45_776_896),
+    ("n8", 512, 1024, true, false, 8, 52_707_328),
+    (
+        "2026-11-15 c1024x1024",
+        1024,
+        1024,
+        true,
+        false,
+        8,
+        66_486_272,
+    ),
+    (
+        "2026-11-15 c2048x2048",
+        2048,
+        2048,
+        true,
+        false,
+        8,
+        223_412_224,
+    ),
+    ("2026-11-15 weld8", 2048, 2048, true, false, 8, 227_164_160),
+    ("n8", 2048, 2048, true, false, 8, 257_376_256),
+    ("n8", 2304, 2048, true, false, 8, 282_640_384),
+    (
+        "2026-11-15 c3000x2000",
+        3000,
+        2000,
+        true,
+        false,
+        8,
+        314_609_024,
+    ),
+    ("2026-11-15 weld8", 3000, 2000, true, false, 8, 309_421_312),
+    ("n8", 3000, 2000, true, false, 8, 343_588_864),
+    (
+        "2026-11-15 photo12",
+        4032,
+        3024,
+        true,
+        false,
+        8,
+        415_075_328,
+    ),
+    ("2026-11-15 weld8", 4032, 3024, true, false, 8, 402_892_800),
+    ("n8", 4032, 3024, true, false, 8, 495_910_912),
+    (
+        "2026-11-15 photo24",
+        6000,
+        4000,
+        true,
+        false,
+        8,
+        501_724_672,
+    ),
+    ("2026-11-15 weld8", 6000, 4000, true, false, 8, 564_548_608),
+    ("n8", 6000, 4000, true, false, 8, 625_770_496),
+    ("n16", 700, 700, true, false, 16, 40_550_400),
+    ("2026-11-15 weld16", 512, 1024, true, false, 16, 56_475_648),
+    ("n16", 512, 1024, true, false, 16, 64_339_968),
+    (
+        "2026-11-15 weld16",
+        2048,
+        2048,
+        true,
+        false,
+        16,
+        290_865_152,
+    ),
+    ("n16", 2048, 2048, true, false, 16, 322_191_360),
+    ("n16", 2304, 2048, true, false, 16, 361_938_944),
+    (
+        "2026-11-15 weld16",
+        3000,
+        2000,
+        true,
+        false,
+        16,
+        376_752_640,
+    ),
+    ("n16", 3000, 2000, true, false, 16, 454_557_696),
+    (
+        "2026-11-15 weld16",
+        4032,
+        3024,
+        true,
+        false,
+        16,
+        563_417_088,
+    ),
+    ("n16", 4032, 3024, true, false, 16, 636_715_008),
+    (
+        "2026-11-15 weld16",
+        6000,
+        4000,
+        true,
+        false,
+        16,
+        811_329_536,
+    ),
+    ("n16", 6000, 4000, true, false, 16, 919_470_080),
+    ("2026-11-15 c700x700", 700, 700, true, true, 8, 39_206_912),
+    ("n8", 700, 700, true, true, 8, 44_679_168),
+    ("2026-11-15 weld8", 512, 1024, true, true, 8, 56_950_784),
+    ("n8", 512, 1024, true, true, 8, 68_157_440),
+    (
+        "2026-11-15 c1024x1024",
+        1024,
+        1024,
+        true,
+        true,
+        8,
+        85_000_192,
+    ),
+    (
+        "2026-11-15 c2048x2048",
+        2048,
+        2048,
+        true,
+        true,
+        8,
+        293_699_584,
+    ),
+    ("2026-11-15 weld8", 2048, 2048, true, true, 8, 289_079_296),
+    ("n8", 2048, 2048, true, true, 8, 332_316_672),
+    ("n8", 2304, 2048, true, true, 8, 374_931_456),
+    (
+        "2026-11-15 c3000x2000",
+        3000,
+        2000,
+        true,
+        true,
+        8,
+        400_621_568,
+    ),
+    ("2026-11-15 weld8", 3000, 2000, true, true, 8, 394_447_360),
+    ("n8", 3000, 2000, true, true, 8, 444_907_520),
+    ("p", 3000, 2000, true, true, 8, 407_175_168),
+    ("w8", 3000, 2000, true, true, 8, 410_402_816),
+    ("2026-11-15 photo12", 4032, 3024, true, true, 8, 516_194_304),
+    ("2026-11-15 weld8", 4032, 3024, true, true, 8, 562_630_656),
+    ("n8", 4032, 3024, true, true, 8, 609_091_584),
+    ("p", 4032, 3024, true, true, 8, 570_818_560),
+    ("w8", 4032, 3024, true, true, 8, 564_379_648),
+    ("2026-11-15 photo24", 6000, 4000, true, true, 8, 693_764_096),
+    ("2026-11-15 weld8", 6000, 4000, true, true, 8, 595_208_192),
+    ("n8", 6000, 4000, true, true, 8, 797_556_736),
+    ("p", 6000, 4000, true, true, 8, 653_885_440),
+    ("w8", 6000, 4000, true, true, 8, 656_490_496),
+    ("n16", 700, 700, true, true, 16, 52_969_472),
+    ("2026-11-15 weld16", 512, 1024, true, true, 16, 64_208_896),
+    ("n16", 512, 1024, true, true, 16, 75_628_544),
+    ("2026-11-15 weld16", 2048, 2048, true, true, 16, 374_423_552),
+    ("n16", 2048, 2048, true, true, 16, 409_960_448),
+    ("n16", 2304, 2048, true, true, 16, 460_783_616),
+    ("2026-11-15 weld16", 3000, 2000, true, true, 16, 496_817_152),
+    ("n16", 3000, 2000, true, true, 16, 553_861_120),
+    ("2026-11-15 weld16", 4032, 3024, true, true, 16, 719_953_920),
+    ("n16", 4032, 3024, true, true, 16, 765_378_560),
+    ("w16", 4032, 3024, true, true, 16, 740_573_184),
+    (
+        "2026-11-15 weld16",
+        6000,
+        4000,
+        true,
+        true,
+        16,
+        1_000_198_144,
+    ),
+    ("n16", 6000, 4000, true, true, 16, 1_163_821_056),
+    ("n8", 700, 700, false, false, 8, 59_162_624),
+    ("n8", 512, 1024, false, false, 8, 66_715_648),
+    ("n8", 2048, 2048, false, false, 8, 440_582_144),
+    ("n8", 2304, 2048, false, false, 8, 475_758_592),
+    ("n8", 3000, 2000, false, false, 8, 520_830_976),
+    ("n8", 4032, 3024, false, false, 8, 602_030_080),
+    ("n8", 6000, 4000, false, false, 8, 648_496_088),
+    ("n16", 700, 700, false, false, 16, 63_750_144),
+    ("n16", 512, 1024, false, false, 16, 68_091_904),
+    ("n16", 2048, 2048, false, false, 16, 470_663_168),
+    ("n16", 2304, 2048, false, false, 16, 510_050_304),
+    ("n16", 3000, 2000, false, false, 16, 539_672_576),
+    ("n16", 4032, 3024, false, false, 16, 719_422_496),
+    ("n16", 6000, 4000, false, false, 16, 810_090_496),
+    ("n8", 700, 700, false, true, 8, 65_519_616),
+    ("n8", 512, 1024, false, true, 8, 87_097_344),
+    ("n8", 2048, 2048, false, true, 8, 492_388_352),
+    ("w8", 2048, 2048, false, true, 8, 402_030_592),
+    ("n8", 2304, 2048, false, true, 8, 534_102_016),
+    ("n8", 3000, 2000, false, true, 8, 603_766_784),
+    ("p", 3000, 2000, false, true, 8, 504_184_832),
+    ("w8", 3000, 2000, false, true, 8, 502_251_520),
+    ("n8", 4032, 3024, false, true, 8, 709_804_032),
+    ("p", 4032, 3024, false, true, 8, 542_130_176),
+    ("w8", 4032, 3024, false, true, 8, 609_746_944),
+    ("n8", 6000, 4000, false, true, 8, 707_150_856),
+    ("p", 6000, 4000, false, true, 8, 612_876_288),
+    ("w8", 6000, 4000, false, true, 8, 618_348_544),
+    ("n16", 700, 700, false, true, 16, 68_255_744),
+    ("n16", 512, 1024, false, true, 16, 85_803_008),
+    ("n16", 2048, 2048, false, true, 16, 544_194_560),
+    ("n16", 2304, 2048, false, true, 16, 587_972_608),
+    ("n16", 3000, 2000, false, true, 16, 611_745_792),
+    ("n16", 4032, 3024, false, true, 16, 746_030_088),
+    ("w16", 4032, 3024, false, true, 16, 645_447_680),
+    ("n16", 6000, 4000, false, true, 16, 1_003_880_448),
+];
+
+/// The engine's JPEG XL memory model against every peak on record
+/// (ADR-0004, ADR-0042 D3): for each measured case, the engine's frame plus
+/// the codec reservation is at least 10 % above the measured peak, so that
+/// a change of the model cannot silently drop below a measurement.
+///
+/// Rows: content, width, height, lossless, alpha, bits, peak bytes. The
+/// peak is the largest maximum resident set size of the case's accepted
+/// runs (fresh processes, one at a time, macOS `AArch64`; the peak footprint
+/// of a rejected run counts as a sample too); lossy rows are the largest
+/// over the distances measured (0.05, 1.0, 2.9). Contents: `p` photograph
+/// crops (`photo24` of 2026-11-15), `w8` and `w16` libavif's
+/// `weld_16bit.png` mirrored to size at 8 and 16 bits, `n8` and `n16`
+/// uniform noise, `2026-11-15 …` the earlier records compared at the
+/// engine's frame. Source: `docs/benchmarks/evidence-2026-11-16-encoder-memory/`
+/// (`tools/fit.py --rust` prints these rows from its results).
+#[test]
+fn model_covers_every_measured_peak_with_margin() {
+    let measured = MEASURED_PEAKS;
+    for &(content, w, h, lossless, alpha, depth, peak) in measured {
+        let frame = w * h * 4 * if depth > 8 { 2 } else { 1 };
+        let codec = if lossless {
+            lossless_codec_reservation_bytes(w, h, alpha, depth)
+        } else {
+            lossy_codec_reservation_bytes(w, h, alpha, depth)
+        }
+        .unwrap();
+        let reserved = frame + codec;
+        assert!(
+            reserved * 10 >= peak * 11,
+            "{content} {w}x{h} lossless={lossless} alpha={alpha} {depth}-bit: \
+             {reserved} reserved, {peak} measured"
+        );
+    }
 }
 
 #[test]
