@@ -2453,4 +2453,21 @@ and the encoder tests) implement `InterleaveLower`/`InterleaveUpper` per
 128-bit half, as AVX2 does per 128-bit block, so the 8x8 form also runs
 natively there against the 4-lane results.
 
+## Checked-once vector loops (2026-11-16, branch `v1/jxl-x86-profile`)
+
+**Finding.** In the x86-64 release build the inner loops of
+`EstimateEntropy` (`enc_ac_strategy_simd.rs`) and `QuantizeBlockAC`
+(`enc_group_simd.rs`) checked the bounds of every load and store and
+kept a remaining-length counter per slice: the `EstimateEntropy` loop was
+21 instructions of work and about 18 of checks, counters and stack
+reloads per vector, against 21 in total in the original's AVX2 object.
+The AC-strategy group is 2.04 G against 0.81 G instructions on x86-64 in
+the profile above.
+
+**Decision.** Both loops slice their inputs and outputs once to the
+loop's exact length (a whole number of vectors, as the original's loop
+bound) and walk them with `chunks_exact`, so the loads and stores need no
+per-vector checks. Same lanes in the same order; no `unsafe`. The
+adaptive-quantization helpers loop over one or two vectors per block row,
+so their checks are per row, not per vector; they are unchanged.
 <!-- end x86 profile -->
