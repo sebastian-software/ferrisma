@@ -192,6 +192,15 @@ remaining assembly stays as long as it is true.
   so the page does not say.
 - **Gate state from data**: see "What is provisional" above.
 
+## Round six (2026-11-17): the new speed record
+
+The speed summary on the homepage and the full table on `/how-it-is-built`
+now come from `docs/benchmarks/v1.0-three-column-2026-11-17.md` (run
+43978421716, `main` at `f4be1596`): column (b) 0.91 to 1.63 over 104 cells,
+91 at or below 1.35; the slowest WebP lossy encode on x86-64 and JPEG XL
+lossless decode on Linux ARM64. The dav1d context columns stay in the record
+only.
+
 ## Round five (2026-11-17): the headline
 
 The owner chose candidate B: "One image pipeline for Rust, every codec

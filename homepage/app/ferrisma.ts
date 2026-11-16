@@ -109,12 +109,9 @@ export const PORTS: Port[] = [
  * Speed against the originals: port time ÷ the original's SIMD build, one
  * thread (column (b)). Above 1 the port is slower.
  *
- * Source: docs/benchmarks/v1.0-three-column-2026-11-13.md, summary table,
+ * Source: docs/benchmarks/v1.0-three-column-2026-11-17.md, summary table,
  * 12 MP inputs, GitHub-hosted ubuntu-24.04 (x86-64) and macos-15 (ARM64),
- * run 43338832841. The JPEG XL decode row comes from
- * docs/benchmarks/v1.0-jxl-decode-three-column-2026-11-14.md (one Apple M1
- * Pro, AArch64 only), because the 2026-11-13 record predates the decoder's
- * SIMD path.
+ * run 43978421716 on main at f4be1596.
  */
 export type SpeedRow = {
   operation: string;
@@ -124,33 +121,30 @@ export type SpeedRow = {
 };
 
 export const SPEED_RECORD = {
-  title: "Three-column record of November 13, 2026",
-  href: blob("docs/benchmarks/v1.0-three-column-2026-11-13.md"),
+  title: "Three-column record of November 17, 2026",
+  href: blob("docs/benchmarks/v1.0-three-column-2026-11-17.md"),
 };
-export const JXL_DECODE_RECORD = {
-  title: "JPEG XL decode record of November 14, 2026",
-  href: blob("docs/benchmarks/v1.0-jxl-decode-three-column-2026-11-14.md"),
+
+/** The range and the outliers the record states, for the homepage. */
+export const SPEED_SUMMARY = {
+  cells: 104,
+  machines: "five",
+  min: "0.91",
+  max: "1.63",
+  atOrBelow: "1.35",
+  countAtOrBelow: 91,
 };
 
 export const SPEED: SpeedRow[] = [
-  { operation: "JPEG decode", x86: "1.03×", arm: "1.17×" },
-  { operation: "WebP lossy decode", x86: "1.45×", arm: "1.36×" },
-  { operation: "WebP lossless decode", x86: "1.26×", arm: "1.31×" },
-  { operation: "WebP lossless encode", x86: "1.33×", arm: "1.17×" },
-  { operation: "WebP lossy encode", x86: "2.61×", arm: "1.67×" },
-  {
-    operation: "JPEG XL decode",
-    x86: "not in a record",
-    arm: "1.3–2.9×",
-    note: "after the SIMD decode path, eight inputs on one M1 Pro",
-  },
-  { operation: "JPEG XL lossless encode", x86: "1.24×", arm: "1.25×" },
-  {
-    operation: "JPEG XL lossy encode",
-    x86: "16.45×",
-    arm: "7.25×",
-    note: "measured before the encoder's SIMD path, the default since November 16",
-  },
-  { operation: "AVIF decode through libaom", x86: "1.35×", arm: "1.45×" },
-  { operation: "AVIF encode, 10-bit", x86: "1.33×", arm: "1.38×" },
+  { operation: "JPEG decode", x86: "1.01×", arm: "0.91×" },
+  { operation: "WebP lossy decode", x86: "1.35×", arm: "1.33×" },
+  { operation: "WebP lossless decode", x86: "1.28×", arm: "1.22×" },
+  { operation: "WebP lossless encode", x86: "1.17×", arm: "1.08×" },
+  { operation: "WebP lossy encode", x86: "1.42×", arm: "1.16×" },
+  { operation: "JPEG XL decode (VarDCT)", x86: "1.23×", arm: "1.17×" },
+  { operation: "JPEG XL lossless decode", x86: "1.25×", arm: "1.39×" },
+  { operation: "JPEG XL lossless encode", x86: "1.13×", arm: "1.18×" },
+  { operation: "JPEG XL lossy encode", x86: "1.31×", arm: "0.99×" },
+  { operation: "AVIF decode through libaom", x86: "1.17×", arm: "1.33×" },
+  { operation: "AVIF encode, 10-bit", x86: "1.25×", arm: "1.40×" },
 ];

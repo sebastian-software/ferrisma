@@ -21,7 +21,7 @@ import {
 
 import { OneBuildDrawing } from "../drawings/OneBuild";
 import { PipelineDrawing } from "../drawings/Pipeline";
-import { FAMILY_SITE, REPOSITORY, SPEED_RECORD, blob, path } from "../ferrisma";
+import { FAMILY_SITE, REPOSITORY, SPEED_RECORD, SPEED_SUMMARY, blob, path } from "../ferrisma";
 
 export const handle = { layout: "bare" };
 export const meta: ArdoMetaFunction = () => [
@@ -306,10 +306,11 @@ function Speed() {
       standfirst="Every codec is timed against the original it translates, in the same job on the same machine."
     >
       <p>
-        In the committed record, most operations take between one and one and a half times as
-        long as the originals' SIMD builds on one thread. Two are far behind and named in the
-        full table: WebP's lossy encoder on x86-64, and JPEG XL's lossy encoder, measured
-        before its SIMD paths became the default.
+        In the record of November 17, 2026, the ports take {SPEED_SUMMARY.min} to{" "}
+        {SPEED_SUMMARY.max} times as long as the originals' SIMD builds on one thread, across{" "}
+        {SPEED_SUMMARY.cells} measurements on {SPEED_SUMMARY.machines} machines;{" "}
+        {SPEED_SUMMARY.countAtOrBelow} of them are at or below {SPEED_SUMMARY.atOrBelow}. The
+        slowest are WebP's lossy encoder on x86-64 and JPEG XL's lossless decode on Linux ARM64.
       </p>
       <p className="fx-section-link">
         <a href={path("how-it-is-built#speed")}>The full table</a>

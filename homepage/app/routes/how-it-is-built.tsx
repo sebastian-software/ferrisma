@@ -19,7 +19,7 @@ import {
 import { AnatomyDrawing } from "../drawings/Anatomy";
 import { GateDrawing } from "../drawings/Gate";
 import { RefuseOrReportDrawing } from "../drawings/RefuseOrReport";
-import { JXL_DECODE_RECORD, PORTS, SPEED, SPEED_RECORD, blob, path } from "../ferrisma";
+import { PORTS, SPEED, SPEED_RECORD, SPEED_SUMMARY, blob, path } from "../ferrisma";
 import { GATE_AS_OF, GATE_STATE } from "../gate-state.generated";
 
 export const handle = { layout: "bare" };
@@ -207,24 +207,21 @@ function Speed() {
           </table>
         </div>
         <MonoCaption>
-          12-megapixel inputs on GitHub-hosted ubuntu-24.04 (x86-64) and macos-15 (ARM64), one job
-          per machine: <a href={SPEED_RECORD.href}>{SPEED_RECORD.title}</a>. JPEG XL decode, after
-          its SIMD path landed: eight inputs on one Apple M1 Pro,{" "}
-          <a href={JXL_DECODE_RECORD.href}>{JXL_DECODE_RECORD.title}</a>. Evidence for these
-          machines, not a universal claim.
+          12-megapixel inputs on GitHub-hosted ubuntu-24.04 (x86-64) and the macos-15 virtual
+          machine (ARM64), one job per codec and machine, <code>main</code> at{" "}
+          <code>f4be1596</code>: <a href={SPEED_RECORD.href}>{SPEED_RECORD.title}</a>, which
+          also has the 24-megapixel inputs, Blacksmith x86-64 and ARM64, and Linux ARM64.
+          Evidence for these machines, not a universal claim.
         </MonoCaption>
       </div>
       <p>
-        Most operations take between one and one and a half times as long as the original's SIMD
-        build. Two are far behind, and the table keeps them: WebP's lossy encoder on x86-64, and
-        JPEG XL's lossy encoder, measured here before its SIMD paths became the default on
-        November 16; it will be timed again in the next record.
-      </p>
-      <p>
-        Reading AVIF goes through the translated libaom decoder, which is clearly slower than
-        stock libavif with dav1d. dav1d is fast because of its assembly, so the next step is to
-        rebuild its kernels with Rust intrinsics and measure them before the engine settles on a
-        decoder.
+        Across all {SPEED_SUMMARY.cells} measurements on {SPEED_SUMMARY.machines} machines the
+        ports take {SPEED_SUMMARY.min} to {SPEED_SUMMARY.max} times as long as the originals' SIMD
+        builds on one thread; {SPEED_SUMMARY.countAtOrBelow} of them are at or below{" "}
+        {SPEED_SUMMARY.atOrBelow}. The slowest are WebP's lossy encoder on x86-64 (1.42 to 1.63)
+        and JPEG XL's lossless decode on Linux ARM64 (1.41 to 1.48). JPEG decoding is level with
+        libjpeg-turbo (0.91 to 1.06), and JPEG XL's lossy encoder, now on its SIMD paths, takes
+        0.99 to 1.42 times as long as libjxl's.
       </p>
     </MonoSection>
   );
