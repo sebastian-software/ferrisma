@@ -242,6 +242,15 @@ universal speed claim.
   the fixed default depth 8 awaiting confirmation. The
   [supported matrix](supported-matrix.md) lists the current defaults, their
   limits and the 2026-11-12 macOS ARM64 verification.
+- Rebuild dav1d's assembly kernels with Rust intrinsics (owner decision of
+  2026-11-16, [ADR-0044](adr/0044-no-assembly-acceleration-through-rust-intrinsics.md)
+  D2): the AVIF reader reads through the translated libaom, which took 1.75
+  to 2.1 times as long as stock libavif with dav1d in hosted run
+  43789376239. dav1d's removal, decided on 2026-11-15, is paused; the work
+  has no deadline for 1.0, and which decoder the engine finally uses is
+  decided once the rebuilt kernels can be measured
+  ([ADR-0031](adr/0031-workspace-libavif-input-experiment.md), amendment of
+  2026-11-16).
 - Validate the extracted shared SharpYUV core with native Linux and macOS
   API, ABI, allocation, callback, and full original-consumer oracles. Preserve
   the independent C reference and review the measured AVIF kernel cost in
