@@ -730,3 +730,15 @@ reports that a stable item cannot express its use case.
      - `LibavifBackend` is a `#[non_exhaustive]` unit struct built with
        `LibavifBackend::new()` or `Default`.
      - Option types are `Clone`, not `Copy` (item 2).
+  2. **No `Copy` on types that may gain fields** (problem 10, review 2.1,
+     priority 7). `ProcessingReport`, `DecoderWork`, `StageTimings`,
+     `EncodeRequest`, `TransformOptions`, `BatchItem` and `Engine` are
+     `Clone` but not `Copy` (the option types since item 1), so that a later
+     field that is not `Copy` (a list of regions or tiles, an owned name, a
+     caller-supplied profile, a worker pool) is additive. Every report
+     struct (`Output`, `ProcessingReport`, `StageTimings`, `DecoderWork`,
+     `ImageMetadata`, `EncodedImage`) is `#[non_exhaustive]` with public
+     fields: read access that survives added fields, no construction or
+     exhaustive destructuring outside the crate. Small value types keep
+     `Copy` (`Crop`, `BitDepth`, the enums without data, `DiscardedSet`,
+     `WorkCount`).

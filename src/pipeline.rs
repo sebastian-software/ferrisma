@@ -845,8 +845,11 @@ pub enum SourceAccess {
 
 /// Wall-clock time per pipeline stage, measured with `std::time::Instant`.
 /// These are observations of one run on one machine, not throughput claims;
-/// the stages overlap only where documented on each field.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// the stages overlap only where documented on each field. Read through its
+/// public fields; new fields may be added (`#[non_exhaustive]`), and since
+/// 2026-11-16 it is `Clone` but not `Copy`, so that a later field need not
+/// be `Copy`.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct StageTimings {
     /// Option validation, container and header parsing, orientation and ICC
@@ -870,8 +873,10 @@ pub struct StageTimings {
 /// What the decoder was asked for, what it returned and which work it
 /// necessarily performed (ADR-0012, ADR-0023). Counts are pixels and rows,
 /// not time. Only [`WorkCount::Exact`] values bound the work from above: a
-/// codec that returns a crop may still have decoded far more.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// codec that returns a crop may still have decoded far more. Read through
+/// its public fields; new fields may be added, and since 2026-11-16 it is
+/// not `Copy` (a later report of several regions or tiles need not be).
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct DecoderWork {
     /// The upright source crop that feeds the resize, in display
@@ -949,7 +954,20 @@ pub enum ColorSignal {
 }
 
 /// Report known materializations separately from opaque codec memory.
-#[derive(Clone, Copy, Debug)]
+///
+/// Read through its public fields; new fields may be added in a minor
+/// release (`#[non_exhaustive]`: it cannot be constructed or exhaustively
+/// destructured outside Ferrisma). `Clone` but not `Copy` since 2026-11-16,
+/// so that a later field (a list of regions, a name that is not
+/// `'static`) does not break callers.
+///
+/// ```no_run
+/// # fn report(output: &ferrisma::pipeline::Output) {
+/// let report = &output.report;
+/// println!("{} -> {}, peak {} bytes", report.decoder_backend, report.encoder_backend, report.peak_managed_bytes);
+/// # }
+/// ```
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct ProcessingReport {
     /// How the source region was obtained.
@@ -2189,7 +2207,9 @@ impl<'a> BatchItem<'a> {
 ///
 /// Each image keeps its own `max_managed_bytes` budget, so the engine's
 /// managed memory is bounded by `threads` times the largest per-image budget.
-#[derive(Clone, Copy, Debug)]
+/// `Clone` but not `Copy` since 2026-11-16, so that an engine can later own
+/// state such as a worker pool.
+#[derive(Clone, Debug)]
 pub struct Engine {
     threads: usize,
 }

@@ -200,8 +200,13 @@ What this does not promise:
 - Add enum variants. Every public enum that can grow is
   `#[non_exhaustive]`, including `ProcessingErrorKind`, so match with a
   wildcard arm.
-- Add fields to `Output`, `ProcessingReport`, `StageTimings`, and
-  `ImageMetadata`; these structs cannot be constructed outside Ferrisma.
+- Add fields to `Output`, `ProcessingReport`, `StageTimings`,
+  `DecoderWork` and `ImageMetadata`; these structs cannot be constructed
+  outside Ferrisma. Since 2026-11-16 the report structs, the option types,
+  `EncodeRequest` and `Engine` are `Clone` but not `Copy`, so a later field
+  need not be `Copy`; read a report through a reference or clone it.
+- Add settings to the option types: each is a new `with_*` method and
+  getter (see [constructing options](#constructing-options)).
 - Change error message text. Match on `ProcessingError::kind()` and
   `ProcessingError::refusal_reason()`, never on messages.
 - Change the encoded bytes for the same options when an encoder improves.

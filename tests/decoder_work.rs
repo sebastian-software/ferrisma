@@ -75,7 +75,7 @@ fn run(bytes: &[u8], format: ImageFormat, crop: Crop, options: TransformOptions)
         &RowCapture,
     )
     .unwrap();
-    let work = output.report.decoder_work;
+    let work = output.report.decoder_work.clone();
     // The resize clamps at the crop's edges: no filter halo is requested,
     // and each requested row is delivered exactly once in one request.
     assert_eq!(work.crop, crop);
@@ -93,7 +93,7 @@ fn run(bytes: &[u8], format: ImageFormat, crop: Crop, options: TransformOptions)
 }
 
 fn assert_work(
-    actual: DecoderWork,
+    actual: &DecoderWork,
     codec_request: Crop,
     codec_output: Crop,
     reconstructed: WorkCount,
@@ -120,7 +120,7 @@ fn jpeg_crop_reports_imcu_column_overfetch_and_whole_entropy_pass() {
     assert_eq!(output.report.decoder_full_frame_buffers, 0);
     // x = floor((101 - 1) / 16) * 16 = 96; width = 141 + 1 - 96 = 46.
     assert_work(
-        output.report.decoder_work,
+        &output.report.decoder_work,
         crop,
         rect(96, 50, 46, 20),
         WorkCount::AtLeast(46 * 21),
@@ -142,7 +142,7 @@ fn oriented_jpeg_crop_maps_to_stored_request_and_reports_copies() {
     let stored = rect(5, 2, 15, 12);
     assert_eq!(output.report.orientation_buffer_bytes, 15 * 12 * 3);
     assert_work(
-        output.report.decoder_work,
+        &output.report.decoder_work,
         stored,
         // iMCU 8: x = floor(4 / 8) * 8 = 0; width = 20 + 1 - 0 = 21.
         rect(0, 2, 21, 12),
@@ -166,7 +166,7 @@ fn lossy_webp_crop_decodes_full_width_rows_from_the_top() {
     // 0..min(11 + 30 + 8, 72) = 49 at the full width 96.
     let stored = rect(21, 11, 40, 30);
     assert_work(
-        output.report.decoder_work,
+        &output.report.decoder_work,
         stored,
         rect(0, 0, 96, 49),
         WorkCount::AtLeast(96 * 49),
@@ -187,7 +187,7 @@ fn lossless_webp_crop_is_small_but_reconstruction_is_not() {
     let output = run(webp, ImageFormat::WebP, crop, srgb());
     assert_eq!(output.report.input_access, SourceAccess::FullFrameFallback);
     assert_work(
-        output.report.decoder_work,
+        &output.report.decoder_work,
         rect(21, 11, 40, 30),
         rect(20, 10, 41, 31),
         WorkCount::AtLeast(96 * 41),
@@ -221,7 +221,7 @@ fn libjxl_rs_crop_reports_the_full_frame_fallback() {
     assert_eq!(output.report.input_access, SourceAccess::FullFrameFallback);
     assert_eq!(output.report.decoder_full_frame_buffers, 0);
     assert_work(
-        output.report.decoder_work,
+        &output.report.decoder_work,
         crop,
         rect(0, 0, 24, 16),
         WorkCount::AtLeast(24 * 16),
@@ -273,7 +273,7 @@ fn avif_crop_reports_the_full_frame_fallback_and_orientation_copies() {
     assert_eq!(output.report.input_access, SourceAccess::FullFrameFallback);
     assert_eq!(output.report.decoder_full_frame_buffers, 1);
     assert_work(
-        output.report.decoder_work,
+        &output.report.decoder_work,
         rect(5, 2, 15, 12),
         rect(0, 0, 24, 16),
         WorkCount::AtLeast(24 * 16),
