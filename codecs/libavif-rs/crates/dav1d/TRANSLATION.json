@@ -438,7 +438,7 @@
         "original-c-record-field-alignment": 3
       },
       "raw_sha256": "f8a65491a86d67ebd77d362a65aa4271b698cba5eb0a988cb3dfe8c0a2d70bfa",
-      "rust_sha256": "d9cfb9e5d82629b4074e83d843cbb5ff58d4a6e08e09cea3197e0269cc0260c6"
+      "rust_sha256": "92f234df7fcd406f9e00db52922d48f76c240228ee8a3f0d61bddad36c02c73c"
     },
     {
       "source": "upstream/dav1d/src/looprestoration_tmpl.c",

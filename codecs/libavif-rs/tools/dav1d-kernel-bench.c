@@ -17,7 +17,15 @@
  * library) on a 64 KiB stream with a fixed CDF of NS symbols, CDF
  * adaptation on; the context is re-initialized every 2048 iterations in
  * both modes. The checksum covers the decoded values.
- */
+ *
+ *   dav1d-kernel-bench LIBRARY MASK lpf BPC SLOT ITERATIONS call|baseline
+ *
+ * calls loop_filter_sb[SLOT / 2][SLOT % 2] of dav1d_loop_filter_dsp_init_BPCbpc
+ * (0: luma column edges, 1: luma row edges, 2, 3: chroma) on a 160x160
+ * picture (a gradient with noise, so that every filter width and the flat
+ * paths are taken) across 32 4-pixel units, with fixed masks, levels
+ * (some zero) and sharpness 0; each iteration restores the picture. At 16
+ * bpc the pixels are 10-bit. The checksum covers the filtered picture. */
 #include <dlfcn.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -88,7 +96,68 @@ static int msac(void *library, char **argv) {
     return 0;
 }
 
+typedef struct { uint8_t e[64], i[64]; uint64_t sharp[2]; } Av1FilterLUT;
+typedef void (*lpf_fn)(void *dst, ptrdiff_t stride, const uint32_t *mask, const uint8_t (*l)[4],
+                       ptrdiff_t b4_stride, const Av1FilterLUT *lut, int w, int bitdepth_max);
+
+static int lpf(void *library, char **argv) {
+    const int bpc = atoi(argv[4]), slot = atoi(argv[5]);
+    const long iterations = atol(argv[6]);
+    const int call = !strcmp(argv[7], "call");
+    char name[64];
+    snprintf(name, sizeof(name), "dav1d_loop_filter_dsp_init_%dbpc", bpc);
+    void (*init)(lpf_fn (*)[2]) = (void (*)(lpf_fn (*)[2])) dlsym(library, name);
+    if (!init) { fprintf(stderr, "missing symbols\n"); return 1; }
+    static lpf_fn c[2][2];
+    init(c);
+    lpf_fn fn = c[slot / 2][slot % 2];
+    enum { W = 160 };
+    static uint16_t source[W * W], picture[W * W];
+    uint32_t seed = 12345;
+    for (int y = 0; y < W; y++)
+        for (int x = 0; x < W; x++) {
+            seed = seed * 1664525u + 1013904223u;
+            const int v = ((x / 8 + y / 8) * 7 + (int) (seed >> 29)) & 255;
+            source[y * W + x] = (uint16_t) (bpc == 8 ? v : v * 4);
+        }
+    static uint8_t levels[34 * 34][4];
+    for (int i = 0; i < 34 * 34; i++) {
+        seed = seed * 1664525u + 1013904223u;
+        levels[i][0] = (seed >> 24) % 5 == 0 ? 0 : (uint8_t) ((seed >> 16) % 64);
+    }
+    static Av1FilterLUT lut;
+    lut.sharp[0] = 0;
+    lut.sharp[1] = 63;
+    const uint32_t vmask[3] = { 0xffffffffu, 0xf0f0f0f0u, slot / 2 ? 0 : 0xff00ff00u };
+    const ptrdiff_t bytes = bpc == 8 ? 1 : 2, stride = W * bytes;
+    uint8_t *const base = (uint8_t *) picture;
+    /* 8 rows and 8 columns in: room for the 7 (row edges) or 8 (column
+     * edges) pixels before the first edge. */
+    void *const dst = base + 8 * stride + 8 * bytes;
+    for (long k = 0; k < iterations; k++) {
+        if (bpc == 8)
+            for (int i = 0; i < W * W; i++) ((uint8_t *) picture)[i] = (uint8_t) source[i];
+        else
+            memcpy(picture, source, sizeof(picture));
+        if (call) fn(dst, stride, vmask, (const uint8_t (*)[4]) &levels[34 + 1], 34, &lut, 128, 1023);
+    }
+    uint64_t sum = 0;
+    for (size_t i = 0; i < sizeof(picture); i++) sum = sum * 31 + ((uint8_t *) picture)[i];
+    printf("checksum=%016llx\n", (unsigned long long) sum);
+    return 0;
+}
+
 int main(int argc, char **argv) {
+    if (argc == 8 && !strcmp(argv[3], "lpf")) {
+        void *library = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL);
+        if (!library) { fprintf(stderr, "%s\n", dlerror()); return 1; }
+        void (*init_cpu)(void) = (void (*)(void)) dlsym(library, "dav1d_init_cpu");
+        void (*set_mask)(unsigned) = (void (*)(unsigned)) dlsym(library, "dav1d_set_cpu_flags_mask");
+        if (!init_cpu || !set_mask) { fprintf(stderr, "missing symbols\n"); return 1; }
+        init_cpu();
+        set_mask((unsigned) strtoul(argv[2], NULL, 0));
+        return lpf(library, argv);
+    }
     if (argc == 8 && !strcmp(argv[3], "msac")) {
         void *library = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL);
         if (!library) { fprintf(stderr, "%s\n", dlerror()); return 1; }

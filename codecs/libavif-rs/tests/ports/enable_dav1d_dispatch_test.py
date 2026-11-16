@@ -143,6 +143,17 @@ class DispatchText(unittest.TestCase):
         hi_tok = (source / 'msac.c').read_text().split('dav1d_msac_decode_hi_tok_c(', 1)[1].split('\n}', 1)[0]
         self.assertEqual([int(m[1]) for m in call.finditer(hi_tok)], dispatch.SYMBOL_ADAPT['common/msac.rs'])
 
+    def test_entry_without_anchor_goes_at_the_end_of_the_init(self):
+        lpf = ('pub unsafe extern "C" fn dav1d_loop_filter_dsp_init_8bpc(\n'
+               '    c: *mut Dav1dLoopFilterDSPContext,\n) {\n'
+               '    (*c).loop_filter_sb[1][1] = Some(f) as loopfilter_sb_fn;\n}\n')
+        rel = 'crates/dav1d/src/release/b8/loopfilter_tmpl.rs'
+        out = dispatch.dispatch_text(rel, lpf, ['loopfilter_8bpc_arm'])
+        self.assertTrue(out.endswith(
+            'as loopfilter_sb_fn;\n    crate::simd::arm::loopfilter::loop_filter_dsp_init_arm_8bpc(c.cast()); '
+            '// dav1d-dispatch\n}\n'))
+        self.assertEqual(dispatch.dispatch_text(rel, out, []), lpf)
+
     def test_committed_tree_matches(self):
         # The same comparison as --check, without the digest part.
         for rel, _ in dispatch.units():

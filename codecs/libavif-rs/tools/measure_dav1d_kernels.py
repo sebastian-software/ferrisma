@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Instructions per call of rebuilt dav1d kernels against the original's assembly.
 
-Usage: python3 tools/measure_dav1d_kernels.py [--family itx|msac] [--calls N]   (macOS ARM64)
+Usage: python3 tools/measure_dav1d_kernels.py [--family itx|msac|lpf] [--calls N]   (macOS ARM64)
 
 For each 8 bpc inverse-transform entry point rebuilt so far (ADR 0062), the
 driver `tools/dav1d-kernel-bench.c` calls the kernel N times on fixed inputs
@@ -19,6 +19,11 @@ for the three symbol sizes), from the same oracle and from the port built
 with its test-only accessors (`build/dav1d-bridges-target`, made by
 `check_dav1d_dsp.py --simd neon`); `--calls` / 8 calls each.
 Results: `build/dav1d-kernel-instructions-msac.json`.
+
+`--family lpf`: the four loop filter entry points at 8 and 16 bpc (10-bit
+pixels) on one superblock edge of 32 units with mixed filter widths (see
+`dav1d-kernel-bench.c`); `--calls` / 256 calls each. Results:
+`build/dav1d-kernel-instructions-lpf.json`.
 """
 MSAC = [('dav1d_msac_decode_symbol_adapt4_neon', ns) for ns in (1, 2, 3)]
 MSAC += [('dav1d_msac_decode_symbol_adapt8_neon', ns) for ns in (4, 7)]
@@ -61,7 +66,7 @@ def main():
     parser.add_argument('--calls', type=int, default=32000000,
                         help='pixels processed per kernel and side (calls = this / block area)')
     parser.add_argument('--only', help='substring filter on kernel names')
-    parser.add_argument('--family', choices=['itx', 'msac'], default='itx')
+    parser.add_argument('--family', choices=['itx', 'msac', 'lpf'], default='itx')
     args = parser.parse_args()
     work = ROOT / 'build/dav1d-kernel-bench'
     work.mkdir(parents=True, exist_ok=True)
@@ -70,6 +75,35 @@ def main():
     original = ROOT / 'build/dav1d-dsp-release-neon/libdav1d-dsp-asm.dylib'
     port = ROOT.parents[1] / 'target/release/libdav1d.dylib'
     rows = []
+    if args.family == 'lpf':
+        calls = args.calls // 256
+        names = ['h_sb_y', 'v_sb_y', 'h_sb_uv', 'v_sb_uv']
+        for bpc in (8, 16):
+            for slot, name in enumerate(names):
+                kernel = f'dav1d_lpf_{name}_{bpc}bpc_neon'
+                if args.only and args.only not in kernel:
+                    continue
+                per_call, checksums = {}, {}
+                for side, library in (('original', original), ('port', port)):
+                    command = [driver, library, '0x1', 'lpf', str(bpc), str(slot), str(calls)]
+                    base, _ = instructions(command + ['baseline'])
+                    total, checksum = instructions(command + ['call'])
+                    per_call[side] = (total - base) / calls
+                    checksums[side] = checksum
+                row = {'kernel': kernel, 'path': '32 units', 'calls': calls,
+                       'original_instructions': round(per_call['original'], 1),
+                       'port_instructions': round(per_call['port'], 1),
+                       'ratio': round(per_call['port'] / per_call['original'], 3),
+                       'identical_output': checksums['original'] == checksums['port']}
+                rows.append(row)
+                print(f"{row['kernel']:52s} {row['path']:16s} {row['original_instructions']:9.1f} "
+                      f"{row['port_instructions']:9.1f} {row['ratio']:6.3f} {row['identical_output']}", flush=True)
+        (ROOT / 'build/dav1d-kernel-instructions-lpf.json').write_text(json.dumps(
+            {'calls': calls, 'level': 'neon', 'original': str(original), 'port': str(port), 'kernels': rows},
+            indent=2) + '\n')
+        if not all(row['identical_output'] for row in rows):
+            raise SystemExit('outputs differ')
+        return
     if args.family == 'msac':
         port = ROOT / 'build/dav1d-bridges-target/release/libdav1d.dylib'
         calls = args.calls // 8

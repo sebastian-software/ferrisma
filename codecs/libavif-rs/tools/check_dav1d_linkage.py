@@ -34,6 +34,10 @@ def main():
         path = work / Path(member).name
         path.write_bytes(subprocess.check_output(['ar', '-p', archive, member]))
         symbols += subprocess.check_output(['nm', '-g', path], text=True)
+    # The crate feature `port-test-bridges` (ADR 0062) adds test-only
+    # accessors and nothing else; the product library must not carry them.
+    if re.search(r' _?port_table_\w+$', symbols, re.M):
+        raise SystemExit('Test-only accessors (feature port-test-bridges) in the product library')
     defined, undefined = set(), set()
     for kind, symbol in re.findall(r'\b([A-Za-z]) (_?dav1d_\w+)$', symbols, re.M):
         (undefined if kind == 'U' else defined).add(symbol.removeprefix('_'))

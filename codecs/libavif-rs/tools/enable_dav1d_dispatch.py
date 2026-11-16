@@ -64,13 +64,17 @@ PROFILES = {
     'linux/': ('TRANSLATION-linux.json', 'x86'),
     'linux/release/': ('TRANSLATION-linux-release.json', 'x86'),
 }
-# family -> (unit, init function, anchor statement after which the call goes)
+# family -> (unit, init function, anchor statement after which the call goes;
+# None: at the end of the init, where the original calls it after the C
+# assignments)
 FAMILIES = {
     'itx': ('itx_tmpl.rs', 'dav1d_itx_dsp_init_{bpc}bpc',
             'let mut all_simd: core::ffi::c_int = 0 as core::ffi::c_int;'),
+    'loopfilter': ('loopfilter_tmpl.rs', 'dav1d_loop_filter_dsp_init_{bpc}bpc', None),
 }
 CALLS = {
     'itx': 'crate::simd::{arch}::itx::itx_dsp_init_{arch}_{bpc}bpc(c.cast(), bpc, &raw mut all_simd);',
+    'loopfilter': 'crate::simd::{arch}::loopfilter::loop_filter_dsp_init_{arch}_{bpc}bpc(c.cast());',
 }
 INIT_CPU_EMPTY = 'pub unsafe extern "C" fn dav1d_init_cpu() {}'
 INIT_CPU = ('pub unsafe extern "C" fn dav1d_init_cpu() {\n'
@@ -188,10 +192,15 @@ def dispatch_text(rel, text, entries=None):
         _, init, anchor = FAMILIES[family]
         start, end = function_span(text, init.format(bpc=bpc))
         body = text[start:end]
+        call = CALLS[family].format(arch=arch, bpc=bpc)
+        if anchor is None:
+            # Before the closing brace: after the last statement.
+            position = start + len(body.rstrip())
+            text = text[:position] + f'\n    {call} {MARKER}' + text[position:]
+            continue
         if body.count(anchor) != 1:
             raise SystemExit(f'{rel}: anchor of {entry} not found once')
         position = start + body.index(anchor) + len(anchor)
-        call = CALLS[family].format(arch=arch, bpc=bpc)
         text = text[:position] + f'\n    {call} {MARKER}' + text[position:]
     return text
 

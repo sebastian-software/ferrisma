@@ -16,9 +16,12 @@ name = "dav1d"
 crate-type = ["rlib", "staticlib", "cdylib"]
 
 [features]
-# Test-only accessors of rebuilt kernels that the original reaches without a
-# DSP table (msac), for tools/check_dav1d_dsp.py --simd and
-# tools/measure_dav1d_kernels.py (ADR 0062). Off in every product build.
+# Test-only, not part of the crate's public contract (ADR 0062): exported
+# accessors of rebuilt kernels that the original reaches without a DSP table
+# (msac), for tools/check_dav1d_dsp.py --simd and
+# tools/measure_dav1d_kernels.py. It adds those symbols and nothing else; no
+# dependent enables it, and tools/check_dav1d_linkage.py rejects a product
+# library that carries them.
 port-test-bridges = []
 
 [dependencies]

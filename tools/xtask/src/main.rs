@@ -335,6 +335,22 @@ fn codecs(args: &[String]) -> Result<()> {
             )?;
         }
         if stage == "pr" {
+            // dav1d's test-only feature (libavif-rs ADR 0062) still compiles.
+            run(
+                &dir,
+                &[
+                    "cargo",
+                    "check",
+                    "--locked",
+                    "--offline",
+                    "--release",
+                    "-p",
+                    "libavif-dav1d",
+                    "--all-targets",
+                    "--features",
+                    "port-test-bridges",
+                ],
+            )?;
             run(
                 &dir,
                 &[

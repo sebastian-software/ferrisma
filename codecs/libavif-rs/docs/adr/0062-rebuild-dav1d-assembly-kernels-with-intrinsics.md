@@ -105,7 +105,12 @@ in `build/dav1d-bridges-target`; the product library's exported symbols do
 not change). One deviation for memory safety: near the end of a tile
 buffer the assembly loads the 8 bytes that end at `buf_end` and shifts out
 those before `buf_pos`, which can reach before the buffer; the rebuild
-loads only `buf_pos..buf_end`, which gives the same value.
+loads only `buf_pos..buf_end`, which gives the same value. The feature `port-test-bridges` is test
+tooling, not part of the crate's public contract: it adds those exported
+accessors and nothing else (no kernel, dispatch or layout depends on it),
+no dependent enables it, `check_dav1d_linkage.py` rejects a product library
+that carries them, and the PR stage of `cargo xtask codecs --codec avif`
+checks that the crate still compiles with it.
 
 **CPU detection without assembly.** `simd/cpu.rs` mirrors
 `src/x86/cpu.c` statement by statement with `__cpuid_count` and
@@ -251,6 +256,27 @@ brackets): 8-bit 4:2:0 1.68 G (from 1.93; 0.99), 8-bit 4:4:4 2.25 G
 profile: coefficient decoding and reconstruction in C 43 % (the kernels
 are partly inlined there), loop filter 24 %, msac 23 %, itx 4 %.
 
+**2026-11-16, loop filter 8 bpc on NEON** (`loopfilter.S`: the four
+`dav1d_lpf_{v,h}_sb_{y,uv}_8bpc_neon`, the column filters and the four
+filter cores; `dispatch.txt`: `loopfilter_8bpc_arm`, inserted at the end of
+the translated init, where the original calls `loop_filter_dsp_init_arm`).
+Gates: per-kernel 17 groups, 3,155 selections each at `neon` and scalar;
+whole images 994 of 994 at each level; `run_dav1d_tests.py` 1,711 of 1,711;
+ABI 12,157 checks, 0 differences; API 83; linkage pass. Positive control:
+the `f + 4` constant of the wd4 filter off by one fails all four
+`loopfilter_8bpc` groups. Instructions per call against the assembly
+(`measure_dav1d_kernels.py --family lpf`, one 32-unit superblock edge with
+wd4/8/16 mixed, identical pictures): row edges (`v`) 0.92 (y) and 0.91
+(uv), column edges (`h`) 1.32 (y) and 1.33 (uv). The column edges load and
+store 16 rows of 4 or 8 pixels per group by lane; the assembly walks two
+row pointers with post-increment, the rebuild computes each row's address
+and keeps more row pointers live (spilled), which is the excess.
+Instructions per decode: 8-bit 4:2:0 1.44 G (from 1.68), 8-bit 4:4:4
+1.87 G (2.25), 8-bit 4:2:0 with alpha 1.55 G (1.99); 10-bit and lossless
+unchanged (3.12, 4.30, 11.70 G); pictures unchanged. Sampled 8-bit 4:2:0
+profile: coefficient decoding in C 46 %, msac 36 %, itx 6 %, loop filter
+5 %, CDEF 5 %.
+
 ## Review when
 
 A family is completed on a target; the x86-64 AVX2 kernels arrive; the owner
@@ -259,6 +285,7 @@ engine's decoder choice changes.
 
 ## Amendment log
 
+- 2026-11-16 — loop filter 8 bpc on NEON (validation above).
 - 2026-11-16 — msac on NEON (decision paragraph and validation above).
 - 2026-11-16 — 8 bpc inverse transforms complete on NEON (validation above).
 - 2026-11-16 — Accepted with the infrastructure and the first slice.

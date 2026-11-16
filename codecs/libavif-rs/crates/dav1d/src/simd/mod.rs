@@ -21,6 +21,7 @@ pub mod cpu;
 #[cfg(target_arch = "aarch64")]
 pub mod arm64 {
     pub mod itx;
+    pub mod loopfilter;
     pub mod msac;
     pub mod util;
 }
@@ -28,5 +29,6 @@ pub mod arm64 {
 #[cfg(target_arch = "aarch64")]
 pub mod arm {
     pub mod itx;
+    pub mod loopfilter;
     pub mod msac;
 }
