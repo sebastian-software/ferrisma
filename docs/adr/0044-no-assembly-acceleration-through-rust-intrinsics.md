@@ -87,10 +87,12 @@ even as an optional feature.
   build runs assembly. The output gate is unaffected on its corpus:
   libavif-rs ADR 0058 records `avx2`, `sse4.1` and `scalar` identical with
   the original (82 of 82 each) with these kernels on `_c`.
-- dav1d is leaving the runtime and the published chain (owner decision of
-  2026-11-15 on #54, recorded in [ADR-0031](0031-workspace-libavif-input-experiment.md));
-  its kernels then matter only for its role as a test cross-check, where the
-  scalar translation suffices.
+- dav1d left the runtime and the published chain on 2026-11-16 (owner
+  decision of 2026-11-15 on #54, recorded in [ADR-0031](0031-workspace-libavif-input-experiment.md);
+  libavif-rs [ADR 0061](../../codecs/libavif-rs/docs/adr/0061-build-the-root-with-avif-codec-dav1d-off.md)
+  builds libavif with `AVIF_CODEC_DAV1D=OFF`). Its assembly kernels
+  therefore raise no question for the product: they matter only for its
+  role as a test cross-check, where the scalar translation suffices.
 - libjxl-rs AVX2 output can differ between an Intel and an AMD machine, as
   the original's does. A caller who needs the same bytes on every x86-64
   machine uses the scalar path; nothing in the engine promises identity
@@ -200,6 +202,8 @@ AArch64 instructions; three of its six sites are the x86-64 counterparts.
 
 ## Amendment log
 
+- 2026-11-16 — dav1d left the runtime (libavif-rs ADR 0061); the
+  consequence on dav1d's kernels is now stated as done.
 - 2026-11-16 — The eleven libavif-rs sites are removed through the port's
   tools (state paragraph of that date); the mechanical guard
   `cargo xtask assembly` with its allowlist enforces D1 for the rest; the

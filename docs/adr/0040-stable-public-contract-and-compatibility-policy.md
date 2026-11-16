@@ -483,7 +483,8 @@ reports that a stable item cannot express its use case.
      `ferrisma-avif-read`, `ferrisma-avif-write`, and `ferrisma-xtask`
      declare `rust-version = "1.99"` (1.98 for the engine, the kernels and
      the tool, 1.95 for the JPEG XL bridges before); `libavif-rs`,
-     `libavif-aom` and `libavif-dav1d` keep 1.99. Reason: AVIF is the
+     `libavif-aom` and `libavif-dav1d` keep 1.99 (`libavif-dav1d` is an
+     unpublished test cross-check since 2026-11-16, libavif-rs ADR 0061). Reason: AVIF is the
      preferred output format, and the AVIF port defines C-variadic
      functions, stable since Rust 1.99 (libavif-rs ADR 0060), so a number
      that excludes AVIF would mislead. The JPEG XL bridges and the kernels

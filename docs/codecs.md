@@ -19,7 +19,7 @@ and the M1 acceptance gates still apply. For the current pipeline, see [status](
 | WebP | `libwebp-rs` | `codecs/libwebp-rs` |
 | JPEG XL | `libjxl-rs` | `codecs/libjxl-rs` |
 | Tooling | `ferrisma-xtask` (invoked as `cargo xtask`) | `tools/xtask` |
-| AVIF, AOM, dav1d, SharpYUV | `libavif-rs`, `libavif-aom`, `libavif-dav1d`, `libavif-sharpyuv` | `codecs/libavif-rs` |
+| AVIF, AOM, SharpYUV (libavif built with `AVIF_CODEC_DAV1D=OFF`, port ADR 0061); dav1d as an unpublished test cross-check | `libavif-rs`, `libavif-aom`, `libavif-sharpyuv`; `libavif-dav1d` (`publish = false`, not a dependency of `libavif-rs`) | `codecs/libavif-rs` |
 
 ## Setup
 

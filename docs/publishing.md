@@ -51,15 +51,27 @@ crates.io").
 | 1 | JPEG port, today `libjpeg-turbo-rs` | 0.1.0 | IJG AND Zlib | no | 1.93 | yes | 318.9 KiB | `jpeg-read` |
 | 1 | `libjxl-rs` | 0.1.0 | BSD-3-Clause AND MIT AND (Apache-2.0 WITH LLVM-exception) | no | 1.88 | yes | 868.2 KiB | `jpeg-xl-read`, `jpeg-xl-write` |
 | 1 | `libavif-aom` | 0.1.0 | BSD-2-Clause AND BSD-3-Clause AND MIT | no (since 2026-11-15) | 1.99 | yes | **16.6 MiB** | AVIF encode/decode |
-| 1 | `libavif-dav1d` | 0.1.0 | BSD-2-Clause | no (since 2026-11-15) | 1.99 | yes | 2.6 MiB | Normal dependency of `libavif-rs` |
 | 2 | `libwebp-rs` | 0.1.0 | BSD-3-Clause | no | 1.95 | yes | 796.9 KiB | `webp-read`, `webp-write` |
 | 2 | `libavif-sharpyuv` | 0.1.0 | BSD-3-Clause | no | 1.95 | yes | 21.8 KiB | SharpYUV C ABI for libavif |
-| 3 | `libavif-rs` | 0.1.0 | BSD-2-Clause AND BSD-3-Clause | no (since 2026-11-15) | 1.99 | yes | 4.6 MiB | libavif port |
+| 3 | `libavif-rs` | 0.1.0 | BSD-2-Clause AND BSD-3-Clause | no (since 2026-11-15) | 1.99 | yes | 4.5 MiB (2026-11-16) | libavif port, built with `AVIF_CODEC_DAV1D=OFF` |
 | 4 | `ferrisma-avif-read` | **0.0.0** | MIT OR Apache-2.0 | no (since 2026-11-15) | 1.99 | yes (2026-11-14) | 10.0 KiB | `avif-read` safe bridge |
 | 4 | `ferrisma-avif-write` | **0.0.0** | MIT OR Apache-2.0 | no (since 2026-11-15) | 1.99 | yes (2026-11-14) | 12.5 KiB | `avif-write` safe bridge |
 | 4 | `ferrisma-jxl-decoder` | 0.1.0 | MIT OR Apache-2.0 | no | 1.99 | yes (2026-11-14) | 13.5 KiB | `jpeg-xl-read` safe bridge |
 | 4 | `ferrisma-jxl-encoder` | 0.1.0 | MIT OR Apache-2.0 | no | 1.99 | yes (2026-11-14) | 17.6 KiB, first packaged 2026-11-14 | `jpeg-xl-write` safe bridge (lossy) |
 | 5 | `ferrisma` | 0.1.0 | MIT OR Apache-2.0 | no | 1.99 | yes | 606.9 KiB | Engine, facade, CLI binary |
+
+`libavif-dav1d` left the chain on 2026-11-16: the owner decided on
+2026-11-15 that dav1d leaves the runtime and the published chain
+([ADR-0031](adr/0031-workspace-libavif-input-experiment.md)), and
+`libavif-rs` is now the translation of libavif built with
+`AVIF_CODEC_DAV1D=OFF` (libavif-rs
+[ADR 0061](../codecs/libavif-rs/docs/adr/0061-build-the-root-with-avif-codec-dav1d-off.md)).
+The crate stays in the workspace with `publish = false` as the dav1d
+translation's independent cross-check. `libavif-rs` still carries the
+VideoLAN notice in its `LICENSE`, because libavif's own `src/obu.c` derives
+from dav1d. The `libavif-rs` size of 2026-11-16 was measured with
+`cargo package --no-verify --exclude-lockfile -p libavif-rs` on
+`aarch64-apple-darwin`; the other sizes are those of 2026-11-14.
 
 Every package now has `description`, `license`, `repository`, `homepage`
 (`https://ferrisma.dev`, added to the ports, the AVIF sub-crates and
@@ -144,8 +156,9 @@ All four were free on crates.io on 2026-11-15. **Not renamed yet:** every
 manifest, lockfile and document still uses today's names. Still to do with
 the rename:
 
-- **Names for the sub-crates** (`libavif-aom`, `libavif-dav1d`,
-  `libavif-sharpyuv`, `libsharpyuv-core`): to be proposed in the same
+- **Names for the sub-crates** (`libavif-aom`,
+  `libavif-sharpyuv`, `libsharpyuv-core`; `libavif-dav1d` is no longer
+  published): to be proposed in the same
   scheme; not decided.
 - **The collision with `crates/ferrisma-libavif`.** That internal package
   (the ADR-0024 compatibility adapter, `publish = false`, see "Stay
@@ -244,7 +257,7 @@ has not been asked. **Not done yet:** step (b) and the new measurement.
 
 The recommendation of 2026-11-14 (ask crates.io for a per-crate limit first,
 keep the per-platform split as the fallback) is replaced by this decision.
-`libavif-rs` (4.6 MiB) and `libavif-dav1d` (2.6 MiB) are below the limit.
+`libavif-rs` (4.5 MiB since dav1d left it on 2026-11-16) is below the limit.
 
 ### 3. Consumer profile requirements of the AVIF packages (#209)
 
@@ -364,8 +377,6 @@ panic = "unwind"
 overflow-checks = false
 [profile.dev.package.libavif-aom]
 overflow-checks = false
-[profile.dev.package.libavif-dav1d]
-overflow-checks = false
 [profile.dev.package.libavif-sharpyuv]
 overflow-checks = false
 ```
@@ -413,7 +424,7 @@ and no version was changed, not even temporarily.
 
    ```sh
    for p in libsharpyuv-core ferrisma-kernels libjpeg-turbo-rs libjxl-rs \
-            libavif-aom libavif-dav1d libwebp-rs libavif-sharpyuv libavif-rs \
+            libavif-aom libwebp-rs libavif-sharpyuv libavif-rs \
             ferrisma-avif-read ferrisma-avif-write ferrisma-jxl-decoder \
             ferrisma-jxl-encoder ferrisma; do
      cargo package --no-verify --exclude-lockfile --offline -p "$p" --target-dir target/pkg-all
@@ -453,7 +464,7 @@ Cargo's local overlay registry:
 ```sh
 cargo package --allow-dirty \
   -p ferrisma -p ferrisma-kernels -p libsharpyuv-core -p ferrisma-libjpeg-turbo \
-  -p libwebp-rs -p libjxl-rs -p libavif-rs -p libavif-aom -p libavif-dav1d \
+  -p libwebp-rs -p libjxl-rs -p libavif-rs -p libavif-aom \
   -p libavif-sharpyuv -p ferrisma-avif-read -p ferrisma-avif-write \
   -p ferrisma-jxl-decoder --features ferrisma/cli,ferrisma/jpeg-xl-own-read
 ```
@@ -502,7 +513,6 @@ Run from a clean checkout of the release commit, with the pinned toolchain.
    cargo publish -p <renamed JPEG port>
    cargo publish -p libjxl-rs
    cargo publish -p libavif-aom
-   cargo publish -p libavif-dav1d
    cargo publish -p libwebp-rs
    cargo publish -p libavif-sharpyuv
    cargo publish -p libavif-rs

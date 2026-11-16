@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-11
-- **Last reviewed:** 2026-11-15
+- **Last reviewed:** 2026-11-16
 - **Partially supersedes:** [0018](0018-optional-codec-and-cms-dependencies.md), the interim AVIF reader and its toolchain contract; [0024](0024-pluggable-encoders-and-libavif-rs-backend.md) and [0026](0026-codecs-in-one-repository-and-workspace.md), the AVIF reader/encoder link exclusion. [0025](0025-codec-selection-reference-conformance-and-image-scope.md)'s final selection gates remain in force.
 - **Related:** [0015](0015-typed-output-color-signals.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0019](0019-source-side-orientation.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0026](0026-codecs-in-one-repository-and-workspace.md), [issue 54](https://github.com/sebastian-software/ferrisma/issues/54)
 
@@ -182,3 +182,14 @@ an AVIF feature needs another platform.
   The hosted AVIF benchmark (`scripts/bench/ci-perf/codec_avif.sh`) already
   has C libavif with dav1d as a context column (`c-dav1d`); no statement
   from it is written yet.
+- 2026-11-16 — **dav1d removal done.** `libavif-rs` no longer depends on
+  `libavif-dav1d`: the root is the translation of libavif built with
+  `AVIF_CODEC_DAV1D=OFF`, compared with the original built the same way
+  (libavif-rs [ADR 0061](../../codecs/libavif-rs/docs/adr/0061-build-the-root-with-avif-codec-dav1d-off.md)).
+  `libavif-dav1d` stays in the workspace, unpublished, with its own parity
+  suite (`avif-dav1d.yml`) as the independent cross-check, and it left the
+  published chain ([publishing](../publishing.md)). The owed decode
+  comparison is written: the engine's AVIF decode, through the libaom
+  translation, took 1.75 to 2.1 times as long as stock libavif with dav1d
+  and its assembly, one thread, in hosted run 43789376239, with identical
+  decoded pixels ([record](../benchmarks/v1.0-avif-decode-vs-dav1d-2026-11-16.md)).

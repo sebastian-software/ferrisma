@@ -88,9 +88,12 @@ find every license header or embedded native component.
 
 On 2026-11-11, the `cli` graph for `aarch64-apple-darwin` contained 93
 packages: 86 reachable by normal edges and seven additional build-only
-packages. The `libavif-dav1d` package remains a normal dependency of the
-workspace libavif port even when the AOM decoder is selected; package presence
-alone does not establish its linked code. The captured JPEG manifest states
+packages. The `libavif-dav1d` package was then a normal dependency of the
+workspace libavif port even when the AOM decoder was selected; package
+presence alone does not establish its linked code. *2026-11-16:* it no
+longer is: `libavif-rs` is libavif built with `AVIF_CODEC_DAV1D=OFF`
+(libavif-rs ADR 0061) and `libavif-dav1d` is an unpublished test
+cross-check outside every engine graph. The captured JPEG manifest states
 `IJG AND Zlib`, and the port's source retains both IJG and zlib material. IJG
 remains `REVIEW` in the metadata gate. The registry packages `alloc-stdlib`
 0.2.4, `c2rust-bitfields` 0.3.0, `c2rust-bitfields-derive` 0.2.1,
@@ -187,9 +190,8 @@ Workspace packages in the `cli` graph and their declared terms:
 | `libjpeg-turbo-rs` | IJG AND Zlib | 4 | `README.ijg`, `LICENSE.md`, retained file headers |
 | `libwebp-rs` | BSD-3-Clause | 3 | `LICENSE`, `PATENTS`, `AUTHORS` |
 | `libsharpyuv-core` | BSD-3-Clause | 6 | `LICENSES/` (libwebp `COPYING`, `PATENTS`, `AUTHORS`) |
-| `libavif-rs` | BSD-2-Clause AND BSD-3-Clause | 2 | `LICENSE` (libavif, with its third-party sections) |
+| `libavif-rs` | BSD-2-Clause AND BSD-3-Clause | 2 | `LICENSE` (libavif, with its third-party sections; its VideoLAN/dav1d paragraph stays after 2026-11-16 because libavif's own `src/obu.c` derives from dav1d) |
 | `libavif-aom` | BSD-2-Clause AND BSD-3-Clause AND MIT | 11 | `LICENSES/` (libaom `LICENSE`, `PATENTS`, `AUTHORS`, fastfeat, vector) |
-| `libavif-dav1d` | BSD-2-Clause | 5 | `LICENSES/` (`COPYING`, `doc/PATENTS`) |
 | `libavif-sharpyuv` | BSD-3-Clause | 7 | `LICENSES/` (libwebp `COPYING`, `PATENTS`, `AUTHORS`) |
 | `ferrisma-jxl-decoder` (`jpeg-xl-own-read`, in `cli` since 2026-11-12) | MIT OR Apache-2.0 | 2 | Project-owned |
 | `ferrisma-jxl-encoder` (`jpeg-xl-write`, in `cli` since 2026-11-12) | MIT OR Apache-2.0 | 2 | Project-owned |
@@ -226,8 +228,9 @@ Workspace packages in the `cli` graph and their declared terms:
    [unsafe review](unsafe-review.md). It also records the consumer profile
    requirements that the AVIF packages need.
 6. **Patents.** `libwebp-rs`, `libsharpyuv-core`, `libavif-sharpyuv`
-   (Google), `libjxl-rs` (Google, JPEG XL), and `libavif-aom` and
-   `libavif-dav1d` (AOM) ship separate patent grants. The bundles retain
+   (Google), `libjxl-rs` (Google, JPEG XL), and `libavif-aom` (AOM) ship
+   separate patent grants (`libavif-dav1d`, with AOM's grant too, left the
+   published set on 2026-11-16). The bundles retain
    them. Whether those grants cover a given distribution was not assessed.
    *2026-11-15:* the owner keeps this named as not assessed for 1.0
    ([review decision](#review-decision-for-10-owner-2026-11-15)).
@@ -282,7 +285,7 @@ have not been regenerated for this change.
 | workspace `libjxl-rs` through `ferrisma-jxl-decoder` | `jpeg-xl-read` (named `jpeg-xl-own-read` until 2026-11-15) | BSD-3-Clause with retained MIT and Apache-2.0 with LLVM exception notices in the port | Raw decoder safety boundary, DATA ICC, alpha, full-frame output and opaque scratch; external conformance remains open |
 | workspace `libjxl-rs` encoder sources (`src/jxl/enc_*.rs`, `encode*.rs`, `modular/encoding/enc_*.rs`, `jpeg/enc_jpeg_data.rs`) | `jpeg-xl-write` (in `cli` since 2026-11-12): lossless entry point and, through `ferrisma-jxl-encoder`, the public lossy encoder (#27, #92) | Same package and expression; every encoder file reviewed on 2026-11-12 carries the JPEG XL Project Authors BSD-3-Clause header, and the package retains [LICENSE](../codecs/libjxl-rs/LICENSE) and [PATENTS](../codecs/libjxl-rs/PATENTS) | Reachable from the engine; the `cli` macOS ARM64 bundle was regenerated (above); the PATENTS scope question and the encoder's internal unsafe review ([unsafe review](unsafe-review.md)) remain open |
 | `jxl-oxide` | dev-dependency only since 2026-11-15 (it was `jpeg-xl-read`) | MIT OR Apache-2.0 | Independent cross-check in tests and the benchmark's context column; not linked into the library or CLI |
-| workspace `libavif-rs` / `libavif-aom` through `ferrisma-avif-read` | `avif-read` | libavif BSD-2-Clause; AOM port retains BSD-2-Clause, BSD-3-Clause, MIT notices and libaom's patent grant | Isolated unsafe boundary, generated-source provenance, AOM reference decode, normal dependency on the dav1d port and its retained notices, malformed bitstreams, native/nightly target matrix, opaque codec scratch and full Argon/dav1d gate |
+| workspace `libavif-rs` / `libavif-aom` through `ferrisma-avif-read` | `avif-read` | libavif BSD-2-Clause; AOM port retains BSD-2-Clause, BSD-3-Clause, MIT notices and libaom's patent grant | Isolated unsafe boundary, generated-source provenance, AOM reference decode (no dav1d since 2026-11-16, libavif-rs ADR 0061; the VideoLAN notice stays for libavif's dav1d-derived `obu.c`), malformed bitstreams, native/nightly target matrix, opaque codec scratch and full Argon/dav1d gate |
 | `rav1e` / `avif-serialize` | none since 2026-11-15 (they were `avif-write`) | BSD-2-Clause encoder, BSD-3-Clause container writer | Removed from the runtime (ADR-0037) (no rav1e code remains in the root lockfile) |
 | `ravif` | none (it was a dev-dependency that wrote one test fixture) | BSD-3-Clause | The fixture is committed (`tests/fixtures/avif-color/README.md`); nothing links it |
 | `moxcms` | `icc` | BSD-3-Clause OR Apache-2.0 | ICC parsing, color fidelity, malformed profiles, SIMD/native code |

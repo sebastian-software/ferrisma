@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # CI performance comparison: libavif-rs (the Rust port, packages libavif-rs
-# [lib `avif`], libavif-aom, libavif-dav1d) versus the pinned originals it
-# translates: libavif 1.4.2, libaom 3.15.2 and dav1d 1.5.4.
+# [lib `avif`] and libavif-aom; libavif built with AVIF_CODEC_DAV1D=OFF, port
+# ADR 0061) versus the pinned originals it translates: libavif 1.4.2 and
+# libaom 3.15.2. C libavif with dav1d 1.5.4 (built here from the pinned
+# upstream snapshot) is a decode context column only.
 #
 #   INPUTS=dir [SIZES="12 24"] [ENCODE_SIZES="12"] [WORK=dir] [OUT=dir] \
 #     [REPS=7] [WARMUPS=1] [JOBS=n] bash scripts/bench/ci-perf/codec_avif.sh
@@ -365,13 +367,13 @@ record = {
                     "decode": "decode_still.c written by codec_avif.sh", "cflags": "-O2"},
     },
     "port": {
-        "packages": ["libavif-rs (lib avif)", "libavif-aom", "libavif-dav1d", "ferrisma-avif-read"],
+        "packages": ["libavif-rs (lib avif)", "libavif-aom", "ferrisma-avif-read"],
         "build": "cargo build --release --locked -p libavif-rs --example encode_still; "
                  "cargo build --release --locked -p ferrisma-avif-read --example decode_still",
         "rustc": run("rustc", "-Vv"),
         "simd": ("AOM encoder: hand-translated Neon (macOS ARM64) or SSE2/SSE4.1/AVX2 "
-                 "(x86-64 Linux) kernels through translated RTCD (ADR 0056/0058); dav1d "
-                 "port and the AOM decoder paths without kernels are portable C translations "
+                 "(x86-64 Linux) kernels through translated RTCD (ADR 0056/0058); the AOM "
+                 "decoder paths without kernels are portable C translations "
                  "(no assembly)"),
         "rtcd_selection": rtcd_port,
         "decoder_backend": "ferrisma-avif-read pins AVIF_CODEC_CHOICE_AOM (the AOM decoder port)",

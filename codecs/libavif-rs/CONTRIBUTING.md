@@ -16,7 +16,8 @@ Do not replace missing functionality with
 stubs or a C fallback. The original C/C++ tests and applications are deliberately
 retained as independent consumers of the Rust library.
 
-Normal Rust builds always use the workspace AOM, dav1d, and SharpYUV crates.
+Normal Rust builds always use the workspace AOM and SharpYUV crates; libavif
+is configured with `AVIF_CODEC_DAV1D=OFF` (ADR 0061).
 They require any selected optional engines, with no system
 AOM implementation fallback. Use the complete pinned portable C AOM reference
 for acceptance comparisons:

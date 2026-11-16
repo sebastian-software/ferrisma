@@ -26,3 +26,12 @@ imported CMake targets, which follow the Rust archive on GNU linkers. Shared
 engines resolve through the Rust shared library's run path. Translation uses
 ADR 0007's libyuv header overlay only. Root sanitizer parity remains limited
 to container configurations, and AVM/AV2 stays a separate configuration.
+
+## Amendment: DAV1D=OFF (2026-11-16)
+
+Every root configuration, `default` included, is now the original C build
+with `AVIF_CODEC_DAV1D=OFF` ([ADR 0061](0061-build-the-root-with-avif-codec-dav1d-off.md)):
+"default" names the container without optional engines, built without
+dav1d. The closure loses `codec_dav1d.c` (27 units for the container
+configurations, 25 with all four engines), the root references contain
+SharpYUV only, and the shared registry has no dav1d entry.

@@ -1,7 +1,8 @@
 # ferrisma-avif-write
 
 A narrow, safe still-image AVIF encoder over `libavif-rs`, the Ferrisma workspace's
-mechanical Rust port of libavif (with its libaom and dav1d translations).
+mechanical Rust port of libavif (with its libaom translation; libavif is built
+without dav1d).
 It is the backend of the `avif-write` feature (formerly `avif-own-write`) of
 [`ferrisma`](https://crates.io/crates/ferrisma) and is not meant to be used on
 its own.

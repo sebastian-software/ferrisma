@@ -127,8 +127,8 @@ jobs:
         runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, blacksmith-4vcpu-ubuntu-2404, blacksmith-4vcpu-ubuntu-2404-arm]
         codec: [jpeg, webp, jxl, avif]
         exclude:
-          # The generated libavif/AOM/dav1d port builds only on macOS ARM64
-          # and GNU Linux x86-64.
+          # The generated libavif/AOM port builds only on macOS ARM64 and GNU
+          # Linux x86-64. Its C dav1d context column is built by the script.
           - runner: ubuntu-24.04-arm
             codec: avif
           - runner: blacksmith-4vcpu-ubuntu-2404-arm

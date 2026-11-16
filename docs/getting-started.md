@@ -57,7 +57,10 @@ on the recorded photographs, rav1e 70/80/90 matched roughly libavif
 50/55/78 ([evidence](benchmarks/M2-avif-encoder-default-evidence-2026-11-12.md)).
 The current `avif-read` uses the same
 workspace port's AOM decoder through an isolated safe wrapper, so the former
-`rav1d`/dav1d symbol collision is gone. AVIF reading and writing need a
+`rav1d`/dav1d symbol collision is gone; since 2026-11-16 the port contains no
+dav1d at all (libavif built with `AVIF_CODEC_DAV1D=OFF`). AVIF decoding is
+about twice as slow as stock libavif with dav1d on one thread
+([record](benchmarks/v1.0-avif-decode-vs-dav1d-2026-11-16.md)). AVIF reading and writing need a
 supported native target (macOS ARM64 or GNU Linux x86-64); like every other
 feature they build on Rust 1.99 or later. See the [measured AVIF input trade-off](benchmarks/M2-avif-input.md).
 

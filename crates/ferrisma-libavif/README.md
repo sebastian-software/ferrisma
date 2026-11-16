@@ -29,7 +29,8 @@ cargo run -p ferrisma-libavif --release --features cli -- input.jpg output.avif 
 - **No native libraries.** libavif-rs builds its AOM without VMAF tuning ([libavif-rs ADR 0057](../../codecs/libavif-rs/docs/adr/0057-translate-libaom-without-vmaf-tuning.md)), so libvmaf, pkg-config and a C++ runtime are no longer needed. AOM rejects VMAF tuning modes, which Ferrisma never selects.
 - **AVIF input in the same binary:** Ferrisma's `avif-read` now selects the
   workspace libavif/AOM decoder through `ferrisma-avif-read`. The former
-  `rav1d`/dav1d duplicate-symbol path is gone. The adapter's `cli` feature
+  `rav1d`/dav1d duplicate-symbol path is gone, and libavif-rs contains no
+  dav1d since 2026-11-16. The adapter's `cli` feature
   includes JPEG, WebP, JPEG XL and AVIF input. Scoped native CI tests the
   combined build; local CLI smoke checks also cover AVIF and WebP input.
 - **Memory:** the backend preflights the combined RGBA frame and tightly packed
@@ -43,4 +44,4 @@ cargo run -p ferrisma-libavif --release --features cli -- input.jpg output.avif 
 
 ## Licenses
 
-libavif-rs is BSD-2-Clause; its AOM port is `BSD-2-Clause AND BSD-3-Clause AND MIT` and keeps libaom's patent grant (`crates/aom/LICENSES/PATENTS`); its dav1d port is BSD-2-Clause and its SharpYUV port BSD-3-Clause. This crate is not covered by Ferrisma's `scripts/audit-licenses.py`, which screens the engine's reachable dependency graph. Codec notice and provenance checks remain separate.
+libavif-rs is BSD-2-Clause; its AOM port is `BSD-2-Clause AND BSD-3-Clause AND MIT` and keeps libaom's patent grant (`crates/aom/LICENSES/PATENTS`); its SharpYUV port is BSD-3-Clause (the dav1d port is no longer a dependency; libavif-rs's `LICENSE` keeps the VideoLAN notice for libavif's dav1d-derived `obu.c`). This crate is not covered by Ferrisma's `scripts/audit-licenses.py`, which screens the engine's reachable dependency graph. Codec notice and provenance checks remain separate.

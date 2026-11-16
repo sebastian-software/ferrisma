@@ -2,7 +2,7 @@
 
 - **Status:** Accepted (decisions D1–D10). The former open questions O1–O9 and the further items listed with them were decided by the owner on 2026-11-15 ([Owner decisions of 2026-11-15](#owner-decisions-of-2026-11-15)); what is not yet implemented is named there.
 - **Date:** 2026-11-13
-- **Last reviewed:** 2026-11-15
+- **Last reviewed:** 2026-11-16
 - **Source:** owner decision (structured interview, 2026-11-13)
 - **Supersedes:** In part: the performance criteria of [0007](0007-correctness-and-performance-evidence.md) as release evidence; the default ISA level of [0020](0020-kernel-crate-and-isa-dispatch.md) decision 4; the role of third-party comparisons in [0025](0025-codec-selection-reference-conformance-and-image-scope.md) point 3, [0032](0032-jpeg-xl-workspace-decoder-input.md) and [0037](0037-selectable-workspace-avif-encoder.md); the validation platforms of [0027](0027-tiered-validation-and-rust-test-orchestration.md); release naming in [0040](0040-stable-public-contract-and-compatibility-policy.md). In the ports: the NaN-payload rule of libjxl-rs ADR 0002/0003, the SIMD reference of libavif-rs ADR 0056/0058/0059, and the SIMD reference and NEON rescaler ruling of libwebp-rs ADR 0002/0008. Each amended record links back here.
 - **Related:** [0026](0026-codecs-in-one-repository-and-workspace.md), [quality gate guide](../quality-gate.md), [v1.0 CI performance record](../benchmarks/v1.0-ci-performance-2026-11-12.md), [JPEG XL performance analysis](../benchmarks/v1.0-jxl-performance-analysis-2026-11-12.md), tracker #196
@@ -51,8 +51,10 @@ ports, the engine and future contributors have one authoritative definition of
 
 - **Original:** the pinned upstream source a port translates (libjpeg-turbo
   3.2.1 `7b499378`; libwebp 1.6.0 `4fa21912`; libjxl `a16d32d0` with its
-  pinned Highway, skcms and Brotli; libavif 1.4.2 with libaom 3.15.2 and
-  dav1d 1.5.4 from the tracked snapshots), unmodified.
+  pinned Highway, skcms and Brotli; libavif 1.4.2 with libaom 3.15.2 from
+  the tracked snapshots, configured with `AVIF_CODEC_DAV1D=OFF` since
+  2026-11-16, libavif-rs ADR 0061), unmodified. dav1d 1.5.4 is the original
+  of the `libavif-dav1d` cross-check crate only, not of the runtime.
 - **Scalar reference build:** the original compiled with its own SIMD disabled
   through its own switch (`WITH_SIMD=0`, `WEBP_ENABLE_SIMD=OFF`,
   `HWY_COMPILE_ONLY_SCALAR`, libaom's generic `_c` configuration), with the
@@ -522,9 +524,11 @@ and what is not done yet.
 - **Argon conformance vectors and dav1d's place** (#54). Bit identity with
   libaom is the AVIF reader's evidence for 1.0; Argon is later extra
   evidence, earmarked for animated AVIF. dav1d leaves the runtime and the
-  published chain and may stay in tests as an independent cross-check; not
-  done yet ([ADR-0031](0031-workspace-libavif-input-experiment.md),
-  amendment of 2026-11-15).
+  published chain and may stay in tests as an independent cross-check
+  ([ADR-0031](0031-workspace-libavif-input-experiment.md), amendment of
+  2026-11-15). Done 2026-11-16: the libavif original is configured with
+  `AVIF_CODEC_DAV1D=OFF` and the port is its translation (libavif-rs
+  [ADR 0061](../../codecs/libavif-rs/docs/adr/0061-build-the-root-with-avif-codec-dav1d-off.md)).
 
 ## Review when
 
@@ -576,3 +580,7 @@ planned.
   #54 are decided; rav1e's question is moot. Sections 3, 4 and 8 point to
   the decisions instead of the open questions, and the open-questions
   section keeps only a pointer. Decisions D1–D10 unchanged.
+- 2026-11-16 — Terms: the libavif original is libavif with libaom,
+  configured with `AVIF_CODEC_DAV1D=OFF` (libavif-rs ADR 0061, completing
+  the #54 decision on dav1d's place); dav1d 1.5.4 is the original of the
+  unpublished `libavif-dav1d` cross-check only. Decisions D1–D10 unchanged.

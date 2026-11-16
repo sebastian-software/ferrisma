@@ -58,3 +58,11 @@ selector includes this way to the same tracked file
 (`check_root_profile.link_manifest_includes`). Unit hashes and selector hashes
 are unchanged. Another owned file in a translated module is declared the same
 way. Working decision 2026-11-13 (delegated, revisable by the owner).
+
+## Amendment: DAV1D=OFF (2026-11-16)
+
+The admitted profiles were regenerated from the original C references
+configured with `AVIF_CODEC_DAV1D=OFF` ([ADR 0061](0061-build-the-root-with-avif-codec-dav1d-off.md));
+`default` and the other feature-set names keep their meaning except that no
+configuration compiles dav1d. The selector and the Cargo feature sets are
+unchanged; the package no longer links `libavif-dav1d`.

@@ -24,7 +24,10 @@ others fail at compile time (see
 [ADR 0054](docs/adr/0054-select-native-linux-root-profiles-in-the-production-package.md)).
 The original C/C++ applications and tests consume the Rust implementation
 through the C ABI.
-The default AOM, dav1d, and SharpYUV implementations are workspace Rust crates.
+The default AOM and SharpYUV implementations are workspace Rust crates.
+libavif is built with `AVIF_CODEC_DAV1D=OFF` ([ADR 0061](docs/adr/0061-build-the-root-with-avif-codec-dav1d-off.md)):
+AV1 decoding goes through the libaom translation, and the dav1d translation
+(`crates/dav1d`, not published) is an independent cross-check in the tests.
 The separately scoped optional engines remain native dependencies. libaom is
 translated without VMAF tuning, so libvmaf is not a dependency ([ADR 0057](docs/adr/0057-translate-libaom-without-vmaf-tuning.md)).
 
@@ -41,10 +44,10 @@ the current workspace revision.
 | Capability | Delivered scope |
 | --- | --- |
 | Source provenance and licenses | Pinned original sources, unchanged tests and fixtures, translation manifests, and generated notices ([notice generator](tools/generate_licenses.py), [`docs/NATIVE-LICENSES.md`](docs/NATIVE-LICENSES.md)). |
-| libavif library | All 27 original C library files, including allocation, I/O, metadata, encoding, decoding, and the C ABI, with the Mini, Extended PIXI, and AV2 container branches, all six codec adapters, and the five bundled scalar libyuv files. See [the contract](docs/PORTING.md) and the [feature manifests](translations). |
-| Default codecs and conversion | Portable libaom (encoder and decoder), dav1d (8/10/12-bit output and film grain), and SharpYUV are mandatory workspace Rust crates with no native implementation fallback ([ADR 0049](docs/adr/0049-use-rust-aom-as-the-mandatory-root-codec.md)). |
+| libavif library | 26 of the 27 original C library files, including allocation, I/O, metadata, encoding, decoding, and the C ABI, with the Mini, Extended PIXI, and AV2 container branches, five of the six codec adapters (not `codec_dav1d.c`, which `AVIF_CODEC_DAV1D=OFF` excludes), and the five bundled scalar libyuv files. See [the contract](docs/PORTING.md) and the [feature manifests](translations). |
+| Default codecs and conversion | Portable libaom (encoder and decoder) and SharpYUV are mandatory workspace Rust crates with no native implementation fallback ([ADR 0049](docs/adr/0049-use-rust-aom-as-the-mandatory-root-codec.md)). |
 | Optional engines | libgav1, rav1e, SVT-AV1, full external libyuv, and AVM stay native dependencies behind their ported adapters. |
-| Verified parity | The original suite passes unchanged in C and Rust: 64 CTest registrations and 9,473 GoogleTest cases by default, 70 and 9,555 with every Cargo feature, plus AddressSanitizer parity for the default configuration. ABI probes, ownership audits, and ten AVIF and ten decoded PNG scenarios match the C reference byte for byte. |
+| Verified parity | The original suite passes unchanged in C and Rust: 64 CTest registrations and 9,473 GoogleTest cases by default, 70 and 9,555 with every Cargo feature (counts recorded before ADR 0061, with dav1d in both builds; the DAV1D=OFF configuration is checked by the hosted root suites), plus AddressSanitizer parity for the default configuration. ABI probes, ownership audits, and ten AVIF and ten decoded PNG scenarios match the C reference byte for byte. |
 | Platforms | macOS ARM64, and GNU Linux x86-64 for six Cargo feature sets selected by the production package ([ADR 0054](docs/adr/0054-select-native-linux-root-profiles-in-the-production-package.md)). Windows and other targets are open. |
 | Toolchain | Stable Rust 1.99 or later: `tools/stable_rust.py` rewrote the nightly-only atomics and extern types of every translation profile; the C-variadic functions are stable Rust since 1.99 ([ADR 0060](docs/adr/0060-build-the-translations-on-stable-rust.md)). AddressSanitizer builds still need the pinned nightly. |
 | SIMD | The AOM encoder and decoder dispatch hand-translated Neon kernels on macOS ARM64 (513 RTCD functions, including the 8-bit still-image set since 2026-11-13) and SSE2, SSSE3, SSE4.1, and AVX2 kernels on GNU Linux x86-64 (358 RTCD functions, including the 8-bit inverse transform, the loop filters, the 8-bit intra predictors, the 8-bit quantizers, the SSE/distortion kernels, `av1_txb_init_levels`, the 8-bit forward transform, CfL, loop restoration, `av1_get_horver_correlation_full`, `av1_get_nz_map_contexts`, `av1_round_shift_array` and `av1_interp_cubic_rate_dist` since 2026-11-14), byte-identical to their `_c` paths or, where the original's own Neon kernel differs from `_c`, to the original's Neon build; all-intra encodes take 29 to 45% less time on x86-64 ([ADR 0056](docs/adr/0056-dispatch-hand-translated-aom-simd-through-translated-rtcd.md), [ADR 0058](docs/adr/0058-dispatch-hand-translated-x86-simd-on-gnu-linux.md)). |
@@ -60,8 +63,8 @@ build on stable Rust 1.99 or later (the `rust-version` of the AVIF packages;
 [ADR 0060](docs/adr/0060-build-the-translations-on-stable-rust.md)); the
 workspace's pinned nightly remains the development default. Use CMake, Ninja, Python 3.9+, pkg-config, and development packages
 for PNG, JPEG, and libxml2. The original C baseline and CMake test setup
-also require native dav1d and SharpYUV development packages; the Rust library
-uses their workspace crates. The pinned portable C AOM archive supplies the
+also require native SharpYUV development packages (the root configuration
+has no dav1d); the Rust library uses its workspace crate. The pinned portable C AOM archive supplies the
 independent reference in the commands below. The toolchain baseline of the
 recorded runs (compilers, CMake, GoogleTest, libargparse) is in the docstring of
 `tools/check_abi.py`.
@@ -122,7 +125,8 @@ retain the original unsafe pointer and callback contracts.
 | `libyuv` | External libyuv conversion and scaling |
 | `avm` | Experimental AV2 codec and container support |
 
-libaom, dav1d, and SharpYUV are enabled in the base generated configuration.
+libaom and SharpYUV are enabled in the base generated configuration; dav1d is
+not (`AVIF_CODEC_DAV1D=OFF`, ADR 0061).
 For optional native dependencies, translation, sanitizer commands, and the full
 feature test procedure, see [CONTRIBUTING.md](CONTRIBUTING.md).
 

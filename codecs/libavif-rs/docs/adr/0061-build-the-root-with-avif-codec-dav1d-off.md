@@ -51,7 +51,21 @@ The root translation is the translation of upstream libavif built with
 
 ## Status
 
-Accepted 2026-11-16. Implementation in progress: the tools are changed; the
-profiles, the base tree and the variants are regenerated from hosted native
-runs, and the AVM variants, which only a local build with AVM v1.0.0
-regenerates, are still open. This record is completed when the removal lands.
+Accepted 2026-11-16, implemented the same day:
+
+- tools: `cd0cddda`, with the comparison fix `7cc3e464` (CTest's truncated
+  JUnit output; skips are compared from the complete logs);
+- the 16 profiles from hosted runs of `avif-root-translate-linux.yml` with
+  `regenerate=true` (Linux 43824999110, 43825013869, 43825029855,
+  43825046502, 43808204063, 43808220296; macOS 43825062532, 43808251647),
+  each passing the smoke tier against the DAV1D=OFF original in Release and
+  Debug; the base tree and the non-AVM variants imported from the macOS
+  Release generations (also 43808267745, 43808283257);
+- the four AVM variants, which only a local build with AVM v1.0.0
+  regenerates, through `tools/project_dav1d_off.py`: its rule reproduced all
+  17 regenerated avif.rs files (11 byte for byte, the 6 GNU Linux Debug ones
+  up to assertion file names and unused labels), and each projected unit
+  records that its `raw_sha256` is still a DAV1D=ON translation. A local AVM
+  regeneration replaces the projection;
+- `libavif-rs` no longer depends on `libavif-dav1d`, which left the
+  published chain and the release-please groups.

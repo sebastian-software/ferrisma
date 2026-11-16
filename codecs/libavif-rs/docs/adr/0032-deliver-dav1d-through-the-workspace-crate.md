@@ -8,3 +8,10 @@ they do not supply a decoder implementation to the Rust consumer. This replaces
 one default engine boundary without changing codec selection: libaom and the
 optional native engines retain their current behavior until their own ports pass
 the corresponding acceptance gates.
+
+## Superseded (2026-11-16)
+
+Superseded by [ADR 0061](0061-build-the-root-with-avif-codec-dav1d-off.md):
+the root is libavif built with `AVIF_CODEC_DAV1D=OFF`, so `libavif-rs` no
+longer delivers dav1d at all. The `libavif-dav1d` crate stays in the
+workspace as an unpublished, independently validated cross-check.
