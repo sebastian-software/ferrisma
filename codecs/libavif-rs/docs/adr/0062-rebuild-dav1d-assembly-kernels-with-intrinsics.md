@@ -1490,9 +1490,107 @@ stock dav1d at AVX2, the port before this entry, the port now): 8-bit
 8-bit 4:2:0 still with alpha (the same counts). Not measured: the lossless
 still (too long under Callgrind), and any time.
 
-16 bpc (10 and 12 bits, `itx16_avx2.asm`, 8,599 lines) is not started;
-`measure_dav1d_kernels.py` has its x86 modes (`itx16` at 10 bits, `itx12`
-at 12 bits, which the x86 assembly has kernels of its own for).
+16 bpc (10 and 12 bits, `itx16_avx2.asm`, 8,599 lines): the next entry.
+
+**2026-11-17, inverse transforms 16 bpc on AVX2** (`itx16_avx2.asm`:
+the 155 `dav1d_inv_txfm_add_*_10bpc_avx2`, the 147 `*_12bpc_avx2` and
+WHT 4x4 `_16bpc_avx2`, 8,599 lines). The fourth x86 family, in
+`simd/x86_64/itx16_avx2.rs`; `simd/x86/itx.rs` mirrors `itx_dsp_init_x86`
+at 16 bpc and assigns them under the AVX2 flag (156 slots at 10 bits, 148
+at 12 bits: the eight 12-bit DCT_DCT slots of 16x32 and larger keep C, as
+in the original; `all_simd` follows the 10-bit assignments, the original's
+value on an AVX2 machine); the dispatch entry `itx_16bpc_x86` calls it
+from the two Linux profiles of the 16 bpc init. The module documentation
+has the correspondence with the assembly and the deviations. With this
+entry every slot the original gives an AVX2 kernel at 8, 10 and 12 bits
+has its rebuilt kernel.
+
+Method as for 8 bpc: a shared prelude (the constants, `ITX_MULSUB_2D` with
+the packed coefficient pairs, the 4-point macros at both widths,
+`TRANSPOSE_8X8_DWORD`, the DC-only tails, WHT as the gated pilot), then
+eight parts (4x4 and 4x8; 4x16 and 8x4; 8x8 and 8x16; 16x4 and 16x8;
+16x16; 8x32 and 32x8; 16x32, 32x16 and 32x32; the 64-point sizes)
+translated by agents in private copies of the crate, one Rust line per
+instruction, each size gated with the original's checkasm (`itx_16bpc`,
+10 and 12 bits) at the eleven seeds and seeds 1 to 100. The assembly
+calls 25 labels of the 8 bpc file (`cextern …_8bpc_avx2.main`); those are
+the items of `itx_avx2.rs` (made `pub(crate)`, otherwise unchanged), each
+checked against the label's code by the part that calls it. The joined
+module has no duplicate item and no `call` in an entry point. All figures
+below are from the joined state in the worktree.
+
+Deviations and their cost (the module documentation has the list): (a)
+unaligned moves for caller memory, as for 8 bpc. (b) The frames of 16x16,
+the 32- and 64-point sizes and the 12-bit 8x32 and 32x8 (`32*24` …
+`32*195` bytes) are zeroed whole before their first use (`zeroed_frame`,
+24 to 195 32-byte stores per call, counted below); the small frames whose
+reads all follow a write of the same pass (16x8's and the 12-bit 8x16's
+`32*8`, 8x32's 10-bit `32*12`) are zero-initialized arrays or written
+whole first, as said at each site. (c) Flag arithmetic and jumps between
+labels as for 8 bpc. (d) The compiler rewrites two `vbroadcasti128` and a
+`shufpd` into five instructions (16x4's DCT and 4x16's ADST first passes,
++2 per `shufpd`) and a few shuffles in 4x4 identity.
+
+Reads and writes beyond the block or the coefficients: none (each part's
+derivation from the code; several sizes use the coefficient buffer as
+scratch, as the assembly does, and clear it again).
+
+Positive controls on the joined state (one constant each; the per-kernel
+gate at `avx2`, the eleven seeds; `fault-itx16.py` in the scratch area),
+at least one 10-bit and one 12-bit constant per size class:
+`pd_5793` as 4793 in 4x4's 10-bit identity
+first pass fails `itx_16bpc.add_tx4` at every seed and the whole-image
+gate (873 of 994 identical); `pd_1697` as 697 in 4x4's 12-bit identity
+first pass fails `add_tx4`; `pw_2048` as 2047 in 8x8's 10-bit second pass
+fails `add_tx8`; `pd_17408` as 16384 in 8x8's 12-bit ADST `.pass2_main2`
+(also run by 16x8) fails `add_tx8` and `add_tx16`; 4091 as 4092 in 16x8's
+10-bit ADST `.main_part2` fails `add_tx16`; the shift 8 as 7 in 16x16's
+12-bit `.pass2_main` fails `add_tx16`; `pw_2048` as 2047 in 16x32's
+`.pass2_end` (shared with the 64-point sizes) fails `add_tx32` and
+`add_tx64`; `pd_8` (a shift of 8) as 9 in 8x32's 12-bit dct_dct and
+`pixel_12bpc_max` as 0xffe in 8x32's 12-bit identity each fail `add_tx32`;
+`pd_1567` as 1568 in 16x64's `.main_part2` fails `add_tx64`. Restored
+byte for byte, the per-kernel gate and the whole-image gate at `avx2` pass
+again. As for 8 bpc, the part agents found that a change by one unit of a
+rounding offset or an identity constant often goes undetected at one seed
+(the test's inputs rarely reach the rounding); the controls above use
+larger changes.
+
+Instructions per call against the assembly (`measure_dav1d_kernels.py
+--family itx16` and `--family itx12`, Callgrind, 1.6 million pixels per
+kernel; the largest codable eob of each entry point and the DC-only path
+of each dct_dct; all outputs identical): 10 bits, 175 rows, 0.79 to 1.105
+(median 0.95); 12 bits, 159 rows, 0.79 to 1.068 (median 0.96); no row
+above 1.3, one above 1.1 (the DC-only path of 64x32, 1.105, which shares
+the large function's prologue). The 64-point full rows include the frame
+zeroing (16x64 1.089, 32x64 1.083, 64x64 1.052). The highest 12-bit rows:
+16x8 identity_dct 1.068, the 16x16 ADST pairs 1.06, 8x32 and 32x8
+identity_identity 1.06. Below 1.0 (129 of 175 and 118 of 159 rows; down to
+0.79) mostly the sizes up to 32x32 and the DC-only paths, where everything
+is inlined into one function per entry point and the assembly jumps and
+calls between passes (not analyzed further).
+
+| Check (x86-64 GNU Linux under Rosetta, Clang 19, eleven seeds) | Result |
+| --- | --- |
+| `check_dav1d_dsp.py --simd avx2` | 17 groups, 3,155 selections each; the five `itx_8bpc` and the five `itx_16bpc` groups compare the assembly with the rebuilt kernels; pass |
+| `check_dav1d_dsp.py` (scalar) | the same counts; pass |
+| `check_dav1d_simd_original.py --level avx2` / `scalar` | 994 of 994 decodes identical each |
+| `run_dav1d_tests.py` | 1,711 of 1,711 |
+| `check_dav1d_abi.py`, `check_dav1d_api.py`, `check_dav1d_linkage.py` | 12,284 layout checks, 0 differences; 83 API comparisons; pass |
+| `enable_dav1d_dispatch.py --check` and its unit test | 16 entries; pass |
+| unit tests (`cargo test --lib simd::`) | 11 of 11 (two new: the 16 bpc context layout and the selection under each mask at 10 and 12 bits) |
+| `rustfmt --check` (`max_width = 120`) on `simd/x86`, `simd/x86_64`; no `asm!` | pass |
+
+ARM64 after the change (no file of the NEON kernels changed): the
+per-kernel gate at `neon` and scalar at the eleven seeds, whole images 994
+of 994 at both levels, 1,711 of 1,711, the unit tests, ABI, API, linkage,
+the dispatch check and `cargo fmt --all --check` pass.
+
+Instructions per decode on x86-64 (Callgrind as before; stock dav1d at
+AVX2, the port before this entry, the port now): 10-bit 4:2:0 1.16 G,
+4.85 G, 1.75 G (1.51 times stock); 10-bit 4:4:4 1.29, 6.38, 2.62 (2.04
+times). 8-bit unchanged (1.52 G and 2.14 G). Not measured: the lossless
+still, and any time.
 
 ## Review when
 
@@ -1502,6 +1600,7 @@ engine's decoder choice changes.
 
 ## Amendment log
 
+- 2026-11-17 — inverse transforms 16 bpc on AVX2 (validation above).
 - 2026-11-17 — inverse transforms 8 bpc on AVX2 (validation above).
 - 2026-11-17 — decisions on the first x86 kernels: msac's SSE2 16-symbol function and the gate level `sse2` removed (below AVX2 the port runs C there too), the volatile constant loads removed, the per-call 16-symbol choice and the module layout kept ("msac on x86-64", "Levels", validation above).
 - 2026-11-17 — loop filter on AVX2, 8 and 16 bpc (validation above).
