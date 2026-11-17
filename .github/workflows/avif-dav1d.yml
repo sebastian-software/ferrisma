@@ -40,16 +40,17 @@ jobs:
       max-parallel: 2
       matrix:
         include: |-
-          ${{ fromJSON(inputs.runner == 'macos-15' && '[{"runner":"macos-15","architecture":"arm64"}]' ||
-              inputs.runner == 'ubuntu-24.04' && '[{"runner":"ubuntu-24.04","architecture":"x86_64"}]' ||
-              (github.event_name == 'pull_request' || github.event_name == 'push') && '[{"runner":"ubuntu-24.04","architecture":"x86_64"}]' ||
-              '[{"runner":"ubuntu-24.04","architecture":"x86_64"},{"runner":"macos-15","architecture":"arm64"}]') }}
+          ${{ fromJSON(inputs.runner == 'macos-15' && '[{"runner":"macos-15","architecture":"arm64","simd":"neon"}]' ||
+              inputs.runner == 'ubuntu-24.04' && '[{"runner":"ubuntu-24.04","architecture":"x86_64","simd":"avx2"}]' ||
+              (github.event_name == 'pull_request' || github.event_name == 'push') && '[{"runner":"ubuntu-24.04","architecture":"x86_64","simd":"avx2"}]' ||
+              '[{"runner":"ubuntu-24.04","architecture":"x86_64","simd":"avx2"},{"runner":"macos-15","architecture":"arm64","simd":"neon"}]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     env:
       CARGO_BUILD_JOBS: '2'
       CI_TIER: ${{ inputs.tier || ((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || inputs.tier == 'full')
         && 'full' || 'smoke') }}
+      SIMD_LEVEL: ${{ matrix.simd }}
     steps:
     - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
       with:
@@ -100,24 +101,26 @@ jobs:
         python3 tools/check_dav1d_dsp.py
         python3 tools/check_dav1d_dsp.py --debug
         python3 tools/verify_upstream.py
-    # ADR 0062, engine ADR-0041: the kernels rebuilt from dav1d's x86 assembly
-    # against that assembly, on this runner's hardware. The oracle is the
-    # original built with its assembly; both sides are restricted to SSE2
-    # through AVX2. A runner whose CPU lacks AVX2 fails both steps (engine
-    # ADR-0027: a missing capability never passes as success):
-    # check_dav1d_dsp.py requires the original's and the port's own CPU
-    # detection to report the level, check_dav1d_simd_original.py the port's.
-    # The smoke tier runs the per-kernel gate alone.
-    - name: Original assembly against the rebuilt AVX2 kernels, per kernel
-      if: runner.os == 'Linux' && matrix.architecture == 'x86_64'
+    # ADR 0062, engine ADR-0041: the kernels rebuilt from dav1d's assembly
+    # against that assembly, on this runner's hardware: AVX2 on Linux x86-64,
+    # NEON on macOS ARM64 (nightly tier, engine ADR-0027 amendment
+    # 2026-11-17). The oracle is the original built with its assembly; both
+    # sides are restricted to the level (x86-64: SSE2 through AVX2; ARM64:
+    # NEON alone, without DotProd, I8MM or SVE). A runner whose CPU lacks the
+    # level fails both steps (engine ADR-0027: a missing capability never
+    # passes as success): check_dav1d_dsp.py requires the original's and the
+    # port's own CPU detection to report the level,
+    # check_dav1d_simd_original.py the port's. The smoke tier runs the
+    # per-kernel gate alone.
+    - name: Original assembly against the rebuilt ${{ matrix.simd }} kernels, per kernel
       run: |
         python3 tools/build_dav1d.py --asm
-        python3 tools/check_dav1d_dsp.py --simd avx2
-    - name: Original assembly against the rebuilt AVX2 kernels, whole images
-      if: runner.os == 'Linux' && matrix.architecture == 'x86_64' && env.CI_TIER == 'full'
+        python3 tools/check_dav1d_dsp.py --simd "$SIMD_LEVEL"
+    - name: Original assembly against the rebuilt ${{ matrix.simd }} kernels, whole images
+      if: env.CI_TIER == 'full'
       run: |
         python3 tools/build_dav1d_consumers.py --portable
-        python3 tools/check_dav1d_simd_original.py --level avx2 --jobs 2
+        python3 tools/check_dav1d_simd_original.py --level "$SIMD_LEVEL" --jobs 2
         python3 tools/check_dav1d_simd_original.py --level scalar --jobs 2
     - name: Original static allocation and thread-failure fuzzer
       if: runner.os == 'Linux' && env.CI_TIER == 'full'
@@ -133,8 +136,8 @@ jobs:
         Path('build/dav1d-ci-scope.json').write_text(json.dumps(dict(
             tier=tier, native_runner=os.environ['RUNNER_OS'], api_and_abi_profiles=['release', 'debug'],
             public_api_abi_and_ownership=True, complete_original_corpus_profiles=['release', 'debug'] if tier == 'full' else [],
-            simd_per_kernel_levels=['avx2'] if os.environ['RUNNER_OS'] == 'Linux' else [],
-            simd_whole_image_levels=['avx2', 'scalar'] if os.environ['RUNNER_OS'] == 'Linux' and tier == 'full' else []), indent=2) + '\n')
+            simd_per_kernel_levels=[os.environ['SIMD_LEVEL']],
+            simd_whole_image_levels=[os.environ['SIMD_LEVEL'], 'scalar'] if tier == 'full' else []), indent=2) + '\n')
         PY
     - name: Preserve native comparison evidence
       if: always()
