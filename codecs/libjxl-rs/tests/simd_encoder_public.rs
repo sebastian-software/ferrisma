@@ -1722,7 +1722,9 @@ fn enc_public_lossless_effort2_matches_the_original_target() {
 // ---------------------------------------------------------------------------
 // Photographs (optional): `JXL_ENCODER_GATE_PHOTOS` names binary 8-bit RGB
 // PPM files, separated by `:`. Real images contain no NaN or infinite
-// sample, so every difference here is a finding.
+// sample, so every difference here is a finding. The deep tier sets it
+// (`tools/check.py --tier deep`, tests/data/photographs); once it is set, a
+// run that compares no photograph fails.
 
 /// A PPM's size and RGB samples.
 fn read_ppm(path: &str) -> (usize, usize, Vec<u8>) {
@@ -1875,7 +1877,12 @@ fn enc_public_photographs_match_the_original_target() {
     let _guard = lock();
     let mut lossy = Vec::new();
     let mut lossless = Vec::new();
-    for path in paths.split(':').filter(|p| !p.is_empty()) {
+    let paths: Vec<&str> = paths.split(':').filter(|p| !p.is_empty()).collect();
+    assert!(
+        !paths.is_empty(),
+        "JXL_ENCODER_GATE_PHOTOS is set but names no photograph"
+    );
+    for path in paths {
         let image = read_ppm(path);
         let (w, h) = (image.0, image.1);
         let mut rects = vec![(0, 0, w, h)];

@@ -119,6 +119,8 @@ def release_only_tests():
 
 def check_static(msrv):
     check_docs()
+    # The tiers, partitions and hosted plan of the test stage (ADR-0027).
+    run("python3", "tools/check_test.py")
     run("cargo", "fmt", "-p", "libjxl-rs", "--", "--check")
     run("cargo", f"+{lint_toolchain()}", "clippy", "--locked", "--offline", "--all-targets", "--all-features", "--", "-D", "warnings")
     if msrv:
@@ -347,7 +349,7 @@ SIMD_TESTS += ["simd_encoder_public"]
 SIMD_TEST_ARGS = [argument for name in SIMD_TESTS for argument in ("--test", name)]
 
 
-def check_tests(env, partition, filter, target=None, keep_going=False):
+def check_tests(env, partition, filter, target=None, keep_going=False, tier=None, record=None, list_only=False):
     # public gate: ADR 0004 "Decoder path" condition (c). The scalar gate
     # forces the scalar decoder path, whatever hwy::DECODER_SELECTS_SIMD
     # says; the oracle test builds read it (hwy::scalar_forced_by_environment)
@@ -367,11 +369,16 @@ def check_tests(env, partition, filter, target=None, keep_going=False):
     if keep_going:
         test.append("--no-fail-fast")
 
-    def listed(*selection):
+    def listing(*selection):
         print(f"+ {' '.join([*test, *selection])} -- --list --format terse", flush=True)
         listing = subprocess.run([*test, *selection, "--", "--list", "--format", "terse"], cwd=ROOT, env=env,
                                  stdout=subprocess.PIPE, text=True, check=True).stdout
-        return sorted({line.removesuffix(": test") for line in listing.splitlines() if line.endswith(": test")})
+        # One line per test and binary: a name that several binaries share
+        # occurs once per binary.
+        return [line.removesuffix(": test") for line in listing.splitlines() if line.endswith(": test")]
+
+    def listed(*selection):
+        return sorted(set(listing(*selection)))
 
     # The SIMD parity binaries (SIMD_TESTS) run as their own invocation, with
     # --no-fail-fast, after the other tests and even when those fail: cargo
@@ -387,15 +394,22 @@ def check_tests(env, partition, filter, target=None, keep_going=False):
     # native x86-64 run does; it is not the default because Rosetta 2
     # mis-executes some AVX code (port ADR 0004, "The skcms HSW engine in its
     # attribute context").
-    simd = listed(*SIMD_TEST_ARGS)
+    simd_occurrences = listing(*SIMD_TEST_ARGS)
+    simd = sorted(set(simd_occurrences))
     simd_env = dict(env, ROSETTA_ADVERTISE_AVX="1")
     simd_test = test if keep_going else [*test, "--no-fail-fast"]
     skip = [argument for name in simd for argument in ("--skip", name)]
     failures = []
+    reported = [0, 0]
 
-    def attempt(*args, env):
+    def attempt(*args, env, count=False):
         try:
-            run(*args, env=env)
+            if count:
+                passed, ignored = run_counted(*args, env=env)
+                reported[0] += passed
+                reported[1] += ignored
+            else:
+                run(*args, env=env)
         except subprocess.CalledProcessError as error:
             failures.append(error)
 
@@ -403,36 +417,88 @@ def check_tests(env, partition, filter, target=None, keep_going=False):
         attempt(*test, "--", "--nocapture", filter, *skip, env=env)
         if any(filter in name for name in simd):
             attempt(*simd_test, *SIMD_TEST_ARGS, "--", "--nocapture", filter, env=simd_env)
-    elif partition is None:
+    elif partition is None and tier is None:
         # --exact makes each --skip match one whole test name.
         attempt(*test, "--", "--nocapture", "--exact", *skip, env=env)
         if simd:
             attempt(*simd_test, *SIMD_TEST_ARGS, "--", "--nocapture", env=simd_env)
     else:
-        index, count = partition
+        index, count = partition or (1, 1)
         # Every listed name belongs to exactly one partition. A name shared by
         # several test binaries runs in each of them within that partition.
-        names = listed()
-        selected = partition_names(names, index, count)
-        print(f"Partition {index}/{count}: {len(selected)} of {len(names)} test names", flush=True)
+        occurrences = listing()
+        names = sorted(set(occurrences))
+        check_named_tests(names)
+        chosen = tier_names(names, tier or "all")
+        selected = partition_names(chosen, index, count)
+        print(f"Tier {tier or 'all'}: {len(chosen)} of {len(names)} test names; "
+              f"partition {index}/{count}: {len(selected)}", flush=True)
+        if list_only:
+            for name in selected:
+                print(f"  {name}{' (SIMD)' if name in simd else ''}")
+            return
         scalar_selected = [name for name in selected if name not in simd]
         simd_selected = [name for name in selected if name in simd]
+        # Fail closed: every selected test must report a result. A scalar
+        # name runs in each binary that has it; a SIMD name runs in the SIMD
+        # binaries only.
+        expected = (sum(occurrences.count(name) for name in scalar_selected)
+                    + sum(simd_occurrences.count(name) for name in simd_selected))
         if scalar_selected:
-            attempt(*test, "--", "--nocapture", "--exact", *scalar_selected, env=env)
+            attempt(*test, "--", "--nocapture", "--exact", *scalar_selected, env=env, count=True)
         if simd_selected:
-            attempt(*simd_test, *SIMD_TEST_ARGS, "--", "--nocapture", "--exact", *simd_selected, env=simd_env)
+            attempt(*simd_test, *SIMD_TEST_ARGS, "--", "--nocapture", "--exact", *simd_selected, env=simd_env,
+                    count=True)
+        passed, ignored = reported
+        print(f"Selection accounted: {passed} passed and {ignored} ignored of {expected} expected", flush=True)
+        if not failures and passed + ignored != expected:
+            raise SystemExit(f"The selection ran {passed + ignored} tests, expected {expected}: "
+                             "a selected test is missing or was filtered out")
+        if record is not None and not failures:
+            write_record(*record, tier or "all", (index, count), chosen, selected, passed, ignored, expected)
     if failures:
         raise SystemExit(f"{len(failures)} test invocation(s) failed: "
                          + "; ".join(f"exit {error.returncode}" for error in failures))
 
 
+def run_counted(*args, env=None):
+    """Run a cargo test invocation like `run`, passing its output through, and
+    return the passed and ignored counts of libtest's result lines."""
+    print("+ " + " ".join(map(str, args)), flush=True)
+    passed = ignored = 0
+    with subprocess.Popen(list(map(str, args)), cwd=ROOT, env=env, stdout=subprocess.PIPE, text=True,
+                          errors="replace") as process:
+        for line in process.stdout:
+            print(line, end="", flush=True)
+            result = RESULT_LINE.search(line)
+            if result:
+                passed += int(result[1])
+                ignored += int(result[2])
+    if process.returncode:
+        raise subprocess.CalledProcessError(process.returncode, args)
+    return passed, ignored
+
+
+RESULT_LINE = re.compile(r"^test result: \w+\. (\d+) passed; \d+ failed; (\d+) ignored;")
+
+
+def write_record(path, group, tier, partition, chosen, selected, passed, ignored, expected):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({
+        "group": group, "tier": tier, "partition": list(partition), "tier_names": chosen, "selected": selected,
+        "passed": passed, "ignored": ignored, "expected": expected,
+    }, indent=1) + "\n")
+
+
 # The tests that take most of a shard's time: whole encodes of large images
 # against the original (the encoder's gate sizes up to 4000x3000 and their
-# streaming, output-processor and container variants), and the SIMD
-# whole-encode gates, whose binary runs its tests one at a time. Heaviest
-# first, from the hosted runs of 2026-11-16 and 2026-11-17 (ordinary and
-# sanitized oracle): a 4000x3000 history, then pairs at 2049x2049 and
-# 2048x1536, then the families with many large histories.
+# streaming, output-processor and container variants), the SIMD whole-encode
+# gates, whose binary runs its tests one at a time, and the longest decoder
+# families. Heaviest first, from the hosted runs of 2026-11-16 and
+# 2026-11-17 (sanitized oracle, the slowest): a 4000x3000 history, then the
+# families with many large histories, the pairs at 2049x2049 and 2048x1536,
+# and the SIMD gates.
 # They are dealt out before the other tests, so that each partition gets its
 # share: a round robin over the sorted names put three of the largest into
 # one shard, which then ran past the job's time limit. The list only orders
@@ -443,56 +509,122 @@ HEAVY_TESTS = [
     "encoder_public::encoder_container::public_encoder_output_mode_2_gate_4000x3000_h1_matches_original",
     "encoder_public::encoder_container::public_encoder_output_mode_2_gate_4000x3000_h2_matches_original",
     "encoder_public::encoder_container::public_encoder_output_mode_2_gate_4000x3000_h3_matches_original",
-    "encoder_public::public_encoder_streaming_gate_4000x3000_h0_matches_original",
-    "encoder_public::public_encoder_streaming_gate_4000x3000_h1_matches_original",
-    "encoder_public::public_encoder_streaming_gate_4000x3000_h2_matches_original",
-    "encoder_public::public_encoder_streaming_gate_4000x3000_h3_matches_original",
     "encoder_public::public_encoder_streaming_gate_4000x3000_h4_matches_original",
     "encoder_public::public_encoder_streaming_gate_4000x3000_h5_matches_original",
     "encoder_public::public_encoder_streaming_gate_4000x3000_h6_matches_original",
     "encoder_public::public_encoder_streaming_gate_4000x3000_h7_matches_original",
-    "enc_public_streaming_gate_4000x3000_matches_the_original_target",
-    "enc_public_lossy_small_large_and_settings_match_the_original_target",
+    "encoder_public::public_encoder_streaming_gate_4000x3000_h0_matches_original",
+    "encoder_public::public_encoder_streaming_gate_4000x3000_h1_matches_original",
+    "encoder_public::public_encoder_streaming_gate_4000x3000_h2_matches_original",
+    "encoder_public::public_encoder_streaming_gate_4000x3000_h3_matches_original",
+    "encoder_public::encoder_container::public_encoder_output_mode_2_matches_original",
+    "encoder_public::public_encoder_lossy_vardct_alpha_streaming_matches_original",
+    "encoder_public::public_encoder_chunked_frame_matches_original",
+    "encoder_public::encoder_container::public_encoder_streaming_suite_container_instances_match_original",
+    "encoder_public::encoder_container::public_encoder_output_mode_2_gate_1024_matches_original",
+    "encoder_public::public_encoder_streaming_suite_instances_match_original",
+    "encoder_public::public_encoder_lossy_vardct_alpha_variants_match_original",
+    "encoder_public::public_encoder_output_processor_matches_original",
+    "encoder_public::public_encoder_streaming_gate_2049_h6_h7_matches_original",
+    "encoder_public::public_encoder_streaming_gate_2049_h4_h5_matches_original",
+    "encoder_public::public_encoder_streaming_gate_1024_matches_original",
+    "encoder_public::encoder_container::public_encoder_output_mode_2_gate_768_matches_original",
+    "encoder_public::public_encoder_streaming_gate_2049_h0_h1_matches_original",
+    "encoder_public::public_encoder_streaming_gate_2049_h2_h3_matches_original",
+    "encoder_public::public_encoder_lossy_vardct_streaming_matches_original",
     "encoder_public::encoder_container::public_encoder_output_mode_2_gate_2049_h0_h1_matches_original",
     "encoder_public::encoder_container::public_encoder_output_mode_2_gate_2049_h2_h3_matches_original",
     "encoder_public::encoder_container::public_encoder_output_mode_2_gate_2049_h4_h5_matches_original",
     "encoder_public::encoder_container::public_encoder_output_mode_2_gate_2049_h6_h7_matches_original",
+    "enc_public_streaming_gate_4000x3000_matches_the_original_target",
+    "enc_public_lossy_small_large_and_settings_match_the_original_target",
+    "encoder_ar::encoder_ar_chain_matches_distances_and_large_images",
+    "encoder_public::encoder_container::public_encoder_container_single_frame_matches_original",
+    "decoder_public::public_decoder_custom_manager_logs_match_original",
+    "encoder_public::encoder_container::public_encoder_container_output_processor_matches_original",
+    "encoder_public::public_encoder_lossy_vardct_large_sizes_match_original",
     "encoder_public::encoder_container::public_encoder_output_mode_2_gate_2048x1536_h0_h1_matches_original",
     "encoder_public::encoder_container::public_encoder_output_mode_2_gate_2048x1536_h2_h3_matches_original",
     "encoder_public::encoder_container::public_encoder_output_mode_2_gate_2048x1536_h4_h5_matches_original",
     "encoder_public::encoder_container::public_encoder_output_mode_2_gate_2048x1536_h6_h7_matches_original",
-    "encoder_public::public_encoder_streaming_gate_2049_h0_h1_matches_original",
-    "encoder_public::public_encoder_streaming_gate_2049_h2_h3_matches_original",
-    "encoder_public::public_encoder_streaming_gate_2049_h4_h5_matches_original",
-    "encoder_public::public_encoder_streaming_gate_2049_h6_h7_matches_original",
     "encoder_public::public_encoder_streaming_gate_2048x1536_h0_h1_matches_original",
     "encoder_public::public_encoder_streaming_gate_2048x1536_h2_h3_matches_original",
     "encoder_public::public_encoder_streaming_gate_2048x1536_h4_h5_matches_original",
     "encoder_public::public_encoder_streaming_gate_2048x1536_h6_h7_matches_original",
-    "encoder_public::encoder_container::public_encoder_container_output_processor_matches_original",
-    "encoder_public::public_encoder_output_processor_matches_original",
-    "encoder_public::public_encoder_lossy_vardct_streaming_matches_original",
-    "encoder_public::encoder_container::public_encoder_streaming_suite_container_instances_match_original",
-    "encoder_public::encoder_lossless::public_encoder_lossless_gate_4000x3000_matches_original",
-    "enc_public_streaming_gate_sizes_match_the_original_target",
-    "encoder_public::public_encoder_streaming_gate_1024_matches_original",
-    "encoder_public::encoder_container::public_encoder_output_mode_2_gate_1024_matches_original",
-    "encoder_public::public_encoder_lossy_vardct_large_sizes_match_original",
-    "encoder_public::public_encoder_lossy_vardct_d05_and_settings_match_original",
-    "encoder_public::public_encoder_lossy_vardct_alpha_settings_match_original",
     "encoder_public::public_encoder_streaming_gate_768_matches_original",
-    "encoder_public::encoder_container::public_encoder_output_mode_2_gate_768_matches_original",
+    "decoder_public::public_decoder_progressive_allocation_failures_match_original",
+    "enc_public_output_processor_and_chunked_input_match_the_original_target",
+    "enc_public_engine_profile_d1_d2_matches_the_original_target",
+    "encoder_public::public_encoder_lossy_vardct_patches_off_matches_original",
+    "encoder_public::public_encoder_lossy_vardct_extra_channel_types_match_original",
+    "encoder_public::public_encoder_lossy_vardct_d05_and_settings_match_original",
+    "enc_public_streaming_gate_sizes_match_the_original_target",
+    "encoder_public::encoder_lossless::public_encoder_lossless_gate_4000x3000_matches_original",
+    "encoder_public::public_encoder_lossy_vardct_alpha_settings_match_original",
+    "encoder_public::public_encoder_streaming_gate_2049x257_matches_original",
+    "encoder_public::public_encoder_streaming_gate_257x2049_matches_original",
+    "encoder_public::encoder_container::public_encoder_output_mode_2_gate_2049x257_matches_original",
+    "encoder_public::encoder_container::public_encoder_output_mode_2_gate_257x2049_matches_original",
+    "enc_public_streaming_gate_2049x257_matches_the_original_target",
+    "enc_public_streaming_gate_257x2049_matches_the_original_target",
 ]
+
+# Test tiers (ADR-0027, amendment 2026-11-17; owner decisions D1 to D4 of
+# 2026-11-17). `--tier nightly` runs every test except DEEP_TESTS, `--tier
+# deep` runs DEEP_TESTS, `--tier all` runs everything (the macOS sanitized
+# matrix, which moved to the deep tier as a whole). Without `--tier` the stage
+# runs everything as before; that is the local binding gate (ADR-0041).
+# The deep tests reach no code that the nightly tier misses (coverage of
+# 2026-11-17); what they add is data at scale:
+# - the 2048x1536 parts of the streaming and output-mode-2 gates (D2: moved,
+#   not deleted; the 2049x2049 parts keep the 2x2 DC groups nightly);
+# - the 4000x3000 lossy parts of both gates (photograph scale, 192 AC
+#   groups, the largest allocations), with the ordinary and the sanitized
+#   oracle; the lossless 4000x3000 gate and the SIMD 4000x3000 gate stay
+#   nightly;
+# - the SIMD photographs, which compare only when JXL_ENCODER_GATE_PHOTOS
+#   names photographs (D3): `--tier deep` sets it (PHOTOGRAPHS).
+# Every name must exist, and the tiers together are the whole suite
+# (tools/check_test.py), so a renamed test fails both tiers instead of
+# dropping out of them.
+DEEP_TESTS = [
+    *(f"encoder_public::public_encoder_streaming_gate_2048x1536_h{k}_h{k + 1}_matches_original" for k in (0, 2, 4, 6)),
+    *(f"encoder_public::encoder_container::public_encoder_output_mode_2_gate_2048x1536_h{k}_h{k + 1}_matches_original"
+      for k in (0, 2, 4, 6)),
+    *(f"encoder_public::public_encoder_streaming_gate_4000x3000_h{k}_matches_original" for k in range(8)),
+    *(f"encoder_public::encoder_container::public_encoder_output_mode_2_gate_4000x3000_h{k}_matches_original"
+      for k in range(4)),
+    "enc_public_photographs_match_the_original_target",
+]
+TIERS = ["nightly", "deep", "all"]
+
+
+def check_named_tests(names):
+    """Every name that HEAVY_TESTS and DEEP_TESTS give must be a test."""
+    for label, listed in (("HEAVY_TESTS", HEAVY_TESTS), ("DEEP_TESTS", DEEP_TESTS)):
+        missing = [name for name in listed if name not in names]
+        if missing:
+            raise SystemExit(f"{label} names tests that do not exist: {missing}")
+    if len(set(DEEP_TESTS)) != len(DEEP_TESTS):
+        raise SystemExit("DEEP_TESTS names a test twice")
+
+
+def tier_names(names, tier):
+    """The test names of `tier` among `names`, in their order."""
+    if tier == "deep":
+        return [name for name in names if name in DEEP_TESTS]
+    if tier == "nightly":
+        return [name for name in names if name not in DEEP_TESTS]
+    if tier == "all":
+        return list(names)
+    raise SystemExit(f"Unknown tier {tier!r}; expected one of {TIERS}")
 
 
 def partition_names(names, index, count):
-    """The names of partition `index` of `count`: HEAVY_TESTS in their order,
-    then the other names, dealt out in alternating direction (1..count,
-    count..1, ...)."""
-    missing = [name for name in HEAVY_TESTS if name not in names]
-    if missing:
-        raise SystemExit(f"HEAVY_TESTS names tests that do not exist: {missing}")
-    order = [*HEAVY_TESTS, *(name for name in names if name not in HEAVY_TESTS)]
+    """The names of partition `index` of `count`: the HEAVY_TESTS among
+    `names` in their order, then the other names, dealt out in alternating
+    direction (1..count, count..1, ...)."""
+    order = [*(name for name in HEAVY_TESTS if name in names), *(name for name in names if name not in HEAVY_TESTS)]
     selected = []
     for position, name in enumerate(order):
         slot = position % count
@@ -501,6 +633,143 @@ def partition_names(names, index, count):
         if slot == index - 1:
             selected.append(name)
     return selected
+
+
+# The photographs of the deep tier (D3): pinned files of the libjxl
+# testdata submodule, recorded with their hashes and licenses in
+# tests/data/photographs/photographs.json (see tests/data/README.md). PNG
+# sources are decoded with tools/encoder_step1_fixtures.py's standard-library
+# decoder; the test reads binary 8-bit RGB PPM files.
+PHOTOGRAPHS = ROOT / "tests/data/photographs/photographs.json"
+
+
+def prepare_photographs():
+    """Verify the recorded photographs and write them as PPM files; return
+    their paths. Fails when the testdata submodule is missing or a file
+    differs from its record."""
+    from encoder_step1_fixtures import decode
+    manifest = json.loads(PHOTOGRAPHS.read_text())
+    pin = json.loads((ROOT / "upstream.json").read_text())
+    source = ROOT / pin["path"]
+    testdata = source / "testdata"
+    entry = git("-C", source, "ls-tree", "HEAD", "testdata").split()
+    if len(entry) < 3 or entry[2] != manifest["testdata_revision"]:
+        raise SystemExit("The recorded testdata revision differs from upstream's submodule pin")
+    if not (testdata / "LICENSE").is_file():
+        raise SystemExit("Initialize upstream's testdata submodule for the photographs: "
+                         "git -C upstream/libjxl submodule update --init --depth 1 testdata")
+    if git("-C", testdata, "rev-parse", "HEAD") != manifest["testdata_revision"]:
+        raise SystemExit("The testdata checkout differs from upstream's submodule pin")
+    output = ROOT / "target" / "photographs"
+    output.mkdir(parents=True, exist_ok=True)
+    paths = []
+    for photo in manifest["photographs"]:
+        data = (testdata / photo["source"]).read_bytes()
+        if hashlib.sha256(data).hexdigest() != photo["source_sha256"]:
+            raise SystemExit(f"Photograph {photo['source']} differs from its record")
+        width, height = photo["size"]
+        header = b"P6\n%d %d\n255\n" % (width, height)
+        if photo["source"].endswith(".png"):
+            xsize, ysize, channels, rows, _ = decode(data)
+            if (xsize, ysize, channels) != (width, height, 3):
+                raise SystemExit(f"Photograph {photo['source']} is not {width}x{height} RGB")
+            pixels = b"".join(rows)
+        elif data.startswith(header):
+            pixels = data[len(header):]
+        else:
+            raise SystemExit(f"Photograph {photo['source']} is not a {width}x{height} binary PPM")
+        if hashlib.sha256(pixels).hexdigest() != photo["pixels_sha256"]:
+            raise SystemExit(f"Photograph {photo['source']}: samples differ from the record")
+        path = output / f"{photo['name']}.ppm"
+        path.write_bytes(header + pixels)
+        paths.append(str(path))
+    print(f"Photographs verified: {', '.join(photo['name'] for photo in manifest['photographs'])}", flush=True)
+    return paths
+
+
+# The hosted shards per tier (.github/workflows/jxl-check.yml reads them with
+# --plan): (runner, oracle, tier of tests/check.py, partitions). Each job of
+# the nightly tier stays within 60 minutes on the hosted runners (ADR-0027,
+# amendment 2026-11-17); the deep tier stays within the hosted job limit. The
+# macOS jobs of the nightly tier run only on the schedule or with the
+# workflow's `macos` input; the deep tier always runs them, since the macOS
+# sanitized matrix is its own (D4).
+CI_PARITY = {
+    "nightly": [
+        ("ubuntu-latest", "ordinary", "nightly", 4),
+        ("ubuntu-latest", "sanitized", "nightly", 10),
+        ("macos-latest", "ordinary", "nightly", 5),
+    ],
+    "deep": [
+        ("ubuntu-latest", "ordinary", "deep", 2),
+        ("ubuntu-latest", "sanitized", "deep", 3),
+        ("macos-latest", "ordinary", "deep", 2),
+        ("macos-latest", "sanitized", "all", 8),
+    ],
+}
+# The audit groups per tier. The macOS decoder and public-decoder audits use
+# the sanitized oracle beside the ordinary one and take 73 and 108 minutes on
+# the hosted macOS runner (nightly run 44066960183), so they run with the
+# macOS sanitized matrix in the deep tier.
+AUDIT_GROUPS = ["decoder", "decoder-state", "public-decoder", "extra-channels", "geometry", "components", "brotli",
+                "diagnostics"]
+CI_AUDIT = {
+    "nightly": [*(("ubuntu-latest", group) for group in AUDIT_GROUPS),
+                *(("macos-latest", group) for group in AUDIT_GROUPS
+                  if group not in ("decoder", "public-decoder", "diagnostics"))],
+    "deep": [("macos-latest", "decoder"), ("macos-latest", "public-decoder")],
+}
+
+
+def ci_plan(tier, macos):
+    """The parity and audit matrices of one hosted tier."""
+    if tier not in CI_PARITY:
+        raise SystemExit(f"Unknown hosted tier {tier!r}; expected one of {sorted(CI_PARITY)}")
+    keep = (lambda runner: True) if macos or tier == "deep" else (lambda runner: runner != "macos-latest")
+    parity = [{"os": runner, "oracle": oracle, "tier": selection, "shard": shard, "shards": count,
+               "group": f"{runner}-{oracle}"}
+              for runner, oracle, selection, count in CI_PARITY[tier] if keep(runner)
+              for shard in range(1, count + 1)]
+    audit = [{"os": runner, "group": group} for runner, group in CI_AUDIT[tier] if keep(runner)]
+    return {"parity": parity, "audit": audit}
+
+
+def verify_records(directory, tier, macos):
+    """The selection records of one hosted run: each planned group has every
+    partition, all of them saw the same tier, and together they ran it."""
+    records = {}
+    for path in sorted(Path(directory).rglob("*.json")):
+        record = json.loads(path.read_text())
+        key = (record["group"], record["partition"][0], record["partition"][1])
+        if key in records:
+            raise SystemExit(f"Two selection records for {key}")
+        records[key] = record
+    problems = []
+    groups = {}
+    for job in ci_plan(tier, macos)["parity"]:
+        groups.setdefault(job["group"], (job["tier"], job["shards"]))
+    for group, (selection, count) in groups.items():
+        parts = [records.pop((group, index, count), None) for index in range(1, count + 1)]
+        if None in parts:
+            problems.append(f"{group}: partitions without a record: "
+                            f"{[index + 1 for index, part in enumerate(parts) if part is None]}")
+            continue
+        names = parts[0]["tier_names"]
+        if any(part["tier"] != selection or part["tier_names"] != names for part in parts):
+            problems.append(f"{group}: the partitions disagree on the tier or its names")
+            continue
+        ran = [name for part in parts for name in part["selected"]]
+        if sorted(ran) != sorted(names):
+            problems.append(f"{group}: the partitions ran {len(ran)} names, the tier has {len(names)}")
+        if any(part["passed"] + part["ignored"] != part["expected"] for part in parts):
+            problems.append(f"{group}: a partition did not account for every selected test")
+        print(f"{group}: tier {selection}, {len(names)} names in {count} partitions, "
+              f"{sum(part['passed'] for part in parts)} passed, {sum(part['ignored'] for part in parts)} ignored",
+              flush=True)
+    if records:
+        problems.append(f"Records outside the plan: {sorted(records)}")
+    if problems:
+        raise SystemExit("Selection records do not cover the tier:\n" + "\n".join(problems))
 
 
 def partition(value):
@@ -532,7 +801,42 @@ def main():
                              "in target/rust-NAME; the C++ references do not depend on it")
     parser.add_argument("--no-fail-fast", action="store_true",
                         help="test stage: run every test binary even after a failure (diagnosis)")
+    parser.add_argument("--tier", choices=TIERS,
+                        help="test stage: run only the tests of this tier (nightly: all but DEEP_TESTS; deep: "
+                             "DEEP_TESTS, with the photographs; all: every test) and fail unless each selected "
+                             "test reports a result")
+    parser.add_argument("--list-selection", action="store_true",
+                        help="test stage with --tier: list the selected tests and run none")
+    parser.add_argument("--record", metavar="PATH",
+                        help="test stage with --tier: write the selection and its result counts here")
+    parser.add_argument("--record-group", metavar="NAME", help="the job group named in --record's file")
+    parser.add_argument("--plan", choices=sorted(CI_PARITY),
+                        help="print the hosted matrices of this tier as GitHub outputs and exit")
+    parser.add_argument("--macos", choices=["true", "false"], default="false",
+                        help="with --plan or --verify-records: include the macOS jobs of the nightly tier")
+    parser.add_argument("--verify-records", metavar="DIR",
+                        help="with --plan: check that the selection records in DIR cover the tier, and exit")
     args = parser.parse_args()
+    if args.plan is not None:
+        macos = args.macos == "true"
+        if args.verify_records is not None:
+            verify_records(args.verify_records, args.plan, macos)
+            return
+        for key, value in ci_plan(args.plan, macos).items():
+            print(f"{key}={json.dumps(value, separators=(',', ':'))}")
+        return
+    if args.verify_records is not None:
+        parser.error("--verify-records requires --plan")
+    if (args.record is None) != (args.record_group is None):
+        parser.error("--record and --record-group go together")
+    if args.record is not None and args.tier is None:
+        parser.error("--record requires --tier")
+    if args.list_selection and args.tier is None:
+        parser.error("--list-selection requires --tier")
+    if args.tier is not None and args.filter is not None:
+        parser.error("--tier and --filter are mutually exclusive")
+    if args.tier is not None and args.stage != "test":
+        parser.error("--tier applies to the test stage")
     if args.partition is not None and args.filter is not None:
         parser.error("--partition and --filter are mutually exclusive")
     if args.target is not None and args.stage in ("all", "static"):
@@ -549,7 +853,11 @@ def main():
         # The SIMD variant has no sanitized twin (ADR 0004).
         env.update(build_simd_oracle(args.target))
     if args.stage in ("all", "test"):
-        check_tests(env, args.partition, args.filter, args.target, args.no_fail_fast)
+        if args.tier == "deep":
+            env["JXL_ENCODER_GATE_PHOTOS"] = ":".join(prepare_photographs())
+        record = None if args.record is None else (args.record, args.record_group)
+        check_tests(env, args.partition, args.filter, args.target, args.no_fail_fast, args.tier, record,
+                    args.list_selection)
     run("git", "diff", "--check")
     run("git", "diff", "--cached", "--check")
 

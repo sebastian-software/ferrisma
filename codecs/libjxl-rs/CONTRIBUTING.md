@@ -183,6 +183,21 @@ so N jobs together run every test exactly once. `--filter NAME` runs only the
 tests whose names contain `NAME`. The default CMS audit replays the requests
 that `--stage test --filter default_cms::` captures for each oracle graph.
 
+`--tier nightly|deep|all` selects the hosted tiers' tests (root ADR-0027,
+amendment 2026-11-17): `deep` runs `DEEP_TESTS` in `tools/check.py` (the
+2048x1536 and the 4000x3000 lossy parts of the streaming and output-mode-2
+gates, and the photographs, which it prepares from upstream's pinned testdata
+as `tests/data/README.md` describes: initialize it with
+`git -C upstream/libjxl submodule update --init --depth 1 testdata`),
+`nightly` everything else, and `all` everything. With a tier the stage fails
+unless every selected test reports a result, and `--record` writes the
+selection for the hosted check that the shards together ran the whole tier;
+`--list-selection` prints the selection without running it. Without `--tier`
+the stage runs every test, which remains the local gate.
+`python3 tools/check_test.py` (part of the static stage) checks that the tiers
+together are the whole suite. `--plan nightly|deep` prints the hosted shards
+that `.github/workflows/jxl-check.yml` runs.
+
 Focused checks:
 
 ```sh
