@@ -14,6 +14,10 @@
 // reports at each AddImageFrame and ProcessOutput call whether the original
 // took its fast-lossless branch or called ProcessOneEnqueuedInput. The latter
 // is the evidence for every admission result of the Rust encoder (ADR 0001).
+// epub-both replays a history once and reports both: the epub-run line, a
+// tab, then the epub-probe line. The probe only reads state around the same
+// calls, so each line is the one its own command would write; the tests use
+// it so that a large history is encoded once instead of twice.
 // epub-wrap drives the original JxlEncoderOutputProcessorWrapper in buffer
 // mode and with an external output processor (encoder streaming).
 #include <jxl/cms.h>
@@ -185,8 +189,11 @@ JxlPixelFormat Format(const std::vector<std::string>& f, size_t at) {
 
 class Driver {
  public:
-  Driver(std::ostream& out, JxlMemoryManager* mm, bool probe)
-      : out_(out), mm_(mm), probe_(probe) {}
+  // probe: report the evidence instead of the results. run: with probe, the
+  // stream that receives the results (epub-both); out then reaches both.
+  Driver(std::ostream& out, JxlMemoryManager* mm, bool probe, std::ostream* evidence = nullptr,
+         std::ostream* run = nullptr)
+      : out_(out), ev_(evidence ? evidence : &out), run_(run), mm_(mm), probe_(probe) {}
   ~Driver() {
     if (enc_) JxlEncoderDestroy(enc_);
   }
@@ -225,7 +232,8 @@ class Driver {
     std::vector<std::string> f = Split(arg);
     out_ << ' ' << kind << ':';
     if (probe_) {
-      Probe(kind, arg, f);
+      std::string result = Probe(kind, arg, f);
+      if (run_) *run_ << result << '/' << JxlEncoderGetError(enc_);
       return;
     }
     out_ << Result(kind, arg, f) << '/' << JxlEncoderGetError(enc_);
@@ -238,44 +246,42 @@ class Driver {
 
   // The original's internal state at the admission checkpoints, observed
   // around the same public call.
-  void Probe(char kind, const std::string& arg, const std::vector<std::string>& f) {
+  std::string Probe(char kind, const std::string& arg, const std::vector<std::string>& f) {
     // encoder streaming: FlushInput calls ProcessOneEnqueuedInput as
     // ProcessOutput does, with the output processor set.
     if (kind == 'i') {
-      out_ << enc_->input_queue.size() << ",1," << enc_->output_processor.OutputProcessorSet();
+      *ev_ << enc_->input_queue.size() << ",1," << enc_->output_processor.OutputProcessorSet();
       FrameEvidence();
-      Result(kind, arg, f);
-      return;
+      return Result(kind, arg, f);
     }
     // AddChunkedFrame with an output processor queues the frame and flushes
     // it within the call: the evidence is the frame it queues, from the
     // settings it copies.
     if (kind == 'c' && enc_->output_processor.OutputProcessorSet() && enc_->basic_info_set) {
-      out_ << enc_->input_queue.size() + 1 << ",1," << enc_->output_processor.OutputProcessorSet();
+      *ev_ << enc_->input_queue.size() + 1 << ",1," << enc_->output_processor.OutputProcessorSet();
       Evidence(Settings(f[0])->values.cparams, enc_->metadata.xsize(), enc_->metadata.ysize());
-      Result(kind, arg, f);
-      return;
+      return Result(kind, arg, f);
     }
     // end encoder streaming
     if (kind == 'p') {
-      out_ << enc_->input_queue.size() << ',' << f[0] << ','
+      *ev_ << enc_->input_queue.size() << ',' << f[0] << ','
            << enc_->output_processor.OutputProcessorSet();
       FrameEvidence();
-      Result(kind, arg, f);
-      return;
+      return Result(kind, arg, f);
     }
-    Result(kind, arg, f);
+    std::string result = Result(kind, arg, f);
     if (kind == 'a') {
-      out_ << enc_->input_queue.size() << ',';
+      *ev_ << enc_->input_queue.size() << ',';
       if (enc_->input_queue.empty()) {
-        out_ << '-';
+        *ev_ << '-';
       } else {
         const auto& back = enc_->input_queue.back();
-        out_ << (back.fast_lossless_frame ? 'L' : back.frame ? 'F' : 'B');
+        *ev_ << (back.fast_lossless_frame ? 'L' : back.frame ? 'F' : 'B');
       }
-      return;
+      return result;
     }
-    out_ << '-';
+    *ev_ << '-';
+    return result;
   }
 
   // The front queued frame's parameters as the original's EncodeFrame
@@ -296,7 +302,7 @@ class Driver {
     }
     if (c.speed_tier == jxl::SpeedTier::kLightning) c.speed_tier = jxl::SpeedTier::kThunder;
     bool ok = static_cast<bool>(jxl::ParamsPostInit(&c));
-    out_ << ";" << ok << ',' << F32(c.butteraugli_distance) << ','
+    *ev_ << ";" << ok << ',' << F32(c.butteraugli_distance) << ','
          << static_cast<int>(c.speed_tier) << ',' << c.buffering << ',' << c.epf << ','
          << c.decoding_speed_tier << ',' << c.modular_mode << ',' << xsize
          << ',' << ysize << ',' << enc_->metadata.m.xyb_encoded << ','
@@ -852,6 +858,8 @@ class Driver {
   std::vector<std::unique_ptr<encoder_streaming::Source>> sources_;
   // end encoder streaming
   std::ostream& out_;
+  std::ostream* ev_;   // the evidence (out_ but in epub-both)
+  std::ostream* run_;  // epub-both: the results
   JxlMemoryManager* mm_;
   bool probe_;
   JxlEncoder* enc_ = nullptr;
@@ -871,11 +879,37 @@ class Driver {
   size_t avail_out_ = 0;
 };
 
-void RunHistory(std::istringstream& in, std::ostream& out, JxlMemoryManager* mm, bool probe) {
+// Writes every character to two stream buffers (epub-both: the parts the
+// run and the probe lines share).
+class TeeBuffer : public std::streambuf {
+ public:
+  TeeBuffer(std::streambuf* a, std::streambuf* b) : a_(a), b_(b) {}
+
+ protected:
+  int overflow(int c) override {
+    if (c == traits_type::eof()) return traits_type::not_eof(c);
+    char ch = static_cast<char>(c);
+    a_->sputn(&ch, 1);
+    b_->sputn(&ch, 1);
+    return c;
+  }
+  std::streamsize xsputn(const char* s, std::streamsize n) override {
+    a_->sputn(s, n);
+    b_->sputn(s, n);
+    return n;
+  }
+
+ private:
+  std::streambuf* a_;
+  std::streambuf* b_;
+};
+
+void RunHistory(std::istringstream& in, std::ostream& out, JxlMemoryManager* mm, bool probe,
+                std::ostream* evidence = nullptr, std::ostream* run = nullptr) {
   int manager;
   size_t fail;
   in >> manager >> fail;
-  Driver driver(out, mm, probe);
+  Driver driver(out, mm, probe, evidence, run);
   std::string op;
   if (driver.Create(manager, fail)) {
     while (in >> op) driver.Op(op);
@@ -994,6 +1028,14 @@ bool EncoderPublicCommand(const std::string& command, std::istringstream& in,
                           JxlMemoryManager* mm) {
   if (command == "epub-run" || command == "epub-probe") {
     RunHistory(in, std::cout, mm, command == "epub-probe");
+    return true;
+  }
+  if (command == "epub-both") {
+    std::ostringstream run, probe;
+    TeeBuffer tee(run.rdbuf(), probe.rdbuf());
+    std::ostream shared(&tee);
+    RunHistory(in, shared, mm, true, &probe, &run);
+    std::cout << run.str() << '\t' << probe.str();
     return true;
   }
   if (command == "epub-wrap") {

@@ -49,28 +49,58 @@ fn compare_counted(family: &str, requests: Vec<String>) -> usize {
     compare_counted_with(family, requests, None)
 }
 
+/// The original's observations of epub-run histories: the epub-run line and
+/// the epub-probe line of each, from one replay (`epub-both`), so that a
+/// history is encoded once per reference instead of once for its result and
+/// once for the probe. Every line is from a run of the original in this test.
+struct Originals {
+    runs: Vec<String>,
+    probes: Vec<String>,
+}
+
+fn original_runs_and_probes(requests: &[String]) -> Originals {
+    let both: Vec<String> = requests
+        .iter()
+        .map(|request| {
+            assert!(
+                request.starts_with("epub-run "),
+                "an epub-run history: {request}"
+            );
+            request.replacen("epub-run", "epub-both", 1)
+        })
+        .collect();
+    let (runs, probes) = super::original_observations(&both)
+        .into_iter()
+        .map(|line| {
+            let (run, probe) = line.split_once('\t').expect("the run and the probe line");
+            (run.to_owned(), probe.to_owned())
+        })
+        .unzip();
+    Originals { runs, probes }
+}
+
 /// [`compare_counted`] with the original's observations of `requests` when
 /// the caller already has them (a family that first checks that the original
-/// encodes every history): each history then runs once in each reference
-/// instead of twice. The original's observations, its `epub-probe`
-/// observations and the Rust runs are independent processes and run
-/// concurrently; every comparison below is the same, in the same order.
+/// encodes every history), so that no history runs twice. The original and
+/// the Rust runs are independent processes and run concurrently; every
+/// comparison below is the same, in the same order.
 fn compare_counted_with(
     family: &str,
     requests: Vec<String>,
-    originals: Option<Vec<String>>,
+    originals: Option<Originals>,
 ) -> usize {
     capture(family, &requests);
-    let probe_requests: Vec<String> = requests
-        .iter()
-        .map(|request| request.replacen("epub-run", "epub-probe", 1))
-        .collect();
-    let (originals, probes, runs) = std::thread::scope(|scope| {
+    let (
+        Originals {
+            runs: originals,
+            probes,
+        },
+        runs,
+    ) = std::thread::scope(|scope| {
         let originals = match originals {
             Some(originals) => Ok(originals),
-            None => Err(scope.spawn(|| super::original_observations(&requests))),
+            None => Err(scope.spawn(|| original_runs_and_probes(&requests))),
         };
-        let probes = scope.spawn(|| super::original_observations(&probe_requests));
         let runs: Vec<_> = requests
             .iter()
             .map(|request| {
@@ -80,11 +110,7 @@ fn compare_counted_with(
             })
             .collect();
         let originals = originals.unwrap_or_else(|thread| thread.join().expect("the original"));
-        (
-            originals,
-            probes.join().expect("the original's probes"),
-            runs,
-        )
+        (originals, runs)
     });
     assert_eq!(
         originals.len(),
@@ -931,8 +957,8 @@ fn lossy_history(
 /// codestream.
 fn compare_admitted(family: &str, requests: Vec<String>) {
     let count = requests.len();
-    let originals = super::original_observations(&requests);
-    for (request, cpp) in requests.iter().zip(&originals) {
+    let originals = original_runs_and_probes(&requests);
+    for (request, cpp) in requests.iter().zip(&originals.runs) {
         let last = cpp.rsplit(" p:").next().unwrap_or("");
         assert!(
             cpp.contains(" p:") && last.starts_with("0,") && !output_bytes(cpp).is_empty(),
@@ -2124,8 +2150,8 @@ fn processor_history(
 /// processor received bytes.
 fn compare_admitted_processor(family: &str, requests: Vec<String>) {
     let count = requests.len();
-    let originals = super::original_observations(&requests);
-    for (request, cpp) in requests.iter().zip(&originals) {
+    let originals = original_runs_and_probes(&requests);
+    for (request, cpp) in requests.iter().zip(&originals.runs) {
         assert!(
             cpp.contains(" i:0/0 r:0;") && !cpp.contains(";0,0,0;"),
             "the original encodes the history: {request}"
@@ -2357,8 +2383,8 @@ fn chunked_history(
 /// admission, and the original must encode it.
 fn compare_admitted_chunked(family: &str, requests: Vec<String>) {
     let count = requests.len();
-    let originals = super::original_observations(&requests);
-    for (request, cpp) in requests.iter().zip(&originals) {
+    let originals = original_runs_and_probes(&requests);
+    for (request, cpp) in requests.iter().zip(&originals.runs) {
         let encoded = if cpp.contains(" r:0;") {
             !cpp.contains(";0,0,0;")
         } else {
@@ -2661,8 +2687,8 @@ fn gate_histories(xsize: usize, ysize: usize, seed: usize) -> Vec<String> {
 /// encode it, in buffer or processor mode.
 fn compare_gate(family: &str, requests: Vec<String>) {
     let count = requests.len();
-    let originals = super::original_observations(&requests);
-    for (request, cpp) in requests.iter().zip(&originals) {
+    let originals = original_runs_and_probes(&requests);
+    for (request, cpp) in requests.iter().zip(&originals.runs) {
         let encoded = if request.contains(" i r") {
             cpp.contains(" i:0/0 r:0;") && !cpp.contains(";0,0,0;")
         } else {
@@ -2674,72 +2700,59 @@ fn compare_gate(family: &str, requests: Vec<String>) {
     assert_eq!(exact, count, "{family}: every gate history is exact");
 }
 
-// Encoder step 2's gate, one test per size, and the two largest sizes one
-// test per distance (the first four histories of `gate_histories` are
-// distance 1.0, the last four 2.0): the same histories as one test over all
-// sizes, in tests that the check's partitions can spread over shards.
-
-/// Encoder step 2's gate at 768x768.
-#[test]
-fn public_encoder_streaming_gate_768_matches_original() {
+// Encoder step 2's gate: the histories of `gate_histories` for each size,
+// unchanged (seed 0, 3 and 6 for 768x768, 1024x1024 and 2048x1536, 1 for
+// 2049x2049, 2 for 4000x3000; eight histories each, distance 1.0 first),
+// one test per size at 768 and 1024, per pair of histories at 2048x1536 and
+// 2049x2049, and per history at 4000x3000. Together they compare the same
+// histories as one test over all sizes; the parts let the check's partitions
+// spread them over shards (a 4000x3000 history takes the sanitized
+// original about 20 minutes).
+fn streaming_gate_part(
+    family: &str,
+    size: (usize, usize),
+    seed: usize,
+    part: std::ops::Range<usize>,
+) {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
     jxl::jxl::hwy::select_scalar_encoder_for_test();
-    compare_gate("streaming-gate-768", gate_histories(768, 768, 0));
+    let histories = gate_histories(size.0, size.1, seed);
+    assert_eq!(histories.len(), 8, "the gate's eight histories per size");
+    compare_gate(family, histories[part].to_vec());
 }
 
-/// Encoder step 2's gate at 1024x1024.
-#[test]
-fn public_encoder_streaming_gate_1024_matches_original() {
-    jxl::jxl::hwy::select_scalar_decoder_for_test();
-    jxl::jxl::hwy::select_scalar_encoder_for_test();
-    compare_gate("streaming-gate-1024", gate_histories(1024, 1024, 3));
+macro_rules! streaming_gate_parts {
+    ($($name:ident: $family:literal, $size:expr, $seed:expr, $part:expr;)*) => {
+        $(
+            #[test]
+            fn $name() {
+                streaming_gate_part($family, $size, $seed, $part);
+            }
+        )*
+    };
 }
 
-/// Encoder step 2's gate at 2048x1536.
-#[test]
-fn public_encoder_streaming_gate_2048x1536_matches_original() {
-    jxl::jxl::hwy::select_scalar_decoder_for_test();
-    jxl::jxl::hwy::select_scalar_encoder_for_test();
-    compare_gate("streaming-gate-2048x1536", gate_histories(2048, 1536, 6));
+streaming_gate_parts! {
+    public_encoder_streaming_gate_768_matches_original: "streaming-gate-768", (768, 768), 0, 0..8;
+    public_encoder_streaming_gate_1024_matches_original: "streaming-gate-1024", (1024, 1024), 3, 0..8;
+    public_encoder_streaming_gate_2048x1536_h0_h1_matches_original: "streaming-gate-2048x1536-h0-h1", (2048, 1536), 6, 0..2;
+    public_encoder_streaming_gate_2048x1536_h2_h3_matches_original: "streaming-gate-2048x1536-h2-h3", (2048, 1536), 6, 2..4;
+    public_encoder_streaming_gate_2048x1536_h4_h5_matches_original: "streaming-gate-2048x1536-h4-h5", (2048, 1536), 6, 4..6;
+    public_encoder_streaming_gate_2048x1536_h6_h7_matches_original: "streaming-gate-2048x1536-h6-h7", (2048, 1536), 6, 6..8;
+    public_encoder_streaming_gate_2049_h0_h1_matches_original: "streaming-gate-2049-h0-h1", (2049, 2049), 1, 0..2;
+    public_encoder_streaming_gate_2049_h2_h3_matches_original: "streaming-gate-2049-h2-h3", (2049, 2049), 1, 2..4;
+    public_encoder_streaming_gate_2049_h4_h5_matches_original: "streaming-gate-2049-h4-h5", (2049, 2049), 1, 4..6;
+    public_encoder_streaming_gate_2049_h6_h7_matches_original: "streaming-gate-2049-h6-h7", (2049, 2049), 1, 6..8;
+    public_encoder_streaming_gate_4000x3000_h0_matches_original: "streaming-gate-4000x3000-h0", (4000, 3000), 2, 0..1;
+    public_encoder_streaming_gate_4000x3000_h1_matches_original: "streaming-gate-4000x3000-h1", (4000, 3000), 2, 1..2;
+    public_encoder_streaming_gate_4000x3000_h2_matches_original: "streaming-gate-4000x3000-h2", (4000, 3000), 2, 2..3;
+    public_encoder_streaming_gate_4000x3000_h3_matches_original: "streaming-gate-4000x3000-h3", (4000, 3000), 2, 3..4;
+    public_encoder_streaming_gate_4000x3000_h4_matches_original: "streaming-gate-4000x3000-h4", (4000, 3000), 2, 4..5;
+    public_encoder_streaming_gate_4000x3000_h5_matches_original: "streaming-gate-4000x3000-h5", (4000, 3000), 2, 5..6;
+    public_encoder_streaming_gate_4000x3000_h6_matches_original: "streaming-gate-4000x3000-h6", (4000, 3000), 2, 6..7;
+    public_encoder_streaming_gate_4000x3000_h7_matches_original: "streaming-gate-4000x3000-h7", (4000, 3000), 2, 7..8;
 }
 
-/// Encoder step 2's gate at 2049x2049, distance 1.0.
-#[test]
-fn public_encoder_streaming_gate_2049_d1_matches_original() {
-    jxl::jxl::hwy::select_scalar_decoder_for_test();
-    jxl::jxl::hwy::select_scalar_encoder_for_test();
-    let mut requests = gate_histories(2049, 2049, 1);
-    requests.truncate(4);
-    compare_gate("streaming-gate-2049-d1", requests);
-}
-
-/// Encoder step 2's gate at 2049x2049, distance 2.0.
-#[test]
-fn public_encoder_streaming_gate_2049_d2_matches_original() {
-    jxl::jxl::hwy::select_scalar_decoder_for_test();
-    jxl::jxl::hwy::select_scalar_encoder_for_test();
-    let requests = gate_histories(2049, 2049, 1).split_off(4);
-    compare_gate("streaming-gate-2049-d2", requests);
-}
-
-/// Encoder step 2's gate at 4000x3000, distance 1.0.
-#[test]
-fn public_encoder_streaming_gate_4000x3000_d1_matches_original() {
-    jxl::jxl::hwy::select_scalar_decoder_for_test();
-    jxl::jxl::hwy::select_scalar_encoder_for_test();
-    let mut requests = gate_histories(4000, 3000, 2);
-    requests.truncate(4);
-    compare_gate("streaming-gate-4000x3000-d1", requests);
-}
-
-/// Encoder step 2's gate at 4000x3000, distance 2.0.
-#[test]
-fn public_encoder_streaming_gate_4000x3000_d2_matches_original() {
-    jxl::jxl::hwy::select_scalar_decoder_for_test();
-    jxl::jxl::hwy::select_scalar_encoder_for_test();
-    let requests = gate_histories(4000, 3000, 2).split_off(4);
-    compare_gate("streaming-gate-4000x3000-d2", requests);
-}
 // end encoder streaming
 
 // encoder container
