@@ -403,7 +403,7 @@
         "raw-c-assignment-temporary": 1
       },
       "raw_sha256": "811c2eff1dc7e9f4ee792ac5acb955475a28b729a2608c53d0717dc77ac65826",
-      "rust_sha256": "53d5f31852d6c23de8141cfbd5d4c87ecc0a6b0e63e7227132e528b9566a2df2"
+      "rust_sha256": "2faeedd2adf53bf87b4480ba1fe29a06646060f0cdac1b7c084d093f72415881"
     },
     {
       "source": "upstream/dav1d/src/itx_tmpl.c",

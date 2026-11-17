@@ -440,6 +440,149 @@ pass at every seed: 17 groups, 3,155 selections each at `neon` and at scalar,
 passes at both levels. Not run: the `--debug` mode of the tool (no debug
 reference candidate on this machine; the seed loop is the same code).
 
+**2026-11-17, intra prediction 8 bpc on NEON** (`ipred.S`:
+`simd/arm64/ipred.rs`, all entry points: the ten DC, V, H, Paeth and
+smooth predictors, the edge helpers and fill kernels of the directional
+predictors Z1 to Z3, the filter predictor, the palette predictor, the four
+chroma-from-luma predictors and the three `cfl_ac`; the C glue of
+`src/arm/ipred.h`, the wrappers `ipred_z{1,2,3}_neon` and
+`intra_pred_dsp_init_arm`, translated by hand into the owned
+`simd/arm/ipred.rs`, with the two static functions of `ipred_tmpl.c` they
+use, `get_filter_strength` and `get_upsample`; `dispatch.txt`:
+`ipred_8bpc_arm`, the call at the end of the translated init, where
+`ipred_tmpl.c` calls `intra_pred_dsp_init_arm`; all 22 slots the original
+assigns under NEON: 14 `intra_pred`, 4 `cfl_pred`, 3 `cfl_ac`, `pal_pred`).
+The file was translated in five parts (lines 35–1296, 1297–1850,
+1851–3074, 3075–3685, 3686–5232) by five agents in private copies of the
+crate, each gated against the assembly on its own, then joined into the
+one module and gated again as a whole; the figures below are of the
+joined state.
+
+Gates: per-kernel 17 groups, 3,155 selections each at `neon` and scalar,
+at each of the eight seeds (`ipred_8bpc.intra_pred`, `cfl_ac`, `cfl_pred`
+and `pal_pred` compare the original's assembly with the rebuilt kernels);
+whole images 994 of 994 at `neon` and at `scalar`; `run_dav1d_tests.py`
+1,711 of 1,711; ABI 12,157 checks, 0 differences; API 83, linkage,
+dispatch `--check` (8 entries, 52 units) and its unit test pass; layout,
+selection (22 slots change under NEON, none with mask 0) and
+edge-filter-decision tests in the glue. Positive controls, one constant
+each, all eight seeds: the 1/3 multiplier of `ipred_dc` (`0x5556` to
+`0x5756`) fails `intra_pred` and the whole-image gate (406 of 994
+identical); the rounding shift of the chroma-from-luma splat (6 to 5)
+fails `cfl_pred`; the index mask of `pal_pred` (7 to 3) fails `pal_pred`;
+a shift of `cfl_ac` 4:2:0 (1 to 2) fails `cfl_ac`; restored, both gates
+pass. The part agents ran further comparisons outside the gate, against
+the hidden assembly symbols of the oracle archive: the edge helpers on
+argument patterns only Z2 and Z3 produce (every `sz` and `end` up to 144
+at each strength), the Z1 and Z3 fill kernels on random parameters
+(400,000 cases each), and the three wrappers over every block size,
+angle and flag set (106,704 cases); no difference.
+
+Instructions per call against the assembly (`measure_dav1d_kernels.py
+--family ipred --bpc 8`, new mode of `dav1d-kernel-bench.c`: every slot
+through the DSP table for every block size of the original's test; Z1 to
+Z3 over the test's 27 angles with the flag sets 0, 0x400 and 0x600, the
+filter predictor over its five filters, `cfl_pred` over four alphas,
+`cfl_ac` without and with the largest padding; at least 250,000 calls
+per row, because a process's instruction count varies by some 10^5
+between runs; identical outputs in all 518 rows): 0.80 to 1.26, median
+1.06; none above 1.3. By kernel (lowest / median / highest): dc 0.83 /
+1.09 / 1.15, v 0.92 / 0.99 / 1.12, h 0.95 / 1.04 / 1.09, dc_left 0.95 /
+1.09 / 1.15, dc_top 0.93 / 1.05 / 1.12, dc_128 0.80 / 1.07 / 1.13,
+paeth 1.04 / 1.09 / 1.17, smooth 1.04 / 1.07 / 1.20, smooth_v 0.98 /
+1.08 / 1.23, smooth_h 1.01 / 1.10 / 1.20, z1 0.85 / 0.98 / 1.10, z2
+1.02 / 1.10 / 1.26, z3 0.86 / 1.05 / 1.17, filter 1.00 / 1.06 / 1.15,
+cfl_ac 1.01 / 1.07 / 1.16, cfl_pred 0.97 / 1.05 / 1.13, pal_pred 0.98 /
+1.13 / 1.24. The highest rows and their cause, counted in the
+disassembly: Z2 at widths 32 and 64 (1.19 to 1.26): where the assembly multiplies with `umull2`/`umlal2` and a
+loop-constant operand, LLVM hoists the high half and emits `mov` +
+`umull`, and in the top-only loop it merges the widened operands of two
+loops and emits `ushll` + `mul`/`mla` (32 against 22 instructions per 16
+pixels of two rows); `pal_pred` 4 and 8 wide (to 1.24) and the smooth
+predictors 4 wide (to 1.23): `st1 {v.s}[i], [x0], x1`, a lane store with
+a register post-increment, has no single-instruction form from Rust and
+becomes `mov` + `str` + `add`. The Z rows include the wrapper, which the
+original runs as C.
+
+Deviations from the assembly, and whether they change the instruction
+count: (a) vector registers are typed locals named after the registers,
+not the register array of `util.rs` (bytes, 16-bit and 32-bit lanes
+alternate; no effect). (b) Jump tables are a `match` on `clz(width) -
+25` with an unreachable default, compiled to a compare chain: equal or
+fewer. (c) `subs` + `b.gt` loop ends are "subtract, then not zero"
+(`subs` + `b.ne`): same count, the same result for every block size; the
+`> 0` form cost one more per iteration. (d) Four-row store loops address
+the second row pair as `[x0, x1]` and advance each pointer once, and
+single-lane stores are as described above: +1 to +4 per four rows.
+(e) Large paths are separate functions reached by a tail call, so that
+the small blocks keep no stack frame (`ipred_paeth_160`,
+`ipred_smooth_160`, the 16- and 32-wide filter path, the per-width Z2
+kernels, the tall Z3 path): +1 to +3 per call of a large block. (f) The
+shared 16/32/64 loops of `ipred_z1_fill1` and the tall Z3 path are
+instantiated per width or height, so that the compiler sees the column
+count: fewer. (g) The DC sums are modeled with the sum in every lane,
+and the tail of `ipred_dc` is written on both sides of its `b.eq`
+(joined, LLVM computed the multiply on both paths, +6): +1 to +2.
+(h) `uxtl` is `zip1` with zero, or `pmull` by one, where LLVM would
+otherwise turn `mla` by element into `dup` + `ushll` + `mla` (filter
+predictor, smooth weights): same count, two `movi` per call. (i) Z3:
+`zip` + lane stores are `st2` lane stores, `xtn` + `xtn2` one `uzp1`,
+the column step keeps the column top instead of `msub`: fewer; the
+`tbx` of `ipred_z3_fill2` takes the two table registers the assembly
+loads, where the instruction names four (differs only for indices the
+wrapper cannot produce). (j) `cfl_ac`: the shared tails are functions
+entered by tail calls, values the assembly computes twice are computed
+once: count-neutral. (k) Dead instructions have no counterpart (`movi
+v20.16b, #2` in Z2, `mov x4, #16` in `ipred_reverse`). (l) Pointers
+stepped past a buffer after the last access use wrapping arithmetic,
+unaligned scalar accesses `read_unaligned`/`write_unaligned`: no effect.
+
+Deviations of the wrappers from the C, for memory safety. The kernels
+load whole vectors, so they read stack elements the C wrappers never
+write (the values do not reach the output). (m) `ipred_z2_neon`: `buf`
+is zero-initialized and has four elements in front. In C it is
+uninitialized and `flipped` is its first element; `ipred_z1_filter_edge`
+at strength 3 loads `flipped[-1]`, and `ipred_z2_fill1` at width 64
+loads down to `top[-69]`, four pixels before the array (angles 157 to
+174): in the original an out-of-array stack read. (n) `ipred_z3_neon`:
+`flipped` is zero-initialized with one element in front (the same
+`in[-1]` load; `ipred_reverse` writes it in blocks of 16 and the edge
+kernels read up to 15 elements more). (o) `top_out` (Z1) and `left_out`
+(Z3) stay uninitialized as in C and are reached through raw pointers
+only; the 16 elements behind the padded range are zeroed, because the
+fill kernels load up to 15 elements past it (at width or height 16 and
+more, the second row or column of a pair, whose base is not compared
+with the limit). That bound comes from the part agents' enumeration of
+the kernels' loads over every block size, angle and flag set (largest
+index read against largest written), which the lead agent did not
+re-derive; zeroing the whole buffers instead is a two-line change per
+wrapper and was measured at 7 to 13 instructions per call. Cost as
+built: 7 instructions per Z3 call for `flipped` and about 4 per Z1 or Z3
+call for the 16 elements; the Z2 buffer's zeroing was not measured
+apart.
+
+Kept as the assembly, stated as a finding: Z1 at 64x64 with the intra
+edge filter makes `ipred_z1_filter_edge` load `topleft[-1..=142]`, 14
+pixels past the caller's `edge[257]` array. In the decoder those bytes
+are inside the same scratch union and the values are masked out
+(`padding_mask`); in checkasm they are stack bytes. Every caller must
+provide the whole edge array readable, not only the prepared range (the
+kernels also read up to 48 pixels below `topleft[-2h]`, inside the
+array). The rebuild performs the same loads.
+
+Instructions per decode (no harness hash; stock dav1d NEON in
+brackets): 8-bit 4:2:0 1.07 G (from 1.16; 0.96), 8-bit 4:4:4 1.21 G
+(1.34; 1.09), 8-bit 4:2:0 with alpha 1.14 G (1.28; 0.96 color only),
+lossless 8-bit 4:4:4 10.23 G (10.72; 9.14); 10-bit unchanged (1.36 and
+1.59 G); pictures unchanged.
+
+Formatting: the repository's `rustfmt.toml` ignores `codecs/libavif-rs`,
+so `cargo fmt --all --check` passes without looking at these files. The
+new modules are formatted with `max_width = 120` and checked with
+`rustfmt --check --config-path` on a file holding that one setting; the
+earlier `simd` modules follow it only approximately (up to 9 differences
+per file), which this step did not change.
+
 ## Review when
 
 A family is completed on a target; the x86-64 AVX2 kernels arrive; the owner
@@ -448,6 +591,7 @@ engine's decoder choice changes.
 
 ## Amendment log
 
+- 2026-11-17 — intra prediction 8 bpc on NEON (validation above).
 - 2026-11-17 — the per-kernel gate runs eight seeds (validation above).
 - 2026-11-17 — CDEF on NEON, 8 and 16 bpc (validation above).
 - 2026-11-17 — inverse transforms 16 bpc on NEON (validation above).

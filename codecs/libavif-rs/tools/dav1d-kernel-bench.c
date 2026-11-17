@@ -39,7 +39,24 @@
  * the strengths (pri, sec) = (6, 2), (6, 0), (0, 2) (shifted by 2 at 16
  * bpc) and the eight directions, damping 5 (7 at 16 bpc); each iteration
  * restores the picture. At 16 bpc the pixels are 10-bit. The checksum
- * covers the picture and, for dir, the directions and variances. */
+ * covers the picture and, for dir, the directions and variances.
+ *
+ *   dav1d-kernel-bench LIBRARY MASK ipred BPC SLOT W H PARAM ANGLE ITERATIONS call|baseline
+ *
+ * calls one slot of dav1d_intra_pred_dsp_init_BPCbpc for a W x H block:
+ * SLOT 0..13 is intra_pred[SLOT] (enum IntraPredMode: 6, 7, 8 are Z1, Z2,
+ * Z3, 13 is FILTER_PRED), 14..16 cfl_ac[SLOT - 14] (4:2:0, 4:2:2, 4:4:4),
+ * 17..22 cfl_pred[SLOT - 17], 23 pal_pred. The edge, luma, ac, palette and
+ * index inputs are fixed pseudo-random data (10-bit at 16 bpc). The call
+ * cycles through a parameter set: for Z1..Z3 the 27 angles of the
+ * original's checkasm test (or the single angle ANGLE, 0..90 relative to
+ * the mode, if ANGLE >= 0), with PARAM as the angle's flag bits (0x400:
+ * intra edge filter, 0x200: smooth); for FILTER_PRED the five filters; for
+ * cfl_pred four values of alpha; for cfl_ac PARAM selects no padding (0)
+ * or the largest w_pad and h_pad (1). ITERATIONS is rounded up to a
+ * multiple of the set; one more pass over the set adds every output to the
+ * checksum, in both modes, so the kernel runs ITERATIONS + set size times
+ * (printed as `calls=`). */
 #include <dlfcn.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -262,7 +279,96 @@ static int cdef(void *library, char **argv) {
     return 0;
 }
 
+typedef void (*angular_ipred_fn)(void *dst, ptrdiff_t stride, const void *topleft, int width, int height,
+                                 int angle, int max_width, int max_height, int bitdepth_max);
+typedef void (*cfl_ac_fn)(int16_t *ac, const void *y, ptrdiff_t stride, int w_pad, int h_pad, int cw, int ch);
+typedef void (*cfl_pred_fn)(void *dst, ptrdiff_t stride, const void *topleft, int width, int height,
+                            const int16_t *ac, int alpha, int bitdepth_max);
+typedef void (*pal_pred_fn)(void *dst, ptrdiff_t stride, const void *pal, const uint8_t *idx, int w, int h);
+typedef struct {
+    angular_ipred_fn intra_pred[14];
+    cfl_ac_fn cfl_ac[3];
+    cfl_pred_fn cfl_pred[6];
+    pal_pred_fn pal_pred;
+} IntraPredDSPContext;
+
+static int ipred(void *library, char **argv) {
+    const int bpc = atoi(argv[4]), slot = atoi(argv[5]), w = atoi(argv[6]), h = atoi(argv[7]);
+    const int param = (int) strtol(argv[8], NULL, 0), fixed_angle = atoi(argv[9]);
+    long iterations = atol(argv[10]);
+    const int call = !strcmp(argv[11], "call");
+    char name[64];
+    snprintf(name, sizeof(name), "dav1d_intra_pred_dsp_init_%dbpc", bpc);
+    void (*init)(IntraPredDSPContext *) = (void (*)(IntraPredDSPContext *)) dlsym(library, name);
+    if (!init) { fprintf(stderr, "missing symbols\n"); return 1; }
+    static IntraPredDSPContext c;
+    init(&c);
+    /* The angles of the original's checkasm test (tests/checkasm/ipred.c). */
+    static const uint8_t z_angles[27] = { 3, 6, 9, 14, 17, 20, 23, 26, 29, 32, 36, 39, 42, 45, 48, 51, 54,
+                                          58, 61, 64, 67, 70, 73, 76, 81, 84, 87 };
+    static const int alphas[4] = { 1, -3, 9, -16 };
+    const int z = slot >= 6 && slot <= 8;
+    const int set = z ? (fixed_angle >= 0 ? 1 : 27) : slot == 13 ? 5 : slot >= 17 && slot <= 22 ? 4 : 1;
+    iterations = (iterations + set - 1) / set * set;
+    const int bitdepth_max = bpc == 8 ? 255 : 1023;
+    const ptrdiff_t bytes = bpc == 8 ? 1 : 2, stride = 64 * bytes;
+    _Alignas(64) static uint16_t picture[64 * 64], edge[257], luma[64 * 64], pal[8];
+    _Alignas(64) static int16_t ac[32 * 32];
+    _Alignas(64) static uint8_t idx[32 * 64];
+    uint32_t seed = 12345;
+#define NEXT (seed = seed * 1664525u + 1013904223u, (int) (seed >> 16))
+#define PUT(buffer, i, value) \
+    (bpc == 8 ? (void) (((uint8_t *) (buffer))[i] = (uint8_t) (value)) : (void) ((buffer)[i] = (uint16_t) (value)))
+    for (int i = 0; i < 257; i++) PUT(edge, i, (i * 5 + (NEXT & 63)) & bitdepth_max);
+    for (int i = 0; i < 64 * 64; i++) PUT(luma, i, ((i % 64) * 3 + (i / 64) * 2 + (NEXT & 31)) & bitdepth_max);
+    for (int i = 0; i < 8; i++) PUT(pal, i, NEXT & bitdepth_max);
+    for (int i = 0; i < 32 * 64; i++) idx[i] = (uint8_t) (NEXT & 0x77);
+    long sum_ac = (long) (w * h >> 1);
+    for (int i = 0; i < w * h && i < 32 * 32; i++) sum_ac += ac[i] = (int16_t) (NEXT & (bitdepth_max << 3));
+    if (slot >= 17 && slot <= 22)
+        for (int i = 0; i < w * h; i++) ac[i] = (int16_t) (ac[i] - sum_ac / (w * h));
+    const void *const topleft = (const uint8_t *) edge + 128 * bytes;
+    const int ss_hor = slot != 16, ss_ver = slot == 14;
+    const int w_pad = param ? (w >> 2) - (2 >> ss_hor) : 0, h_pad = param ? (h >> 2) - (2 >> ss_ver) : 0;
+    uint64_t sum = 0;
+    for (long k = 0; k < iterations + set; k++) {
+        const int p = (int) (k % set);
+        if (call) {
+            if (slot < 14) {
+                const int a = z ? (90 * (slot - 6) + (fixed_angle >= 0 ? fixed_angle : z_angles[p])) | param
+                                : slot == 13 ? p : 0;
+                c.intra_pred[slot](picture, stride, topleft, w, h, a, 128, 128, bitdepth_max);
+            } else if (slot < 17) {
+                c.cfl_ac[slot - 14](ac, luma, stride, w_pad > 0 ? w_pad : 0, h_pad > 0 ? h_pad : 0, w, h);
+            } else if (slot < 23) {
+                c.cfl_pred[slot - 17](picture, stride, topleft, w, h, ac, alphas[p], bitdepth_max);
+            } else {
+                c.pal_pred(picture, stride, pal, idx, w, h);
+            }
+        }
+        if (k >= iterations) {
+            for (size_t i = 0; i < sizeof(picture); i++) sum = sum * 31 + ((const uint8_t *) picture)[i];
+            if (slot >= 14 && slot < 17)
+                for (int i = 0; i < w * h; i++) sum = sum * 31 + (uint16_t) ac[i];
+        }
+    }
+#undef NEXT
+#undef PUT
+    printf("checksum=%016llx calls=%ld\n", (unsigned long long) sum, iterations + set);
+    return 0;
+}
+
 int main(int argc, char **argv) {
+    if (argc == 12 && !strcmp(argv[3], "ipred")) {
+        void *library = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL);
+        if (!library) { fprintf(stderr, "%s\n", dlerror()); return 1; }
+        void (*init_cpu)(void) = (void (*)(void)) dlsym(library, "dav1d_init_cpu");
+        void (*set_mask)(unsigned) = (void (*)(unsigned)) dlsym(library, "dav1d_set_cpu_flags_mask");
+        if (!init_cpu || !set_mask) { fprintf(stderr, "missing symbols\n"); return 1; }
+        init_cpu();
+        set_mask((unsigned) strtoul(argv[2], NULL, 0));
+        return ipred(library, argv);
+    }
     if (argc == 9 && !strcmp(argv[3], "cdef")) {
         void *library = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL);
         if (!library) { fprintf(stderr, "%s\n", dlerror()); return 1; }

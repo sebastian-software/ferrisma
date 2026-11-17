@@ -69,12 +69,14 @@ PROFILES = {
 # assignments)
 FAMILIES = {
     'cdef': ('cdef_tmpl.rs', 'dav1d_cdef_dsp_init_{bpc}bpc', None),
+    'ipred': ('ipred_tmpl.rs', 'dav1d_intra_pred_dsp_init_{bpc}bpc', None),
     'itx': ('itx_tmpl.rs', 'dav1d_itx_dsp_init_{bpc}bpc',
             'let mut all_simd: core::ffi::c_int = 0 as core::ffi::c_int;'),
     'loopfilter': ('loopfilter_tmpl.rs', 'dav1d_loop_filter_dsp_init_{bpc}bpc', None),
 }
 CALLS = {
     'cdef': 'crate::simd::{arch}::cdef::cdef_dsp_init_{arch}_{bpc}bpc(c.cast());',
+    'ipred': 'crate::simd::{arch}::ipred::intra_pred_dsp_init_{arch}_{bpc}bpc(c.cast());',
     'itx': 'crate::simd::{arch}::itx::itx_dsp_init_{arch}_{bpc}bpc(c.cast(), bpc, &raw mut all_simd);',
     'loopfilter': 'crate::simd::{arch}::loopfilter::loop_filter_dsp_init_{arch}_{bpc}bpc(c.cast());',
 }

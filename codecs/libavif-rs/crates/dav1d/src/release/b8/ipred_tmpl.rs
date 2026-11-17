@@ -1705,4 +1705,5 @@ pub unsafe extern "C" fn dav1d_intra_pred_dsp_init_8bpc(
                 core::ffi::c_int,
             ) -> (),
     ) as pal_pred_fn;
+    crate::simd::arm::ipred::intra_pred_dsp_init_arm_8bpc(c.cast()); // dav1d-dispatch
 }

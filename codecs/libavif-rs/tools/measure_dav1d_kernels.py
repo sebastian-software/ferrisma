@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Instructions per call of rebuilt dav1d kernels against the original's assembly.
 
-Usage: python3 tools/measure_dav1d_kernels.py [--family itx|itx16|msac|lpf|cdef] [--calls N]   (macOS ARM64)
+Usage: python3 tools/measure_dav1d_kernels.py [--family itx|itx16|msac|lpf|cdef|ipred] [--calls N]   (macOS ARM64)
 
 For each 8 bpc inverse-transform entry point rebuilt so far (ADR 0062), the
 driver `tools/dav1d-kernel-bench.c` calls the kernel N times on fixed inputs
@@ -30,6 +30,23 @@ pixels) on one superblock edge of 32 units with mixed filter widths (see
 pixels), the filters with the edge flags 0xf (fully edged), 0x0, 0x5 and
 0xa; `--calls` / 64 calls each. Results:
 `build/dav1d-kernel-instructions-cdef.json`.
+
+`--family ipred`: every slot of `dav1d_intra_pred_dsp_init_<bpc>bpc` that
+`intra_pred_dsp_init_arm` assigns, for every block size the original's
+checkasm test calls it with (`dav1d-kernel-bench.c` has the inputs): the
+fourteen `intra_pred` modes (Z1 to Z3 each over the 27 test angles with the
+flag sets 0, 0x400 (intra edge filter) and 0x600 (and smooth); the filter
+predictor over its five filters), the four `cfl_pred` modes over four
+alphas, the three `cfl_ac` layouts without padding and with the largest
+padding, and `pal_pred`; `--calls` / block area calls each, at least 250,000
+(a process's instruction count varies by some 10^5 between runs, which is
+visible in a kernel of 100 instructions below that). `--bpc 8` or
+`--bpc 16` restricts the bit depth, `--angle N` pins Z1 to Z3 to one angle
+(0..90, relative to the mode). Results:
+`build/dav1d-kernel-instructions-ipred.json`.
+
+`--port PATH` measures another build of the port's cdylib (a development
+copy) and `--output PATH` writes the JSON elsewhere; both for `ipred` only.
 """
 MSAC = [('dav1d_msac_decode_symbol_adapt4_neon', ns) for ns in (1, 2, 3)]
 MSAC += [('dav1d_msac_decode_symbol_adapt8_neon', ns) for ns in (4, 7)]
@@ -61,6 +78,37 @@ def rebuilt_kernels(bpc=8):
     return out
 
 
+INTRA_MODES = ['dc', 'v', 'h', 'dc_left', 'dc_top', 'dc_128', 'z1', 'z2', 'z3', 'smooth', 'smooth_v', 'smooth_h',
+               'paeth', 'filter']
+
+
+def block_sizes(max_w, max_h):
+    """The (w, h) the original's checkasm test uses: h from w / 4 to w * 4."""
+    return [(w, h) for w in (4, 8, 16, 32, 64) if w <= max_w
+            for h in (4, 8, 16, 32, 64) if max(w // 4, 4) <= h <= min(w * 4, max_h)]
+
+
+def ipred_rows(bpc):
+    """(kernel label, path label, slot, w, h, param) of every measured call set."""
+    rows = []
+    for slot, mode in enumerate(INTRA_MODES):
+        limit = 32 if mode == 'filter' else 64
+        for w, h in block_sizes(limit, limit):
+            for flags in ((0, 0x400, 0x600) if mode in ('z1', 'z2', 'z3') else (0,)):
+                path = f'flags {flags:#x}' if mode in ('z1', 'z2', 'z3') else '-'
+                rows.append((f'ipred {mode} {w}x{h} {bpc}bpc', path, slot, w, h, flags))
+    for layout, (name, max_w, max_h) in enumerate([('420', 16, 16), ('422', 16, 32), ('444', 32, 32)]):
+        for w, h in block_sizes(max_w, max_h):
+            for pad in (0, 1):
+                rows.append((f'cfl_ac {name} {w}x{h} {bpc}bpc', 'max pad' if pad else 'no pad', 14 + layout, w, h, pad))
+    for index, name in ((0, 'dc'), (3, 'left'), (4, 'top'), (5, '128')):
+        for w, h in block_sizes(32, 32):
+            rows.append((f'cfl_pred {name} {w}x{h} {bpc}bpc', '-', 17 + index, w, h, 0))
+    for w, h in block_sizes(64, 64):
+        rows.append((f'pal_pred {w}x{h} {bpc}bpc', '-', 23, w, h, 0))
+    return rows
+
+
 def instructions(command):
     result = subprocess.run(['/usr/bin/time', '-l', *command], capture_output=True, text=True, check=True)
     count = int(re.search(r'(\d+)\s+instructions retired', result.stderr).group(1))
@@ -73,7 +121,11 @@ def main():
     parser.add_argument('--calls', type=int, default=32000000,
                         help='pixels processed per kernel and side (calls = this / block area)')
     parser.add_argument('--only', help='substring filter on kernel names')
-    parser.add_argument('--family', choices=['itx', 'itx16', 'msac', 'lpf', 'cdef'], default='itx')
+    parser.add_argument('--family', choices=['itx', 'itx16', 'msac', 'lpf', 'cdef', 'ipred'], default='itx')
+    parser.add_argument('--bpc', type=int, choices=[8, 16], help='ipred: only this bit depth')
+    parser.add_argument('--angle', type=int, default=-1, help='ipred: one angle (0..90) for Z1 to Z3')
+    parser.add_argument('--port', type=Path, help='ipred: the port cdylib to measure')
+    parser.add_argument('--output', type=Path, help='ipred: where to write the JSON')
     args = parser.parse_args()
     work = ROOT / 'build/dav1d-kernel-bench'
     work.mkdir(parents=True, exist_ok=True)
@@ -82,6 +134,38 @@ def main():
     original = ROOT / 'build/dav1d-dsp-release-neon/libdav1d-dsp-asm.dylib'
     port = ROOT.parents[1] / 'target/release/libdav1d.dylib'
     rows = []
+    if args.family == 'ipred':
+        port = args.port or port
+        for bpc in ([args.bpc] if args.bpc else [8, 16]):
+            for kernel, path, slot, w, h, param in ipred_rows(bpc):
+                if args.only and args.only not in kernel:
+                    continue
+                iterations = max(250000, args.calls // (w * h))
+                per_call, checksums = {}, {}
+                for side, library in (('original', original), ('port', port)):
+                    command = [driver, library, '0x1', 'ipred', str(bpc), str(slot), str(w), str(h), hex(param),
+                               str(args.angle), str(iterations)]
+                    base, _ = instructions(command + ['baseline'])
+                    result = subprocess.run(['/usr/bin/time', '-l', *command, 'call'], capture_output=True, text=True,
+                                            check=True)
+                    total = int(re.search(r'(\d+)\s+instructions retired', result.stderr).group(1))
+                    calls = int(re.search(r'calls=(\d+)', result.stdout).group(1))
+                    per_call[side] = (total - base) / calls
+                    checksums[side] = re.search(r'checksum=(\w+)', result.stdout).group(1)
+                row = {'kernel': kernel, 'path': path, 'calls': calls,
+                       'original_instructions': round(per_call['original'], 1),
+                       'port_instructions': round(per_call['port'], 1),
+                       'ratio': round(per_call['port'] / per_call['original'], 3),
+                       'identical_output': checksums['original'] == checksums['port']}
+                rows.append(row)
+                print(f"{row['kernel']:52s} {row['path']:16s} {row['original_instructions']:9.1f} "
+                      f"{row['port_instructions']:9.1f} {row['ratio']:6.3f} {row['identical_output']}", flush=True)
+        (args.output or ROOT / 'build/dav1d-kernel-instructions-ipred.json').write_text(json.dumps(
+            {'pixels_per_kernel': args.calls, 'level': 'neon', 'original': str(original), 'port': str(port),
+             'kernels': rows}, indent=2) + '\n')
+        if not all(row['identical_output'] for row in rows):
+            raise SystemExit('outputs differ')
+        return
     if args.family == 'cdef':
         calls = args.calls // 64
         slots = [('dir', 0, ['0xf']), ('fb[0] 8x8', 1, None), ('fb[1] 4x8', 2, None), ('fb[2] 4x4', 3, None)]

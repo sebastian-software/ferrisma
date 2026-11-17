@@ -22,6 +22,7 @@ pub mod cpu;
 pub mod arm64 {
     pub mod cdef;
     pub mod cdef16;
+    pub mod ipred;
     pub mod itx;
     pub mod itx16;
     pub mod loopfilter;
@@ -33,6 +34,7 @@ pub mod arm64 {
 #[cfg(target_arch = "aarch64")]
 pub mod arm {
     pub mod cdef;
+    pub mod ipred;
     pub mod itx;
     pub mod loopfilter;
     pub mod msac;
