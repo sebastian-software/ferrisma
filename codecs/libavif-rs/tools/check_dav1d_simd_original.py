@@ -24,9 +24,21 @@ compared, plus the AV1 items of every tracked AVIF under
 any `--image`. Both sides must give the same exit status and the same output;
 a corpus whose expected MD5 is known must also give that MD5. Results go to
 `build/dav1d-simd-original-<level>.json`.
+
+At a SIMD level the CPU must have the level (engine ADR-0027: a missing
+capability never passes as success): `--cpumask` only restricts what the CPU
+offers, so on an x86-64 CPU without AVX2 both sides would decode at a lower
+level, the original with its SSSE3 or SSE4.1 kernels and the port in C, and
+agree without having run an AVX2 kernel. The tool therefore loads the port's
+library (`target/release`, built by `tools/build_dav1d_consumers.py`), runs
+its `dav1d_init_cpu`, the mirror of the original's detection, and fails
+unless the detected flags contain the level's (`LEVEL_FLAGS`). With
+`--suffix` (a cross oracle run by an emulator) the check cannot be made and
+the tool says so.
 """
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+import ctypes
 import hashlib
 import json
 from pathlib import Path
@@ -36,6 +48,21 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 CPUMASK = {'neon': 'neon', 'avx2': 'avx2', 'scalar': '0'}
+# The CPU flags a level needs (src/arm/cpu.h, src/x86/cpu.h): NEON; SSE2,
+# SSSE3, SSE4.1 and AVX2.
+LEVEL_FLAGS = {'neon': 0x1, 'avx2': 0xf}
+
+
+def require_level(level):
+    """Fail unless this CPU has the SIMD level, as the port's detection reports it."""
+    library = ROOT.parents[1] / 'target/release' / ('libdav1d.dylib' if sys.platform == 'darwin' else 'libdav1d.so')
+    port = ctypes.CDLL(str(library))
+    port.dav1d_init_cpu()
+    flags = ctypes.c_uint.in_dll(port, 'dav1d_cpu_flags').value
+    if flags & LEVEL_FLAGS[level] != LEVEL_FLAGS[level]:
+        raise SystemExit(f'this CPU does not have the level {level}: detected flags {flags:#x}, '
+                         f'needed {LEVEL_FLAGS[level]:#x}; the comparison would run at a lower level')
+    return flags
 
 
 def boxes(data, start, end):
@@ -144,6 +171,13 @@ def main():
         if not json.loads((original.parents[1] / 'reference-profile.json').read_text()).get('assembly'):
             raise SystemExit('the SIMD level needs the assembly oracle (tools/build_dav1d.py --asm)')
     port = build / (f'dav1d-rust-release{args.suffix}' + ('-portable' if args.level == 'scalar' else '')) / 'tools/dav1d'
+    detected = None
+    if args.level != 'scalar' and args.suffix:
+        # A cross oracle that an emulator runs (the QEMU container): this
+        # process cannot load the foreign library; the CPU is the emulator's.
+        print(f'{args.level}: CPU level not checked with --suffix {args.suffix} (cross build under an emulator)')
+    elif args.level != 'scalar':
+        detected = require_level(args.level)
     work = build / f'dav1d-simd-original-{args.level}'
     cases = corpus(work, args.image)
     workdir = ROOT / 'build/dav1d-reference-release'
@@ -158,7 +192,8 @@ def main():
         results = list(executor.map(one, cases))
     differing = [r for r in results if not r['equal'] or not r['expected_ok']]
     decoded = sum(1 for r in results if r['original'][0] == 0)
-    summary = {'level': args.level, 'cpumask': CPUMASK[args.level], 'original': str(original),
+    summary = {'level': args.level, 'cpumask': CPUMASK[args.level],
+               'detected_cpu_flags': None if detected is None else hex(detected), 'original': str(original),
                'port': str(port), 'cases': len(results), 'decoded': decoded,
                'identical': len(results) - len(differing),
                'corpus_sha256': hashlib.sha256(json.dumps([c[:2] for c in cases]).encode()).hexdigest(),

@@ -100,6 +100,25 @@ jobs:
         python3 tools/check_dav1d_dsp.py
         python3 tools/check_dav1d_dsp.py --debug
         python3 tools/verify_upstream.py
+    # ADR 0062, engine ADR-0041: the kernels rebuilt from dav1d's x86 assembly
+    # against that assembly, on this runner's hardware. The oracle is the
+    # original built with its assembly; both sides are restricted to SSE2
+    # through AVX2. A runner whose CPU lacks AVX2 fails both steps (engine
+    # ADR-0027: a missing capability never passes as success):
+    # check_dav1d_dsp.py requires the original's and the port's own CPU
+    # detection to report the level, check_dav1d_simd_original.py the port's.
+    # The smoke tier runs the per-kernel gate alone.
+    - name: Original assembly against the rebuilt AVX2 kernels, per kernel
+      if: runner.os == 'Linux' && matrix.architecture == 'x86_64'
+      run: |
+        python3 tools/build_dav1d.py --asm
+        python3 tools/check_dav1d_dsp.py --simd avx2
+    - name: Original assembly against the rebuilt AVX2 kernels, whole images
+      if: runner.os == 'Linux' && matrix.architecture == 'x86_64' && env.CI_TIER == 'full'
+      run: |
+        python3 tools/build_dav1d_consumers.py --portable
+        python3 tools/check_dav1d_simd_original.py --level avx2 --jobs 2
+        python3 tools/check_dav1d_simd_original.py --level scalar --jobs 2
     - name: Original static allocation and thread-failure fuzzer
       if: runner.os == 'Linux' && env.CI_TIER == 'full'
       run: |
@@ -113,7 +132,9 @@ jobs:
         tier = os.environ['CI_TIER']
         Path('build/dav1d-ci-scope.json').write_text(json.dumps(dict(
             tier=tier, native_runner=os.environ['RUNNER_OS'], api_and_abi_profiles=['release', 'debug'],
-            public_api_abi_and_ownership=True, complete_original_corpus_profiles=['release', 'debug'] if tier == 'full' else []), indent=2) + '\n')
+            public_api_abi_and_ownership=True, complete_original_corpus_profiles=['release', 'debug'] if tier == 'full' else [],
+            simd_per_kernel_levels=['avx2'] if os.environ['RUNNER_OS'] == 'Linux' else [],
+            simd_whole_image_levels=['avx2', 'scalar'] if os.environ['RUNNER_OS'] == 'Linux' and tier == 'full' else []), indent=2) + '\n')
         PY
     - name: Preserve native comparison evidence
       if: always()
@@ -133,6 +154,8 @@ jobs:
           codecs/libavif-rs/build/dav1d-dsp-*/results.log
           codecs/libavif-rs/build/dav1d-dsp-*/inventory.json
           codecs/libavif-rs/build/dav1d-faults-*/summary.json
+          codecs/libavif-rs/build/dav1d-asm-*/reference-profile.json
+          codecs/libavif-rs/build/dav1d-simd-original-*.json
     name: 'AVIF dav1d: parity'
     defaults:
       run:
