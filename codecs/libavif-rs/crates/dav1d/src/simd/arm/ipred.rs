@@ -21,16 +21,15 @@
 //! strength 3 loads from `in - 1`. Therefore `buf` (z2) and `flipped` (z3)
 //! are zero-initialized and, being passed to `ipred_z1_filter_edge` as
 //! `in`, have one element in front of them (`buf` four, for the z2 fill
-//! kernel of width 64); `top_out` (z1) and `left_out` (z3) stay
-//! uninitialized, are only reached through raw pointers, and get 16 zeroed
-//! elements behind the padded range:
+//! kernel of width 64); `top_out` (z1) and `left_out` (z3) are zeroed whole
+//! as well (`zeroed_scratch`), before anything is written to them. No
+//! kernel therefore loads an element of a wrapper's buffer that has no
+//! value, whatever it loads; what the kernels are known to load:
 //! - z1 `top_out`: the edge kernels or `memcpy` write `[0, max_base_x]`
 //!   and `ipred_pixel_set` the `pad_pixels * base_inc` elements behind it
-//!   (more, in whole blocks). `ipred_z1_fill1`/`fill2` load at a row's
-//!   `base`, at most `max_base_x + 15` (`+ 31` upsampled), 8, 16 or
-//!   `width + 16` pixels at 8 bpc and 8, 9 or `width + 8` at 16 bpc
-//!   (8 or 16 upsampled): at most 15 elements past the padded range (at
-//!   width >= 16 and 8 bpc), which are the 16 zeroed ones;
+//!   (more, in whole blocks). `ipred_z1_fill1`/`fill2` load whole blocks at
+//!   a row's `base`, which reach past the padded range (by up to 15
+//!   elements, as enumerated when the kernels were translated);
 //! - z2 `buf`: `flipped[-1]` is `buf[-1]` in C. The fill kernels load whole
 //!   vectors around what the wrapper writes: below `top[0]` down to
 //!   `top[-69]` (width 64; `top[-65]` is `buf[0]` in C, hence four elements
@@ -46,12 +45,19 @@
 //!   At 8 bpc with `max_base_y > 64`, `ipred_z3_fill1` loads
 //!   `height + 16` pixels at the base of each column, and the second
 //!   column of a pair, whose base is not compared with `max_base_y`,
-//!   starts at most 15 above it: at most 15 elements past the padded range
-//!   (`pad_pixels` is `height + 15` there), which are the 16 zeroed ones.
-//!   Every other path reads only inside the padded range: the `tbx` paths
-//!   at 8 bpc read `left_out[0..64]` at most (`pad_pixels` covers 64), and
-//!   at 16 bpc a column loads 8, 9 or `height + 8` pixels.
+//!   starts above it (by up to 15 elements, as enumerated when the kernels
+//!   were translated).
+//!
+//! Outside the wrappers' buffers: Z1 at 64x64 with the intra edge filter
+//! makes `ipred_z1_filter_edge` load up to `topleft_in[142]` at 8 bpc and
+//! `topleft_in[134]` at 16 bpc, 14 and 6 pixels past the caller's
+//! `edge[257]` array (`topleft_in` is `edge + 128`), as the assembly does.
+//! The test `the_edge_array_has_readable_slack_behind_it` checks that the
+//! decoder's edge array has those bytes behind it inside the same scratch
+//! structure.
+use core::arch::aarch64::{uint8x16x4_t, vdupq_n_u8, vst1q_u8_x4};
 use core::ffi::{c_int, c_void};
+use core::mem::MaybeUninit;
 
 use super::super::cpu::{dav1d_get_cpu_flags, DAV1D_ARM_CPU_FLAG_NEON};
 use crate::common::tables::dav1d_dr_intra_derivative;
@@ -196,6 +202,36 @@ fn get_upsample(wh: c_int, angle: c_int, is_sm: c_int) -> c_int {
     (angle < 40 && wh <= 16 >> is_sm) as c_int
 }
 
+/// Not in the original: writes zero to every byte of `buf` and returns the
+/// pointer to its first element. For the wrappers' `top_out` and `left_out`,
+/// which C leaves uninitialized and whose kernels load whole blocks of
+/// pixels: zeroed whole, no load from the buffer can find an element without
+/// a value, whichever elements the kernels load.
+///
+/// The stores are 64-byte multi-register stores (`st1 {v0.16b-v3.16b}`): one
+/// per 64 bytes, and one more that ends at the buffer's last byte and
+/// overlaps the one before when the size is not a multiple of 64. With `N`
+/// constant the loop is unrolled: five stores for the 302 or 286 pixels at
+/// 8 bpc, ten or nine at 16 bpc. (`[0; N]` compiles to a `bzero` call at
+/// 16 bpc, about 68 instructions.)
+#[inline(always)]
+unsafe fn zeroed_scratch<T, const N: usize>(buf: &mut MaybeUninit<[T; N]>) -> *mut T {
+    let bytes = N * core::mem::size_of::<T>();
+    debug_assert!(bytes >= 64);
+    let p = buf.as_mut_ptr() as *mut u8;
+    let zero = vdupq_n_u8(0);
+    let zero = uint8x16x4_t(zero, zero, zero, zero);
+    let mut at = 0;
+    while at + 64 <= bytes {
+        vst1q_u8_x4(p.add(at), zero);
+        at += 64;
+    }
+    if at < bytes {
+        vst1q_u8_x4(p.add(bytes - 64), zero);
+    }
+    p as *mut T
+}
+
 /// The three wrappers of `src/arm/ipred.h` for one bit depth. `$pixel` is
 /// `pixel`; `$bd` is `HIGHBD_DECL_SUFFIX`/`HIGHBD_TAIL_SUFFIX` (nothing at
 /// 8 bpc, `bitdepth_max` at 16 bpc). The kernel names are those of the
@@ -219,8 +255,9 @@ macro_rules! z_wrappers {
             let enable_intra_edge_filter = angle >> 10;
             angle &= 511;
             let mut dx = dav1d_dr_intra_derivative[(angle >> 1) as usize] as c_int;
-            let mut top_out_buf = core::mem::MaybeUninit::<[$pixel; 64 + 64 + (64 + 15) * 2 + 16]>::uninit();
-            let top_out = top_out_buf.as_mut_ptr() as *mut $pixel;
+            // Zeroed whole (uninitialized in the original): see `zeroed_scratch`.
+            let mut top_out_buf = MaybeUninit::<[$pixel; 64 + 64 + (64 + 15) * 2 + 16]>::uninit();
+            let top_out = zeroed_scratch(&mut top_out_buf);
             let max_base_x;
             let upsample_above =
                 if enable_intra_edge_filter != 0 { get_upsample(width + height, 90 - angle, is_sm) } else { 0 };
@@ -244,10 +281,6 @@ macro_rules! z_wrappers {
             }
             let base_inc = 1 + upsample_above;
             let pad_pixels = width + 15; // max(dx >> 6) == 15
-            // Not in the original: the fill kernels load whole blocks at each row's base, up to 15 elements
-            // past the `pad_pixels * base_inc` that follow `top_out[max_base_x]` (the values are not used);
-            // `dav1d_ipred_pixel_set` writes in blocks too and covers only some of them. Give them a value.
-            core::ptr::write_bytes(top_out.add((max_base_x + 1 + pad_pixels * base_inc) as usize), 0, 16);
             pixel_set(top_out.add(max_base_x as usize + 1), *top_out.add(max_base_x as usize), pad_pixels * base_inc);
             if upsample_above != 0 {
                 z1_fill2(dst, stride, top_out, width, height, dx, max_base_x);
@@ -378,8 +411,9 @@ macro_rules! z_wrappers {
             // One element in front: `ipred_z1_filter_edge` reads `flipped[-1]`.
             let mut flipped_buf: [$pixel; 1 + 64 + 64 + 16] = [0; 1 + 64 + 64 + 16];
             let flipped = flipped_buf.as_mut_ptr().add(1);
-            let mut left_out_buf = core::mem::MaybeUninit::<[$pixel; 64 + 64 + (64 + 15) * 2]>::uninit();
-            let left_out = left_out_buf.as_mut_ptr() as *mut $pixel;
+            // Zeroed whole (uninitialized in the original): see `zeroed_scratch`.
+            let mut left_out_buf = MaybeUninit::<[$pixel; 64 + 64 + (64 + 15) * 2]>::uninit();
+            let left_out = zeroed_scratch(&mut left_out_buf);
             let max_base_y;
             let upsample_left =
                 if enable_intra_edge_filter != 0 { get_upsample(width + height, angle - 180, is_sm) } else { 0 };
@@ -411,10 +445,6 @@ macro_rules! z_wrappers {
             // the other implementation can read height + max(dy >> 6) past the end.
             let pad_pixels = imax(64 - max_base_y - 1, height + 15);
 
-            // Not in the original: at 8 bpc with `max_base_y > 64`, `ipred_z3_fill1` loads whole 16-pixel
-            // blocks at each column's base, up to 15 elements past the `pad_pixels * base_inc` that follow
-            // `left_out[max_base_y]` (the values are not used). Give them a value.
-            core::ptr::write_bytes(left_out.add((max_base_y + 1 + pad_pixels * base_inc) as usize), 0, 16);
             pixel_set(left_out.add(max_base_y as usize + 1), *left_out.add(max_base_y as usize), pad_pixels * base_inc);
             if upsample_left != 0 {
                 z3_fill2(dst, stride, left_out, width, height, dy, max_base_y);
@@ -618,6 +648,85 @@ mod tests {
         assert_eq!(get_filter_strength(16, 20, 1), 1);
         assert_eq!(get_filter_strength(24, 3, 1), 0);
         assert_eq!(get_filter_strength(25, 0, 1), 3);
+    }
+
+    /// Z1 at 64x64 with the intra edge filter: `ipred_z1_filter_edge` loads
+    /// `topleft_in[-1..=142]` at 8 bpc and `topleft_in[-1..=134]` at 16 bpc
+    /// (ADR 0062), as the assembly does; `topleft_in` is `edge + 128`, so the
+    /// loads end 14 and 6 pixels behind the caller's `edge[257]`. The values
+    /// are masked out; the bytes must be readable.
+    ///
+    /// The callers of the `intra_pred` slots, from the translated units (four
+    /// call sites per bit depth, `recon_tmpl`): `dav1d_recon_b_intra_<bpc>`
+    /// passes `t->scratch.edge_<bpc> + 128` for luma and for chroma;
+    /// `dav1d_recon_b_inter_<bpc>` (inter-intra, luma and chroma) passes the
+    /// same array `+ 32`, for blocks of at most 32x32 and the modes DC,
+    /// vertical, horizontal and smooth, never Z1. So every Z1 call has the
+    /// edge array of the task context's scratch union behind `topleft_in`,
+    /// and this test fails if that array no longer has the pixels above
+    /// behind it inside the structure that holds it (at 8 bpc they are
+    /// padding and the first bytes of `pal_8bpc`, at 16 bpc padding and
+    /// `pal_16bpc`) or inside the scratch union as a whole. The contexts are
+    /// allocated and zeroed whole by `dav1d_open` (`memset(c->tc, 0, ..)`),
+    /// so padding bytes have a value too.
+    ///
+    /// Outside the decoder the slot is called by the original's checkasm
+    /// test, with a 257-pixel stack array as for the assembly, and by
+    /// `tools/dav1d-kernel-bench.c`, whose array has the slack.
+    ///
+    /// What the test does not show: the callers derive the pointer from the
+    /// array field, so under Rust's reference-based aliasing models it is a
+    /// pointer to 257 pixels, even though the bytes behind them belong to
+    /// the same allocation.
+    #[test]
+    fn the_edge_array_has_readable_slack_behind_it() {
+        use core::mem::{offset_of, size_of};
+        const PAST_8BPC: usize = 128 + 142 + 1 - 257;
+        const PAST_16BPC: usize = 128 + 134 + 1 - 257;
+        assert_eq!((PAST_8BPC, PAST_16BPC), (14, 6));
+        fn field_size<T, F>(_: impl Fn(&T) -> &F) -> usize {
+            size_of::<F>()
+        }
+        {
+            use crate::b8::recon_tmpl::Dav1dTaskContext as Context;
+            let scratch_end = offset_of!(Context, scratch) + field_size(|t: &Context| &t.scratch);
+            let holder = offset_of!(Context, scratch.c2rust_unnamed_0.c2rust_unnamed_1.c2rust_unnamed);
+            let holder_end = holder
+                + field_size(|t: &Context| unsafe { &t.scratch.c2rust_unnamed_0.c2rust_unnamed_1.c2rust_unnamed });
+            let edge = offset_of!(
+                Context,
+                scratch.c2rust_unnamed_0.c2rust_unnamed_1.c2rust_unnamed.edge_8bpc
+            );
+            let edge_size = field_size(|t: &Context| unsafe {
+                &t.scratch.c2rust_unnamed_0.c2rust_unnamed_1.c2rust_unnamed.edge_8bpc
+            });
+            assert_eq!(edge_size, 257);
+            assert!(holder_end <= scratch_end);
+            assert!(
+                edge + edge_size + PAST_8BPC <= holder_end,
+                "8 bpc: {edge} + {edge_size}, structure ends at {holder_end}"
+            );
+        }
+        {
+            use crate::b16::recon_tmpl::Dav1dTaskContext as Context;
+            let scratch_end = offset_of!(Context, scratch) + field_size(|t: &Context| &t.scratch);
+            let holder = offset_of!(Context, scratch.c2rust_unnamed_0.c2rust_unnamed_1.c2rust_unnamed_0);
+            let holder_end = holder
+                + field_size(|t: &Context| unsafe { &t.scratch.c2rust_unnamed_0.c2rust_unnamed_1.c2rust_unnamed_0 });
+            let edge = offset_of!(
+                Context,
+                scratch.c2rust_unnamed_0.c2rust_unnamed_1.c2rust_unnamed_0.edge_16bpc
+            );
+            let edge_size = field_size(|t: &Context| unsafe {
+                &t.scratch.c2rust_unnamed_0.c2rust_unnamed_1.c2rust_unnamed_0.edge_16bpc
+            });
+            assert_eq!(edge_size, 257 * 2);
+            assert!(holder_end <= scratch_end);
+            assert!(
+                edge + edge_size + PAST_16BPC * 2 <= holder_end,
+                "16 bpc: {edge} + {edge_size}, structure ends at {holder_end}"
+            );
+        }
     }
 
     /// With NEON allowed every slot `intra_pred_dsp_init_arm` assigns holds a

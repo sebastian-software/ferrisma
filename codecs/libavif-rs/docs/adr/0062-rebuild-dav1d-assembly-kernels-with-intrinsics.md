@@ -559,7 +559,8 @@ re-derive; zeroing the whole buffers instead is a two-line change per
 wrapper and was measured at 7 to 13 instructions per call. Cost as
 built: 7 instructions per Z3 call for `flipped` and about 4 per Z1 or Z3
 call for the 16 elements; the Z2 buffer's zeroing was not measured
-apart.
+apart. (Replaced the same day: both buffers are zeroed whole, see the
+entry on the wrappers below.)
 
 Kept as the assembly, stated as a finding: Z1 at 64x64 with the intra
 edge filter makes `ipred_z1_filter_edge` load `topleft[-1..=142]`, 14
@@ -674,6 +675,71 @@ needs 1.11 times the instructions on the 8-bit 4:2:0 still, 1.12 on
 4:4:4. Intra prediction is complete on NEON; not rebuilt on any target:
 loop restoration and film grain; on x86-64 nothing yet.
 
+**2026-11-17, intra prediction wrappers: buffers zeroed whole, edge
+slack checked** (follow-up to the two entries above, on two decisions they
+left open). (1) `ipred_z1_neon` zeroes the whole `top_out` and
+`ipred_z3_neon` the whole `left_out` before anything is written to them,
+at both bit depths, instead of the 16 elements behind the padded range
+(deviation (o)). The partial form was sound only if the enumeration of
+every kernel load over every block size, angle and flag set was right,
+and nobody had re-derived it; now no load from a wrapper's buffer can
+find an element without a value whatever the kernels load, as for the Z2
+and Z3 `buf` and `flipped` buffers and the 16 bpc inverse transforms.
+`zeroed_scratch` in `simd/arm/ipred.rs` writes the buffer with 64-byte
+multi-register stores (`st1 {v0.16b-v3.16b}`, the last one ending at the
+buffer's end and overlapping the one before): five stores for the 302 or
+286 bytes at 8 bpc, ten or nine for the 604 or 572 bytes at 16 bpc. As
+compiled, counted in the disassembly of the Z1 wrapper: 14 instructions
+per call at 8 bpc and 24 at 16 bpc (one `movi` and three `mov`, then
+`add` + `st1` per store, because `st1` of several registers has no
+offset addressing), against about 4 for the 16 elements, and against the
+`bzero` call of about 68 instructions that a plain `[0; N]` compiles to
+at 16 bpc. `--family ipred`, all 518 rows per bit depth, identical
+outputs: 0.83 to 1.26, median 1.07 at 8 bpc and 0.88 to 1.23, median
+1.05 at 16 bpc; none above 1.3, so no row had to be accepted. Z1
+(lowest / median / highest) 0.85 / 1.00 / 1.12 at 8 bpc and 0.95 / 1.06
+/ 1.15 at 16 bpc (before: 0.85 / 0.98 / 1.10 and 0.94 / 1.01 / 1.08), Z3
+0.86 / 1.08 / 1.18 and 0.89 / 1.02 / 1.18 (0.86 / 1.05 / 1.17 and 0.89 /
+1.00 / 1.12); the highest Z1 row is 8x4 with the edge filter at 16 bpc
+(278 against 241 instructions), the highest Z3 rows 16x32 at 8 bpc and
+4x4 at 16 bpc.
+
+(2) The read behind the caller's edge array stays as the assembly (Z1 at
+64x64 with the intra edge filter: `topleft[-1..=142]` at 8 bpc,
+`topleft[-1..=134]` at 16 bpc, 14 and 6 pixels behind `edge[257]`), and
+the assumption that makes it harmless is now a test,
+`the_edge_array_has_readable_slack_behind_it` in `simd/arm/ipred.rs`.
+The callers, read from the translated units: the `intra_pred` slots have
+four call sites per bit depth, all in `recon_tmpl`;
+`dav1d_recon_b_intra` passes `t->scratch.edge + 128` for luma and for
+chroma, and `dav1d_recon_b_inter` (inter-intra) passes the same array
+`+ 32` for blocks of at most 32x32 with the modes DC, vertical,
+horizontal and smooth, which `dav1d_prepare_intra_edges` never turns
+into Z1. The test takes the offsets and sizes of the translated
+`Dav1dTaskContext` of each bit depth (`offset_of!` along the field path
+the callers use) and requires the 14 bytes (8 bpc) and 12 bytes (16 bpc)
+behind the edge array to lie inside the structure that holds it, and
+that structure inside the scratch union. As translated there are 31 and
+62 bytes (alignment padding and the palette array); the contexts are
+allocated and zeroed whole by `dav1d_open`, so the padding has a value.
+Demanding one byte more than there is makes the test fail (checked with
+32 at 8 bpc). Outside the decoder the slot is called by the original's
+checkasm test, with a 257-pixel stack array, as for the assembly, and by
+`tools/dav1d-kernel-bench.c`, whose edge array now has 16 pixels behind
+the 257 (same outputs). Stated limit: the callers derive the pointer
+from the array field (`edge_8bpc.as_mut_ptr()` in the translation), so
+under Rust's reference-based aliasing models it is a pointer to 257
+pixels, although the bytes behind them are in the same allocation; the
+test checks the layout, not that.
+
+Gates at this state: per-kernel 17 groups, 3,155 selections each at
+`neon` and scalar, at each of the eight seeds; whole images 994 of 994
+at `neon` and at `scalar`; `run_dav1d_tests.py` 1,711 of 1,711; ABI
+12,157 checks, 0 differences; API 83, linkage, dispatch `--check` (9
+entries, 52 units) and its unit test; `cargo test --lib simd::` 17
+tests; `rustfmt --check` with `max_width = 120` on the three ipred
+modules.
+
 ## Review when
 
 A family is completed on a target; the x86-64 AVX2 kernels arrive; the owner
@@ -682,6 +748,7 @@ engine's decoder choice changes.
 
 ## Amendment log
 
+- 2026-11-17 — intra prediction wrappers: `top_out` and `left_out` zeroed whole, the edge array's slack checked by a test (validation above).
 - 2026-11-17 — intra prediction 16 bpc on NEON (validation above).
 - 2026-11-17 — intra prediction 8 bpc on NEON (validation above).
 - 2026-11-17 — the per-kernel gate runs eight seeds (validation above).
