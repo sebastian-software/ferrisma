@@ -118,6 +118,30 @@ class Listing(unittest.TestCase):
         self.assertEqual(sum(map(int, partition.RESULT.search(failed).groups())), 5)
 
 
+class Doctests(unittest.TestCase):
+    def test_the_last_partition_runs_every_doctest_unfiltered(self):
+        doctests = [("doc", "src/lib.rs - f (line 3)"), ("doc", "src/lib.rs - g (line 9)")]
+        listed = items(12, targets=("lib", "test:a", "test:b")) + doctests
+        commands = []
+        saved = partition.listing, partition.counted, partition.Partition.write
+        try:
+            partition.listing = lambda cargo_args, root, env: listed
+            partition.counted = lambda command, root, env: (commands.append(command), (0, 2))[1]
+            partition.Partition.write = lambda self: None
+            shares = []
+            for index in (1, 2, 3):
+                shard = partition.Partition(index, 3, [], ".", "g")
+                commands.clear()
+                shard.test("dev", ["--locked"], {})
+                shares.append([tuple(entry) for entry in shard.runs["dev"]["selected"]])
+                doc = [command for command in commands if "--doc" in command]
+                self.assertEqual(doc, [["cargo", "test", "--locked", "--doc", "--"]] if index == 3 else [])
+        finally:
+            partition.listing, partition.counted, partition.Partition.write = saved
+        self.assertEqual(sorted(entry for share in shares for entry in share), sorted(listed))
+        self.assertTrue(all(entry in shares[2] for entry in doctests))
+
+
 class Verify(unittest.TestCase):
     def test_complete_records_pass(self):
         self.assertEqual(partition.verify(records(items(30), 4, heavy=items(30)[:3])), [])

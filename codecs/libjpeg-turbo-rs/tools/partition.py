@@ -22,11 +22,13 @@ partitions together run every test exactly once:
   lists fails, so the list stays current.
 - Each target with selected tests runs as
   `cargo test <args> --test NAME -- --exact <tests>` (`--lib`, `--bin NAME`).
-  Doctests run as `cargo test <args> --doc -- <tests>`, without `--exact`:
-  rustdoc's merged doctests (edition 2024) list their full names but match
-  none of them exactly, only as substrings. The test count each target
-  reports must equal the number of selected tests, or the partition fails: a
-  name that matched nothing, or more than one test, cannot pass unnoticed. A failing target does not stop
+  The doctests are not dealt: the last partition runs all of them, as
+  `cargo test <args> --doc` without a filter, because rustdoc's merged
+  doctests (edition 2024) match none of their listed names with `--exact`
+  and run every merged doctest whatever filter they get (hosted run
+  44172001604: 66 selected, 133 run). The test count each target reports
+  must equal the number of selected tests, or the partition fails: a name
+  that matched nothing, or more than one test, cannot pass unnoticed. A failing target does not stop
   the later ones; the partition fails at the end.
 - `record()` writes the listed and the selected items of every run, and
   `python3 tools/partition.py verify <record files or directories>` fails
@@ -170,8 +172,10 @@ def run(cargo_args, root, env, selected, test_args=()):
         by_target.setdefault(target, []).append(name)
     for target in sorted(by_target, key=lambda key: (KIND_ORDER[key.split(":")[0]], key)):
         tests = sorted(by_target[target])
-        exact = [] if target == "doc" else ["--exact"]
-        command = ["cargo", "test", *cargo_args, *selector(target), "--", *test_args, *exact, *tests]
+        if target == "doc":
+            command = ["cargo", "test", *cargo_args, *selector(target), "--", *test_args]
+        else:
+            command = ["cargo", "test", *cargo_args, *selector(target), "--", *test_args, "--exact", *tests]
         status, total = counted(command, root, env)
         if status:
             problems.append(f"{target}: cargo test exited with {status}")
@@ -196,7 +200,11 @@ class Partition:
         if label in self.runs:
             raise SystemExit(f"partition run {label!r} appears twice")
         items = listing(cargo_args, self.root, env)
-        selected = deal(items, self.heavy, self.index, self.count, rotation=len(self.runs))
+        doctests = [entry for entry in items if entry[0] == "doc"]
+        selected = deal([entry for entry in items if entry[0] != "doc"], self.heavy, self.index, self.count,
+                        rotation=len(self.runs))
+        if self.index == self.count:
+            selected += doctests
         self.runs[label] = {"items": sorted(map(list, items)), "selected": sorted(map(list, selected))}
         print(f"Partition {self.index}/{self.count} of {label}: {len(selected)} of {len(items)} tests", flush=True)
         self.write()
