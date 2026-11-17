@@ -91,6 +91,25 @@ class DispatchText(unittest.TestCase):
         with self.assertRaises(SystemExit):
             dispatch.dispatch_text(MAC_ITX, ITX.replace('let mut all_simd', 'let all_simd'), ['itx_8bpc_arm'])
 
+    def test_loop_restoration_gets_the_bit_depth(self):
+        unit = '''#[no_mangle]
+#[cold]
+pub unsafe extern "C" fn dav1d_loop_restoration_dsp_init_16bpc(
+    c: *mut Dav1dLoopRestorationDSPContext,
+    bpc: core::ffi::c_int,
+) {
+    (*c).sgr[2 as core::ffi::c_int as usize] = Some(sgr_mix_c as unsafe extern "C" fn()) as looprestorationfilter_fn;
+}
+'''
+        rel = 'crates/dav1d/src/release/b16/looprestoration_tmpl.rs'
+        out = dispatch.dispatch_text(rel, unit, ['looprestoration_16bpc_arm'])
+        # At the end of the init, where the original calls loop_restoration_dsp_init_arm(c, bpc).
+        self.assertIn('as looprestorationfilter_fn;\n'
+                      '    crate::simd::arm::looprestoration::loop_restoration_dsp_init_arm_16bpc(c.cast(), bpc); '
+                      '// dav1d-dispatch\n}', out)
+        self.assertEqual(dispatch.dispatch_text(rel, out, []), unit)
+        self.assertEqual(dispatch.dispatch_text(rel, unit, ['looprestoration_8bpc_arm']), unit)
+
     def test_msac_renames_calls_only_and_reverses(self):
         out = dispatch.dispatch_text(MAC_MSAC, MSAC, ['msac_arm'])
         self.assertEqual(out.count('crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt4(s, cdf, 3'), 4)

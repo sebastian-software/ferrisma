@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Instructions per call of rebuilt dav1d kernels against the original's assembly.
 
-Usage: python3 tools/measure_dav1d_kernels.py [--family itx|itx16|msac|lpf|cdef|ipred] [--calls N]   (macOS ARM64)
+Usage: python3 tools/measure_dav1d_kernels.py [--family itx|itx16|msac|lpf|cdef|ipred|lr] [--calls N]   (macOS ARM64)
 
 For each 8 bpc inverse-transform entry point rebuilt so far (ADR 0062), the
 driver `tools/dav1d-kernel-bench.c` calls the kernel N times on fixed inputs
@@ -45,8 +45,21 @@ visible in a kernel of 100 instructions below that). `--bpc 8` or
 (0..90, relative to the mode). Results:
 `build/dav1d-kernel-instructions-ipred.json`.
 
+`--family lr`: the five loop restoration slots of
+`dav1d_loop_restoration_dsp_init_<bpc>bpc` (`wiener[0]`, 7 taps, and
+`wiener[1]`, 5 taps; `sgr[0..2]`: 5x5, 3x3, mix; the self-guided slots
+through the C wrappers of `src/arm/looprestoration.h`, which the original
+compiles around its row kernels) on units of 256x64 (a luma unit's stripe),
+64x64, 32x32 and 16x16 pixels with the edge flags 0xf (all four edges
+present) and 0x0 (every edge padded), and 64x64 also with 0x5 (left, top)
+and 0xa (right, bottom); 10-bit pixels at 16 bpc; `--calls` / unit area
+calls each, at least 250,000. `--bpc` as for `ipred`; `--jobs N` measures N
+rows at a time (instruction counts do not depend on the load). Results:
+`build/dav1d-kernel-instructions-lr.json`.
+
 `--port PATH` measures another build of the port's cdylib (a development
-copy) and `--output PATH` writes the JSON elsewhere; both for `ipred` only.
+copy) and `--output PATH` writes the JSON elsewhere; both for `ipred` and
+`lr` only.
 """
 MSAC = [('dav1d_msac_decode_symbol_adapt4_neon', ns) for ns in (1, 2, 3)]
 MSAC += [('dav1d_msac_decode_symbol_adapt8_neon', ns) for ns in (4, 7)]
@@ -54,6 +67,7 @@ MSAC += [('dav1d_msac_decode_symbol_adapt16_neon', ns) for ns in (10, 12, 15)]
 MSAC += [('dav1d_msac_decode_hi_tok_neon', 3), ('dav1d_msac_decode_bool_adapt_neon', 1),
          ('dav1d_msac_decode_bool_equi_neon', 0), ('dav1d_msac_decode_bool_neon', 0)]
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import json
 from pathlib import Path
 import re
@@ -109,6 +123,20 @@ def ipred_rows(bpc):
     return rows
 
 
+LR_SLOTS = ['wiener7', 'wiener5', 'sgr_5x5', 'sgr_3x3', 'sgr_mix']
+LR_SIZES = [(256, 64), (64, 64), (32, 32), (16, 16)]
+
+
+def lr_rows(bpc):
+    """(kernel label, path label, slot, w, h, edges) of every measured call set."""
+    rows = []
+    for slot, name in enumerate(LR_SLOTS):
+        for w, h in LR_SIZES:
+            for edges in ((0xf, 0x0, 0x5, 0xa) if (w, h) == (64, 64) else (0xf, 0x0)):
+                rows.append((f'lr {name} {w}x{h} {bpc}bpc', f'edges {edges:#x}', slot, w, h, edges))
+    return rows
+
+
 def instructions(command):
     result = subprocess.run(['/usr/bin/time', '-l', *command], capture_output=True, text=True, check=True)
     count = int(re.search(r'(\d+)\s+instructions retired', result.stderr).group(1))
@@ -121,8 +149,9 @@ def main():
     parser.add_argument('--calls', type=int, default=32000000,
                         help='pixels processed per kernel and side (calls = this / block area)')
     parser.add_argument('--only', help='substring filter on kernel names')
-    parser.add_argument('--family', choices=['itx', 'itx16', 'msac', 'lpf', 'cdef', 'ipred'], default='itx')
-    parser.add_argument('--bpc', type=int, choices=[8, 16], help='ipred: only this bit depth')
+    parser.add_argument('--family', choices=['itx', 'itx16', 'msac', 'lpf', 'cdef', 'ipred', 'lr'], default='itx')
+    parser.add_argument('--bpc', type=int, choices=[8, 16], help='ipred, lr: only this bit depth')
+    parser.add_argument('--jobs', type=int, default=1, help='lr: rows measured at a time')
     parser.add_argument('--angle', type=int, default=-1, help='ipred: one angle (0..90) for Z1 to Z3')
     parser.add_argument('--port', type=Path, help='ipred: the port cdylib to measure')
     parser.add_argument('--output', type=Path, help='ipred: where to write the JSON')
@@ -161,6 +190,38 @@ def main():
                 print(f"{row['kernel']:52s} {row['path']:16s} {row['original_instructions']:9.1f} "
                       f"{row['port_instructions']:9.1f} {row['ratio']:6.3f} {row['identical_output']}", flush=True)
         (args.output or ROOT / 'build/dav1d-kernel-instructions-ipred.json').write_text(json.dumps(
+            {'pixels_per_kernel': args.calls, 'level': 'neon', 'original': str(original), 'port': str(port),
+             'kernels': rows}, indent=2) + '\n')
+        if not all(row['identical_output'] for row in rows):
+            raise SystemExit('outputs differ')
+        return
+    if args.family == 'lr':
+        port = args.port or port
+
+        def measure(job):
+            kernel, path, slot, w, h, edges = job
+            iterations = max(250000, args.calls // (w * h))
+            per_call, checksums = {}, {}
+            for side, library in (('original', original), ('port', port)):
+                command = [driver, library, '0x1', 'lr', kernel.split()[-1][:-3], str(slot), str(w), str(h),
+                           hex(edges), str(iterations)]
+                base, _ = instructions(command + ['baseline'])
+                total, checksums[side] = instructions(command + ['call'])
+                per_call[side] = (total - base) / iterations
+            return {'kernel': kernel, 'path': path, 'calls': iterations,
+                    'original_instructions': round(per_call['original'], 1),
+                    'port_instructions': round(per_call['port'], 1),
+                    'ratio': round(per_call['port'] / per_call['original'], 3),
+                    'identical_output': checksums['original'] == checksums['port']}
+
+        jobs = [job for bpc in ([args.bpc] if args.bpc else [8, 16]) for job in lr_rows(bpc)
+                if not args.only or args.only in job[0]]
+        with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
+            for row in pool.map(measure, jobs):
+                rows.append(row)
+                print(f"{row['kernel']:52s} {row['path']:16s} {row['original_instructions']:11.1f} "
+                      f"{row['port_instructions']:11.1f} {row['ratio']:6.3f} {row['identical_output']}", flush=True)
+        (args.output or ROOT / 'build/dav1d-kernel-instructions-lr.json').write_text(json.dumps(
             {'pixels_per_kernel': args.calls, 'level': 'neon', 'original': str(original), 'port': str(port),
              'kernels': rows}, indent=2) + '\n')
         if not all(row['identical_output'] for row in rows):

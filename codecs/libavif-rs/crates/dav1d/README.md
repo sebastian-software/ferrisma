@@ -58,8 +58,8 @@ neon|avx2` (original checkasm bodies, original assembly against the port at
 the same level) and `tools/check_dav1d_simd_original.py` (whole decodes
 against `tools/build_dav1d.py --asm`). `dav1d_set_cpu_flags_mask(0)` selects
 the C kernels. Done so far on AArch64 NEON: the inverse transforms, the
-entropy decoder (msac), the loop filter, CDEF and intra prediction, at 8 and
-16 bpc.
+entropy decoder (msac), the loop filter, CDEF, intra prediction and loop
+restoration, at 8 and 16 bpc.
 
 Open work for this crate (the remaining SIMD kernels, safe wrappers, sanitizer coverage, the Argon
 corpus, the fault-fuzzer ASan mode on Linux) is tracked in the GitHub issues.

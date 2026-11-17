@@ -422,7 +422,7 @@
         "original-c-object-alignment": 20
       },
       "raw_sha256": "ae23282efb9213e8fccb4d863b9ace0dc1727debddced2895eb179aae2b35ca7",
-      "rust_sha256": "2d2e6d70d5cb0d33d16e0cdf426741485cebcf3100dc0fac218e23e468ab49c5"
+      "rust_sha256": "1a673393c9cdab3837589b7c76d3045a86541dd0f8d6c047eaaa4e623930b1b1"
     },
     {
       "source": "upstream/dav1d/src/lr_apply_tmpl.c",
@@ -577,7 +577,7 @@
         "original-c-object-alignment": 20
       },
       "raw_sha256": "460ffe84be5ca0ad439994e0971df1b147d271969fbfb48f8a723310e5f58324",
-      "rust_sha256": "88a6273c2e392ef4b4744109872f11ae64cbfe4fef7d5990eb992b74715ce57c"
+      "rust_sha256": "87c195704a1cfdba248d152a068b8c7579d8d86f378b94cd94246a631c621235"
     },
     {
       "source": "upstream/dav1d/src/lr_apply_tmpl.c",

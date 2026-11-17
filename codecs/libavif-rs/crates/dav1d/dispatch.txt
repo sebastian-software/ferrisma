@@ -7,4 +7,6 @@ itx_16bpc_arm
 itx_8bpc_arm
 loopfilter_16bpc_arm
 loopfilter_8bpc_arm
+looprestoration_16bpc_arm
+looprestoration_8bpc_arm
 msac_arm

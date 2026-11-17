@@ -2914,4 +2914,5 @@ pub unsafe extern "C" fn dav1d_loop_restoration_dsp_init_16bpc(
                 core::ffi::c_int,
             ) -> (),
     ) as looprestorationfilter_fn;
+    crate::simd::arm::looprestoration::loop_restoration_dsp_init_arm_16bpc(c.cast(), bpc); // dav1d-dispatch
 }

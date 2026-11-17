@@ -740,6 +740,247 @@ entries, 52 units) and its unit test; `cargo test --lib simd::` 17
 tests; `rustfmt --check` with `max_width = 120` on the three ipred
 modules.
 
+**2026-11-17, loop restoration on NEON, 8 and 16 bpc**
+(`looprestoration.S`, `looprestoration16.S` and the shared
+`looprestoration_common.S` and `looprestoration_tmpl.S`:
+`simd/arm64/looprestoration.rs`, `looprestoration16.rs`,
+`looprestoration_common.rs` and `looprestoration_tmpl.rs`, the template
+generic over the bit depth; the C glue of `src/arm/looprestoration.h` as
+compiled for AArch64, that is the self-guided wrappers
+`sgr_filter_{5x5,3x3,mix}_neon` with their helpers and
+`loop_restoration_dsp_init_arm`, translated by hand into the owned
+`simd/arm/looprestoration.rs`; `dispatch.txt`: `looprestoration_8bpc_arm`
+and `looprestoration_16bpc_arm`, the call at the end of the translated
+init with its `bpc` argument, where `looprestoration_tmpl.c` calls
+`loop_restoration_dsp_init_arm(c, bpc)`). Slots as in the original: under
+NEON the two `wiener` slots (7 and 5 taps) at every bit depth, and the
+three `sgr` slots (5x5, 3x3, mix) at 8 bpc and for 10-bit pictures;
+12-bit pictures keep the C self-guided kernels (`BITDEPTH == 8 || bpc ==
+10`). The header's `wiener_filter_neon` and row kernels under `ARCH_ARM`
+belong to the 32-bit build and have no counterpart. One step for both
+bit depths: the vertical box sums, the template and the wrappers are
+shared between them, as with CDEF. The assembly was translated in two
+parts (the Wiener filters; the self-guided kernels) by two agents in
+private copies of the crate, each gated against the assembly on its own,
+then joined, changed in the points named below (the buffers) and gated
+again as a whole; the figures below are of the joined state unless
+marked.
+
+Gates: per-kernel 17 groups, 3,155 selections each at `neon` and scalar,
+at each of the eight seeds (`looprestoration_8bpc` and
+`looprestoration_16bpc` `wiener` and `sgr` compare the original's
+assembly with the rebuilt kernels: Wiener at 8, 10 and 12 bit, the
+self-guided filters at 8 and 10 bit; the 12-bit self-guided rows compare
+C with C, as the original's init leaves them); whole images 994 of 994
+at `neon` and at `scalar`; `run_dav1d_tests.py` 1,711 of 1,711; ABI
+12,157 checks, 0 differences; API 83, linkage, dispatch `--check` (11
+entries, 60 units) and its unit test (10 tests, one new: the call gets
+`bpc`); `cargo test --lib simd::` 20 tests (three new: context and
+parameter layouts, selection at 8 bpc, selection at 16 bpc for 10 and
+for 12 bit); `cargo check --all-targets`. Positive controls, one
+constant each, all eight seeds, every one through both gates (decodes
+identical of 994 in brackets): 8 bpc, the horizontal rounding constant
+of the 7-tap Wiener filter (`8 << 8` to `7 << 8`) fails `wiener`, only
+`wiener_7tap_8bpc` (531); a tap offset of the 5x5 box sums (`ext #3` to
+`#2` in `sgr_box5_row_h`) fails `sgr`, only `sgr_5x5_8bpc` (869); a tap
+offset of the 3x3 box sums (`sgr_box3_row_h`) fails `sgr`, only
+`sgr_3x3_8bpc` (774); 16 bpc, the vertical rounding shift of the 7-tap
+Wiener filter (`round_bits_v`, 11 to 12 subtracted) fails `wiener`,
+`wiener_7tap_10bpc` and `wiener_7tap_12bpc` (834);
+the tap offsets of the 5x5 and of the 3x3 box sums fail `sgr`, only
+`sgr_5x5_10bpc` (925) and only `sgr_3x3_10bpc` (965); both bit depths,
+the rounding shift of the mix weighting in the shared template
+(`sgr_weighted2`, 11 to 10) fails both `sgr` groups, only `sgr_mix_8bpc`
+and `sgr_mix_10bpc` (571). Restored, all gates pass.
+
+What the gate's seeds do not reach, and what was run instead. Each
+checkasm seed draws one width and one height per filter. With small
+consecutive seeds, the gate's eight among them, the 5x5 and 3x3 tests
+draw only heights that are multiples of 8 and the mix test only widths
+that are multiples of 8 (counted by the part agent over the seeds 1 to
+3,000 from the sizes of a failing control; not re-derived): the
+`vert_1`, `vert_2` and `odd` tails of the wrappers and most right-edge
+tails are then not run. The gate is unchanged; two runs outside it, on
+the final state: (1) the original's checkasm tests at 3,000 scattered
+seeds, `(i * 2654435761 + 12345) mod 2^32`, which the part agent counted
+to cover every height and every width for the three self-guided filters:
+3,000 of 3,000 pass at each bit depth. (2) An identity sweep in one
+process, the original with its assembly against the port: all five
+slots, every width from 1 to 384, 14 heights (1 to 9, 31 to 33, 63, 64),
+all 16 edge sets, including what the test never draws (a right edge with
+a width other than 256, a bottom edge with a height other than 64), on
+four kinds of input: 430,080 calls each at 8 bit, at 10 bit, at 12 bit
+(Wiener rebuilt, self-guided C on both sides) and with 12-bit data
+through the 10-bit slots; no pixel of a `w x h` block differs and
+neither side writes outside the rows `0..h` and the columns
+`0..round_up(w, 16)`.
+
+Finding in the original, from that sweep: in the columns from `w` to the
+next multiple of 8, which the self-guided filters write and nobody
+reads, the original's output depends on its uninitialized stack. The
+original against itself, the stack filled with 0x00 before one call and
+with 0xa5 before the other, differs there in about three of four calls
+(63,644 to 64,492 of 86,016 per filter at 8 bit) and never inside the
+block: its kernels load elements of the wrappers' row buffers that no
+kernel has written. The port, whose buffers are zeroed, equals the
+original run on a zero-filled stack in every byte (0 of 430,080 calls at
+8 and at 10 bit) and equals itself whatever the stack holds. The Wiener
+filters show no such dependence. In the decoder the columns belong to
+the picture's padding (only the last unit of a row has a width that is
+not a multiple of 8).
+
+Instructions per call against the assembly (`measure_dav1d_kernels.py
+--family lr`, new mode `lr` of `dav1d-kernel-bench.c`: the five slots on
+units of 256x64, 64x64, 32x32 and 16x16 pixels with the edge flags 0xf
+and 0x0, 64x64 also with 0x5 and 0xa; the test's checkerboard pattern,
+10-bit at 16 bpc; 250,000 calls per row; identical outputs in all 100
+rows; the self-guided rows include the wrappers, which the original runs
+as C): 8 bpc 1.02 to 1.27, median 1.07; 16 bpc 1.03 to 1.29, median
+1.11; none above 1.3. By slot (lowest / median / highest): 8 bpc
+wiener7 1.02 / 1.09 / 1.26, wiener5 1.03 / 1.11 / 1.27, sgr_5x5 1.05 /
+1.07 / 1.14, sgr_3x3 1.06 / 1.07 / 1.09, sgr_mix 1.06 / 1.06 / 1.14;
+16 bpc wiener7 1.03 / 1.11 / 1.29, wiener5 1.04 / 1.12 / 1.29, sgr_5x5
+1.08 / 1.09 / 1.19, sgr_3x3 1.09 / 1.11 / 1.19, sgr_mix 1.07 / 1.09 /
+1.21. By size: 256x64 1.02 to 1.08 and 1.03 to 1.09, 64x64 1.05 to 1.11
+and 1.08 to 1.12, 32x32 1.06 to 1.17 and 1.11 to 1.17, 16x16 1.08 to
+1.27 and 1.18 to 1.29. The highest rows are the Wiener filters on 16x16
+(1.21 to 1.29; about 2,000 to 3,100 instructions per call): the cost
+per call that does not shrink with the unit, which is the zeroing of
+the row buffer (144 instructions for the 4,608 bytes of the 7-tap
+filter, 96 for the 5-tap one) and the row functions' private register
+convention as an explicit structure (about 11 instructions per row call
+at 8 bpc and 25 at 16 bpc, part agent's count). Per 16 pixels of a row
+the Wiener loops are 2 to 5 instructions above the assembly (for example
+84 against 80 to 83 in the 7-tap horizontal-and-vertical pass at 8 bpc;
+part agent's count in the disassembly), the self-guided kernels between
+5 fewer and 9 more per block at 8 bpc (part agent's count; the most in
+`sgr_box3_vert`, 85 against 76 per 16 columns: the pointer `add`s where
+the assembly post-increments, and one spilled table pair). At 16 bpc the
+self-guided kernels are inlined into the wrappers and were not counted
+apart.
+
+Deviations from the assembly, and whether they change the instruction
+count. Wiener filters: (a) the internal functions
+`wiener_filter{7,5}_{h,v,hv}` are separate functions, as in the
+assembly, and take the registers the assembly keeps across `bl` as the
+fields of a structure (`WienerRegs`) by reference; they store the
+shifted row pointers at entry where the assembly pushes them shifted and
+pops them at the end: the per-row cost named above. Inlined, LLVM shared
+the widened coefficients between the copies of the loops and compiled
+the `smull`/`smlal` chains as `sshll` + `mul`/`mla` (110 against 80
+instructions per 16 pixels; 1.28 to 1.37 on 256x64; part agent's
+measurement). (b) The labels of the entry points are labeled blocks, the
+fall-through chain `v3` to `v2` to `v1` a count of the vertical passes
+that remain: +1 to +2 per call. (c) The right-edge padding test is one
+condition at the head of the row loop, evaluated where the assembly's
+`tst`/`cmp` pairs are: +1 per 16 pixels with a right edge, -2 without.
+(d) A two-register `st1` with post-increment is two stores (one `stp`
+with post-index; the multi-register intrinsic compiled to `st1` and a
+separate `add`); the lane load of `left` is a scalar load into a zero
+vector: no effect. (e) Compiler choices, +2 to +5 per 16 pixels in all:
+`mov` + `ssra` for `sshr` + `add`, a three-instruction loop end, one
+vector move; at 16 bpc `saddl` + `mul`/`mla` for part of the vertical
+chain and the saves of `d8` to `d11` per row call. (f) 16 bpc only: the
+source and destination pointers of the row loops advance on their
+address (`wiener_post_inc`: `expose_provenance` and
+`with_exposed_provenance_mut`), so that LLVM keeps one post-indexed
+pointer per row; with pointer arithmetic on all of them its loop
+strength reduction uses one index and computes every address anew,
+which measured 1.12 to 1.17 instead of 1.04 to 1.08 on 256x64 (the
+16x16 rows, at 1.23 to 1.29, would then be expected above 1.3; not
+measured). Defined behavior, but not expressible
+under strict provenance; replacing the helper's body by
+`x.wrapping_add(n)` removes it at that cost. (g) The six (four) rows of
+intermediate values, which the assembly keeps on its stack
+uninitialized, are zeroed whole (`util::zeroed`): which rows a vertical
+pass loads depends on the edge flags and the height, so "written before
+loaded" is not evident at the site. Self-guided kernels: (h) the row
+kernels test the right-edge flag once and run one of two loops over the
+same block (a function-local macro), where the assembly tests it after
+every block: two instructions less per block (as one loop the compiler
+spent five per block). (i) `ldr` + `dup` is `ld1r`, the lane load of
+`left` a replicated load, a dead post-increment of `left` has no
+counterpart: one less per call. (j) The template's `dup` of
+`bitdepth_max` runs at 16 bpc only; the assembly runs it at 8 bpc on an
+unset register and never reads the result: one less per call.
+(k) Multiplications by a weight are by element (`v.h[0]`): same
+instructions; the by-vector form compiled the two-row loop of
+`sgr_weighted2` to 34 instead of 30 instructions per block (assembly
+28); its one-row loop stays at 20 against 15 (`sshll` + `mul`/`mla` for
+the widened weights). (l) The block that `sgr_finish_filter2_2rows` and
+`sgr_finish_weighted2` share instruction for instruction is one helper;
+no effect. Kept as the assembly: at 16 bpc the padding mask of the 5x5
+and the combined row kernel is addressed with a byte offset where a
+pixel offset is meant (harmless by the part agent's analysis: the pixel
+it leaves equals the padding pixel; the sweep above agrees);
+`sgr_finish_weighted2` for one row uses the first `A` row as its
+unused second destination row; the swapped comments `RangeMins` /
+`DiffMasks` in `looprestoration_common.S` (the registers are right).
+The continuation of `sgr_weighted2` for more than two rows is translated
+but never run: the wrappers pass one or two (not verified by any run).
+
+Deviations of the wrappers from the C. (m) The `goto` tails (`vert_1`,
+`vert_2`, `odd`, `output_1`, `output_2`) are a `match` on the label the
+main part leaves through; `params->sgr` is read once at the top: no
+effect on the kernels. (n) Every buffer the kernels load from is zeroed
+whole before a kernel gets it, where `ALIGN_STK_16` leaves it
+uninitialized: the `sumsq`, `sum`, `A` and `B` row buffers of the three
+filters (14.6, 17.0 and 34.0 KB) and the two `tmp` buffers of
+`sgr_finish_mix_neon`; this is the finding above turned into defined
+behavior. The zeroing is `util::zeroed` (64-byte multi-register stores,
+compiled to two instructions per 64 bytes without a loop or a call: 266
+stores for the 5x5 filter), the helper
+introduced for the intra prediction wrappers and now shared with them
+(their instruction counts are unchanged: Z1 0.85 / 1.00 / 1.12 and 0.95
+/ 1.05 / 1.15, Z3 0.86 / 1.09 / 1.18 and 0.89 / 1.02 / 1.18, 518 rows
+per bit depth identical). A plain `[0; N]` is a `bzero` call, measured
+by the part agent at 1,228, 1,398 and 2,805 instructions per call of
+the three filters and 230 per pair of rows for the `tmp` buffers, which
+put the self-guided 16x16 rows at 1.26 to 1.52 and mix on 32x32 at 1.28
+to 1.29; with the explicit stores the 16x16 rows are 1.08 to 1.21. (o) The `tmp` buffers
+are declared in `sgr_filter_mix_neon` and passed to
+`sgr_finish_mix_neon`, so that they are zeroed once per call and not
+once per pair of rows. No kernel has a stack buffer of its own besides
+the Wiener rows of (g).
+
+Reads the contract does not state, kept as the assembly: without a right
+edge the row kernels still load whole blocks behind the last pixel of a
+source row and replace the values by the padding pixel afterwards: up to
+20 (7 taps) or 21 (5 taps) pixels in the Wiener filters, up to 15 in the
+box sums, of the picture rows and of the `lpf` rows (the part agents'
+derivation from the code, not checked with guard pages). The original
+provides for it: pictures are allocated `DAV1D_PICTURE_ALIGNMENT` (64)
+bytes longer, with a width that is a multiple of 128, and the `lpf`
+buffer 128 bytes longer ("lr simd may overread the input", `decode.c`).
+Nothing is read left of a row without a left edge, and writes stay
+within the contract's aligned width.
+
+Instructions per decode of the six stills (no harness hash; port with
+the loop restoration slots not assigned, port now, stock dav1d NEON):
+lossless 8-bit 4:4:4 10.239 G, 10.238 G, 9.14 G; 10-bit 4:2:0 1.243,
+1.244, 1.13; 10-bit 4:4:4 1.414, 1.415, 1.31; 8-bit 4:2:0 1.071, 1.071,
+0.96; 8-bit 4:2:0 with alpha 1.146, 1.146, 0.96 (color only); 8-bit
+4:4:4 1.212, 1.212, 1.09; pictures unchanged. (The alpha still was 1.145
+before the intra prediction wrappers zeroed their buffers whole.) No
+change within the variation between runs: none of the six stills uses loop
+restoration (no loop restoration function in their sampled profiles;
+the encoder's still-image mode leaves it off). Two streams of the
+original's test suite that use it, decoded with the original CLI linked
+to either library, one thread, film grain synthesis off, whole process:
+`av1-1-b8-23-film_grain-50` 135.4 M to 126.1 M instructions (stock
+96.5 M), `av1-1-b10-23-film_grain-50` 180.3 M to 157.5 M (128.2 M);
+equal MD5. These are inter-coded, so most of the remaining difference
+is inter prediction, which is not rebuilt.
+
+Formatting: as for the intra prediction modules, `rustfmt --check
+--config-path` with `max_width = 120` on the five new files, on
+`simd/arm/ipred.rs` and on `simd/arm64/util.rs`; `cargo fmt --all
+--check` passes without looking at them.
+
+Loop restoration is complete on NEON. Not rebuilt on any target: film
+grain, and the inter prediction kernels, which stills reach only through
+intra block copy and superres; on x86-64 nothing yet.
+
 ## Review when
 
 A family is completed on a target; the x86-64 AVX2 kernels arrive; the owner
@@ -748,6 +989,7 @@ engine's decoder choice changes.
 
 ## Amendment log
 
+- 2026-11-17 — loop restoration on NEON, 8 and 16 bpc (validation above).
 - 2026-11-17 — intra prediction wrappers: `top_out` and `left_out` zeroed whole, the edge array's slack checked by a test (validation above).
 - 2026-11-17 — intra prediction 16 bpc on NEON (validation above).
 - 2026-11-17 — intra prediction 8 bpc on NEON (validation above).

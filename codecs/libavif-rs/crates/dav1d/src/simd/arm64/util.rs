@@ -15,6 +15,42 @@
 //! instructions give each lane the same value whatever order they are issued
 //! in, so the helpers compute a whole instruction at once.
 use core::arch::aarch64::*;
+use core::mem::MaybeUninit;
+
+/// Not in the original: writes zero to every byte of `*buf` and returns the
+/// pointer to it. For stack buffers that the C code or the assembly leaves
+/// uninitialized and whose kernels load whole blocks of elements: zeroed
+/// whole before anything else touches it, no load from the buffer can find
+/// an element without a value, whichever elements the kernels load. The
+/// buffer is reached only through the returned pointer afterwards.
+///
+/// The stores are 64-byte multi-register stores (`st1 {v0.16b-v3.16b}`): one
+/// per 64 bytes, and one more that ends at the buffer's last byte and
+/// overlaps the one before when the size is not a multiple of 64. The size
+/// is a constant, so small buffers are a few stores in a row and large ones
+/// a loop of stores. (`[0; N]` compiles to a `bzero` call above some 300
+/// bytes, which takes about twice the instructions.)
+///
+/// # Safety
+/// None beyond the intrinsics': `buf` is exclusively borrowed and at least
+/// 64 bytes long (checked at compile time).
+#[inline(always)]
+pub unsafe fn zeroed<T>(buf: &mut MaybeUninit<T>) -> *mut T {
+    const { assert!(core::mem::size_of::<T>() >= 64) };
+    let bytes = core::mem::size_of::<T>();
+    let p = buf.as_mut_ptr() as *mut u8;
+    let zero = vdupq_n_u8(0);
+    let zero = uint8x16x4_t(zero, zero, zero, zero);
+    let mut at = 0;
+    while at + 64 <= bytes {
+        vst1q_u8_x4(p.add(at), zero);
+        at += 64;
+    }
+    if at < bytes {
+        vst1q_u8_x4(p.add(bytes - 64), zero);
+    }
+    buf.as_mut_ptr()
+}
 
 /// The vector register file `v0`–`v31` of one kernel invocation.
 pub type V = [int16x8_t; 32];

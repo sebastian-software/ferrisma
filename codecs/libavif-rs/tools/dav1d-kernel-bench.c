@@ -56,7 +56,20 @@
  * or the largest w_pad and h_pad (1). ITERATIONS is rounded up to a
  * multiple of the set; one more pass over the set adds every output to the
  * checksum, in both modes, so the kernel runs ITERATIONS + set size times
- * (printed as `calls=`). */
+ * (printed as `calls=`).
+ *
+ *   dav1d-kernel-bench LIBRARY MASK lr BPC SLOT W H EDGES ITERATIONS call|baseline
+ *
+ * calls one slot of dav1d_loop_restoration_dsp_init_BPCbpc(c, 8 or 10) on a
+ * W x H unit (W <= 384, H <= 64) with the edge flags EDGES (enum
+ * LrEdgeFlags): SLOT 0 and 1 are wiener[0] (7 taps) and wiener[1] (5 taps)
+ * with fixed coefficients, 2..4 are sgr[0..2] (5x5, 3x3, mix) with the
+ * strengths of dav1d_sgr_params[14], [10] and [0] and fixed weights. The
+ * picture is the pattern of the original's checkasm test (an 8x8
+ * checkerboard of 0 and the largest value, with noise in the low bits),
+ * 10-bit at 16 bpc, with the two rows above and below in `lpf` and the
+ * `left` columns; each iteration restores the unit's rows (the filters
+ * work in place) in both modes. The checksum covers the whole picture. */
 #include <dlfcn.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -360,7 +373,92 @@ static int ipred(void *library, char **argv) {
     return 0;
 }
 
+typedef void (*lr_filter_fn)(void *dst, ptrdiff_t stride, const void *left, const void *lpf, int w, int h,
+                             const void *params, unsigned edges, int bitdepth_max);
+typedef struct { lr_filter_fn wiener[2], sgr[3]; } LoopRestorationDSPContext;
+typedef union {
+    _Alignas(16) int16_t filter[2][8];
+    struct { uint32_t s0, s1; int16_t w0, w1; } sgr;
+} LooprestorationParams;
+
+static int lr(void *library, char **argv) {
+    const int bpc = atoi(argv[4]), slot = atoi(argv[5]), w = atoi(argv[6]), h = atoi(argv[7]);
+    const unsigned edges = (unsigned) strtoul(argv[8], NULL, 0);
+    const long iterations = atol(argv[9]);
+    const int call = !strcmp(argv[10], "call");
+    char name[64];
+    snprintf(name, sizeof(name), "dav1d_loop_restoration_dsp_init_%dbpc", bpc);
+    void (*init)(LoopRestorationDSPContext *, int) =
+        (void (*)(LoopRestorationDSPContext *, int)) dlsym(library, name);
+    if (!init || slot < 0 || slot > 4 || w < 1 || w > 384 || h < 1 || h > 64) {
+        fprintf(stderr, "missing symbols or bad arguments\n");
+        return 1;
+    }
+    static LoopRestorationDSPContext c;
+    init(&c, bpc == 8 ? 8 : 10);
+    const lr_filter_fn fn = slot < 2 ? c.wiener[slot] : c.sgr[slot - 2];
+    const int bitdepth_max = bpc == 8 ? 255 : 1023;
+    LooprestorationParams params;
+    memset(&params, 0, sizeof(params));
+    if (slot < 2) {
+        /* Symmetric taps as the original's test draws them; 5 taps: the outer pair is zero. */
+        for (int i = 0; i < 2; i++) {
+            int16_t *const f = params.filter[i];
+            f[0] = f[6] = slot ? 0 : 3;
+            f[1] = f[5] = -7;
+            f[2] = f[4] = 15;
+            f[3] = (int16_t) (-(f[0] + f[1] + f[2]) * 2 + (i == 1 || bpc != 8 ? 128 : 0));
+        }
+    } else {
+        static const uint32_t strengths[3][2] = { { 56, 0 }, { 0, 2589 }, { 140, 3236 } };
+        params.sgr.s0 = strengths[slot - 2][0];
+        params.sgr.s1 = strengths[slot - 2][1];
+        params.sgr.w0 = params.sgr.s0 ? -32 : 0;
+        params.sgr.w1 = (int16_t) ((params.sgr.s1 ? 96 : 33) - params.sgr.w0);
+    }
+    /* 448 pixels per row: 32 before the unit and at least 32 behind the widest one; 8 rows above the unit
+     * and 8 below it. */
+    enum { STRIDE = 448, ROWS = 80, X0 = 32, Y0 = 8 };
+    _Alignas(64) static uint16_t source[ROWS * STRIDE], picture[ROWS * STRIDE], edge[8 * STRIDE], left[64 * 4];
+    uint32_t seed = 12345;
+#define NEXT (seed = seed * 1664525u + 1013904223u, (int) (seed >> 16))
+#define PUT(buffer, i, value) \
+    (bpc == 8 ? (void) (((uint8_t *) (buffer))[i] = (uint8_t) (value)) : (void) ((buffer)[i] = (uint16_t) (value)))
+#define PATTERN(x, y) ((((x) ^ (y)) & 8 ? bitdepth_max : 0) ^ (NEXT & (bitdepth_max >> 4)))
+    for (int y = 0; y < ROWS; y++)
+        for (int x = 0; x < STRIDE; x++) PUT(source, y * STRIDE + x, PATTERN(x + 3, y + 5));
+    for (int y = 0; y < 8; y++)
+        for (int x = 0; x < STRIDE; x++) PUT(edge, y * STRIDE + x, PATTERN(x + 1, y + 2));
+    for (int i = 0; i < 64 * 4; i++) PUT(left, i, PATTERN(i & 3, (i >> 2) + 6));
+    const ptrdiff_t bytes = bpc == 8 ? 1 : 2, stride = STRIDE * bytes;
+    memcpy(picture, source, sizeof(picture));
+    uint8_t *const dst = (uint8_t *) picture + Y0 * stride + X0 * bytes;
+    const uint8_t *const src = (const uint8_t *) source + Y0 * stride;
+    const uint8_t *const lpf = (const uint8_t *) edge + X0 * bytes;
+    for (long k = 0; k < iterations; k++) {
+        memcpy(dst - X0 * bytes, src, (size_t) (h * stride));
+        if (call) fn(dst, stride, left, lpf, w, h, &params, edges, bitdepth_max);
+    }
+#undef NEXT
+#undef PUT
+#undef PATTERN
+    uint64_t sum = 0;
+    for (size_t i = 0; i < sizeof(picture); i++) sum = sum * 31 + ((const uint8_t *) picture)[i];
+    printf("checksum=%016llx calls=%ld\n", (unsigned long long) sum, iterations);
+    return 0;
+}
+
 int main(int argc, char **argv) {
+    if (argc == 11 && !strcmp(argv[3], "lr")) {
+        void *library = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL);
+        if (!library) { fprintf(stderr, "%s\n", dlerror()); return 1; }
+        void (*init_cpu)(void) = (void (*)(void)) dlsym(library, "dav1d_init_cpu");
+        void (*set_mask)(unsigned) = (void (*)(unsigned)) dlsym(library, "dav1d_set_cpu_flags_mask");
+        if (!init_cpu || !set_mask) { fprintf(stderr, "missing symbols\n"); return 1; }
+        init_cpu();
+        set_mask((unsigned) strtoul(argv[2], NULL, 0));
+        return lr(library, argv);
+    }
     if (argc == 12 && !strcmp(argv[3], "ipred")) {
         void *library = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL);
         if (!library) { fprintf(stderr, "%s\n", dlerror()); return 1; }

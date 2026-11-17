@@ -28,6 +28,10 @@ pub mod arm64 {
     pub mod itx16;
     pub mod loopfilter;
     pub mod loopfilter16;
+    pub mod looprestoration;
+    pub mod looprestoration16;
+    pub mod looprestoration_common;
+    pub mod looprestoration_tmpl;
     pub mod msac;
     pub mod util;
 }
@@ -38,5 +42,6 @@ pub mod arm {
     pub mod ipred;
     pub mod itx;
     pub mod loopfilter;
+    pub mod looprestoration;
     pub mod msac;
 }

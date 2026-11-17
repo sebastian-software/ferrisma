@@ -55,10 +55,10 @@
 //! The test `the_edge_array_has_readable_slack_behind_it` checks that the
 //! decoder's edge array has those bytes behind it inside the same scratch
 //! structure.
-use core::arch::aarch64::{uint8x16x4_t, vdupq_n_u8, vst1q_u8_x4};
 use core::ffi::{c_int, c_void};
 use core::mem::MaybeUninit;
 
+use super::super::arm64::util::zeroed;
 use super::super::cpu::{dav1d_get_cpu_flags, DAV1D_ARM_CPU_FLAG_NEON};
 use crate::common::tables::dav1d_dr_intra_derivative;
 
@@ -203,33 +203,15 @@ fn get_upsample(wh: c_int, angle: c_int, is_sm: c_int) -> c_int {
 }
 
 /// Not in the original: writes zero to every byte of `buf` and returns the
-/// pointer to its first element. For the wrappers' `top_out` and `left_out`,
-/// which C leaves uninitialized and whose kernels load whole blocks of
-/// pixels: zeroed whole, no load from the buffer can find an element without
-/// a value, whichever elements the kernels load.
-///
-/// The stores are 64-byte multi-register stores (`st1 {v0.16b-v3.16b}`): one
-/// per 64 bytes, and one more that ends at the buffer's last byte and
-/// overlaps the one before when the size is not a multiple of 64. With `N`
-/// constant the loop is unrolled: five stores for the 302 or 286 pixels at
-/// 8 bpc, ten or nine at 16 bpc. (`[0; N]` compiles to a `bzero` call at
-/// 16 bpc, about 68 instructions.)
+/// pointer to its first element (`util::zeroed`). For the wrappers'
+/// `top_out` and `left_out`, which C leaves uninitialized and whose kernels
+/// load whole blocks of pixels: zeroed whole, no load from the buffer can
+/// find an element without a value, whichever elements the kernels load.
+/// Five 64-byte stores for the 302 or 286 pixels at 8 bpc, ten or nine at
+/// 16 bpc.
 #[inline(always)]
 unsafe fn zeroed_scratch<T, const N: usize>(buf: &mut MaybeUninit<[T; N]>) -> *mut T {
-    let bytes = N * core::mem::size_of::<T>();
-    debug_assert!(bytes >= 64);
-    let p = buf.as_mut_ptr() as *mut u8;
-    let zero = vdupq_n_u8(0);
-    let zero = uint8x16x4_t(zero, zero, zero, zero);
-    let mut at = 0;
-    while at + 64 <= bytes {
-        vst1q_u8_x4(p.add(at), zero);
-        at += 64;
-    }
-    if at < bytes {
-        vst1q_u8_x4(p.add(bytes - 64), zero);
-    }
-    p as *mut T
+    zeroed(buf) as *mut T
 }
 
 /// The three wrappers of `src/arm/ipred.h` for one bit depth. `$pixel` is
