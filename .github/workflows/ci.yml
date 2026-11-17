@@ -90,6 +90,8 @@ jobs:
           python3 -I scripts/test_audit_licenses.py
           python3 -I scripts/test_production_license_bundle.py
           python3 -I scripts/audit-licenses.py
+      # The nightly and deep tiers' failure report (ADR-0027, decision D5).
+      - run: python3 -I scripts/ci/test_report_failed_jobs.py
       - if: always()
         uses: actions/upload-artifact@v4
         with:

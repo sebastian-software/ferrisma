@@ -1,22 +1,33 @@
 name: Nightly codec family
+# One codec family at one validation tier (engine ADR-0027, amendment
+# 2026-11-17): `nightly` (tier 2, daily, at most 60 minutes per job) or
+# `deep` (tier 3, weekly and before every release candidate). The deep tier
+# runs only what the nightly tier does not; a release needs both green on its
+# commit. A family without deep checks is skipped at the deep tier: today only
+# JXL has them (the photograph-scale gates and the macOS sanitized matrix),
+# and the exhaustive AOM suites stay manual workflows.
 on:
   workflow_call:
     inputs:
       component:
         type: string
         required: true
+      tier:
+        description: nightly or deep
+        type: string
+        default: nightly
 permissions:
   contents: read
 jobs:
   jpeg:
     permissions:
       contents: read
-    if: inputs.component == 'jpeg'
+    if: inputs.component == 'jpeg' && inputs.tier == 'nightly'
     uses: ./.github/workflows/jpeg-check.yml
   webp:
     permissions:
       contents: read
-    if: inputs.component == 'webp'
+    if: inputs.component == 'webp' && inputs.tier == 'nightly'
     uses: ./.github/workflows/webp-check.yml
   jxl:
     permissions:
@@ -29,7 +40,7 @@ jobs:
   avif:
     permissions:
       contents: read
-    if: inputs.component == 'avif'
+    if: inputs.component == 'avif' && inputs.tier == 'nightly'
     uses: ./.github/workflows/nightly-avif.yml
   gate:
     if: always()
@@ -37,6 +48,7 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       COMPONENT: ${{ inputs.component }}
+      TIER: ${{ inputs.tier }}
       JPEG: ${{ needs.jpeg.result }}
       WEBP: ${{ needs.webp.result }}
       JXL: ${{ needs.jxl.result }}
@@ -44,5 +56,14 @@ jobs:
     steps:
       - run: |
           case "$COMPONENT" in jpeg|webp|jxl|avif) ;; *) exit 1 ;; esac
-          check() { if [ "$COMPONENT" = "$1" ]; then [ "$2" = success ]; else [ "$2" = skipped ]; fi; }
+          case "$TIER" in nightly) deep_families='' ;; deep) deep_families='jxl' ;; *) exit 1 ;; esac
+          # Expected: the selected family ran and passed, at the deep tier
+          # only if it has deep checks; every other family was skipped.
+          check() {
+            if [ "$COMPONENT" = "$1" ] && { [ "$TIER" = nightly ] || [[ " $deep_families " == *" $1 "* ]]; }; then
+              [ "$2" = success ]
+            else
+              [ "$2" = skipped ]
+            fi
+          }
           check jpeg "$JPEG" && check webp "$WEBP" && check jxl "$JXL" && check avif "$AVIF"
