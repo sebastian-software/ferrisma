@@ -1069,9 +1069,35 @@ fn exceptional_request(request: &str) -> bool {
     })
 }
 
-/// Tokens equal under D8: identical, or two NaN words.
+/// Tokens equal under D8: identical, or differing only in NaN words
+/// (`nan_payload_words`).
 fn token_eq(a: &str, b: &str) -> bool {
-    a == b || (nan_word(a) && nan_word(b))
+    a == b || nan_payload_words(a, b).is_some()
+}
+
+/// For two tokens that are equal under D8, the number of words in which they
+/// differ, all of them NaN on both sides, and how many of those are 64-bit
+/// words; `None` if the tokens differ in anything else. A token is one word
+/// or a comma-separated list of words: some protocols print the words of one
+/// object as a list (`qdc-chain` prints each channel as `dc,inv`). A list is
+/// compared word by word and both lists must have the same length, so a NaN
+/// against a number, two different numbers and a missing word still differ.
+fn nan_payload_words(a: &str, b: &str) -> Option<(usize, usize)> {
+    if a.split(',').count() != b.split(',').count() {
+        return None;
+    }
+    let (mut payloads, mut payloads64) = (0, 0);
+    for (x, y) in a.split(',').zip(b.split(',')) {
+        if x == y {
+            continue;
+        }
+        if !(nan_word(x) && nan_word(y)) {
+            return None;
+        }
+        payloads += 1;
+        payloads64 += usize::from(x.parse::<u32>().is_err());
+    }
+    Some((payloads, payloads64))
 }
 
 /// Per token of `pinned`, whether working rule O1 excludes it: the request
@@ -1095,7 +1121,9 @@ fn reference_mask(request: &str, pinned: &str, other: &str) -> Option<Vec<bool>>
 /// every token must be identical, with exactly two exceptions. (1) Two tokens
 /// that are both 32-bit words encoding a binary32 NaN, or both 64-bit words
 /// encoding a binary64 NaN, are equal, whatever their sign and payload
-/// (ADR-0041 section 3; `nan_word`). (2) If `request` carries a NaN or infinity word,
+/// (ADR-0041 section 3; `nan_word`); in a token that is a comma-separated
+/// list of words, this holds word by word (`nan_payload_words`).
+/// (2) If `request` carries a NaN or infinity word,
 /// a token position is not compared where the second scalar reference of the
 /// original (same sources at upstream's normal optimization level) disagrees
 /// with the pinned one after (1). Finite values, infinities and signed zeros
@@ -1129,9 +1157,9 @@ fn parity_eq(request: &str, rust: &str, cpp: &str) -> bool {
         if x == y {
             continue;
         }
-        if nan_word(x) && nan_word(y) {
-            payloads += 1;
-            payloads64 += usize::from(x.parse::<u32>().is_err());
+        if let Some((words, words64)) = nan_payload_words(x, y) {
+            payloads += words;
+            payloads64 += words64;
         } else if mask.as_ref().is_some_and(|m| m[index]) {
             excluded += 1;
         } else {
@@ -1190,6 +1218,39 @@ fn comparator_equalizes_binary32_and_binary64_nan_words_only() {
     assert!(nan_word(&word32(u32::MAX)));
     assert!(!nan_word(&word64(1 << 32)));
     assert!(!nan_word("-1") && !nan_word("18446744073709551616") && !nan_word("nan"));
+    // A list of words is compared word by word. The first pair is the one the
+    // hosted x86-64 gate reported on 2026-11-17 (`qdc-chain`, a NaN scale):
+    // both DC words NaN on both sides, with the payload of the other operand.
+    for (a, b) in [
+        ("2143363909,2143363909", "2145530966,2145530966"),
+        ("964689920,2143363909", "964689920,2145530966"),
+        ("17,0,2143363909,0,0", "17,0,4290847573,0,0"),
+    ] {
+        assert!(token_eq(a, b), "{a} {b}");
+    }
+    for (a, b) in [
+        // A NaN against a number, and against an infinity.
+        ("2143363909,2143363909", "2145530966,1166016512"),
+        ("2143363909,2143363909", "2139095040,2145530966"),
+        // A number that differs beside a NaN pair.
+        ("964689920,2143363909", "964689921,2145530966"),
+        // Lists of different lengths, and a list against a word.
+        ("2143363909,2143363909", "2145530966"),
+        ("2143363909,2143363909", "2145530966,2145530966,2145530966"),
+        ("2143363909,", "2145530966"),
+        // Small integers never become equal.
+        ("17,0,0,0,0", "18,0,0,0,0"),
+    ] {
+        assert!(!token_eq(a, b), "{a} {b}");
+    }
+    assert_eq!(
+        nan_payload_words("2143363909,2143363909", "2145530966,2145530966"),
+        Some((2, 0))
+    );
+    assert_eq!(
+        nan_payload_words("5,9221120237041090560", "5,9221120237041090561"),
+        Some((1, 1))
+    );
     if !strict_parity() {
         let request = "comparator-self-test 0";
         assert!(parity_eq(
