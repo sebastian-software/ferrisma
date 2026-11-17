@@ -69,8 +69,9 @@ function Ports() {
           No assembly is a rule, not a hope. Where an original's fastest kernels exist only as
           assembly, the port runs the translated scalar code until they are rebuilt with Rust
           intrinsics and proven against the original; the JPEG port has done this for its x86-64
-          kernels. Six inline assembly sites remain in the JPEG XL port's Brotli decoder, held
-          by a guard while their replacement is decided.
+          kernels. The last inline assembly, in the JPEG XL port's Brotli decoder, has been
+          replaced by plain integer operations, and a check on every change fails if any
+          returns.
         </p>
       </MonoPassage>
       <p className="fx-section-link">
