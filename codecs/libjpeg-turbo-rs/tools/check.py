@@ -37,8 +37,8 @@ and skip otherwise.
 builds for x86_64-apple-darwin, the oracle is tools/build_oracle.py's
 --arch x86_64 variant, and ROSETTA_ADVERTISE_AVX=1 lets Rosetta report AVX2.
 
---partition K/N runs only the K-th of N disjoint shares of the tests in every
-`cargo test` invocation (tools/partition.py), so that the hosted oracle jobs
+--partition K/N runs only the K-th of N disjoint shares of the test targets of
+every `cargo test` invocation (tools/partition.py), so that the hosted oracle jobs
 stay within the nightly tier's 60 minutes per job (engine ADR-0027, amendment
 2026-11-17); the N partitions together run every test once, and each writes a
 record under build/partitions/ that `tools/partition.py verify` checks for
@@ -74,34 +74,20 @@ SIMD_MODES = {
                ("none", {"JSIMD_FORCENONE": "1"})],
 }
 SIMD_VARIABLES = ["JSIMD_FORCENONE", "JSIMD_FORCESSE2", "LIBJPEG_EXPECT_SIMD"]
-# The slowest tests of the hosted oracle jobs (nightly 44066960183,
+# The slowest test targets of the hosted oracle jobs (nightly 44066960183,
 # 2026-11-17, macOS with the asan-ubsan oracle), slowest first. --partition
-# deals them out before the other tests, so that no partition gets several of
-# them; the list only orders the deal, and a name that no test has any more
+# deals them out before the other targets, so that no partition gets several
+# of them; the list only orders the deal, and a target that no longer exists
 # fails the stage (tools/partition.py).
-HEAVY_TESTS = [
-    "test:wp2_header::truncations_match_the_oracle",
-    "test:wp2_header::mutations_match_the_oracle",
-    "test:wp6_api::skips_near_the_end_match_the_oracle",
-    "test:wp9_simd::widths_and_samplings_match_the_oracle",
-    "test:wp4_coefidct::mutations_match_the_oracle",
-    "test:wp6_api::skips_match_the_oracle",
-    "test:wp4_coefidct::unneeded_components_and_cropping_match_the_oracle",
-    "test:wp4_coefidct::truncations_match_the_oracle",
-    "test:wp6_api::test_images_match_the_oracle",
-    "test:wp3_entropy::mutations_match_the_oracle",
-    "test:wp6_api::suspension_matches_the_oracle",
-    "test:wp5_decode::scaling_and_sampling_match_the_oracle",
-    "test:wp6_api::scales_match_the_oracle",
-    "test:wp4_coefidct::scaled_sizes_match_the_oracle",
-    "test:wp5_decode::damaged_streams_match_the_oracle",
-    "test:wp5_decode::test_images_match_the_oracle",
-    "test:wp5_decode::suspension_matches_the_oracle",
-    "test:wp5_decode::rows_per_call_match_the_oracle",
-    "test:wp2_header::marker_streams_match_the_oracle",
-    "test:wp6_api::raw_data_matches_the_oracle",
-    "test:wp3_entropy::truncations_match_the_oracle",
-    "test:wp8_decode::scales_match_the_oracle",
+HEAVY_TARGETS = [
+    "test:wp2_header",
+    "test:wp6_api",
+    "test:wp9_simd",
+    "test:wp4_coefidct",
+    "test:wp4_idct",
+    "test:wp3_entropy",
+    "test:wp5_decode",
+    "test:wp8_decode",
 ]
 
 
@@ -207,7 +193,7 @@ def check_tests(oracle_variant, msrv, arch, part=None):
     shard = None
     if part is not None:
         group = (oracle_variant or "no-oracle") + (f"-{arch}" if arch else "")
-        shard = partition.Partition(*part, HEAVY_TESTS, ROOT, group)
+        shard = partition.Partition(*part, HEAVY_TARGETS, ROOT, group)
     if oracle_variant:
         jobs = str(os.cpu_count() or 4)
         directory = build_oracle.build(oracle_variant, jobs, fresh=False, arch=arch)

@@ -3,34 +3,33 @@
 
 The nightly tier gives a hosted job at most 60 minutes (engine ADR-0027,
 amendment 2026-11-17), and this port's asan-ubsan oracle stage takes longer
-on a hosted macOS runner. `tools/check.py --partition K/N` therefore runs, in
-every test target that `cargo test` runs (the library's unit tests, each
-integration test, the doctests), only the tests dealt to partition K. The N
-partitions together run every test exactly once:
+on a hosted macOS runner. `tools/check.py --partition K/N` therefore runs,
+of every `cargo test` invocation, only the test targets (the library's unit
+tests, each integration test, the doctests) dealt to partition K. The N partitions
+together run every test exactly once:
 
 - `cargo test <args> --no-run --message-format=json-render-diagnostics`
   builds what `cargo test <args>` builds and names each test executable;
   `<executable> --list --format terse` and
   `cargo test <args> --doc -- --list --format terse` list their tests.
-- Every (target, test) pair is an item. The caller's HEAVY items, the slowest
-  tests in the hosted logs, are dealt first in their order, then the others
-  in sorted order; the deal alternates direction (1..N, then N..1, ...), as
-  libjxl-rs's tools/check.py deals its test names, and starts one partition
-  later for each further run of the check (the next profile or SIMD mode), so
-  that the slowest test of every run does not land in the same partition.
-  HEAVY only orders the deal: a HEAVY item that no run of the invocation
-  lists fails, so the list stays current.
-- Each target with selected tests runs as
-  `cargo test <args> --test NAME -- --exact <tests>` (`--lib`, `--bin NAME`).
-  The doctests are not dealt: the last partition runs all of them, as
-  `cargo test <args> --doc` without a filter, because rustdoc's merged
-  doctests (edition 2024) match none of their listed names with `--exact`
-  and run every merged doctest whatever filter they get (hosted run
-  44172001604: 66 selected, 133 run). The test count each target reports
-  must equal the number of selected tests, or the partition fails: a name
-  that matched nothing, or more than one test, cannot pass unnoticed. A failing target does not stop
-  the later ones; the partition fails at the end.
-- `record()` writes the listed and the selected items of every run, and
+- Whole targets are dealt, not single tests: libtest runs a target's tests
+  in parallel, so a target takes about as long as its slowest test, and
+  splitting a target's tests over partitions makes every partition wait for
+  one of its slow tests (hosted run 44177110508: the dev profile took as
+  long in each of three partitions as unpartitioned). The caller's HEAVY
+  targets, the slowest in the hosted logs, are dealt first in their order,
+  then the others sorted; the deal alternates direction (1..N, then N..1,
+  ...), as libjxl-rs's tools/check.py deals its test names, and starts one
+  partition later for each further run of the check (the next profile or
+  SIMD mode), so that the slowest target of every run lands in a different
+  partition. HEAVY only orders the deal: a HEAVY target that no run of the
+  invocation lists fails, so the list stays current.
+- Each dealt target runs whole, as `cargo test <args> --test NAME` (`--lib`,
+  `--doc`, `--bin NAME`), and the test count it reports must equal the
+  number of tests it listed, or the partition fails. A failing target does
+  not stop the later ones; the partition fails at the end.
+- Every partition writes the listed and the selected (target, test) items of
+  every run under build/partitions/, and
   `python3 tools/partition.py verify <record files or directories>` fails
   unless the records of each group come from one commit, cover the
   partitions 1..N exactly once, list the same items and select every item
@@ -38,7 +37,7 @@ partitions together run every test exactly once:
   `--expect G1,G2,...` also requires exactly these groups.
 
 `python3 tools/partition.py plan K/N [HEAVY...] -- <cargo test args>` prints a
-partition's selection without running a test.
+partition's targets without running a test.
 """
 
 import json
@@ -52,6 +51,7 @@ import sys
 # The order in which cargo runs the kinds of test targets.
 KIND_ORDER = {"lib": 0, "bin": 1, "test": 2, "example": 3, "bench": 4, "doc": 5}
 RESULT = re.compile(r"test result: (?:ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored; (\d+) measured;")
+TARGET = re.compile(r"lib|doc|(bin|test|example|bench):[A-Za-z0-9_-]+")
 
 
 def parse(value):
@@ -62,22 +62,24 @@ def parse(value):
     return int(match[1]), int(match[2])
 
 
-def item(text):
-    """A HEAVY entry 'test:NAME::test name' as an item (target, test name)."""
-    target, separator, name = text.partition("::")
-    if not separator or not name or not re.fullmatch(r"lib|doc|(bin|test|example|bench):[A-Za-z0-9_-]+", target):
-        raise ValueError(f"not an item 'target::test': {text!r}")
-    return target, name
+def target(text):
+    """A HEAVY entry: 'lib', 'doc' or 'KIND:NAME' such as 'test:wp13_tools'."""
+    if not TARGET.fullmatch(text):
+        raise ValueError(f"not a test target 'lib', 'doc' or 'test:NAME': {text!r}")
+    return text
 
 
-def deal(items, heavy, index, count, rotation=0):
-    """The items of partition `index` of `count`: the HEAVY items that are
-    listed, in their order, then the other items sorted, dealt out in
+def order_key(key):
+    return KIND_ORDER[key.split(":")[0]], key
+
+
+def deal(targets, heavy, index, count, rotation=0):
+    """The targets of partition `index` of `count`: the HEAVY targets that
+    are listed, in their order, then the others sorted, dealt out in
     alternating direction, starting `rotation` partitions later."""
-    listed = set(items)
-    heavy_set = set(heavy)
+    listed = set(targets)
     order = [entry for entry in heavy if entry in listed]
-    order += sorted(entry for entry in listed if entry not in heavy_set)
+    order += sorted(entry for entry in listed if entry not in set(heavy))
     selected = []
     for position, entry in enumerate(order):
         slot = position % count
@@ -85,7 +87,7 @@ def deal(items, heavy, index, count, rotation=0):
             slot = count - 1 - slot
         if (slot + rotation) % count == index - 1:
             selected.append(entry)
-    return selected
+    return sorted(selected, key=order_key)
 
 
 def names(listing):
@@ -114,14 +116,14 @@ def targets(messages):
         else:
             raise SystemExit(f"unknown test target kind {kinds} of {message['target']['name']}")
         found[key] = message["executable"]
-    return sorted(found.items(), key=lambda entry: (KIND_ORDER[entry[0].split(":")[0]], entry[0]))
+    return sorted(found.items(), key=lambda entry: order_key(entry[0]))
 
 
-def selector(target):
+def selector(key):
     """The cargo arguments that select one test target."""
-    if target in ("lib", "doc"):
-        return [f"--{target}"]
-    kind, name = target.split(":", 1)
+    if key in ("lib", "doc"):
+        return [f"--{key}"]
+    kind, name = key.split(":", 1)
     return [f"--{kind}", name]
 
 
@@ -137,11 +139,11 @@ def listing(cargo_args, root, env):
                            check=True).stdout
     items = []
     executables = targets(built)
-    for target, executable in executables:
+    for key, executable in executables:
         listed = subprocess.run([executable, "--list", "--format", "terse"], cwd=root, env=env,
                                 stdout=subprocess.PIPE, text=True, check=True).stdout
-        items += [(target, name) for name in names(listed)]
-    if any(target == "lib" for target, _ in executables):
+        items += [(key, name) for name in names(listed)]
+    if any(key == "lib" for key, _ in executables):
         command = ["cargo", "test", *cargo_args, "--doc", "--", "--list", "--format", "terse"]
         show(command)
         listed = subprocess.run(command, cwd=root, env=env, stdout=subprocess.PIPE, text=True, check=True).stdout
@@ -165,22 +167,20 @@ def counted(command, root, env):
 
 
 def run(cargo_args, root, env, selected, test_args=()):
-    """Run the selected items, target by target; return the problems."""
+    """Run the targets of the selected items whole; return the problems."""
     problems = []
-    by_target = {}
-    for target, name in selected:
-        by_target.setdefault(target, []).append(name)
-    for target in sorted(by_target, key=lambda key: (KIND_ORDER[key.split(":")[0]], key)):
-        tests = sorted(by_target[target])
-        if target == "doc":
-            command = ["cargo", "test", *cargo_args, *selector(target), "--", *test_args]
-        else:
-            command = ["cargo", "test", *cargo_args, *selector(target), "--", *test_args, "--exact", *tests]
+    expected = {}
+    for key, _ in selected:
+        expected[key] = expected.get(key, 0) + 1
+    for key in sorted(expected, key=order_key):
+        command = ["cargo", "test", *cargo_args, *selector(key)]
+        if test_args:
+            command += ["--", *test_args]
         status, total = counted(command, root, env)
         if status:
-            problems.append(f"{target}: cargo test exited with {status}")
-        elif total != len(tests):
-            problems.append(f"{target}: {len(tests)} tests selected, {total} reported")
+            problems.append(f"{key}: cargo test exited with {status}")
+        elif total != expected[key]:
+            problems.append(f"{key}: {expected[key]} tests listed, {total} reported")
     return problems
 
 
@@ -190,7 +190,7 @@ class Partition:
 
     def __init__(self, index, count, heavy, root, group):
         self.index, self.count = index, count
-        self.heavy = [item(entry) for entry in heavy]
+        self.heavy = [target(entry) for entry in heavy]
         self.root = Path(root)
         self.group = f"{sys.platform}-{platform.machine()}-{group}"
         self.runs = {}
@@ -200,22 +200,20 @@ class Partition:
         if label in self.runs:
             raise SystemExit(f"partition run {label!r} appears twice")
         items = listing(cargo_args, self.root, env)
-        doctests = [entry for entry in items if entry[0] == "doc"]
-        selected = deal([entry for entry in items if entry[0] != "doc"], self.heavy, self.index, self.count,
-                        rotation=len(self.runs))
-        if self.index == self.count:
-            selected += doctests
+        dealt = set(deal({key for key, _ in items}, self.heavy, self.index, self.count, rotation=len(self.runs)))
+        selected = [entry for entry in items if entry[0] in dealt]
         self.runs[label] = {"items": sorted(map(list, items)), "selected": sorted(map(list, selected))}
-        print(f"Partition {self.index}/{self.count} of {label}: {len(selected)} of {len(items)} tests", flush=True)
+        print(f"Partition {self.index}/{self.count} of {label}: {len(dealt)} targets, "
+              f"{len(selected)} of {len(items)} tests: {', '.join(sorted(dealt, key=order_key))}", flush=True)
         self.write()
         return run(cargo_args, self.root, env, selected, test_args)
 
     def check_heavy(self):
-        """Fail if a HEAVY item is listed by none of the runs."""
-        listed = {tuple(entry) for run_record in self.runs.values() for entry in run_record["items"]}
-        missing = ["::".join(entry) for entry in self.heavy if entry not in listed]
+        """Fail if a HEAVY target is listed by none of the runs."""
+        listed = {entry[0] for run_record in self.runs.values() for entry in run_record["items"]}
+        missing = [entry for entry in self.heavy if entry not in listed]
         if self.runs and missing:
-            raise SystemExit(f"HEAVY names tests that no run lists: {missing}")
+            raise SystemExit(f"HEAVY names test targets that no run lists: {missing}")
 
     def path(self):
         return self.root / "build" / "partitions" / self.group / f"{self.index}-of-{self.count}.json"
@@ -306,10 +304,10 @@ def main(argv):
     if argv[:1] == ["plan"] and "--" in argv:
         split = argv.index("--")
         index, count = parse(argv[1])
-        heavy = [item(entry) for entry in argv[2:split]]
+        heavy = [target(entry) for entry in argv[2:split]]
         items = listing(argv[split + 1:], Path.cwd(), dict(os.environ))
-        for target, name in deal(items, heavy, index, count):
-            print(f"{target}::{name}")
+        for key in deal({key for key, _ in items}, heavy, index, count):
+            print(key)
         return
     raise SystemExit("usage: partition.py verify [--expect G1,G2,...] RECORD|DIR... | "
                      "plan K/N [HEAVY...] -- CARGO_TEST_ARGS...")

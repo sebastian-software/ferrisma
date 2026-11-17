@@ -38,8 +38,8 @@ builds for x86_64-apple-darwin, the oracle is tools/build_oracle.py's --arch
 x86_64 variant, and ROSETTA_ADVERTISE_AVX=1 lets Rosetta report AVX2.
 --msrv adds a build and test run with the toolchain named by rust-version.
 
---partition K/N runs only the K-th of N disjoint shares of the tests in every
-`cargo test` invocation (tools/partition.py), so that the hosted oracle jobs
+--partition K/N runs only the K-th of N disjoint shares of the test targets of
+every `cargo test` invocation (tools/partition.py), so that the hosted oracle jobs
 stay within the nightly tier's 60 minutes per job (engine ADR-0027, amendment
 2026-11-17); the N partitions together run every test once, and each writes a
 record under build/partitions/ that `tools/partition.py verify` checks for
@@ -68,31 +68,24 @@ PROFILES = [[], ["--release"], ["--profile", "checked"]]
 # the release-simd variant is compared in (ADR 0008).
 SIMD_MODES = {"aarch64": ["neon"], "x86_64": ["avx2", "sse41", "sse2"]}
 SIMD_VARIABLES = ["LIBWEBP_SIMD_LEVEL"]
-# The slowest tests of the hosted oracle jobs (nightly 44066960183,
+# The slowest test targets of the hosted oracle jobs (nightly 44066960183,
 # 2026-11-17: macOS with the asan-ubsan oracle, then Linux), slowest first.
-# --partition deals them out before the other tests, so that no partition gets
-# several of them; the list only orders the deal, and a name that no test has
-# any more fails the stage (tools/partition.py).
-HEAVY_TESTS = [
-    "test:wp13_tools::test_cwebp_script_passes_with_the_rust_library_mt_noalpha",
-    "test:wp12_tools::webpinfo_output_matches_the_oracle",
-    "test:wp13_tools::test_cwebp_script_passes_with_the_rust_library_lossless",
-    "test:wp13_tools::the_cwebp_builds_follow_the_oracle_variant",
-    "test:wp13_tools::cwebp_writes_the_files_and_reports_of_the_oracle",
-    "test:wp15_tools::webpmux_matches_between_the_c_and_the_rust_library",
-    "test:wp12_tools::dwebp_slow_memory_writes_the_files_of_the_oracle",
-    "test:wp13_tools::test_cwebp_script_passes_with_the_rust_library_default",
-    "test:wp12_tools::test_dwebp_script_passes_with_the_rust_library",
-    "test:wp12_tools::test_lossless_script_passes_with_the_rust_library",
-    "test:wp7_decode::color_transform_vector_matches_the_c_decoder",
-    "test:wp7_decode::lossless_vec_vectors_match_the_c_decoder",
-    "test:wp7_decode::other_lossless_vectors_match_the_c_decoder",
-    "test:wp16_incremental::incremental_decoders_match_with_options_and_memory",
-    "test:wp15_abi::abi_animation_encoder_matches_the_c_library",
-    "test:wp15_anim_encode::keyframe_options_match_the_c_encoder",
-    "test:wp12_tools::dwebp_writes_the_files_of_the_oracle",
-    "test:wp12_decode::slow_memory_decodes_as_c",
-    "test:wp12_decode::advanced_decoding_matches_with_options_and_caller_buffers",
+# --partition deals them out before the other targets, so that no partition
+# gets several of them; the list only orders the deal, and a target that no
+# longer exists fails the stage (tools/partition.py).
+HEAVY_TARGETS = [
+    "test:wp13_tools",
+    "test:wp12_tools",
+    "test:wp16_animation",
+    "test:wp15_tools",
+    "test:wp7_decode",
+    "test:wp16_incremental",
+    "test:wp15_abi",
+    "test:wp15_anim_encode",
+    "test:wp12_decode",
+    "test:wp12_incremental",
+    "test:wp16_decode",
+    "test:wp14_tools",
 ]
 
 
@@ -161,7 +154,7 @@ def check_tests(oracle_variants, baseline, msrv, no_simd=False, arch=None, part=
     if part is not None:
         group = "+".join(oracle_variants) or "no-oracle"
         group += ("-no-simd" if no_simd else "") + (f"-{arch}" if arch else "")
-        shard = partition.Partition(*part, HEAVY_TESTS, ROOT, group)
+        shard = partition.Partition(*part, HEAVY_TARGETS, ROOT, group)
     if oracle_variants:
         jobs = str(os.cpu_count() or 4)
         for variant in oracle_variants:

@@ -13,15 +13,22 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import partition  # noqa: E402
 
 
-def items(count, targets=("lib", "test:a", "test:b", "doc")):
-    return [(targets[n % len(targets)], f"t{n:03}") for n in range(count)]
+def keys(count):
+    return ["lib", "doc"] + [f"test:wp{number}" for number in range(count - 2)]
+
+
+def items(count, per_target=3):
+    return [(key, f"t{number}") for key in keys(count) for number in range(per_target)]
 
 
 def records(all_items, count, heavy=(), commit="c0", group="g", label="dev"):
-    return [{"group": group, "partition": [index, count], "commit": commit,
-             "runs": {label: {"items": sorted(map(list, all_items)),
-                              "selected": sorted(map(list, partition.deal(all_items, list(heavy), index, count)))}}}
-            for index in range(1, count + 1)]
+    result = []
+    for index in range(1, count + 1):
+        dealt = set(partition.deal({key for key, _ in all_items}, list(heavy), index, count))
+        result.append({"group": group, "partition": [index, count], "commit": commit,
+                       "runs": {label: {"items": sorted(map(list, all_items)),
+                                        "selected": sorted(list(entry) for entry in all_items if entry[0] in dealt)}}})
+    return result
 
 
 class Parse(unittest.TestCase):
@@ -34,55 +41,55 @@ class Parse(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 partition.parse(value)
 
-    def test_items(self):
-        self.assertEqual(partition.item("test:wp13_tools::a::b"), ("test:wp13_tools", "a::b"))
-        self.assertEqual(partition.item("doc::src/lib.rs - x (line 3)"), ("doc", "src/lib.rs - x (line 3)"))
-        for value in ("wp13_tools::a", "test:wp13::", "test:a b::c", "lib"):
+    def test_targets(self):
+        for value in ("lib", "doc", "test:wp13_tools", "bin:cwebp-rs"):
+            self.assertEqual(partition.target(value), value)
+        for value in ("wp13_tools", "test:", "test:a b", "test:wp13::x", "lib::x"):
             with self.subTest(value=value), self.assertRaises(ValueError):
-                partition.item(value)
+                partition.target(value)
 
 
 class Deal(unittest.TestCase):
-    def test_every_item_in_exactly_one_partition(self):
+    def test_every_target_in_exactly_one_partition(self):
         generator = random.Random(7)
         for count in range(1, 8):
-            for size in (0, 1, count - 1, count, 3 * count + 1, 97):
-                all_items = items(max(size, 0))
-                heavy = generator.sample(all_items, min(len(all_items), 5))
+            for size in (2, 3, count, count + 1, 3 * count + 1, 40):
+                listed = keys(size)
+                heavy = generator.sample(listed, min(len(listed), 5))
                 for rotation in (0, 1, count + 2):
-                    dealt = [partition.deal(all_items, heavy, index, count, rotation) for index in range(1, count + 1)]
+                    dealt = [partition.deal(listed, heavy, index, count, rotation) for index in range(1, count + 1)]
                     flat = [entry for share in dealt for entry in share]
                     with self.subTest(count=count, size=size, rotation=rotation):
-                        self.assertEqual(sorted(flat), sorted(all_items))
+                        self.assertEqual(sorted(flat), sorted(listed))
                         self.assertEqual(len(flat), len(set(flat)))
 
     def test_heavy_first_in_alternating_direction(self):
-        all_items = items(12)
-        heavy = [all_items[11], all_items[10], all_items[9], all_items[8], all_items[7], all_items[6]]
-        shares = [partition.deal(all_items, heavy, index, 3) for index in (1, 2, 3)]
+        listed = keys(14)
+        heavy = ["test:wp11", "test:wp10", "test:wp9", "test:wp8", "test:wp7", "test:wp6"]
+        shares = [partition.deal(listed, heavy, index, 3) for index in (1, 2, 3)]
         # Heavy positions 0, 1, 2 go to 1, 2, 3; positions 3, 4, 5 to 3, 2, 1.
-        self.assertEqual(shares[0][:2], [heavy[0], heavy[5]])
-        self.assertEqual(shares[1][:2], [heavy[1], heavy[4]])
-        self.assertEqual(shares[2][:2], [heavy[2], heavy[3]])
+        self.assertTrue({heavy[0], heavy[5]} <= set(shares[0]))
+        self.assertTrue({heavy[1], heavy[4]} <= set(shares[1]))
+        self.assertTrue({heavy[2], heavy[3]} <= set(shares[2]))
 
     def test_each_further_run_starts_one_partition_later(self):
-        all_items = items(20)
-        heavy = [all_items[13]]
-        owners = [[index for index in (1, 2, 3, 4) if heavy[0] in partition.deal(all_items, heavy, index, 4, rotation)]
+        listed = keys(20)
+        owners = [[index for index in (1, 2, 3, 4) if "test:wp13" in partition.deal(listed, ["test:wp13"], index, 4,
+                                                                                     rotation)]
                   for rotation in range(6)]
         self.assertEqual(owners, [[1], [2], [3], [4], [1], [2]])
 
-    def test_does_not_depend_on_listing_order(self):
-        all_items = items(40)
-        shuffled = list(all_items)
+    def test_cargo_order_and_independence_of_listing_order(self):
+        listed = keys(12)
+        shuffled = list(listed)
         random.Random(3).shuffle(shuffled)
-        heavy = [all_items[5], all_items[30]]
-        for index in (1, 2, 3, 4):
-            self.assertEqual(partition.deal(all_items, heavy, index, 4), partition.deal(shuffled, heavy, index, 4))
+        for index in (1, 2, 3):
+            share = partition.deal(listed, ["test:wp5"], index, 3)
+            self.assertEqual(share, partition.deal(shuffled, ["test:wp5"], index, 3))
+            self.assertEqual(share, sorted(share, key=partition.order_key))
 
-    def test_unlisted_heavy_items_are_not_dealt(self):
-        all_items = items(6)
-        self.assertNotIn(("test:x", "gone"), partition.deal(all_items, [("test:x", "gone")], 1, 1))
+    def test_unlisted_heavy_targets_are_not_dealt(self):
+        self.assertNotIn("test:gone", partition.deal(keys(6), ["test:gone"], 1, 1))
 
 
 class Listing(unittest.TestCase):
@@ -118,44 +125,52 @@ class Listing(unittest.TestCase):
         self.assertEqual(sum(map(int, partition.RESULT.search(failed).groups())), 5)
 
 
-class Doctests(unittest.TestCase):
-    def test_the_last_partition_runs_every_doctest_unfiltered(self):
-        doctests = [("doc", "src/lib.rs - f (line 3)"), ("doc", "src/lib.rs - g (line 9)")]
-        listed = items(12, targets=("lib", "test:a", "test:b")) + doctests
+class Running(unittest.TestCase):
+    def run_partitions(self, listed, reported):
         commands = []
         saved = partition.listing, partition.counted, partition.Partition.write
+        problems, shares = [], []
         try:
             partition.listing = lambda cargo_args, root, env: listed
-            partition.counted = lambda command, root, env: (commands.append(command), (0, 2))[1]
+            partition.counted = lambda command, root, env: (commands.append(command), (0, reported(command)))[1]
             partition.Partition.write = lambda self: None
-            shares = []
             for index in (1, 2, 3):
-                shard = partition.Partition(index, 3, [], ".", "g")
-                commands.clear()
-                shard.test("dev", ["--locked"], {})
+                shard = partition.Partition(index, 3, ["test:wp3"], ".", "g")
+                problems += shard.test("dev", ["--locked"], {})
                 shares.append([tuple(entry) for entry in shard.runs["dev"]["selected"]])
-                doc = [command for command in commands if "--doc" in command]
-                self.assertEqual(doc, [["cargo", "test", "--locked", "--doc", "--"]] if index == 3 else [])
         finally:
             partition.listing, partition.counted, partition.Partition.write = saved
+        return commands, problems, shares
+
+    def test_targets_run_whole_and_their_counts_are_checked(self):
+        listed = items(6)
+        commands, problems, shares = self.run_partitions(listed, lambda command: 3)
+        self.assertEqual(problems, [])
         self.assertEqual(sorted(entry for share in shares for entry in share), sorted(listed))
-        self.assertTrue(all(entry in shares[2] for entry in doctests))
+        self.assertEqual(sorted(command[3:] for command in commands),
+                         sorted([["--doc"], ["--lib"]] + [["--test", f"wp{number}"] for number in range(4)]))
+        self.assertTrue(all("--exact" not in command and "--" not in command for command in commands))
+
+    def test_a_count_that_differs_fails(self):
+        listed = items(4)
+        _, problems, _ = self.run_partitions(listed, lambda command: 2 if "--doc" in command else 3)
+        self.assertEqual(problems, ["doc: 3 tests listed, 2 reported"])
 
 
 class Verify(unittest.TestCase):
     def test_complete_records_pass(self):
-        self.assertEqual(partition.verify(records(items(30), 4, heavy=items(30)[:3])), [])
+        self.assertEqual(partition.verify(records(items(12), 4, heavy=["test:wp1"])), [])
 
     def test_a_missing_partition_fails(self):
-        problems = partition.verify(records(items(30), 4)[:3])
+        problems = partition.verify(records(items(12), 4)[:3])
         self.assertTrue(any("partitions [1, 2, 3] of 4" in problem for problem in problems), problems)
 
     def test_a_partition_twice_fails(self):
-        complete = records(items(30), 3)
+        complete = records(items(12), 3)
         self.assertTrue(partition.verify(complete + complete[:1]))
 
     def test_an_item_selected_twice_or_never_fails(self):
-        complete = records(items(10), 2)
+        complete = records(items(6), 2)
         complete[1]["runs"]["dev"]["selected"].append(complete[0]["runs"]["dev"]["selected"][0])
         moved = complete[0]["runs"]["dev"]["selected"].pop(1)
         problems = partition.verify(complete)
@@ -163,20 +178,20 @@ class Verify(unittest.TestCase):
         self.assertTrue(any("no partition" in problem and moved[1] in problem for problem in problems), problems)
 
     def test_different_listings_fail(self):
-        complete = records(items(10), 2)
+        complete = records(items(6), 2)
         complete[1]["runs"]["dev"]["items"].pop()
         self.assertTrue(any("listed different tests" in problem for problem in partition.verify(complete)))
 
     def test_different_commits_and_runs_fail(self):
-        complete = records(items(10), 2)
+        complete = records(items(6), 2)
         complete[1]["commit"] = "c1"
         self.assertTrue(any("different commits" in problem for problem in partition.verify(complete)))
-        complete = records(items(10), 2)
+        complete = records(items(6), 2)
         complete[1]["runs"]["release"] = complete[1]["runs"].pop("dev")
         self.assertTrue(any("different invocations" in problem for problem in partition.verify(complete)))
 
     def test_expected_groups(self):
-        both = records(items(10), 2, group="linux") + records(items(12), 3, group="darwin")
+        both = records(items(6), 2, group="linux") + records(items(8), 3, group="darwin")
         self.assertEqual(partition.verify(both, ["darwin", "linux"]), [])
         self.assertTrue(any("no records of the groups ['windows']" in problem
                             for problem in partition.verify(both, ["darwin", "linux", "windows"])))
@@ -184,7 +199,7 @@ class Verify(unittest.TestCase):
 
     def test_the_command_line_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:
-            for number, record in enumerate(records(items(10), 2, group="linux")):
+            for number, record in enumerate(records(items(6), 2, group="linux")):
                 (Path(directory) / f"{number + 1}-of-2.json").write_text(json.dumps(record))
             partition.main(["verify", "--expect", " linux ,", directory])
             with self.assertRaises(SystemExit):
@@ -194,7 +209,7 @@ class Verify(unittest.TestCase):
                 partition.main(["verify", directory])
 
     def test_groups_are_checked_separately(self):
-        both = records(items(10), 2, group="linux") + records(items(12), 3, group="darwin")
+        both = records(items(6), 2, group="linux") + records(items(8), 3, group="darwin")
         self.assertEqual(partition.verify(both), [])
         self.assertTrue(partition.verify(both[:-1]))
         self.assertTrue(partition.verify([]))
