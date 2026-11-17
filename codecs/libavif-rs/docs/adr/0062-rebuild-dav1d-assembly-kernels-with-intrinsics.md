@@ -583,6 +583,97 @@ new modules are formatted with `max_width = 120` and checked with
 earlier `simd` modules follow it only approximately (up to 9 differences
 per file), which this step did not change.
 
+**2026-11-17, intra prediction 16 bpc on NEON** (`ipred16.S`:
+`simd/arm64/ipred16.rs`, the same entry points as at 8 bpc, used at 10
+and 12 bit as in the original; the filter predictor is the macro
+`filter_fn bpc` as a generic function with a 10-bit and a 12-bit
+instance, chosen by `bitdepth_max` as the assembly does; the wrappers
+and the init of `simd/arm/ipred.rs` are the 8 bpc ones compiled for
+`uint16_t` pixels with `bitdepth_max`, as the C header is compiled twice;
+`dispatch.txt`: `ipred_16bpc_arm`, all 22 slots). Translated in the same
+five parts by the same agents after their 8 bpc part, joined and gated as
+a whole.
+
+Gates: per-kernel 17 groups, 3,155 selections each at `neon` and scalar,
+at each of the eight seeds (the four `ipred_16bpc` groups compare the
+original's assembly with the rebuilt kernels at 10 and 12 bit); whole
+images 994 of 994 at `neon` and at `scalar`; `run_dav1d_tests.py` 1,711
+of 1,711; ABI 12,157 checks, 0 differences; API 83, linkage, dispatch
+`--check` (9 entries, 52 units) and its unit test pass; layout and
+selection tests for the 16 bpc context. Positive controls, one constant
+each, all eight seeds: a 1/3 multiplier of `ipred_dc` (`0xAAAB` to
+`0xABAB`) fails `intra_pred` and the whole-image gate (808 of 994
+identical); the rounding shift of the chroma-from-luma splat (6 to 5)
+fails `cfl_pred`; the index mask of `pal_pred` (7 to 3) fails `pal_pred`;
+a shift of `cfl_ac` 4:2:0 (1 to 2) fails `cfl_ac`; restored, both gates
+pass. The part agents' comparisons outside the gate were repeated at 16
+bpc with at least the same case counts; no difference.
+
+Instructions per call against the assembly (`--family ipred --bpc 16`,
+10-bit pixels, 518 rows as at 8 bpc, identical outputs in all): 0.88 to
+1.22, median 1.04; none above 1.3. By kernel (lowest / median /
+highest): dc 0.92 / 1.07 / 1.16, v 0.92 / 1.01 / 1.12, h 0.97 / 1.14 /
+1.22, dc_left 0.93 / 1.01 / 1.11, dc_top 0.93 / 1.01 / 1.12, dc_128
+0.92 / 0.98 / 1.12, paeth 1.00 / 1.08 / 1.19, smooth 0.96 / 0.97 /
+1.21, smooth_v 0.94 / 0.96 / 1.13, smooth_h 0.92 / 0.93 / 1.16, z1
+0.94 / 1.01 / 1.08, z2 1.01 / 1.05 / 1.11, z3 0.89 / 1.00 / 1.12,
+filter 1.01 / 1.09 / 1.14, cfl_ac 0.88 / 1.06 / 1.20, cfl_pred 0.96 /
+0.99 / 1.17, pal_pred 1.00 / 1.04 / 1.16. The highest rows and their
+cause: `ipred_h` 32 wide (1.20 to 1.22; the tail call into the 16/32/64
+function and its second dispatch, and six `add`s for four row addresses,
+18 against 15 instructions per four rows); smooth 4 and 8 wide (1.19 to
+1.21; LLVM widens the loop-invariant `top - bottom` outside the row loop
+and compiles the second `smlal` pair as `ushll` + `mla`); `cfl_ac` 4:2:0
+16 wide (1.20; `vld1q_u16_x4` compiles to `ldp` pairs, eight for the
+assembly's four `ld1`). The 12-bit instance of the filter predictor is
+gated by checkasm but not measured (the bench runs 10 bit). Rows of
+cheap kernels on large blocks still vary by a few hundredths between
+measurement runs.
+
+Deviations from the assembly beyond those of the 8 bpc entry, which
+apply here as well ((a) to (g), (i) to (l)): (p) the 64-column store
+loops of `ipred_dc_128` and `ipred_v` are functions with one pointer per
+half row; they store both first halves of a row pair, then both second
+halves, where the assembly alternates (disjoint memory; same count per
+row, +2 per call). `ipred_h` for 16, 32 and 64 columns stores a row's
+parts together. (q) The 16+ column loops of the smooth predictors are
+instantiated per width; as run-time loops they measured 1.20 to 1.49.
+(r) `ipred_z2_fill1` for 16+ columns multiplies by element (`umull v,
+v, v.h[0]`) where the assembly multiplies by a vector whose lanes are
+all equal: same values, same count; the by-vector form measured 1.18 to
+1.33 for the reason given at 8 bpc. Its lane loads (`ld2`/`ld3`/`ld4`
+of one lane) need an initial tuple value, two to four `mov` per block.
+(s) `cfl_ac` 4:2:0 adds the two rows and then pairs (`add`, `addp`)
+where the assembly pairs and then adds: same sums, same count; LLVM
+reassociated the literal form into five instructions (1.24 to 1.37).
+(t) Two oddities of the 16 bpc assembly are kept as they are, both
+outside what the wrappers can reach and compared against the assembly
+directly by the part agents: `ipred_z1_fill2` and `ipred_z3_fill2`
+replicate one byte (`ld1r {v31.16b}`), not one pixel, as their padding
+value, and the last padding loop of the three-tap `ipred_z1_filter_edge`
+counts 16 pixels per 8 stored. (u) Dead instructions have no counterpart
+(five `movi`, one `mov` and one `add` in the Z2 kernels).
+
+The wrappers' buffers are as at 8 bpc ((m) to (o)). Zeroing the whole
+`top_out` instead of 16 elements was measured at 16 bpc: a `bzero` call
+of 604 bytes, about 68 instructions, which put Z1 4x4 and 8x4 at 1.32 to
+1.35. At 16 bpc no fill kernel reads past the padded range of `left_out`
+(largest index read 173 against 174 written), and Z1 reads at most 3
+elements past it; `ipred_z2_fill1` reads single pixels down to
+`left[-81]`, which is `top[-16]`, inside the buffer. The finding of the
+8 bpc entry holds with other figures: Z1 64x64 with the edge filter
+loads `topleft[-1..=134]`, 6 pixels past `edge[257]`, behind the union
+inside the same scratch structure.
+
+Instructions per decode (no harness hash; stock dav1d NEON in
+brackets): 10-bit 4:2:0 1.24 G (from 1.36; 1.13), 10-bit 4:4:4 1.41 G
+(1.59; 1.31); 8-bit and lossless unchanged (1.07, 1.21, 1.14 and
+10.23 G); pictures unchanged. Against stock dav1d with NEON the port now
+needs 1.11 times the instructions on the 8-bit 4:2:0 still, 1.12 on
+8-bit 4:4:4 and lossless, 1.10 on 10-bit 4:2:0 and 1.08 on 10-bit
+4:4:4. Intra prediction is complete on NEON; not rebuilt on any target:
+loop restoration and film grain; on x86-64 nothing yet.
+
 ## Review when
 
 A family is completed on a target; the x86-64 AVX2 kernels arrive; the owner
@@ -591,6 +682,7 @@ engine's decoder choice changes.
 
 ## Amendment log
 
+- 2026-11-17 — intra prediction 16 bpc on NEON (validation above).
 - 2026-11-17 — intra prediction 8 bpc on NEON (validation above).
 - 2026-11-17 — the per-kernel gate runs eight seeds (validation above).
 - 2026-11-17 — CDEF on NEON, 8 and 16 bpc (validation above).

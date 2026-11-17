@@ -23,6 +23,7 @@ pub mod arm64 {
     pub mod cdef;
     pub mod cdef16;
     pub mod ipred;
+    pub mod ipred16;
     pub mod itx;
     pub mod itx16;
     pub mod loopfilter;

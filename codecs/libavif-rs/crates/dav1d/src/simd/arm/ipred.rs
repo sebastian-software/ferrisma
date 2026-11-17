@@ -6,7 +6,8 @@
 //! assembly's fill kernels; AArch64 only in the original as well) and
 //! `intra_pred_dsp_init_arm`: under `DAV1D_ARM_CPU_FLAG_NEON` the fourteen
 //! `intra_pred` slots, the four `cfl_pred` slots, the three `cfl_ac` slots
-//! and `pal_pred` get the rebuilt kernels (`simd/arm64/ipred.rs` at 8 bpc);
+//! and `pal_pred` get the rebuilt kernels (`simd/arm64/ipred.rs` at 8 bpc,
+//! `ipred16.rs` at 16 bpc, for every high bit depth as in the original);
 //! with the flag masked off the C kernels stay.
 //!
 //! `get_filter_strength` and `get_upsample` are the two static functions of
@@ -92,6 +93,24 @@ pub struct Dav1dIntraPredDSPContext {
     pub cfl_ac: [Option<CflAcFn>; 3],
     pub cfl_pred: [Option<CflPredFn>; 6],
     pub pal_pred: Option<PalPredFn>,
+}
+
+/// `angular_ipred_fn` at 16 bpc (with `bitdepth_max`).
+pub type AngularIpredFn16 = unsafe extern "C" fn(*mut u16, isize, *const u16, c_int, c_int, c_int, c_int, c_int, c_int);
+/// `cfl_ac_fn` at 16 bpc.
+pub type CflAcFn16 = unsafe extern "C" fn(*mut i16, *const u16, isize, c_int, c_int, c_int, c_int);
+/// `cfl_pred_fn` at 16 bpc (with `bitdepth_max`).
+pub type CflPredFn16 = unsafe extern "C" fn(*mut u16, isize, *const u16, c_int, c_int, *const i16, c_int, c_int);
+/// `pal_pred_fn` at 16 bpc.
+pub type PalPredFn16 = unsafe extern "C" fn(*mut u16, isize, *const u16, *const u8, c_int, c_int);
+
+/// `Dav1dIntraPredDSPContext` at 16 bpc.
+#[repr(C)]
+pub struct Dav1dIntraPredDSPContext16 {
+    pub intra_pred: [Option<AngularIpredFn16>; 14],
+    pub cfl_ac: [Option<CflAcFn16>; 3],
+    pub cfl_pred: [Option<CflPredFn16>; 6],
+    pub pal_pred: Option<PalPredFn16>,
 }
 
 #[inline(always)]
@@ -462,6 +481,62 @@ mod bpc8 {
     }
 }
 
+/// The 16 bpc compilation of `src/arm/ipred.h`.
+mod bpc16 {
+    use super::super::super::arm64::ipred16::{
+        dav1d_ipred_cfl_128_16bpc_neon, dav1d_ipred_cfl_16bpc_neon, dav1d_ipred_cfl_ac_420_16bpc_neon,
+        dav1d_ipred_cfl_ac_422_16bpc_neon, dav1d_ipred_cfl_ac_444_16bpc_neon, dav1d_ipred_cfl_left_16bpc_neon,
+        dav1d_ipred_cfl_top_16bpc_neon, dav1d_ipred_dc_128_16bpc_neon, dav1d_ipred_dc_16bpc_neon,
+        dav1d_ipred_dc_left_16bpc_neon, dav1d_ipred_dc_top_16bpc_neon, dav1d_ipred_filter_16bpc_neon,
+        dav1d_ipred_h_16bpc_neon, dav1d_ipred_paeth_16bpc_neon, dav1d_ipred_pixel_set_16bpc_neon as pixel_set,
+        dav1d_ipred_reverse_16bpc_neon as reverse, dav1d_ipred_smooth_16bpc_neon, dav1d_ipred_smooth_h_16bpc_neon,
+        dav1d_ipred_smooth_v_16bpc_neon, dav1d_ipred_v_16bpc_neon, dav1d_ipred_z1_fill1_16bpc_neon as z1_fill1,
+        dav1d_ipred_z1_fill2_16bpc_neon as z1_fill2, dav1d_ipred_z1_filter_edge_16bpc_neon as z1_filter_edge,
+        dav1d_ipred_z1_upsample_edge_16bpc_neon as z1_upsample_edge, dav1d_ipred_z2_fill1_16bpc_neon as z2_fill1,
+        dav1d_ipred_z2_fill2_16bpc_neon as z2_fill2, dav1d_ipred_z2_fill3_16bpc_neon as z2_fill3,
+        dav1d_ipred_z2_upsample_edge_16bpc_neon as z2_upsample_edge, dav1d_ipred_z3_fill1_16bpc_neon as z3_fill1,
+        dav1d_ipred_z3_fill2_16bpc_neon as z3_fill2, dav1d_pal_pred_16bpc_neon,
+    };
+    use super::*;
+
+    z_wrappers!(u16, bitdepth_max);
+
+    /// `intra_pred_dsp_init_arm` at 16 bpc.
+    pub(super) unsafe fn intra_pred_dsp_init_arm(c: &mut Dav1dIntraPredDSPContext16) {
+        let flags = dav1d_get_cpu_flags();
+
+        if flags & DAV1D_ARM_CPU_FLAG_NEON == 0 {
+            return;
+        }
+
+        c.intra_pred[DC_PRED] = Some(dav1d_ipred_dc_16bpc_neon);
+        c.intra_pred[DC_128_PRED] = Some(dav1d_ipred_dc_128_16bpc_neon);
+        c.intra_pred[TOP_DC_PRED] = Some(dav1d_ipred_dc_top_16bpc_neon);
+        c.intra_pred[LEFT_DC_PRED] = Some(dav1d_ipred_dc_left_16bpc_neon);
+        c.intra_pred[HOR_PRED] = Some(dav1d_ipred_h_16bpc_neon);
+        c.intra_pred[VERT_PRED] = Some(dav1d_ipred_v_16bpc_neon);
+        c.intra_pred[PAETH_PRED] = Some(dav1d_ipred_paeth_16bpc_neon);
+        c.intra_pred[SMOOTH_PRED] = Some(dav1d_ipred_smooth_16bpc_neon);
+        c.intra_pred[SMOOTH_V_PRED] = Some(dav1d_ipred_smooth_v_16bpc_neon);
+        c.intra_pred[SMOOTH_H_PRED] = Some(dav1d_ipred_smooth_h_16bpc_neon);
+        c.intra_pred[Z1_PRED] = Some(ipred_z1_neon);
+        c.intra_pred[Z2_PRED] = Some(ipred_z2_neon);
+        c.intra_pred[Z3_PRED] = Some(ipred_z3_neon);
+        c.intra_pred[FILTER_PRED] = Some(dav1d_ipred_filter_16bpc_neon);
+
+        c.cfl_pred[DC_PRED] = Some(dav1d_ipred_cfl_16bpc_neon);
+        c.cfl_pred[DC_128_PRED] = Some(dav1d_ipred_cfl_128_16bpc_neon);
+        c.cfl_pred[TOP_DC_PRED] = Some(dav1d_ipred_cfl_top_16bpc_neon);
+        c.cfl_pred[LEFT_DC_PRED] = Some(dav1d_ipred_cfl_left_16bpc_neon);
+
+        c.cfl_ac[DAV1D_PIXEL_LAYOUT_I420 - 1] = Some(dav1d_ipred_cfl_ac_420_16bpc_neon);
+        c.cfl_ac[DAV1D_PIXEL_LAYOUT_I422 - 1] = Some(dav1d_ipred_cfl_ac_422_16bpc_neon);
+        c.cfl_ac[DAV1D_PIXEL_LAYOUT_I444 - 1] = Some(dav1d_ipred_cfl_ac_444_16bpc_neon);
+
+        c.pal_pred = Some(dav1d_pal_pred_16bpc_neon);
+    }
+}
+
 /// Called at the end of the translated `dav1d_intra_pred_dsp_init_8bpc`,
 /// where the original calls `intra_pred_dsp_init_arm(c)`.
 ///
@@ -471,6 +546,14 @@ mod bpc8 {
 /// during the call.
 pub unsafe fn intra_pred_dsp_init_arm_8bpc(c: *mut c_void) {
     bpc8::intra_pred_dsp_init_arm(&mut *(c as *mut Dav1dIntraPredDSPContext))
+}
+
+/// Called at the end of the translated `dav1d_intra_pred_dsp_init_16bpc`.
+///
+/// # Safety
+/// As for `intra_pred_dsp_init_arm_8bpc`.
+pub unsafe fn intra_pred_dsp_init_arm_16bpc(c: *mut c_void) {
+    bpc16::intra_pred_dsp_init_arm(&mut *(c as *mut Dav1dIntraPredDSPContext16))
 }
 
 #[cfg(test)]
@@ -499,6 +582,24 @@ mod tests {
             offset_of!(Dav1dIntraPredDSPContext, pal_pred)
         );
         assert_eq!(size_of::<Dav1dIntraPredDSPContext>(), 24 * size_of::<usize>());
+        use crate::b16::ipred_tmpl::Dav1dIntraPredDSPContext as Translated16;
+        assert_eq!(size_of::<Translated16>(), size_of::<Dav1dIntraPredDSPContext16>());
+        assert_eq!(
+            offset_of!(Translated16, intra_pred),
+            offset_of!(Dav1dIntraPredDSPContext16, intra_pred)
+        );
+        assert_eq!(
+            offset_of!(Translated16, cfl_ac),
+            offset_of!(Dav1dIntraPredDSPContext16, cfl_ac)
+        );
+        assert_eq!(
+            offset_of!(Translated16, cfl_pred),
+            offset_of!(Dav1dIntraPredDSPContext16, cfl_pred)
+        );
+        assert_eq!(
+            offset_of!(Translated16, pal_pred),
+            offset_of!(Dav1dIntraPredDSPContext16, pal_pred)
+        );
     }
 
     /// The edge-filter decisions of `src/ipred_tmpl.c`, at the thresholds.
@@ -543,6 +644,49 @@ mod tests {
             dav1d_intra_pred_dsp_init_8bpc(&mut c);
             dav1d_set_cpu_flags_mask(0);
             dav1d_intra_pred_dsp_init_8bpc(&mut reference);
+            dav1d_set_cpu_flags_mask(!0);
+            let all = |c: &Translated| {
+                let mut v: Vec<Option<usize>> = c.intra_pred.iter().map(|f| f.map(|f| f as usize)).collect();
+                v.extend(c.cfl_ac.iter().map(|f| f.map(|f| f as usize)));
+                v.extend(c.cfl_pred.iter().map(|f| f.map(|f| f as usize)));
+                v.push(c.pal_pred.map(|f| f as usize));
+                v
+            };
+            let (new, old) = (all(&c), all(&reference));
+            let changed = new.iter().zip(&old).filter(|(a, b)| a != b).count();
+            // DC_PRED, cfl_ac[4:2:0], cfl_pred[DC_PRED], pal_pred
+            (changed, [new[0], new[14], new[17], new[23]])
+        };
+        // 14 intra_pred, 3 cfl_ac, 4 cfl_pred (two of its six slots are unused), pal_pred.
+        assert_eq!(slots(!0), (22, rebuilt.map(Some)));
+        let (changed, selected) = slots(0);
+        assert_eq!(changed, 0);
+        assert!(selected.iter().zip(&rebuilt).all(|(s, r)| *s != Some(*r)));
+    }
+
+    /// The same at 16 bpc.
+    #[test]
+    fn neon_selects_the_rebuilt_16bpc_kernels_and_mask_zero_keeps_c() {
+        use crate::b16::ipred_tmpl::{dav1d_intra_pred_dsp_init_16bpc, Dav1dIntraPredDSPContext as Translated};
+        use crate::common::cpu::{dav1d_init_cpu, dav1d_set_cpu_flags_mask};
+        use crate::simd::arm64::ipred16 as kernels;
+        let rebuilt = [
+            kernels::dav1d_ipred_dc_16bpc_neon as AngularIpredFn16 as usize,
+            kernels::dav1d_ipred_cfl_ac_420_16bpc_neon as CflAcFn16 as usize,
+            kernels::dav1d_ipred_cfl_16bpc_neon as CflPredFn16 as usize,
+            kernels::dav1d_pal_pred_16bpc_neon as PalPredFn16 as usize,
+        ];
+        let _guard = crate::simd::cpu::CPU_MASK_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let slots = |mask: u32| unsafe {
+            dav1d_init_cpu();
+            dav1d_set_cpu_flags_mask(mask);
+            let mut c: Translated = core::mem::zeroed();
+            let mut reference: Translated = core::mem::zeroed();
+            dav1d_intra_pred_dsp_init_16bpc(&mut c);
+            dav1d_set_cpu_flags_mask(0);
+            dav1d_intra_pred_dsp_init_16bpc(&mut reference);
             dav1d_set_cpu_flags_mask(!0);
             let all = |c: &Translated| {
                 let mut v: Vec<Option<usize>> = c.intra_pred.iter().map(|f| f.map(|f| f as usize)).collect();
