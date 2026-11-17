@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Instructions per call of rebuilt dav1d kernels against the original's assembly.
 
-Usage: python3 tools/measure_dav1d_kernels.py [--family itx|itx16|msac|lpf] [--calls N]   (macOS ARM64)
+Usage: python3 tools/measure_dav1d_kernels.py [--family itx|itx16|msac|lpf|cdef] [--calls N]   (macOS ARM64)
 
 For each 8 bpc inverse-transform entry point rebuilt so far (ADR 0062), the
 driver `tools/dav1d-kernel-bench.c` calls the kernel N times on fixed inputs
@@ -24,6 +24,12 @@ Results: `build/dav1d-kernel-instructions-msac.json`.
 pixels) on one superblock edge of 32 units with mixed filter widths (see
 `dav1d-kernel-bench.c`); `--calls` / 256 calls each. Results:
 `build/dav1d-kernel-instructions-lpf.json`.
+
+`--family cdef`: `dir` and the three filters (`fb[0..2]`, through the
+`DEFINE_FILTER` wrappers: padding and filter) at 8 and 16 bpc (10-bit
+pixels), the filters with the edge flags 0xf (fully edged), 0x0, 0x5 and
+0xa; `--calls` / 64 calls each. Results:
+`build/dav1d-kernel-instructions-cdef.json`.
 """
 MSAC = [('dav1d_msac_decode_symbol_adapt4_neon', ns) for ns in (1, 2, 3)]
 MSAC += [('dav1d_msac_decode_symbol_adapt8_neon', ns) for ns in (4, 7)]
@@ -67,7 +73,7 @@ def main():
     parser.add_argument('--calls', type=int, default=32000000,
                         help='pixels processed per kernel and side (calls = this / block area)')
     parser.add_argument('--only', help='substring filter on kernel names')
-    parser.add_argument('--family', choices=['itx', 'itx16', 'msac', 'lpf'], default='itx')
+    parser.add_argument('--family', choices=['itx', 'itx16', 'msac', 'lpf', 'cdef'], default='itx')
     args = parser.parse_args()
     work = ROOT / 'build/dav1d-kernel-bench'
     work.mkdir(parents=True, exist_ok=True)
@@ -76,6 +82,36 @@ def main():
     original = ROOT / 'build/dav1d-dsp-release-neon/libdav1d-dsp-asm.dylib'
     port = ROOT.parents[1] / 'target/release/libdav1d.dylib'
     rows = []
+    if args.family == 'cdef':
+        calls = args.calls // 64
+        slots = [('dir', 0, ['0xf']), ('fb[0] 8x8', 1, None), ('fb[1] 4x8', 2, None), ('fb[2] 4x4', 3, None)]
+        for bpc in (8, 16):
+            for name, slot, edge_sets in slots:
+                kernel = f'cdef {name} {bpc}bpc'
+                if args.only and args.only not in kernel:
+                    continue
+                for edges in edge_sets or ['0xf', '0x0', '0x5', '0xa']:
+                    per_call, checksums = {}, {}
+                    for side, library in (('original', original), ('port', port)):
+                        command = [driver, library, '0x1', 'cdef', str(bpc), str(slot), edges, str(calls)]
+                        base, _ = instructions(command + ['baseline'])
+                        total, checksum = instructions(command + ['call'])
+                        per_call[side] = (total - base) / calls
+                        checksums[side] = checksum
+                    row = {'kernel': kernel, 'path': '-' if slot == 0 else f'edges {edges}', 'calls': calls,
+                           'original_instructions': round(per_call['original'], 1),
+                           'port_instructions': round(per_call['port'], 1),
+                           'ratio': round(per_call['port'] / per_call['original'], 3),
+                           'identical_output': checksums['original'] == checksums['port']}
+                    rows.append(row)
+                    print(f"{row['kernel']:52s} {row['path']:16s} {row['original_instructions']:9.1f} "
+                          f"{row['port_instructions']:9.1f} {row['ratio']:6.3f} {row['identical_output']}", flush=True)
+        (ROOT / 'build/dav1d-kernel-instructions-cdef.json').write_text(json.dumps(
+            {'calls': calls, 'level': 'neon', 'original': str(original), 'port': str(port), 'kernels': rows},
+            indent=2) + '\n')
+        if not all(row['identical_output'] for row in rows):
+            raise SystemExit('outputs differ')
+        return
     if args.family == 'lpf':
         calls = args.calls // 256
         names = ['h_sb_y', 'v_sb_y', 'h_sb_uv', 'v_sb_uv']

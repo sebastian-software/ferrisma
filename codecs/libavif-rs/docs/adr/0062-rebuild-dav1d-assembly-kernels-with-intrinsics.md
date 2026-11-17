@@ -382,6 +382,47 @@ brackets; "before" is the msac entry's figure minus the hash: 10-bit 4:2:0
 alpha 1.39 G (0.96, color only), lossless 8-bit 4:4:4 10.72 G (9.14);
 pictures unchanged.
 
+**2026-11-17, CDEF on NEON, 8 and 16 bpc** (`cdef.S`, `cdef16.S` and the
+shared `cdef_tmpl.S`: `simd/arm64/cdef.rs`, the template generic over the
+bit depth, and `cdef16.rs`; the C glue of `src/arm/cdef.h`, the three
+`DEFINE_FILTER` wrappers (padding into the 16-bit tmp buffer, then the
+filter) and `cdef_dsp_init_arm`, translated by hand into the owned
+`simd/arm/cdef.rs`; `dispatch.txt`: `cdef_8bpc_arm`, `cdef_16bpc_arm`, the
+call at the end of the translated init, where `cdef_tmpl.c` calls
+`cdef_dsp_init_arm`). Gates: per-kernel 17 groups, 3,155 selections each
+at `neon` and scalar (`cdef_8bpc` and `cdef_16bpc` `cdef_dir` and
+`cdef_filter` compare the original's assembly with the rebuilt kernels,
+16 bpc at 10 and 12 bit); whole images 994 of 994 at `neon` and at
+`scalar`; `run_dav1d_tests.py` 1,711 of 1,711; ABI 12,157 checks, 0
+differences; API 83, linkage, dispatch `--check` (7 entries, 44 units)
+and its unit test pass; layout and selection tests for both contexts.
+Positive control: the primary tap table `[4, 2, 3, 3]` changed to
+`[4, 2, 3, 4]` fails `cdef_filter` at both bit depths and the whole-image
+gate (239 of 989 identical). Instructions per call against the assembly
+(`measure_dav1d_kernels.py --family cdef`, new mode of
+`dav1d-kernel-bench.c`: `dir` and the three block sizes through the
+wrappers, edge sets 0xf, 0x0, 0x5, 0xa, identical outputs): `dir` 0.98 (8
+bpc) and 0.97 (16 bpc), filters 0.80 to 0.98 (8 bpc) and 0.79 to 0.92
+(16 bpc); the filter rows include the wrapper and the padding, which the
+original runs as C around its assembly. Deviations: the dead
+`mov w3, #8` of `find_dir` has no counterpart (one instruction less);
+the wrappers leave the tmp buffer uninitialized as `ALIGN_STK_16` does,
+written by the padding before the filter reads it through raw pointers;
+the assembly's multi-register loads and stores are kept. Instructions
+per decode (no harness hash; stock dav1d NEON in brackets): 8-bit 4:2:0
+1.16 G (from 1.28; 0.96), 8-bit 4:4:4 1.34 G (1.71; 1.09), 8-bit 4:2:0
+with alpha 1.28 G (1.39; 0.96 color only), 10-bit 4:2:0 1.36 G (1.51;
+1.13), 10-bit 4:4:4 1.59 G (2.08; 1.31); lossless 8-bit 4:4:4 10.72 G
+unchanged (CDEF is off in lossless; 9.14); pictures unchanged.
+
+The 16 bpc chroma loop-filter checkasm groups (open since the loop filter
+entry) do reach the wd4 core: a build with the `f + 4` fault there, run
+through the original checkasm with seeds 1 to 40, fails `lpf_h_sb_uv` in
+28 and `lpf_v_sb_uv` in 26 of the 40 seeds (`lpf_h_sb_y` 38, `lpf_v_sb_y`
+35); the gate's single seed 42 is one where the chroma inputs miss the
+changed rounding. No path is uncovered; one seed catches a one-constant
+error in a narrow rounding step only with that probability.
+
 ## Review when
 
 A family is completed on a target; the x86-64 AVX2 kernels arrive; the owner
@@ -390,6 +431,7 @@ engine's decoder choice changes.
 
 ## Amendment log
 
+- 2026-11-17 — CDEF on NEON, 8 and 16 bpc (validation above).
 - 2026-11-17 — inverse transforms 16 bpc on NEON (validation above).
 - 2026-11-16 — msac selected at compile time; portable build configuration for the scalar gate (decision and validation above).
 - 2026-11-16 — loop filter 16 bpc on NEON (validation above).

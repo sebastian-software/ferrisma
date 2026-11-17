@@ -1,4 +1,6 @@
 # Families dispatched to the rebuilt kernels (tools/enable_dav1d_dispatch.py).
+cdef_16bpc_arm
+cdef_8bpc_arm
 itx_16bpc_arm
 itx_8bpc_arm
 loopfilter_16bpc_arm

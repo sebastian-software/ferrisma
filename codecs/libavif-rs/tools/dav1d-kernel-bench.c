@@ -30,7 +30,16 @@
  *   dav1d-kernel-bench LIBRARY MASK itx16 TX TYPE EOB ITERATIONS call|baseline
  *
  * as the first form for dav1d_itx_dsp_init_16bpc(c, 10): 32-bit
- * coefficients, 10-bit pixels (uint16_t) and bitdepth_max 1023. */
+ * coefficients, 10-bit pixels (uint16_t) and bitdepth_max 1023. *
+ *   dav1d-kernel-bench LIBRARY MASK cdef BPC SLOT EDGES ITERATIONS call|baseline
+ *
+ * calls the slot SLOT of dav1d_cdef_dsp_init_BPCbpc (0: dir, 1..3: fb[0..2],
+ * the 8x8, 4x8 and 4x4 filters) on an 8x8 block of a 32x32 picture (a
+ * gradient with noise) with the edge flags EDGES; the filters cycle through
+ * the strengths (pri, sec) = (6, 2), (6, 0), (0, 2) (shifted by 2 at 16
+ * bpc) and the eight directions, damping 5 (7 at 16 bpc); each iteration
+ * restores the picture. At 16 bpc the pixels are 10-bit. The checksum
+ * covers the picture and, for dir, the directions and variances. */
 #include <dlfcn.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -188,7 +197,82 @@ static int itx16(void *library, char **argv) {
     return 0;
 }
 
+typedef int (*cdef_dir_fn)(const void *dst, ptrdiff_t stride, unsigned *var, int bitdepth_max);
+typedef void (*cdef_fn)(void *dst, ptrdiff_t stride, const void *left, const void *top, const void *bottom,
+                        int pri_strength, int sec_strength, int dir, int damping, unsigned edges,
+                        int bitdepth_max);
+typedef struct { cdef_dir_fn dir; cdef_fn fb[3]; } CdefDSPContext;
+
+static int cdef(void *library, char **argv) {
+    const int bpc = atoi(argv[4]), slot = atoi(argv[5]);
+    const unsigned edges = (unsigned) strtoul(argv[6], NULL, 0);
+    const long iterations = atol(argv[7]);
+    const int call = !strcmp(argv[8], "call");
+    char name[64];
+    snprintf(name, sizeof(name), "dav1d_cdef_dsp_init_%dbpc", bpc);
+    void (*init)(CdefDSPContext *) = (void (*)(CdefDSPContext *)) dlsym(library, name);
+    if (!init) { fprintf(stderr, "missing symbols\n"); return 1; }
+    static CdefDSPContext c;
+    init(&c);
+    enum { W = 32 };
+    static uint16_t source[W * W], picture[W * W], left[8][2];
+    uint32_t seed = 12345;
+    for (int y = 0; y < W; y++)
+        for (int x = 0; x < W; x++) {
+            seed = seed * 1664525u + 1013904223u;
+            const int v = ((x * 3 + y * 5) + (int) (seed >> 28)) & 255;
+            source[y * W + x] = (uint16_t) (bpc == 8 ? v : v * 4);
+        }
+    for (int i = 0; i < 8; i++) {
+        seed = seed * 1664525u + 1013904223u;
+        left[i][0] = (uint16_t) ((seed >> 24) * (bpc == 8 ? 1 : 4));
+        left[i][1] = (uint16_t) ((seed >> 16 & 255) * (bpc == 8 ? 1 : 4));
+    }
+    static uint8_t left8[8][2];
+    for (int i = 0; i < 8; i++) left8[i][0] = (uint8_t) left[i][0], left8[i][1] = (uint8_t) left[i][1];
+    const ptrdiff_t bytes = bpc == 8 ? 1 : 2, stride = W * bytes;
+    uint8_t *const base = (uint8_t *) picture;
+    /* The block 8 rows and 8 columns in; top and bottom are the two rows
+     * above and below it. */
+    uint8_t *const dst = base + 8 * stride + 8 * bytes;
+    const int shift = bpc == 8 ? 0 : 2;
+    /* (pri, sec) of the three filter paths; the direction cycles 0..7. */
+    static const int strengths[3][2] = { { 6, 2 }, { 6, 0 }, { 0, 2 } };
+    uint64_t sum = 0;
+    unsigned var = 0;
+    for (long k = 0; k < iterations; k++) {
+        if (bpc == 8)
+            for (int i = 0; i < W * W; i++) ((uint8_t *) picture)[i] = (uint8_t) source[i];
+        else
+            memcpy(picture, source, sizeof(picture));
+        if (!call) continue;
+        if (slot == 0) {
+            sum = sum * 31 + (unsigned) c.dir(dst, stride, &var, 1023);
+            sum = sum * 31 + var;
+        } else {
+            const int *s = strengths[k % 3];
+            const int h = slot == 3 ? 4 : 8;
+            c.fb[slot - 1](dst, stride, bpc == 8 ? (const void *) left8 : (const void *) left,
+                           dst - 2 * stride, dst + h * stride, s[0] << shift, s[1] << shift, (int) (k & 7),
+                           5 + shift, edges, 1023);
+        }
+    }
+    for (size_t i = 0; i < sizeof(picture); i++) sum = sum * 31 + base[i];
+    printf("checksum=%016llx\n", (unsigned long long) sum);
+    return 0;
+}
+
 int main(int argc, char **argv) {
+    if (argc == 9 && !strcmp(argv[3], "cdef")) {
+        void *library = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL);
+        if (!library) { fprintf(stderr, "%s\n", dlerror()); return 1; }
+        void (*init_cpu)(void) = (void (*)(void)) dlsym(library, "dav1d_init_cpu");
+        void (*set_mask)(unsigned) = (void (*)(unsigned)) dlsym(library, "dav1d_set_cpu_flags_mask");
+        if (!init_cpu || !set_mask) { fprintf(stderr, "missing symbols\n"); return 1; }
+        init_cpu();
+        set_mask((unsigned) strtoul(argv[2], NULL, 0));
+        return cdef(library, argv);
+    }
     if (argc == 9 && !strcmp(argv[3], "itx16")) {
         void *library = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL);
         if (!library) { fprintf(stderr, "%s\n", dlerror()); return 1; }

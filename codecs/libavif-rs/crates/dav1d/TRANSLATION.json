@@ -356,7 +356,7 @@
         "raw-c-mutable-address": 1
       },
       "raw_sha256": "494217fd000efd322c9eacae93ee7bb66fa9f5b955ea557a7674b034f923f153",
-      "rust_sha256": "5f12cfac96b1d3e43177eb1d68678d255887ff8dac8a3408ab305da0d35049e2"
+      "rust_sha256": "50dc590f60c9d8ba9c854c18cab1a74a84d599359097b15a850abacce0f2bb7b"
     },
     {
       "source": "upstream/dav1d/src/fg_apply_tmpl.c",
@@ -521,7 +521,7 @@
         "raw-c-mutable-address": 1
       },
       "raw_sha256": "59c9dac3c765e46876c5de46a18370e4ff2f0ea02349bf361742c09ef50ce7c8",
-      "rust_sha256": "f3ef7bdd25356cc8c2140280085cd99628e087e392a92ea03c49ddb40cb00148"
+      "rust_sha256": "606789d68b87e83164b34a02ab4d83706e6dce8488e45dc9c12ed1e2c296cb8a"
     },
     {
       "source": "upstream/dav1d/src/fg_apply_tmpl.c",

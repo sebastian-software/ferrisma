@@ -779,4 +779,5 @@ pub unsafe extern "C" fn dav1d_cdef_dsp_init_8bpc(c: *mut Dav1dCdefDSPContext) {
                 CdefEdgeFlags,
             ) -> (),
     ) as cdef_fn;
+    crate::simd::arm::cdef::cdef_dsp_init_arm_8bpc(c.cast()); // dav1d-dispatch
 }
