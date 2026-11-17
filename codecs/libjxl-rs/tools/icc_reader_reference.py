@@ -62,6 +62,25 @@ def verify_existing_methods():
          '    pub fn is_huff_rle_only(',
          '    pub fn is_huff_rle_only('),
     ], 'ANS lint allowance substitution changed')
+    # Inlining as the source's JXL_INLINE (2026-11-16): these nine readers
+    # gained one attribute line each; their bodies are unchanged. Only these
+    # nine lines differ, and no other reader may carry the attribute.
+    inline = '    #[inline(always)]\n'
+    if suffix.count(inline) != 9:
+        raise RuntimeError('ANS inline attribute substitutions changed')
+    suffix = normalize(suffix, [
+        (f'{inline}    pub fn {name}', f'    pub fn {name}') for name in (
+            'read_symbol_ans_without_refill(',
+            'read_symbol_huff_without_refill(',
+            'read_symbol_without_refill(',
+            'read_symbol(&mut self,',
+            'read_hybrid_uint_config(',
+            'read_hybrid_uint_clustered_huff_rle_only(',
+            'read_hybrid_uint_clustered_inlined<',
+            'read_hybrid_uint_clustered_maybe_inlined<',
+            'read_hybrid_uint_inlined<',
+        )
+    ], 'ANS inline attribute substitutions changed')
     # The Rust 1.95 lint expectation on read_hybrid_uint_clustered_inlined is the
     # only change since ac734e93...; without it the bodies hash as before.
     if text_sha(suffix) != '48b995a3edccb5d9669fb4028560c16853d1345fa08cf477b3452872313792a5':
