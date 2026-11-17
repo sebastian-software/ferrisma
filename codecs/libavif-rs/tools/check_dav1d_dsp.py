@@ -59,8 +59,12 @@ SIMD_MASKS = {'neon': 0x1, 'avx2': 0x2f}
 # height of 1 for all three filters (5x5 and 3x3 at 186x1, combined at
 # 257x1), the second 235x7 for 5x5 and 3x3 and 135x1 for the combined filter
 # (ADR 0062, validation of 2026-11-17, "gate seeds").
+# 15 was added on the same day for the 8 bpc loop filter: at the ten seeds
+# before it the test's random edges never produce a pixel that the 16-pixel
+# filter of luma (flat16) writes at 8 bpc, so a fault in its arithmetic
+# passed them all, on NEON and on AVX2; at 15 both luma groups reach it.
 # Never remove a seed to make a run pass: a failure at any seed is a finding.
-SEEDS = [42, 1, 2, 3, 4, 5, 6, 7, 1129287872, 2326805120]
+SEEDS = [42, 1, 2, 3, 4, 5, 6, 7, 1129287872, 2326805120, 15]
 # The seven msac entry points of src/arm/msac.h, with their C types.
 MSAC_NEON = {
     'dav1d_msac_decode_symbol_adapt4_neon': 'unsigned (*)(MsacContext *, uint16_t *, size_t)',

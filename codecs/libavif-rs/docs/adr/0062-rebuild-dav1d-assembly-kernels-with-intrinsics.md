@@ -1019,6 +1019,21 @@ covered by this: the Wiener filters' short heights (the 5-tap filter draws
 7 or 8 at the first eight seeds; 47 and 2 at the new ones), which the
 3,000 scattered seeds of the loop restoration entry cover outside the gate.
 
+**2026-11-17, gate seeds: one more for the 8 bpc loop filter's 16-pixel
+filter.** Found while the AVX2 loop filter was translated (the part agent's
+control in its copy of the crate): a wrong constant in the arithmetic of the
+16-pixel luma filter (flat16) of the 8 bpc kernel passed all ten seeds and
+failed at 12 of the seeds 1 to 200. The NEON kernel has the same hole:
+with `p6 + p6` of `lpf_16_wd16` changed to `p6 + p5` in the low half (a copy
+of the crate, the gate's test executable restricted to `loopfilter_8bpc`)
+the ten seeds pass, and seed 15 fails `lpf_h_sb_y` and `lpf_v_sb_y`. At
+8 bpc the test's random edges rarely produce a pixel that the flat16 filter
+writes; at 16 bpc they do at most seeds. `SEEDS` gains 15; the ten earlier
+seeds stay. All rebuilt families pass at the eleven seeds at `neon` and at
+scalar (17 groups, 3,155 selections each, 869 of 869 rows). The whole-image
+gate decodes streams that use the filter, so the kernels were compared
+there before; the per-kernel gate now reaches it as well.
+
 ## Review when
 
 A family is completed on a target; the x86-64 AVX2 kernels arrive; the owner
@@ -1027,6 +1042,7 @@ engine's decoder choice changes.
 
 ## Amendment log
 
+- 2026-11-17 — the per-kernel gate runs eleven seeds: one more for the 8 bpc loop filter's 16-pixel filter (validation above).
 - 2026-11-17 — the per-kernel gate runs ten seeds: two more for the loop restoration tails (validation above).
 - 2026-11-17 — loop restoration on NEON, 8 and 16 bpc (validation above).
 - 2026-11-17 — intra prediction wrappers: `top_out` and `left_out` zeroed whole, the edge array's slack checked by a test (validation above).
