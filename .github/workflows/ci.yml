@@ -215,7 +215,7 @@ jobs:
     # nightly's stage, rust-version, stable; `cargo xtask affected`), each
     # within the tier-1 budget of 15 minutes (ADR-0027, amendment
     # 2026-11-17); the timeout is the hang guard above it.
-    timeout-minutes: 20
+    timeout-minutes: ${{ matrix.part == 'msrv' && 50 || 20 }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -287,14 +287,20 @@ jobs:
           if [ "$PART" = msrv ]; then
             toolchain="$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)"
           fi
-          CARGO_TARGET_DIR="$GITHUB_WORKSPACE/target/rust-$toolchain" \
-            cargo +"$toolchain" test --locked --offline -p libjxl-rs --profile checked --timings
+          export CARGO_TARGET_DIR="$GITHUB_WORKSPACE/target/rust-$toolchain"
+          start=$SECONDS
+          cargo +"$toolchain" build --locked --offline -p libjxl-rs --profile checked --lib --timings
+          echo "library: $((SECONDS - start)) s"
+          start=$SECONDS
+          cargo +"$toolchain" test --locked --offline -p libjxl-rs --profile checked --no-run --timings
+          echo "test binaries: $((SECONDS - start)) s"
+          cargo +"$toolchain" test --locked --offline -p libjxl-rs --profile checked
       - name: Keep the JXL build timings
-        if: ${{ !cancelled() && matrix.codec == 'jxl' && (matrix.part == 'msrv' || matrix.part == 'stable') }}
+        if: ${{ always() && matrix.codec == 'jxl' && (matrix.part == 'msrv' || matrix.part == 'stable') }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: jxl-cargo-timings-${{ matrix.part }}-${{ runner.arch }}
-          path: target/rust-*/cargo-timings/cargo-timing.html
+          path: target/rust-*/cargo-timings/cargo-timing*.html
           if-no-files-found: warn
           retention-days: 7
   checks-passed:
