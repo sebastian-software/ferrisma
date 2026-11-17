@@ -1321,7 +1321,8 @@ the instructions of stock dav1d on x86-64. Not measured: the lossless still
 (too long under Callgrind), and any time.
 
 On x86-64 the port now has msac and the loop filter; the inverse
-transforms, CDEF, intra prediction and loop restoration still run C there.
+transforms, CDEF, intra prediction and loop restoration still run C there
+(amended below: the 8 bpc inverse transforms followed).
 
 **2026-11-17, decisions on the first x86 kernels** (coordinator's decisions
 on the open points of the two entries above; the tree after `8cef14a4`).
@@ -1383,6 +1384,116 @@ tools did): the per-kernel gate at `neon` and scalar at the eleven seeds
 1,711 of 1,711, ABI 12,157 checks, API 83, linkage, the dispatch check and
 `cargo fmt --all --check` pass.
 
+**2026-11-17, inverse transforms 8 bpc on AVX2** (`itx_avx2.asm`: all
+156 entry points `dav1d_inv_txfm_add_*_8bpc_avx2`, 5,542 lines). The third
+x86 family, in `simd/x86_64/itx_avx2.rs`; `simd/x86/itx.rs` mirrors
+`itx_dsp_init_x86` and assigns them under the AVX2 flag; the dispatch
+entry `itx_8bpc_x86` calls it from the two Linux profiles of the 8 bpc
+init. The module documentation has the correspondence with the assembly
+and the deviations.
+
+Scope on an AVX2 machine, from `src/x86/itx.h` preprocessed with assembly
+on and its assignments evaluated for the flags SSE2 to AVX2: at 8 bits all
+156 slots end with an AVX2 kernel (WHT included: its SSE2 assignment is
+overwritten), at 10 bits all 156 (155 `_10bpc_avx2`, WHT `_16bpc_avx2`),
+at 12 bits 148 (147 `_12bpc_avx2`, WHT), and the eight 12-bit DCT_DCT
+slots of 16x32 and larger stay C. No slot keeps an SSE2, SSSE3 or SSE4.1
+kernel on such a machine, so the lower levels add nothing to the scope
+("Levels").
+
+Method: the file was cut into five parts (4-point sizes with 4x16 and
+16x4; 8x8, 8x16, 16x8; 16x16, 8x32, 32x8; 16x32, 32x16, 32x32; the
+64-point sizes) after a shared prelude (constants, the 1-D macros, the
+write macros, the DC-only tails); agents translated them in private copies
+of the crate, one Rust line per instruction, gating each size with the
+original's checkasm at the eleven seeds and seeds 1 to 100. A later part
+uses an earlier part's items where the assembly jumps or calls into them;
+the joined module has no copies. All figures below are from the joined
+state in the worktree.
+
+Deviations and their cost (the module documentation has the list): (a)
+unaligned moves for caller memory where the assembly uses `mova`, 4-byte
+rows as unaligned `i32` accesses: same bytes, same count. (b) The frames
+of the 32- and 64-point sizes (`32*35` … `32*199` bytes) hold the
+intermediate rows between the passes; which slots the second pass reads
+depends on the eob path, so each frame is zeroed whole before its first
+use (`zeroed_frame`): 16 to 199 32-byte stores per call, counted in the
+figures below. The zero goes through `core::hint::black_box`: with
+`util::zeroed` or an array initializer the compiler calls `memset` for the
+larger frames, whose `rep stosb` Callgrind counts once per byte (64x32:
+1.52 instead of 1.06, part agent's measurement). (c) Flag arithmetic on general-purpose registers
+(`adc` on the eob, the `add …, 0x80000000 / jnc` loop counters, pointer
+tests) is Rust on the same widths, and jumps between labels are loops and
+branches in the assembly's order. (d) 16x64's `.main_part1` runs twice,
+the second time with `r6` eight bytes on, which shifts each of its
+`o(pw_…)` operands by two entries of the read-only data; the function
+takes the offset and selects the constants per call (same count). (e) The
+compiler rewrites some shuffles (16x4 identity_identity, 1.06) and gives
+the DC-only paths of the 64-point sizes the large functions' prologue (a
+stack probe above 4 KiB; up to 1.13).
+
+Reads and writes beyond the block or the coefficients: none (each part's
+derivation from the code, checked against the contract): pixel rows of 4,
+8, 16 or 32 bytes inside the block, coefficient accesses inside
+`min(w, 32) * min(h, 32)` values, the DC-only paths' 16-byte load and
+4-byte store at `c`.
+
+Positive controls on the joined state (one constant each; the per-kernel
+gate at `avx2`, the eleven seeds): `pw_16384` as 12288 in the first pass
+of 8x8 (`idct_8x8_internal_pass1`) fails `itx_8bpc.add_tx8` at every seed
+and the whole-image gate (369 of 994 identical); 401 as 1401 in the
+128-bit `IDCT16_1D_PACKED` (4x16, 16x4), 1321 as 2321 in 16x4's ADST
+`.main`, and `pw_8192` as 4096 in 16x16's first pass each fail `add_tx16`;
+1697 as 1597 in 16x32's identity pass fails `add_tx32`; 1751 as 1752 in
+16x32's `.main_oddhalf` (shared with 32x16, 32x32 and the 64-point sizes)
+fails `add_tx32` and `add_tx64`; the first `idct64_mul` entry 101 as -101
+fails `add_tx64`. Restored byte for byte, the per-kernel gate and the
+whole-image gate at `avx2` pass again. A change by one unit of the identity
+and ADST constants was not detected by the part agents' runs at one or two
+seeds (the test's small inputs rarely reach the rounding); the controls
+above use larger changes.
+
+Instructions per call against the assembly (`measure_dav1d_kernels.py
+--family itx`, Callgrind, 1.6 million pixels per kernel; 175 rows: the
+largest codable eob of each of the 156 entry points and the DC-only path
+of each size's dct_dct; all outputs identical): 0.83 to 1.13, no row
+above 1.3. Above 1.1: the DC-only paths of 16x64 (1.125) and 64x16
+(1.123), which share the large functions' prologue and count their loop
+one instruction longer per row; identity_identity of 32x32 (1.115) and
+32x16 (1.106), the frame-free identity loops with a few more moves. The
+full rows of the frame sizes include the zeroing (32x32 1.085, 64x64
+1.077). Below 1.0 (down to 0.83) mostly the sizes up to 16x16 and the DC-only
+paths, where everything is inlined into one function per entry point and
+the assembly jumps and calls between passes (not analyzed further).
+
+| Check (x86-64 GNU Linux under Rosetta, Clang 19, eleven seeds) | Result |
+| --- | --- |
+| `check_dav1d_dsp.py --simd avx2` | 17 groups, 3,155 selections each; the five `itx_8bpc` groups compare the assembly with the rebuilt kernels; pass |
+| `check_dav1d_dsp.py` (scalar) | the same counts; pass |
+| `check_dav1d_simd_original.py --level avx2` / `scalar` | 994 of 994 decodes identical each (the 987 of the corpus and the seven AV1 items of the six profiling stills given with `--image`) |
+| `run_dav1d_tests.py` | 1,711 of 1,711 |
+| `check_dav1d_abi.py`, `check_dav1d_api.py`, `check_dav1d_linkage.py` | 12,284 layout checks, 0 differences; 83 API comparisons; pass |
+| `enable_dav1d_dispatch.py --check` and its unit test | 15 entries; pass |
+| unit tests (`cargo test --lib simd::`) | 9 of 9 (two new: the mirror's context layout and its selection under each mask) |
+| `rustfmt --check` (`max_width = 120`) on `simd/x86`, `simd/x86_64`; no `asm!` | pass |
+
+ARM64 after the change (no file of the NEON kernels changed): the
+per-kernel gate at `neon` and scalar at the eleven seeds, whole images 994
+of 994 at both levels, 1,711 of 1,711, ABI, API, linkage, the dispatch
+check and `cargo fmt --all --check` pass.
+
+Instructions per decode on x86-64 (Callgrind as in the loop filter entry;
+stock dav1d at AVX2, the port before this entry, the port now): 8-bit
+4:2:0 1.01 G, 4.21 G, 1.52 G (1.50 times stock); 8-bit 4:4:4 1.10, 5.78,
+2.14 (1.94 times); 10-bit 4:2:0 1.16, 4.86, 4.85; 10-bit 4:4:4 1.29, 6.39,
+6.38 (16 bpc still runs C). The fifth still is the color item of the
+8-bit 4:2:0 still with alpha (the same counts). Not measured: the lossless
+still (too long under Callgrind), and any time.
+
+16 bpc (10 and 12 bits, `itx16_avx2.asm`, 8,599 lines) is not started;
+`measure_dav1d_kernels.py` has its x86 modes (`itx16` at 10 bits, `itx12`
+at 12 bits, which the x86 assembly has kernels of its own for).
+
 ## Review when
 
 A family is completed on a target; the x86-64 AVX2 kernels arrive; the owner
@@ -1391,6 +1502,7 @@ engine's decoder choice changes.
 
 ## Amendment log
 
+- 2026-11-17 — inverse transforms 8 bpc on AVX2 (validation above).
 - 2026-11-17 — decisions on the first x86 kernels: msac's SSE2 16-symbol function and the gate level `sse2` removed (below AVX2 the port runs C there too), the volatile constant loads removed, the per-call 16-symbol choice and the module layout kept ("msac on x86-64", "Levels", validation above).
 - 2026-11-17 — loop filter on AVX2, 8 and 16 bpc (validation above).
 - 2026-11-17 — msac on x86-64 (SSE2 and AVX2), the first x86 kernels; a local x86-64 loop under Rosetta; the `sse2` gate level (decision paragraphs and validation above).

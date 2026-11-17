@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Instructions per call of rebuilt dav1d kernels against the original's assembly.
 
-Usage: python3 tools/measure_dav1d_kernels.py [--family itx|itx16|msac|lpf|cdef|ipred|lr] [--calls N]   (macOS ARM64)
+Usage: python3 tools/measure_dav1d_kernels.py [--family itx|itx16|itx12|msac|lpf|cdef|ipred|lr] [--calls N]
 
 For each 8 bpc inverse-transform entry point rebuilt so far (ADR 0062), the
 driver `tools/dav1d-kernel-bench.c` calls the kernel N times on fixed inputs
@@ -58,13 +58,18 @@ rows at a time (instruction counts do not depend on the load). Results:
 `build/dav1d-kernel-instructions-lr.json`.
 
 `--port PATH` measures another build of the port's cdylib (a development
-copy) and `--output PATH` writes the JSON elsewhere; both for `ipred`, `lr`
-and `lpf` only.
+copy) and `--output PATH` writes the JSON elsewhere; both for `ipred`, `lr`,
+`lpf` and the itx families only.
 
-On GNU Linux x86-64 (families `msac` and `lpf`) the level is AVX2 (mask
-0x2f; oracle `build/dav1d-dsp-release-avx2/libdav1d-dsp-asm.so`, made by
+On GNU Linux x86-64 (families `msac`, `lpf`, `itx`, `itx16` and `itx12`) the
+level is AVX2 (mask 0x2f; oracle
+`build/dav1d-dsp-release-avx2/libdav1d-dsp-asm.so`, made by
 `check_dav1d_dsp.py --simd avx2`) and the kernels are those of
-`src/x86/msac.h` and `src/x86/loopfilter.h`. The instructions are counted by
+`src/x86/msac.h`, `src/x86/loopfilter.h` and `src/x86/itx.h`: the slots that
+`simd/x86/itx.rs` assigns at 8 bpc (`itx`), at 10 bits (`itx16`) and at 12
+bits (`itx12`, for which the x86 assembly has kernels of its own; x86-64
+only). For the itx families `--jobs N` measures N rows at a time. The
+instructions are counted by
 Valgrind's Callgrind there (`Collected`, the x86-64 instructions the process
 executes), which needs no hardware counter and so also works where the
 process runs under an emulator (Rosetta in a Linux VM on the development
@@ -104,13 +109,18 @@ TYPES = ['DCT_DCT', 'ADST_DCT', 'DCT_ADST', 'ADST_ADST', 'FLIPADST_DCT', 'DCT_FL
 
 
 def rebuilt_kernels(bpc=8):
-    """(name, size, tx index, type index) of every slot simd/arm/itx.rs assigns at BPC."""
-    text = (ROOT / 'crates/dav1d/src/simd/arm/itx.rs').read_text()
+    """(name, size, tx index, type index) of every slot the init mirror assigns at BPC.
+
+    The mirror is simd/arm/itx.rs (8 and 16 bpc) or, on x86-64, simd/x86/itx.rs, whose kernels carry the bit
+    depth they are for (8, 10 or 12; WHT is `_16bpc` and assigned at 10 and at 12 bits)."""
+    text = (ROOT / f'crates/dav1d/src/simd/{"x86" if X86 else "arm"}/itx.rs').read_text()
+    suffix = r'(?:%dbpc|16bpc)_avx2' % bpc if X86 and bpc != 8 else r'%dbpc_%s' % (bpc, LEVEL)
     out = []
-    for size, txtype, name in re.findall(r't\[R?TX_(\w+)\]\[(\w+)\] = Some\((dav1d_inv_txfm_add_\w+_%dbpc_neon)\)' % bpc,
+    for size, txtype, name in re.findall(r't\[R?TX_(\w+)\]\[(\w+)\] = Some\((dav1d_inv_txfm_add_\w+_' + suffix + r')\)',
                                          text):
         size = size.lower()
-        out.append((name, size, SIZES.index(size), TYPES.index(txtype)))
+        if (name, size, SIZES.index(size), TYPES.index(txtype)) not in out:
+            out.append((name, size, SIZES.index(size), TYPES.index(txtype)))
     return out
 
 
@@ -176,15 +186,18 @@ def main():
     parser.add_argument('--calls', type=int, default=32000000,
                         help='pixels processed per kernel and side (calls = this / block area)')
     parser.add_argument('--only', help='substring filter on kernel names')
-    parser.add_argument('--family', choices=['itx', 'itx16', 'msac', 'lpf', 'cdef', 'ipred', 'lr'], default='itx')
+    parser.add_argument('--family', choices=['itx', 'itx16', 'itx12', 'msac', 'lpf', 'cdef', 'ipred', 'lr'],
+                        default='itx')
     parser.add_argument('--bpc', type=int, choices=[8, 16], help='ipred, lr: only this bit depth')
-    parser.add_argument('--jobs', type=int, default=1, help='lr: rows measured at a time')
+    parser.add_argument('--jobs', type=int, default=1, help='lr and the itx families: rows measured at a time')
     parser.add_argument('--angle', type=int, default=-1, help='ipred: one angle (0..90) for Z1 to Z3')
-    parser.add_argument('--port', type=Path, help='ipred, lr, lpf: the port cdylib to measure')
-    parser.add_argument('--output', type=Path, help='ipred, lr, lpf: where to write the JSON')
+    parser.add_argument('--port', type=Path, help='ipred, lr, lpf, itx families: the port cdylib to measure')
+    parser.add_argument('--output', type=Path, help='ipred, lr, lpf, itx families: where to write the JSON')
     args = parser.parse_args()
-    if X86 and args.family not in ('msac', 'lpf'):
+    if X86 and args.family not in ('msac', 'lpf', 'itx', 'itx16', 'itx12'):
         raise SystemExit(f'--family {args.family} has no x86-64 kernels yet')
+    if not X86 and args.family == 'itx12':
+        raise SystemExit('--family itx12 is for x86-64: on AArch64 the original has no 12-bit kernels but WHT')
     work = ROOT / 'build/dav1d-kernel-bench'
     work.mkdir(parents=True, exist_ok=True)
     driver = work / 'dav1d-kernel-bench'
@@ -344,8 +357,29 @@ def main():
         if not all(row['identical_output'] for row in rows):
             raise SystemExit('outputs differ')
         return
-    sixteen = args.family == 'itx16'
-    for name, size, tx, txtype in rebuilt_kernels(16 if sixteen else 8):
+    sixteen = args.family != 'itx'
+    port = args.port or port
+    depth = {'itx': 8, 'itx16': 10 if X86 else 16, 'itx12': 12}[args.family]
+
+    def measure(job):
+        name, tx, txtype, eob, iterations = job
+        per_call, checksums = {}, {}
+        for side, library in (('original', original), ('port', port)):
+            command = [driver, library, MASK, *([args.family] if sixteen else []), str(tx), str(txtype), str(eob),
+                       str(iterations)]
+            base, _ = instructions(command + ['baseline'])
+            total, checksum = instructions(command + ['call'])
+            per_call[side] = (total - base) / iterations
+            checksums[side] = checksum
+        return {'kernel': name, 'path': 'dc only (eob 0)' if eob == 0 else 'full (last eob)',
+                'calls': iterations,
+                'original_instructions': round(per_call['original'], 1),
+                'port_instructions': round(per_call['port'], 1),
+                'ratio': round(per_call['port'] / per_call['original'], 3),
+                'identical_output': checksums['original'] == checksums['port']}
+
+    jobs = []
+    for name, size, tx, txtype in rebuilt_kernels(depth):
         if args.only and args.only not in name:
             continue
         w, h = map(int, size.split('x'))
@@ -353,25 +387,15 @@ def main():
         # The largest eob a stream can code: the last coefficient index.
         last = min(w, 32) * min(h, 32) - 1
         for eob in ([0, last] if name.startswith('dav1d_inv_txfm_add_dct_dct') else [last]):
-            per_call, checksums = {}, {}
-            for side, library in (('original', original), ('port', port)):
-                command = [driver, library, '0x1', *(['itx16'] if sixteen else []), str(tx), str(txtype), str(eob),
-                           str(iterations)]
-                base, _ = instructions(command + ['baseline'])
-                total, checksum = instructions(command + ['call'])
-                per_call[side] = (total - base) / iterations
-                checksums[side] = checksum
-            row = {'kernel': name, 'path': 'dc only (eob 0)' if eob == 0 else 'full (last eob)',
-                   'calls': iterations,
-                   'original_instructions': round(per_call['original'], 1),
-                   'port_instructions': round(per_call['port'], 1),
-                   'ratio': round(per_call['port'] / per_call['original'], 3),
-                   'identical_output': checksums['original'] == checksums['port']}
+            jobs.append((name, tx, txtype, eob, iterations))
+    with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
+        for row in pool.map(measure, jobs):
             rows.append(row)
             print(f"{row['kernel']:52s} {row['path']:16s} {row['original_instructions']:9.1f} "
                   f"{row['port_instructions']:9.1f} {row['ratio']:6.3f} {row['identical_output']}", flush=True)
-    (ROOT / ('build/dav1d-kernel-instructions' + ('-itx16' if sixteen else '') + '.json')).write_text(json.dumps(
-        {'pixels_per_kernel': args.calls, 'level': 'neon', 'original': str(original), 'port': str(port),
+    (args.output or ROOT / ('build/dav1d-kernel-instructions' + ('' if args.family == 'itx' else f'-{args.family}')
+                            + '.json')).write_text(json.dumps(
+        {'pixels_per_kernel': args.calls, 'level': LEVEL, 'original': str(original), 'port': str(port),
          'kernels': rows}, indent=2) + '\n')
     if not all(row['identical_output'] for row in rows):
         raise SystemExit('outputs differ')

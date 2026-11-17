@@ -27,10 +27,16 @@
  * (some zero) and sharpness 0; each iteration restores the picture. At 16
  * bpc the pixels are 10-bit. The checksum covers the filtered picture.
  *
- *   dav1d-kernel-bench LIBRARY MASK itx16 TX TYPE EOB ITERATIONS call|baseline
+ *   dav1d-kernel-bench LIBRARY MASK itx16|itx12 TX TYPE EOB ITERATIONS call|baseline
  *
  * as the first form for dav1d_itx_dsp_init_16bpc(c, 10): 32-bit
- * coefficients, 10-bit pixels (uint16_t) and bitdepth_max 1023. *
+ * coefficients, 10-bit pixels (uint16_t) and bitdepth_max 1023; `itx12`
+ * for dav1d_itx_dsp_init_16bpc(c, 12) with 12-bit pixels, coefficients four
+ * times as large and bitdepth_max 4095 (the x86 assembly has kernels of its
+ * own for 12 bits). In the itx forms the coefficients and the destination
+ * are aligned to 64 bytes, as the decoder's are: the x86 kernels load and
+ * store both with aligned moves.
+ *
  *   dav1d-kernel-bench LIBRARY MASK cdef BPC SLOT EDGES ITERATIONS call|baseline
  *
  * calls the slot SLOT of dav1d_cdef_dsp_init_BPCbpc (0: dir, 1..3: fb[0..2],
@@ -219,25 +225,27 @@ static int itx16(void *library, char **argv) {
         (void (*)(InvTxfm16Context *, int)) dlsym(library, "dav1d_itx_dsp_init_16bpc");
     if (!init) { fprintf(stderr, "missing symbols\n"); return 1; }
     static InvTxfm16Context c;
-    init(&c, 10);
+    const int bpc = strcmp(argv[3], "itx12") ? 10 : 12, max = (1 << bpc) - 1;
+    init(&c, bpc);
     const int tx = atoi(argv[4]), type = atoi(argv[5]), eob = atoi(argv[6]);
     const long iterations = atol(argv[7]);
     const int call = !strcmp(argv[8], "call");
     const int w = dims[tx][0], h = dims[tx][1], n = (w > 32 ? 32 : w) * (h > 32 ? 32 : h);
     itxfm16_fn fn = c.itxfm_add[tx][type];
-    static int32_t source[32 * 32], coeff[32 * 32];
-    static uint16_t dst[64 * 64];
+    static int32_t source[32 * 32];
+    static __attribute__((aligned(64))) int32_t coeff[32 * 32];
+    static __attribute__((aligned(64))) uint16_t dst[64 * 64];
     static volatile int32_t sink;
     uint32_t seed = 12345;
     for (int i = 0; i < n; i++) {
         seed = seed * 1664525u + 1013904223u;
-        /* Small coefficients, denser at low frequencies (10-bit range). */
-        source[i] = (((int) (seed >> 16) % 2048) - 1024) / (1 + i / 16);
+        /* Small coefficients, denser at low frequencies (the bit depth's range). */
+        source[i] = (((int) (seed >> 16) % (2 << bpc)) - (1 << bpc)) / (1 + i / 16);
     }
-    for (int i = 0; i < 64 * 64; i++) dst[i] = (uint16_t) ((i * 37 + 11) & 1023);
+    for (int i = 0; i < 64 * 64; i++) dst[i] = (uint16_t) ((i * 37 + 11) & max);
     for (long k = 0; k < iterations; k++) {
         memcpy(coeff, source, sizeof(int32_t) * (size_t) n);
-        if (call) fn(dst, 64 * sizeof(uint16_t), coeff, eob, 1023);
+        if (call) fn(dst, 64 * sizeof(uint16_t), coeff, eob, max);
         sink = coeff[k & 31];
     }
     (void) sink;
@@ -499,7 +507,7 @@ int main(int argc, char **argv) {
         set_mask((unsigned) strtoul(argv[2], NULL, 0));
         return cdef(library, argv);
     }
-    if (argc == 9 && !strcmp(argv[3], "itx16")) {
+    if (argc == 9 && (!strcmp(argv[3], "itx16") || !strcmp(argv[3], "itx12"))) {
         void *library = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL);
         if (!library) { fprintf(stderr, "%s\n", dlerror()); return 1; }
         void (*init_cpu)(void) = (void (*)(void)) dlsym(library, "dav1d_init_cpu");
@@ -548,8 +556,9 @@ int main(int argc, char **argv) {
     const int call = !strcmp(argv[7], "call");
     const int w = dims[tx][0], h = dims[tx][1], n = (w > 32 ? 32 : w) * (h > 32 ? 32 : h);
     itxfm_fn fn = c.itxfm_add[tx][type];
-    static int16_t source[32 * 32], coeff[32 * 32];
-    static uint8_t dst[64 * 64];
+    static int16_t source[32 * 32];
+    static __attribute__((aligned(64))) int16_t coeff[32 * 32];
+    static __attribute__((aligned(64))) uint8_t dst[64 * 64];
     static volatile int16_t sink;
     uint32_t seed = 12345;
     for (int i = 0; i < n; i++) {
