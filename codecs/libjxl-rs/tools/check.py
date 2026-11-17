@@ -430,33 +430,58 @@ def check_tests(env, partition, filter, target=None, keep_going=False):
 # against the original (the encoder's gate sizes up to 4000x3000 and their
 # streaming, output-processor and container variants), and the SIMD
 # whole-encode gates, whose binary runs its tests one at a time. Heaviest
-# first, from the hosted runs of 2026-11-16 (ordinary and sanitized oracle).
+# first, from the hosted runs of 2026-11-16 and 2026-11-17 (ordinary and
+# sanitized oracle): a 4000x3000 history, then pairs at 2049x2049 and
+# 2048x1536, then the families with many large histories.
 # They are dealt out before the other tests, so that each partition gets its
 # share: a round robin over the sorted names put three of the largest into
 # one shard, which then ran past the job's time limit. The list only orders
 # the partitions; every listed test still runs in exactly one of them, and a
 # name that no test has any more fails the stage, so the list stays current.
 HEAVY_TESTS = [
+    "encoder_public::encoder_container::public_encoder_output_mode_2_gate_4000x3000_h0_matches_original",
+    "encoder_public::encoder_container::public_encoder_output_mode_2_gate_4000x3000_h1_matches_original",
+    "encoder_public::encoder_container::public_encoder_output_mode_2_gate_4000x3000_h2_matches_original",
+    "encoder_public::encoder_container::public_encoder_output_mode_2_gate_4000x3000_h3_matches_original",
+    "encoder_public::public_encoder_streaming_gate_4000x3000_h0_matches_original",
+    "encoder_public::public_encoder_streaming_gate_4000x3000_h1_matches_original",
+    "encoder_public::public_encoder_streaming_gate_4000x3000_h2_matches_original",
+    "encoder_public::public_encoder_streaming_gate_4000x3000_h3_matches_original",
+    "encoder_public::public_encoder_streaming_gate_4000x3000_h4_matches_original",
+    "encoder_public::public_encoder_streaming_gate_4000x3000_h5_matches_original",
+    "encoder_public::public_encoder_streaming_gate_4000x3000_h6_matches_original",
+    "encoder_public::public_encoder_streaming_gate_4000x3000_h7_matches_original",
     "enc_public_streaming_gate_4000x3000_matches_the_original_target",
-    "encoder_public::encoder_container::public_encoder_output_mode_2_gate_4000x3000_matches_original",
     "enc_public_lossy_small_large_and_settings_match_the_original_target",
-    "encoder_public::public_encoder_streaming_gate_4000x3000_d1_matches_original",
-    "encoder_public::public_encoder_streaming_gate_4000x3000_d2_matches_original",
-    "encoder_public::encoder_container::public_encoder_output_mode_2_gate_2049_matches_original",
-    "encoder_public::public_encoder_streaming_gate_2048x1536_matches_original",
-    "encoder_public::encoder_container::public_encoder_output_mode_2_gate_2048x1536_matches_original",
+    "encoder_public::encoder_container::public_encoder_output_mode_2_gate_2049_h0_h1_matches_original",
+    "encoder_public::encoder_container::public_encoder_output_mode_2_gate_2049_h2_h3_matches_original",
+    "encoder_public::encoder_container::public_encoder_output_mode_2_gate_2049_h4_h5_matches_original",
+    "encoder_public::encoder_container::public_encoder_output_mode_2_gate_2049_h6_h7_matches_original",
+    "encoder_public::encoder_container::public_encoder_output_mode_2_gate_2048x1536_h0_h1_matches_original",
+    "encoder_public::encoder_container::public_encoder_output_mode_2_gate_2048x1536_h2_h3_matches_original",
+    "encoder_public::encoder_container::public_encoder_output_mode_2_gate_2048x1536_h4_h5_matches_original",
+    "encoder_public::encoder_container::public_encoder_output_mode_2_gate_2048x1536_h6_h7_matches_original",
+    "encoder_public::public_encoder_streaming_gate_2049_h0_h1_matches_original",
+    "encoder_public::public_encoder_streaming_gate_2049_h2_h3_matches_original",
+    "encoder_public::public_encoder_streaming_gate_2049_h4_h5_matches_original",
+    "encoder_public::public_encoder_streaming_gate_2049_h6_h7_matches_original",
+    "encoder_public::public_encoder_streaming_gate_2048x1536_h0_h1_matches_original",
+    "encoder_public::public_encoder_streaming_gate_2048x1536_h2_h3_matches_original",
+    "encoder_public::public_encoder_streaming_gate_2048x1536_h4_h5_matches_original",
+    "encoder_public::public_encoder_streaming_gate_2048x1536_h6_h7_matches_original",
+    "encoder_public::encoder_container::public_encoder_container_output_processor_matches_original",
     "encoder_public::public_encoder_output_processor_matches_original",
-    "encoder_public::public_encoder_streaming_gate_2049_d1_matches_original",
-    "encoder_public::public_encoder_streaming_gate_2049_d2_matches_original",
     "encoder_public::public_encoder_lossy_vardct_streaming_matches_original",
     "encoder_public::encoder_container::public_encoder_streaming_suite_container_instances_match_original",
-    "encoder_public::public_encoder_streaming_gate_1024_matches_original",
-    "enc_public_streaming_gate_sizes_match_the_original_target",
-    "encoder_public::encoder_container::public_encoder_container_output_processor_matches_original",
     "encoder_public::encoder_lossless::public_encoder_lossless_gate_4000x3000_matches_original",
+    "enc_public_streaming_gate_sizes_match_the_original_target",
+    "encoder_public::public_encoder_streaming_gate_1024_matches_original",
     "encoder_public::encoder_container::public_encoder_output_mode_2_gate_1024_matches_original",
     "encoder_public::public_encoder_lossy_vardct_large_sizes_match_original",
+    "encoder_public::public_encoder_lossy_vardct_d05_and_settings_match_original",
+    "encoder_public::public_encoder_lossy_vardct_alpha_settings_match_original",
     "encoder_public::public_encoder_streaming_gate_768_matches_original",
+    "encoder_public::encoder_container::public_encoder_output_mode_2_gate_768_matches_original",
 ]
 
 
