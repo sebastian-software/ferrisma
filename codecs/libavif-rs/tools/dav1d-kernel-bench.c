@@ -90,6 +90,12 @@ typedef struct {
     size_t dif;
     unsigned rng;
     int cnt, allow_update_cdf;
+#if defined(__x86_64__)
+    /* The original with assembly has this member on x86-64 and its
+     * dav1d_msac_init writes it (src/msac.h); the port's context ends before
+     * it. */
+    void *symbol_adapt16;
+#endif
 } MsacContext;
 
 static int msac(void *library, char **argv) {
@@ -110,8 +116,10 @@ static int msac(void *library, char **argv) {
         seed = seed * 1664525u + 1013904223u;
         buf[i] = (uint8_t) (seed >> 24);
     }
-    /* randomize_cdf of the original checkasm test, with a fixed seed. */
-    uint16_t cdf[16] = { 0 };
+    /* randomize_cdf of the original checkasm test, with a fixed seed. The
+     * array is aligned as the decoder's CDF arrays are: the x86 kernels
+     * load it with aligned moves. */
+    __attribute__((aligned(32))) uint16_t cdf[16] = { 0 };
     for (int i = ns; i > 0; i--) {
         seed = seed * 1664525u + 1013904223u;
         cdf[i - 1] = (uint16_t) (cdf[i] + (seed >> 8) % (32768u - cdf[i] - (unsigned) i) + 1);
@@ -156,7 +164,8 @@ static int lpf(void *library, char **argv) {
     init(c);
     lpf_fn fn = c[slot / 2][slot % 2];
     enum { W = 160 };
-    static uint16_t source[W * W], picture[W * W];
+    static uint16_t source[W * W];
+    static __attribute__((aligned(64))) uint16_t picture[W * W];
     uint32_t seed = 12345;
     for (int y = 0; y < W; y++)
         for (int x = 0; x < W; x++) {
@@ -176,14 +185,25 @@ static int lpf(void *library, char **argv) {
     const ptrdiff_t bytes = bpc == 8 ? 1 : 2, stride = W * bytes;
     uint8_t *const base = (uint8_t *) picture;
     /* 8 rows and 8 columns in: room for the 7 (row edges) or 8 (column
-     * edges) pixels before the first edge. */
-    void *const dst = base + 8 * stride + 8 * bytes;
+     * edges) pixels before the first edge. On x86-64 32 columns in: the
+     * contract gives the kernels a destination aligned to 32 bytes
+     * (src/loopfilter.h), and the AVX2 row-edge kernels store with aligned
+     * moves; the 128 pixels of the edge then end at the picture's last
+     * column. */
+#if defined(__x86_64__)
+    enum { X0 = 32 };
+#else
+    enum { X0 = 8 };
+#endif
+    void *const dst = base + 8 * stride + X0 * bytes;
     for (long k = 0; k < iterations; k++) {
         if (bpc == 8)
             for (int i = 0; i < W * W; i++) ((uint8_t *) picture)[i] = (uint8_t) source[i];
         else
             memcpy(picture, source, sizeof(picture));
-        if (call) fn(dst, stride, vmask, (const uint8_t (*)[4]) &levels[34 + 1], 34, &lut, 128, 1023);
+        /* The length of the edge in 4-pixel units: the x86 kernels loop
+         * over it; the C and NEON kernels follow the masks alone. */
+        if (call) fn(dst, stride, vmask, (const uint8_t (*)[4]) &levels[34 + 1], 34, &lut, 32, 1023);
     }
     uint64_t sum = 0;
     for (size_t i = 0; i < sizeof(picture); i++) sum = sum * 31 + ((uint8_t *) picture)[i];

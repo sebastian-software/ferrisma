@@ -58,14 +58,39 @@ rows at a time (instruction counts do not depend on the load). Results:
 `build/dav1d-kernel-instructions-lr.json`.
 
 `--port PATH` measures another build of the port's cdylib (a development
-copy) and `--output PATH` writes the JSON elsewhere; both for `ipred` and
-`lr` only.
+copy) and `--output PATH` writes the JSON elsewhere; both for `ipred`, `lr`
+and `lpf` only.
+
+On GNU Linux x86-64 (families `msac` and `lpf`) the level is AVX2 (mask
+0x2f; oracle `build/dav1d-dsp-release-avx2/libdav1d-dsp-asm.so`, made by
+`check_dav1d_dsp.py --simd avx2`) and the kernels are those of
+`src/x86/msac.h` and `src/x86/loopfilter.h`. The instructions are counted by
+Valgrind's Callgrind there (`Collected`, the x86-64 instructions the process
+executes), which needs no hardware counter and so also works where the
+process runs under an emulator (Rosetta in a Linux VM on the development
+Mac): the count is that of the x86-64 code, whatever executes it. msac's
+SSE2 16-symbol function is measured as well; the original selects it only
+on a CPU without AVX2.
 """
+import os
+import sys
+
+X86 = os.uname().machine == 'x86_64'
+LEVEL = 'avx2' if X86 else 'neon'
+MASK = '0x2f' if X86 else '0x1'
+DSO = 'dylib' if sys.platform == 'darwin' else 'so'
 MSAC = [('dav1d_msac_decode_symbol_adapt4_neon', ns) for ns in (1, 2, 3)]
 MSAC += [('dav1d_msac_decode_symbol_adapt8_neon', ns) for ns in (4, 7)]
 MSAC += [('dav1d_msac_decode_symbol_adapt16_neon', ns) for ns in (10, 12, 15)]
 MSAC += [('dav1d_msac_decode_hi_tok_neon', 3), ('dav1d_msac_decode_bool_adapt_neon', 1),
          ('dav1d_msac_decode_bool_equi_neon', 0), ('dav1d_msac_decode_bool_neon', 0)]
+if X86:
+    MSAC = [('dav1d_msac_decode_symbol_adapt4_sse2', ns) for ns in (1, 2, 3)]
+    MSAC += [('dav1d_msac_decode_symbol_adapt8_sse2', ns) for ns in (4, 7)]
+    MSAC += [('dav1d_msac_decode_symbol_adapt16_avx2', ns) for ns in (10, 12, 15)]
+    MSAC += [('dav1d_msac_decode_symbol_adapt16_sse2', ns) for ns in (10, 15)]
+    MSAC += [('dav1d_msac_decode_hi_tok_sse2', 3), ('dav1d_msac_decode_bool_adapt_sse2', 1),
+             ('dav1d_msac_decode_bool_equi_sse2', 0), ('dav1d_msac_decode_bool_sse2', 0)]
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 import json
@@ -138,6 +163,11 @@ def lr_rows(bpc):
 
 
 def instructions(command):
+    if sys.platform != 'darwin':
+        result = subprocess.run(['valgrind', '--tool=callgrind', '--callgrind-out-file=/dev/null', *command],
+                                capture_output=True, text=True, check=True)
+        count = int(re.search(r'Collected : (\d+)', result.stderr).group(1))
+        return count, re.search(r'checksum=(\w+)', result.stdout).group(1)
     result = subprocess.run(['/usr/bin/time', '-l', *command], capture_output=True, text=True, check=True)
     count = int(re.search(r'(\d+)\s+instructions retired', result.stderr).group(1))
     checksum = re.search(r'checksum=(\w+)', result.stdout).group(1)
@@ -153,15 +183,17 @@ def main():
     parser.add_argument('--bpc', type=int, choices=[8, 16], help='ipred, lr: only this bit depth')
     parser.add_argument('--jobs', type=int, default=1, help='lr: rows measured at a time')
     parser.add_argument('--angle', type=int, default=-1, help='ipred: one angle (0..90) for Z1 to Z3')
-    parser.add_argument('--port', type=Path, help='ipred: the port cdylib to measure')
-    parser.add_argument('--output', type=Path, help='ipred: where to write the JSON')
+    parser.add_argument('--port', type=Path, help='ipred, lr, lpf: the port cdylib to measure')
+    parser.add_argument('--output', type=Path, help='ipred, lr, lpf: where to write the JSON')
     args = parser.parse_args()
+    if X86 and args.family not in ('msac', 'lpf'):
+        raise SystemExit(f'--family {args.family} has no x86-64 kernels yet')
     work = ROOT / 'build/dav1d-kernel-bench'
     work.mkdir(parents=True, exist_ok=True)
     driver = work / 'dav1d-kernel-bench'
     subprocess.run(['cc', '-O2', '-o', driver, ROOT / 'tools/dav1d-kernel-bench.c'], check=True)
-    original = ROOT / 'build/dav1d-dsp-release-neon/libdav1d-dsp-asm.dylib'
-    port = ROOT.parents[1] / 'target/release/libdav1d.dylib'
+    original = ROOT / f'build/dav1d-dsp-release-{LEVEL}/libdav1d-dsp-asm.{DSO}'
+    port = ROOT.parents[1] / f'target/release/libdav1d.{DSO}'
     rows = []
     if args.family == 'ipred':
         port = args.port or port
@@ -258,16 +290,17 @@ def main():
             raise SystemExit('outputs differ')
         return
     if args.family == 'lpf':
+        port = args.port or port
         calls = args.calls // 256
         names = ['h_sb_y', 'v_sb_y', 'h_sb_uv', 'v_sb_uv']
         for bpc in (8, 16):
             for slot, name in enumerate(names):
-                kernel = f'dav1d_lpf_{name}_{bpc}bpc_neon'
+                kernel = f'dav1d_lpf_{name}_{bpc}bpc_{LEVEL}'
                 if args.only and args.only not in kernel:
                     continue
                 per_call, checksums = {}, {}
                 for side, library in (('original', original), ('port', port)):
-                    command = [driver, library, '0x1', 'lpf', str(bpc), str(slot), str(calls)]
+                    command = [driver, library, MASK, 'lpf', str(bpc), str(slot), str(calls)]
                     base, _ = instructions(command + ['baseline'])
                     total, checksum = instructions(command + ['call'])
                     per_call[side] = (total - base) / calls
@@ -280,21 +313,21 @@ def main():
                 rows.append(row)
                 print(f"{row['kernel']:52s} {row['path']:16s} {row['original_instructions']:9.1f} "
                       f"{row['port_instructions']:9.1f} {row['ratio']:6.3f} {row['identical_output']}", flush=True)
-        (ROOT / 'build/dav1d-kernel-instructions-lpf.json').write_text(json.dumps(
-            {'calls': calls, 'level': 'neon', 'original': str(original), 'port': str(port), 'kernels': rows},
+        (args.output or ROOT / 'build/dav1d-kernel-instructions-lpf.json').write_text(json.dumps(
+            {'calls': calls, 'level': LEVEL, 'original': str(original), 'port': str(port), 'kernels': rows},
             indent=2) + '\n')
         if not all(row['identical_output'] for row in rows):
             raise SystemExit('outputs differ')
         return
     if args.family == 'msac':
-        port = ROOT / 'build/dav1d-bridges-target/release/libdav1d.dylib'
+        port = ROOT / f'build/dav1d-bridges-target/release/libdav1d.{DSO}'
         calls = args.calls // 8
         for name, ns in MSAC:
             if args.only and args.only not in name:
                 continue
             per_call, checksums = {}, {}
             for side, library in (('original', original), ('port', port)):
-                command = [driver, library, '0x1', 'msac', name, str(ns), str(calls)]
+                command = [driver, library, MASK, 'msac', name, str(ns), str(calls)]
                 base, _ = instructions(command + ['baseline'])
                 total, checksum = instructions(command + ['call'])
                 per_call[side] = (total - base) / calls
@@ -309,7 +342,7 @@ def main():
             print(f"{row['kernel']:52s} {row['path']:16s} {row['original_instructions']:9.1f} "
                   f"{row['port_instructions']:9.1f} {row['ratio']:6.3f} {row['identical_output']}", flush=True)
         (ROOT / 'build/dav1d-kernel-instructions-msac.json').write_text(json.dumps(
-            {'calls': calls, 'level': 'neon', 'original': str(original), 'port': str(port), 'kernels': rows},
+            {'calls': calls, 'level': LEVEL, 'original': str(original), 'port': str(port), 'kernels': rows},
             indent=2) + '\n')
         if not all(row['identical_output'] for row in rows):
             raise SystemExit('outputs differ')

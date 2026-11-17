@@ -83,7 +83,7 @@ unsafe extern "C" fn dav1d_msac_decode_bools(
         if !(fresh5 != 0) {
             break;
         }
-        v = v << 1 as core::ffi::c_int | dav1d_msac_decode_bool_equi_c(s);
+        v = v << 1 as core::ffi::c_int | crate::simd::x86::msac::dav1d_msac_decode_bool_equi(s);
     }
     return v;
 }
@@ -143,11 +143,11 @@ pub unsafe extern "C" fn dav1d_msac_decode_subexp(
         );
     };
     let mut a: core::ffi::c_uint = 0 as core::ffi::c_uint;
-    if dav1d_msac_decode_bool_equi_c(s) != 0 {
-        if dav1d_msac_decode_bool_equi_c(s) != 0 {
+    if crate::simd::x86::msac::dav1d_msac_decode_bool_equi(s) != 0 {
+        if crate::simd::x86::msac::dav1d_msac_decode_bool_equi(s) != 0 {
             k = k
                 .wrapping_add(
-                    (dav1d_msac_decode_bool_equi_c(s))
+                    (crate::simd::x86::msac::dav1d_msac_decode_bool_equi(s))
                         .wrapping_add(1 as core::ffi::c_uint),
                 );
         }
@@ -381,7 +381,7 @@ pub unsafe extern "C" fn dav1d_msac_decode_bool_adapt_c(
     s: *mut MsacContext,
     cdf: *mut uint16_t,
 ) -> core::ffi::c_uint {
-    let bit: core::ffi::c_uint = dav1d_msac_decode_bool_c(s, *cdf as core::ffi::c_uint)
+    let bit: core::ffi::c_uint = crate::simd::x86::msac::dav1d_msac_decode_bool(s, *cdf as core::ffi::c_uint)
         as core::ffi::c_uint;
     if (*s).allow_update_cdf != 0 {
         let count: core::ffi::c_uint = *cdf.offset(1 as core::ffi::c_int as isize)
@@ -413,21 +413,21 @@ pub unsafe extern "C" fn dav1d_msac_decode_hi_tok_c(
     s: *mut MsacContext,
     cdf: *mut uint16_t,
 ) -> core::ffi::c_uint {
-    let mut tok_br: core::ffi::c_uint = dav1d_msac_decode_symbol_adapt_c(
+    let mut tok_br: core::ffi::c_uint = crate::simd::x86::msac::dav1d_msac_decode_symbol_adapt4(
         s,
         cdf,
         3 as size_t,
     );
     let mut tok: core::ffi::c_uint = (3 as core::ffi::c_uint).wrapping_add(tok_br);
     if tok_br == 3 as core::ffi::c_uint {
-        tok_br = dav1d_msac_decode_symbol_adapt_c(s, cdf, 3 as size_t);
+        tok_br = crate::simd::x86::msac::dav1d_msac_decode_symbol_adapt4(s, cdf, 3 as size_t);
         tok = (6 as core::ffi::c_uint).wrapping_add(tok_br);
         if tok_br == 3 as core::ffi::c_uint {
-            tok_br = dav1d_msac_decode_symbol_adapt_c(s, cdf, 3 as size_t);
+            tok_br = crate::simd::x86::msac::dav1d_msac_decode_symbol_adapt4(s, cdf, 3 as size_t);
             tok = (9 as core::ffi::c_uint).wrapping_add(tok_br);
             if tok_br == 3 as core::ffi::c_uint {
                 tok = (12 as core::ffi::c_uint)
-                    .wrapping_add(dav1d_msac_decode_symbol_adapt_c(s, cdf, 3 as size_t));
+                    .wrapping_add(crate::simd::x86::msac::dav1d_msac_decode_symbol_adapt4(s, cdf, 3 as size_t));
             }
         }
     }

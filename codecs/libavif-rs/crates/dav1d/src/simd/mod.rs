@@ -12,8 +12,10 @@
 //! `dav1d_set_cpu_flags_mask(0)`.
 //!
 //! Layout below `simd/`: `arm64/<file>.rs` rebuilds `src/arm/64/<file>.S`,
-//! `arm/<family>.rs` the init header `src/arm/<family>.h`; the x86 files
-//! will follow the same pattern.
+//! `arm/<family>.rs` the init header `src/arm/<family>.h`. The original keeps
+//! its x86 headers and assembly in one directory (`src/x86/`); here
+//! `x86/<family>.rs` is the header `src/x86/<family>.h` and
+//! `x86_64/<file>.rs` rebuilds `src/x86/<file>.asm` in its x86-64 form.
 #![allow(clippy::all)]
 
 pub mod cpu;
@@ -43,5 +45,16 @@ pub mod arm {
     pub mod itx;
     pub mod loopfilter;
     pub mod looprestoration;
+    pub mod msac;
+}
+
+#[cfg(target_arch = "x86_64")]
+pub mod x86_64 {
+    pub mod msac;
+    pub mod util;
+}
+
+#[cfg(target_arch = "x86_64")]
+pub mod x86 {
     pub mod msac;
 }

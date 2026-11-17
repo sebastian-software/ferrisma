@@ -67,7 +67,7 @@
         "original-c-object-alignment": 4
       },
       "raw_sha256": "ad07d34826ff9a8fe4e2d8ddaa958fec0f8909a8d3c207e94362c0ba6c649fcc",
-      "rust_sha256": "2a44a33972b7b5b7edbad0a0b7a26281449ca1685d669d6eb3a80bac2b138909"
+      "rust_sha256": "8b3d5beafdd225c2724348c286600ee69eb4be44191e0545e77db95bdff4f419"
     },
     {
       "source": "upstream/dav1d/src/dequant_tables.c",
@@ -173,7 +173,7 @@
         "raw-c-assignment-temporary": 4
       },
       "raw_sha256": "565e0d431b146dfa9fad5864bce01121c1de08d7cdd14aad8b5424281e285de7",
-      "rust_sha256": "ae2b23438996f08bebbdd1e043900bfa1e2e8ed7705961b33d8c0370d30baa3f"
+      "rust_sha256": "0a274235f111c12294bc610e1923fbf83116ee4ee4ec147e0caa70e00fbdb2d1"
     },
     {
       "source": "upstream/dav1d/src/obu.c",
@@ -468,7 +468,7 @@
         "empty-readwrite-register-barrier": 1
       },
       "raw_sha256": "bba376c285e2ce2d5148b72442829e1edb30212056d600e1d4f316e32722bf34",
-      "rust_sha256": "b8379789c2861ca9bce8a74ce5c5d2728be50610888643ed6ef25e3502326044"
+      "rust_sha256": "f46b767ed046f311961c57f5540b1cf3df84af8a7031908f59c9e16d58b1eb6a"
     },
     {
       "source": "upstream/dav1d/src/cdef_apply_tmpl.c",
@@ -626,7 +626,7 @@
         "empty-readwrite-register-barrier": 1
       },
       "raw_sha256": "f645e20a1ac57d991607f6dd632f40e09cf71272f34f7acfca50cfdbe52d3043",
-      "rust_sha256": "5cc2d51d84c9a954ea297483c099535d4281f2c6d63f481226cf1540f5f23f13"
+      "rust_sha256": "4f2504b22819b902353e48698a329ef8564fb2d0664d4809327537eaa2520b28"
     }
   ]
 }

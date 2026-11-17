@@ -36,7 +36,11 @@ profile of the matching target, and nothing else:
    that the original's macro names at that call site; the three symbol
    sizes, which the translation calls as one C function, follow
    `SYMBOL_ADAPT` (the macros of the original's call sites, in order).
-   Definitions and declarations keep their C names.
+   Definitions, declarations and string literals keep their C names (the
+   Linux debug profiles carry glibc's assertion strings with the enclosing
+   function's C signature). For `msac_x86` the owned functions are those of
+   `src/x86/msac.h`: SSE2 kernels chosen at compile time, the 16-symbol
+   function by the CPU flags (`simd/x86/msac.rs`).
 
 Each inserted statement ends with the marker comment `// dav1d-dispatch`;
 a renamed call is recognizable by its `crate::simd::<arch>::msac::` path.
@@ -119,15 +123,26 @@ def parse_entry(entry):
     return family, match['bpc'], match['arch']
 
 
+def in_string(text, position):
+    """Whether `position` lies in a string literal of its line.
+
+    glibc's assertion strings in the Linux debug profiles carry the enclosing
+    function's C signature (`*b"unsigned int dav1d_msac_decode_symbol_adapt_c(
+    MsacContext *const, ...)\\0"`), which reads like a call."""
+    return text[text.rfind('\n', 0, position) + 1:position].count('"') % 2 == 1
+
+
 def rename_calls(rel, text, unit, arch):
     """msac: each C call to the owned function the original's macro names."""
     sizes = iter(SYMBOL_ADAPT[unit])
     count = len(SYMBOL_ADAPT[unit])
-    found = len([m for m in CALL.finditer(text) if m[1] == 'symbol_adapt'])
+    found = len([m for m in CALL.finditer(text) if m[1] == 'symbol_adapt' and not in_string(text, m.start())])
     if found != count:
         raise SystemExit(f'{rel}: {found} symbol_adapt calls, SYMBOL_ADAPT lists {count}')
 
     def replace(match):
+        if in_string(text, match.start()):
+            return match[0]
         size = str(next(sizes)) if match[1] == 'symbol_adapt' else ''
         return f'crate::simd::{arch}::msac::dav1d_msac_decode_{match[1]}{size}('
     return CALL.sub(replace, text)

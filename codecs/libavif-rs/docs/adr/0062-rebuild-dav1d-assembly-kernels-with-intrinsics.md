@@ -42,7 +42,10 @@ NEON and, at the AVX2 level, about 26,000 lines of x86 per bit depth pair.
 **Kernels.** Each assembly file of a family is rebuilt as one Rust module
 below `crates/dav1d/src/simd/`: `arm64/<file>.rs` for `src/arm/64/<file>.S`,
 `arm/<family>.rs` for the init header `src/arm/<family>.h` (the slot
-assignments under the CPU flags), and the x86 files likewise. One Rust
+assignments under the CPU flags). The original keeps its x86 headers and
+assembly in one directory; here `x86/<family>.rs` is the header
+`src/x86/<family>.h` and `x86_64/<file>.rs` rebuilds `src/x86/<file>.asm` in
+its x86-64 System V form (amended 2026-11-17). One Rust
 function per assembly entry point and per internal function or macro, named
 as in the assembly; the vector registers are a local array indexed by
 register number (`simd/arm64/util.rs`), so that each Rust line reads against
@@ -117,6 +120,25 @@ no dependent enables it, `check_dav1d_linkage.py` rejects a product library
 that carries them, and the PR stage of `cargo xtask codecs --codec avif`
 checks that the crate still compiles with it.
 
+**msac on x86-64** (amended 2026-11-17). `src/x86/msac.h` renames six of
+the seven calls to the SSE2 functions at compile time (SSE2 is part of
+x86-64; `dav1d_set_cpu_flags_mask` does not reach them) and calls the
+16-symbol function through a pointer in the context, which
+`dav1d_msac_init` sets for every tile from the CPU flags: C, SSE2 under
+`DAV1D_X86_CPU_FLAG_SSE2`, AVX2 under `DAV1D_X86_CPU_FLAG_AVX2`. The entry
+`msac_x86` renames the call sites of the Linux profiles to
+`crate::simd::x86::msac::<macro name>`, which call the rebuilt SSE2 kernels
+directly. The translated `MsacContext` keeps the portable layout, which the
+ABI gate compares and which is embedded in the tile state; it has no
+`symbol_adapt16` member. The owned 16-symbol function therefore makes
+`msac_init_x86`'s choice from `dav1d_get_cpu_flags()` at every call (two
+loads, a test and a branch where the original loads the pointer and calls
+through it); the flags do not change while a decoder runs, so the same
+kernel runs as in the original. The per-kernel gate compiles the msac test
+body with `HAVE_ASM` 1 on x86-64, so that the test's contexts have the
+original's layout there (the original's `dav1d_msac_init` writes the
+member); the port's functions use the members before it.
+
 **CPU detection without assembly.** `simd/cpu.rs` mirrors
 `src/x86/cpu.c` statement by statement with `__cpuid_count` and
 `_xgetbv(0)` in place of `cpuid.asm` (the route libaom's RTCD took on
@@ -134,7 +156,12 @@ now; on such CPUs the port runs its C kernels where the original runs SSSE3
 or SSE4.1. On an AVX-512 (Ice Lake) machine the original selects
 `avx512icl` kernels; the gate restricts it with
 `dav1d_set_cpu_flags_mask(0x2f)` (SSE2 to AVX2, `SLOW_GATHER` passed
-through), as libaom's oracle is built without AVX-512.
+through), as libaom's oracle is built without AVX-512. msac's SSE2
+16-symbol function is the one SSE2 kernel the original selects only on a CPU
+without AVX2; it is rebuilt with the other entry points of `msac.asm` and
+gated at a level of its own, `sse2` (mask 0x1, both gate tools; amended
+2026-11-17), at which the DSP slots compare the original's SSE2 assembly
+with the port's C.
 
 **Gate (engine ADR-0041, ADR-0044 D2).**
 
@@ -144,7 +171,13 @@ through), as libaom's oracle is built without AVX-512.
    original CLI (`build/dav1d-asm-<profile>`, `reference-profile.json` with
    the configuration, assembly-source and archive digests). With
    `--cross x86_64-linux-gnu` it is built in the `tools/qemu_x86_64`
-   container and run under `qemu-x86_64 -cpu max` (no Rosetta).
+   container and run under `qemu-x86_64 -cpu max` (no Rosetta). Since
+   2026-11-17 the local x86-64 gates run instead in an x86-64 GNU Linux
+   container that Rosetta executes (`tools/rosetta_x86_64`: Dockerfile and
+   `run.sh`; a Colima VM with `--vz-rosetta`): the original, the port, the
+   test bodies and the tools are built natively in it with the unchanged
+   tools, as on the hosted Linux runner, and dav1d's own CPU detection
+   finds AVX2 there.
 2. *Per kernel.* `tools/check_dav1d_dsp.py --simd neon|avx2` runs all
    original checkasm bodies (ADR 0029) with the original's assembly pointers
    against the port's, both libraries detecting the CPU with their own
@@ -1034,6 +1067,121 @@ scalar (17 groups, 3,155 selections each, 869 of 869 rows). The whole-image
 gate decodes streams that use the filter, so the kernels were compared
 there before; the per-kernel gate now reaches it as well.
 
+**2026-11-17, a local x86-64 loop.** The x86-64 gates run on the development
+Mac in an x86-64 GNU Linux container that Rosetta executes
+(`tools/rosetta_x86_64`; Colima 0.10.3 with `--vz-rosetta`, macOS 27.2.1,
+Debian trixie, Clang 19 as `cc`, the pinned Rust toolchain installed in the
+image). Everything is built natively inside it with the unchanged tools, as
+on the hosted Linux runner; the checkout is mounted at its host path and the
+port's `build` and `target` directories are container volumes, so the macOS
+builds of the same checkout stay as they are. What the emulation reports
+and executes, checked with a small CPUID program in the container: vendor
+`GenuineIntel`, leaf 1 with OSXSAVE, AVX, SSSE3 and SSE4.1, XCR0 = 7, leaf 7
+with AVX2, BMI1 and BMI2 and without AVX-512F, and an AVX2 function
+(`vpmulhrsw`, `vpackuswb`) gives its result; no `ROSETTA_ADVERTISE_AVX` is
+needed in the Linux VM. dav1d's own detection agrees: at the AVX2 level both
+libraries report `cpu_flags=0xf` (SSE2 to AVX2), which the per-kernel gate
+requires. Before any x86 kernel (tree `697b963d`, with GCC 14 as `cc` in a
+first form of the image): the
+per-kernel gate at `avx2` (the original's assembly against the port's C)
+and at scalar, 17 groups and 3,155 selections each at the eight seeds; whole
+images 994 of 994 at `avx2` and at `scalar`; 1,711 of 1,711; API 83;
+linkage pass. One round of all x86-64 gates takes about nine minutes on the
+loaded host (per-kernel gate 50 to 75 s per level, whole images 60 to 90 s
+per level, the original's suite 80 to 90 s, a build of the crate 15 to 30
+s), the one-off build of the three originals two to three minutes.
+
+What the loop cannot show: Rosetta does not fault on a misaligned aligned
+move, so an alignment defect passes it (Valgrind, below, does fault on one);
+there is no AVX-512, so the `avx512icl` assignments of the original are
+never taken (the gate masks them off anyway); and no time measured under it
+is a measurement of x86-64 hardware. The hosted Linux run on hardware stays
+the cross-check for all three.
+
+Instructions per call on x86-64: `measure_dav1d_kernels.py` counts with
+Valgrind's Callgrind there (`Collected`: the x86-64 instructions the process
+executes, call minus baseline as on macOS). Valgrind 3.24 runs under Rosetta
+and executes the AVX2 code with its own translator, so the counts are exact
+and independent of the load and of the emulator; they are instruction
+counts of x86-64 code, not times. Under Valgrind the original's aligned
+moves fault on misaligned data: the bench driver's CDF array and its loop
+filter destination are now aligned as the decoder's are (the latter on
+x86-64 only, so the NEON figures keep their inputs), and it passes the
+length of the edge in units, which the x86 loop filter kernels count down
+and the C and NEON kernels ignore. Per-decode instruction counts and times
+of the x86-64 port against stock dav1d wait for a hosted benchmark.
+
+**2026-11-17, msac on x86-64** (the eight entry points of `msac.asm`:
+`simd/x86_64/msac.rs`; the header `src/x86/msac.h`: `simd/x86/msac.rs`;
+`dispatch.txt`: `msac_x86`, all call sites of the `decode`, `recon_tmpl` and
+`msac` units of the two Linux profiles). The dispatch tool now leaves string
+literals alone: glibc's assertion strings in the Linux debug profile carry
+the enclosing function's C signature, which read like a call (unit test
+added).
+
+| Check (x86-64 GNU Linux under Rosetta, Clang 19) | Result |
+| --- | --- |
+| `check_dav1d_dsp.py --simd avx2` | 17 groups, 3,155 selections each, pass at the eleven seeds; msac's three groups compare the original's `_sse2` functions and its `_avx2` 16-symbol function with the rebuilt kernels |
+| `check_dav1d_dsp.py --simd sse2` | the same counts; msac's groups with the `_sse2` 16-symbol function |
+| `check_dav1d_dsp.py` (scalar) | the same counts |
+| `check_dav1d_simd_original.py --level avx2` / `sse2` / `scalar` | 994 of 994 decodes identical each |
+| `run_dav1d_tests.py` | 1,711 of 1,711 |
+| `check_dav1d_abi.py`, `check_dav1d_api.py`, `check_dav1d_linkage.py` | 12,284 layout checks, 0 differences; 83 API comparisons; pass |
+| `enable_dav1d_dispatch.py --check` and its unit test | 12 entries, 60 units; 10 tests |
+| unit tests (`cargo test --lib simd::`) | 4 of 4: context layout, the eight kernels against the C functions on streams of 128, 61, 9 and 5 bytes, the 16-symbol choice under three masks, `zeroed` |
+
+Positive controls, one constant each, restored afterwards (the per-kernel
+gate at the level named, then whole images where given):
+`bool_equi`'s `v` (`mov t1b, 8` as 12) fails `msac.decode_bool` at every
+seed at `avx2`, whole images 4 of 994 identical; `psllw 7` as 6 in the
+4-symbol function fails `msac.decode_symbol` at every seed; the same in the
+AVX2 16-symbol function fails `msac.decode_symbol` at every seed at `avx2`
+and passes at `sse2` (which does not select it), whole images at `avx2` 3
+of 994; the same in the second half of the SSE2 16-symbol function passes
+at `avx2` and fails `msac.decode_symbol` at every seed at `sse2`, whole
+images at `sse2` 33 of 994, which is what the level `sse2` is for;
+`add t6d, 5` as 4 in `hi_tok` fails `msac.decode_hi_tok` at every seed.
+
+Instructions per call against the assembly (`measure_dav1d_kernels.py
+--family msac`, Callgrind, 4 million calls each, identical outputs; assembly
+and rebuild): adapt4 69 and 76 (1.10), adapt8 72 and 78 (1.08), adapt16
+AVX2 67 and 71 (1.06), adapt16 SSE2 88 and 95 (1.08), hi_tok 73 and 87
+(1.19), bool_adapt 53 and 62 (1.17), bool_equi 34 and 39 (1.12), bool 36
+and 39 (1.09). Seen in the disassembly: every kernel saves two or three
+callee-saved registers (`push` and `pop`: 4 to 6 instructions), which the
+refill near the end of the buffer needs; the assembly uses caller-saved
+registers only. Moving that refill out of line was tried and made every
+kernel 3 to 7 instructions longer (the values that live across the call
+then sit in callee-saved registers), so it stays inline as in the assembly.
+The 8- and 16-symbol SSE2 functions were at 1.18 and 1.16 with a plain load
+of `pw_0xff00`: the compiler, knowing the constant, replaced `punpcklqdq`
+and `pand` by a nine-instruction byte shuffle; a volatile load of the
+constant keeps the assembly's memory operand (deviation (f)). The
+16-symbol function's test of the CPU flags at the call site is not in these
+figures.
+
+Deviations from the assembly: (a) near the end of the buffer only
+`buf_pos..buf_end` is read, as on NEON (memory safety; a few instructions
+on a path taken at the end of a tile). (b) Every vector access to caller
+memory is an unaligned move, where the assembly loads and stores the CDF of
+the 8- and 16-symbol functions with `mova`: same bytes, same count. (c) The
+stack buffers are zero-initialized arrays whose loaded elements are stored
+a few lines above the load; the zero stores do not appear in the code. (d)
+`bsr` and `tzcnt` operands are stated as non-zero values (`rng` is never 0,
+the comparison mask always has the bit of the count's lane), which compiles
+to the bare instructions. (e) The 16-symbol function is chosen at each call
+(decision paragraph above). (f) `pw_0xff00` is loaded with a volatile read
+in the SSE2 8- and 16-symbol functions (same value; 7 instructions per call
+fewer in each).
+
+Formatting: `rustfmt --check --config-path` with `max_width = 120` on the
+three new files; `cargo fmt --all --check` passes without looking at them.
+No `asm!` in the new files (the pattern is checked against a positive).
+ARM64 after the change: `check_dav1d_dsp.py --simd neon` and scalar pass
+at the eleven seeds, whole images 994 of 994 at `neon` and `scalar`, 1,711
+of 1,711, ABI 12,157 checks, API, linkage and the dispatch check pass (the
+gate tools changed; no file of the NEON kernels did).
+
 ## Review when
 
 A family is completed on a target; the x86-64 AVX2 kernels arrive; the owner
@@ -1042,6 +1190,7 @@ engine's decoder choice changes.
 
 ## Amendment log
 
+- 2026-11-17 — msac on x86-64 (SSE2 and AVX2), the first x86 kernels; a local x86-64 loop under Rosetta; the `sse2` gate level (decision paragraphs and validation above).
 - 2026-11-17 — the per-kernel gate runs eleven seeds: one more for the 8 bpc loop filter's 16-pixel filter (validation above).
 - 2026-11-17 — the per-kernel gate runs ten seeds: two more for the loop restoration tails (validation above).
 - 2026-11-17 — loop restoration on NEON, 8 and 16 bpc (validation above).

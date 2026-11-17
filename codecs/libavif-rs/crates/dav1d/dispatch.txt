@@ -10,3 +10,4 @@ loopfilter_8bpc_arm
 looprestoration_16bpc_arm
 looprestoration_8bpc_arm
 msac_arm
+msac_x86

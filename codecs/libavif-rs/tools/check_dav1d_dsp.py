@@ -10,13 +10,22 @@ compared, kernels the port has not rebuilt yet through its C. The test bodies
 are compiled with the portable configuration in both modes.
 
 msac has no DSP table: the original selects its assembly at compile time
-(`src/arm/msac.h`) and its checkasm test takes the assembly functions by
-name under `HAVE_ASM`. With `--simd neon` that branch of the unchanged test
-body is enabled (the two textual edits are in `MSAC_SIMD_EDITS`), and the
-seven `_neon` names resolve to the original's hidden assembly functions and
+(`src/arm/msac.h`, `src/x86/msac.h`) and its checkasm test takes the assembly
+functions by name under `HAVE_ASM`. With `--simd` that branch of the
+unchanged test body is enabled (the textual edits are in `MSAC_SIMD_EDITS`),
+and the seven `_neon` names, or the seven `_sse2` names and the `_avx2`
+16-symbol function, resolve to the original's hidden assembly functions and
 to the port's rebuilt kernels through test-only accessors; the port is then
 built with its `port-test-bridges` feature (accessors only) into
-`build/dav1d-bridges-target`.
+`build/dav1d-bridges-target`. At the AVX2 level the test selects the AVX2
+16-symbol function, as the original does on such a CPU; `--simd sse2`
+restricts both sides to SSE2, where the test selects the SSE2 16-symbol
+function (the original's choice on a CPU without AVX2), and the DSP slots,
+none of which the port has rebuilt for that level, compare the original's
+SSE2 assembly with the port's C. On x86-64 the test body of msac is compiled
+with `HAVE_ASM` 1: the original's `MsacContext` has one more member there
+(`symbol_adapt16`), which the original's `dav1d_msac_init` writes; the
+port's functions use the members before it.
 
 Every run repeats the bodies with each seed of `SEEDS`: checkasm draws its
 block contents, strengths and sizes from the seed, and a fault in a narrow
@@ -43,8 +52,11 @@ from build_dav1d import copy_inputs
 ROOT = Path(__file__).resolve().parents[1]
 # dav1d_set_cpu_flags_mask values of each SIMD level (src/arm/cpu.h,
 # src/x86/cpu.h): NEON alone (no DotProd/I8MM/SVE); SSE2, SSSE3, SSE4.1 and
-# AVX2 without AVX-512, with SLOW_GATHER passed through as detected.
-SIMD_MASKS = {'neon': 0x1, 'avx2': 0x2f}
+# AVX2 without AVX-512, with SLOW_GATHER passed through as detected; SSE2
+# alone.
+SIMD_MASKS = {'neon': 0x1, 'avx2': 0x2f, 'sse2': 0x1}
+# The architecture each level belongs to (`uname -m` names).
+SIMD_MACHINES = {'neon': ('arm64', 'aarch64'), 'avx2': ('x86_64',), 'sse2': ('x86_64',)}
 # checkasm's random seeds. 42 is the gate's first seed and stays; 1 to 7 were
 # added on 2026-11-17, after a one-constant fault in the 16 bpc chroma loop
 # filter passed at 42 alone (the numbers were fixed before the fault was run
@@ -75,12 +87,33 @@ MSAC_NEON = {
     'dav1d_msac_decode_bool_equi_neon': 'unsigned (*)(MsacContext *)',
     'dav1d_msac_decode_bool_neon': 'unsigned (*)(MsacContext *, unsigned)',
 }
-# The test body's assembly branch, enabled at the NEON level: HAVE_ASM is 0
+# The eight msac entry points of src/x86/msac.h on x86-64.
+MSAC_X86 = {
+    'dav1d_msac_decode_symbol_adapt4_sse2': 'unsigned (*)(MsacContext *, uint16_t *, size_t)',
+    'dav1d_msac_decode_symbol_adapt8_sse2': 'unsigned (*)(MsacContext *, uint16_t *, size_t)',
+    'dav1d_msac_decode_symbol_adapt16_sse2': 'unsigned (*)(MsacContext *, uint16_t *, size_t)',
+    'dav1d_msac_decode_symbol_adapt16_avx2': 'unsigned (*)(MsacContext *, uint16_t *, size_t)',
+    'dav1d_msac_decode_hi_tok_sse2': 'unsigned (*)(MsacContext *, uint16_t *)',
+    'dav1d_msac_decode_bool_adapt_sse2': 'unsigned (*)(MsacContext *, uint16_t *)',
+    'dav1d_msac_decode_bool_equi_sse2': 'unsigned (*)(MsacContext *)',
+    'dav1d_msac_decode_bool_sse2': 'unsigned (*)(MsacContext *, unsigned)',
+}
+MSAC_KERNELS = {'neon': MSAC_NEON, 'avx2': MSAC_X86, 'sse2': MSAC_X86}
+# The test body's assembly branch, enabled at the SIMD level: HAVE_ASM is 0
 # in the portable configuration the bodies are compiled with, and the CPU
-# flags are those of the library under test.
-MSAC_SIMD_EDITS = [('#if (ARCH_AARCH64 || ARCH_ARM) && HAVE_ASM', '#if (ARCH_AARCH64 || ARCH_ARM)'),
-                   ('if (dav1d_get_cpu_flags() & DAV1D_ARM_CPU_FLAG_NEON) {',
-                    'if (port_cpu_level() & DAV1D_ARM_CPU_FLAG_NEON) {')]
+# flags are those of the library under test. On x86-64 the msac test body is
+# compiled with HAVE_ASM 1 instead (MSAC_X86_PROLOGUE), which enables the
+# branch and gives the test the original's MsacContext with assembly.
+MSAC_SIMD_EDITS = {
+    'neon': [('#if (ARCH_AARCH64 || ARCH_ARM) && HAVE_ASM', '#if (ARCH_AARCH64 || ARCH_ARM)'),
+             ('if (dav1d_get_cpu_flags() & DAV1D_ARM_CPU_FLAG_NEON) {',
+              'if (port_cpu_level() & DAV1D_ARM_CPU_FLAG_NEON) {')],
+    'x86': [('if (dav1d_get_cpu_flags() & DAV1D_X86_CPU_FLAG_SSE2) {',
+             'if (port_cpu_level() & DAV1D_X86_CPU_FLAG_SSE2) {'),
+            ('if (dav1d_get_cpu_flags() & DAV1D_X86_CPU_FLAG_AVX2) {',
+             'if (port_cpu_level() & DAV1D_X86_CPU_FLAG_AVX2) {')],
+}
+MSAC_X86_PROLOGUE = ['#include "config.h"', '#undef HAVE_ASM', '#define HAVE_ASM 1']
 
 
 def main():
@@ -91,6 +124,8 @@ def main():
                         help='seeds run at the same time (default: 4, or the CPU count if lower)')
     args = parser.parse_args()
     profile = 'debug' if args.debug else 'release'
+    if args.simd and os.uname().machine not in SIMD_MACHINES[args.simd]:
+        raise SystemExit(f'--simd {args.simd} needs one of {SIMD_MACHINES[args.simd]}, not {os.uname().machine}')
     reference = ROOT / f'build/dav1d-reference-{profile}'
     oracle = ROOT / f'build/dav1d-asm-{profile}' if args.simd else None
     source = ROOT / 'build/dav1d-native-source'
@@ -109,7 +144,8 @@ def main():
     darwin = sys.platform == 'darwin'
     library = reference / ('src/libdav1d.7.dylib' if darwin else 'src/libdav1d.so.7.0.0')
     candidate = ROOT.parents[1] / 'target' / ('debug' if args.debug else 'release') / ('libdav1d.dylib' if darwin else 'libdav1d.so')
-    msac_simd = args.simd == 'neon'
+    msac_simd = args.simd is not None
+    msac_kernels = MSAC_KERNELS.get(args.simd, {})
     if msac_simd:
         bridges = ROOT / 'build/dav1d-bridges-target'
         subprocess.run(['cargo', 'build', '-p', 'libavif-dav1d', '--locked', '--features', 'port-test-bridges',
@@ -143,7 +179,7 @@ def main():
         '\n'.join(f'void *port_table_{name}(void) {{ return (void *)&{name}; }}' for name in tables) + '\n' +
         'unsigned port_cpu_flags(void) { return dav1d_get_cpu_flags(); }\n' +
         (''.join(f'extern void {name}(void);\nvoid *port_table_{name}(void) {{ return (void *)&{name}; }}\n'
-                 for name in MSAC_NEON) if msac_simd and oracle else ''))
+                 for name in msac_kernels) if msac_simd and oracle else ''))
     accessor_object = work / 'table-accessors.o'
     subprocess.run(flags + ['-c', accessor, '-o', accessor_object], check=True)
     units = [entry for entry in json.loads((reference / 'compile_commands.json').read_text())
@@ -170,15 +206,19 @@ def main():
         original = source / f'tests/checkasm/{name}.c'
         text = original.read_text()
         extra = []
+        prologue = []
         if name == 'msac' and msac_simd:
-            for old, new in MSAC_SIMD_EDITS:
+            for old, new in MSAC_SIMD_EDITS['neon' if args.simd == 'neon' else 'x86']:
                 if text.count(old) != 1:
                     raise SystemExit(f'Original msac test differs: {old}')
                 text = text.replace(old, new)
-            original = work / 'msac-neon.c'
+            original = work / f'msac-{args.simd}.c'
             original.write_text(text)
-            extra = [f'#define {symbol} (*({kind})port_lookup("{symbol}"))' for symbol, kind in MSAC_NEON.items()]
-        declarations = [line for line in re.findall(r'^#include[^\n]+', text, re.M) if not line.endswith('.c"')]
+            extra = [f'#define {symbol} (*({kind})port_lookup("{symbol}"))' for symbol, kind in msac_kernels.items()]
+            if args.simd != 'neon':
+                prologue = MSAC_X86_PROLOGUE
+        declarations = prologue + [line for line in re.findall(r'^#include[^\n]+', text, re.M)
+                                   if not line.endswith('.c"')]
         macros = []
         for symbol in sorted(set(re.findall(r'\bdav1d_\w+', text))):
             if symbol not in symbols and depth is not None:

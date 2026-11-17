@@ -124,6 +124,23 @@ pub unsafe extern "C" fn dav1d_loop_restoration_dsp_init_16bpc(
         # Not into the x86-64 profiles.
         self.assertEqual(dispatch.dispatch_text('crates/dav1d/src/linux/release/common/msac.rs', MSAC,
                                                 ['msac_arm']), MSAC)
+        # The x86-64 profiles get the functions of src/x86/msac.h. glibc's
+        # assertion strings of the debug profile carry the enclosing
+        # function's C signature, which is not a call.
+        glibc = MSAC.replace('assert(b"dav1d_msac_decode_symbol_adapt_c\\0");',
+                             'assert(*b"unsigned int dav1d_msac_decode_symbol_adapt_c(MsacContext *const, '
+                             'uint16_t *const, const size_t)\\0", *b"dav1d_msac_decode_bool_c(s, f) < 2\\0");')
+        self.assertNotEqual(glibc, MSAC)
+        for rel in ['crates/dav1d/src/linux/common/msac.rs', 'crates/dav1d/src/linux/release/common/msac.rs']:
+            linux = dispatch.dispatch_text(rel, glibc, ['msac_x86'])
+            self.assertEqual(linux.count('crate::simd::x86::msac::dav1d_msac_decode_symbol_adapt4(s, cdf, 3'), 4)
+            self.assertIn('crate::simd::x86::msac::dav1d_msac_decode_bool(s, *cdf', linux)
+            self.assertIn('*b"unsigned int dav1d_msac_decode_symbol_adapt_c(MsacContext *const,', linux)
+            self.assertIn('*b"dav1d_msac_decode_bool_c(s, f) < 2', linux)
+            self.assertEqual(dispatch.dispatch_text(rel, linux, []), glibc)
+            self.assertEqual(dispatch.dispatch_text(rel, linux, ['msac_x86']), linux)
+            self.assertEqual(dispatch.dispatch_text(rel, glibc, ['msac_arm']), glibc)
+        self.assertEqual(dispatch.dispatch_text(MAC_MSAC, MSAC, ['msac_x86']), MSAC)
         # A count that differs from SYMBOL_ADAPT fails.
         with self.assertRaises(SystemExit):
             dispatch.dispatch_text(MAC_MSAC, MSAC.replace('let d = dav1d_msac_decode_symbol_adapt_c', 'let d = ('),
