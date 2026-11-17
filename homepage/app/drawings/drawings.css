@@ -1,0 +1,175 @@
+/*
+ * The homepage drawings: engraved hairlines on Monografie's sheet. Every
+ * color is a --mono- token; oxide marks the one element a drawing is about.
+ */
+.fx-drawing {
+  margin: 2.75rem 0 2.75rem;
+  padding: 2rem 2rem 1.5rem;
+  background: var(--mono-sheet);
+  box-shadow:
+    0 0 0 1px var(--mono-hair-2),
+    0 14px 28px -24px color-mix(in srgb, var(--mono-ink) 55%, transparent);
+  border-radius: 2px;
+}
+.fx-drawing svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.fx-drawing .fx-d-narrow {
+  display: none;
+}
+.fx-drawing > figcaption {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--mono-hair-2);
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--mono-ink-3);
+  max-width: 44rem;
+}
+@media (max-width: 999px) {
+  .fx-drawing .fx-d-wide {
+    display: none;
+  }
+  .fx-drawing .fx-d-narrow {
+    display: block;
+    max-width: 30rem;
+    margin-inline: auto;
+  }
+  .fx-drawing {
+    padding: 1.5rem 1.25rem 1.25rem;
+  }
+}
+@media (max-width: 42rem) {
+  .fx-drawing {
+    padding: 1.25rem 0.5rem 1rem;
+  }
+  .fx-drawing > figcaption {
+    padding-inline: 0.5rem;
+  }
+}
+
+/* Shapes */
+.fx-d-frame {
+  fill: var(--mono-sheet);
+  stroke: var(--mono-ink);
+  stroke-width: 1.25;
+}
+.fx-d-quiet {
+  fill: var(--mono-paper);
+  stroke: var(--mono-steel-2);
+  stroke-width: 1;
+}
+.fx-d-ghost {
+  fill: none;
+  stroke: var(--mono-steel-3);
+  stroke-width: 1;
+  stroke-dasharray: 5 4;
+}
+.fx-d-accent {
+  fill: var(--mono-sheet);
+  stroke: var(--mono-oxide);
+  stroke-width: 1.75;
+}
+.fx-d-crop {
+  fill: none;
+  stroke: var(--mono-oxide);
+  stroke-width: 1.25;
+  stroke-dasharray: 3 2;
+}
+.fx-d-cell {
+  fill: var(--mono-steel-3);
+}
+.fx-d-cell-light {
+  fill: var(--mono-steel);
+}
+.fx-d-wire {
+  fill: none;
+  stroke: var(--mono-ink);
+  stroke-width: 1.25;
+  stroke-linejoin: round;
+}
+.fx-d-wire-accent {
+  stroke: var(--mono-oxide);
+  stroke-width: 1.5;
+}
+.fx-d-dashed {
+  stroke: var(--mono-steel-3);
+  stroke-dasharray: 4 3;
+}
+.fx-d-hair {
+  stroke: var(--mono-hair);
+  stroke-width: 1;
+}
+.fx-d-head {
+  fill: var(--mono-ink);
+}
+.fx-d-head-accent {
+  fill: var(--mono-oxide);
+}
+.fx-d-ring {
+  fill: var(--mono-oxide-wash);
+  stroke: var(--mono-oxide);
+  stroke-width: 1.5;
+}
+.fx-d-equal {
+  stroke: var(--mono-oxide);
+  stroke-width: 1.75;
+}
+.fx-d-cross {
+  stroke: var(--mono-oxide);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.fx-d-lane-on {
+  fill: var(--mono-steel);
+  stroke: var(--mono-steel-3);
+  stroke-width: 1;
+}
+.fx-d-lane-on-port {
+  fill: var(--mono-steel-3);
+  stroke: var(--mono-ink);
+  stroke-width: 1;
+}
+.fx-d-hair-box {
+  fill: none;
+  stroke: var(--mono-hair);
+  stroke-width: 1;
+}
+
+/* Lettering */
+.fx-d-title {
+  font: 600 17px/1 var(--mono-serif);
+  fill: var(--mono-ink);
+}
+.fx-d-label {
+  font: 500 14px/1 var(--mono-sans);
+  fill: var(--mono-ink);
+}
+.fx-d-note {
+  font: 400 13px/1 var(--mono-sans);
+  fill: var(--mono-ink-2);
+}
+.fx-d-code {
+  font: 400 12.5px/1 var(--mono-mono);
+  fill: var(--mono-ink-2);
+}
+.fx-d-mark {
+  font: 600 13px/1 var(--mono-sans);
+  fill: var(--mono-oxide);
+}
+/* The narrowest phones: the sheet runs to the window's edges, so the narrow
+   layout keeps its lettering above 10.5px (the page gutter is 16px there). */
+@media (max-width: 26rem) {
+  .fx-drawing {
+    margin-inline: -16px;
+    padding-inline: 4px;
+    border-radius: 0;
+  }
+  .fx-drawing > figcaption {
+    padding-inline: 12px;
+  }
+}

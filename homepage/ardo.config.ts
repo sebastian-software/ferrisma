@@ -2,7 +2,8 @@ import { defineArdoConfig } from "ardo/config";
 
 export default defineArdoConfig({
   title: "Ferrisma",
-  description: "A Rust image engine in development for modern web delivery.",
+  description:
+    "One image pipeline for Rust, every codec included: JPEG, WebP, JPEG XL and AVIF through one API, built by Cargo alone. Experimental.",
   base: "/",
   siteUrl: "https://ferrisma.dev",
   icons: false,
