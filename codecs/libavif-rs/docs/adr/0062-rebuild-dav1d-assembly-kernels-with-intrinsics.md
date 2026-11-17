@@ -981,6 +981,44 @@ Loop restoration is complete on NEON. Not rebuilt on any target: film
 grain, and the inter prediction kernels, which stills reach only through
 intra block copy and superres; on x86-64 nothing yet.
 
+**2026-11-17, gate seeds: two more for loop restoration.** The loop
+restoration test of checkasm draws one width (1 to 384) and one height (1 to
+64) per function and seed, and tests them with the sixteen edge sets (256
+wide with a right edge, 64 high with a bottom edge). checkasm seeds its
+xorshift128 generator with the seed and its complement without mixing, so
+neighboring seeds draw related sizes. Measured with a copy of the gate's
+test executable that prints the sizes (the test body otherwise unchanged;
+the sizes are the same at 8, 10 and 12 bit): at the gate's eight seeds the
+5x5 and the 3x3 self-guided filter, which draw the same size, got 174x24,
+135x16, 134x24, 133x32, 132x40, 131x48, 130x56 and 129x64, and the combined
+filter 216x43, 16x2, 152x3, 288x4, 168x5, 304x6, 56x7 and 192x8; over the
+seeds 8 to 1,200 every 5x5/3x3 height is a multiple of 8 and every width of
+the combined filter a multiple of 8. One fault per tail of the wrappers
+(`src/arm/looprestoration.h`; the strength of the tail's first box sum
+halved, at 5x5 `vert_2` a row pointer) and one in the right-edge padding of
+the combined row kernel at each bit depth (the mask offset one too large
+unless the remaining width is 2, 8 or 10), each run through the gate:
+`vert_2` of the three wrappers and `odd` of the combined filter failed at
+the eight seeds; `vert_1` of the three wrappers (a height of 1), `odd` of
+5x5 (an odd height of 3 or more) and both padding faults (a width that is
+not a multiple of 8) passed all eight. The predecessor's statement was
+therefore right about `vert_1`, 5x5's `odd` and the widths, and too wide
+about `vert_2`. `SEEDS` gains 1129287872 (5x5 and 3x3 at 186x1, combined at
+257x1) and 2326805120 (235x7 and 135x1), found among 4,000 scattered seeds
+(multiples of 2654435761 modulo 2^32) as a pair that reaches all of it; the
+eight earlier seeds stay. With the ten seeds the six faults that passed fail:
+3x3 `vert_1`, 5x5 `vert_1` and both bit depths' padding at 1129287872, 5x5
+`odd` at 2326805120, the combined filter's `vert_1` and the padding at both
+(the wrapper faults at 8 and at 10 bit, each padding fault at its bit
+depth), and at no earlier seed. Restored, all families pass
+at every seed: 17 groups, 3,155 selections each, 79 rows per seed, 790 of
+790, at `neon` and at scalar. No already rebuilt kernel fails at the new
+seeds. A first form of the faults (strength plus one) was too weak to be a
+control: the 3x3 tails passed with it at every seed, new ones included. Not
+covered by this: the Wiener filters' short heights (the 5-tap filter draws
+7 or 8 at the first eight seeds; 47 and 2 at the new ones), which the
+3,000 scattered seeds of the loop restoration entry cover outside the gate.
+
 ## Review when
 
 A family is completed on a target; the x86-64 AVX2 kernels arrive; the owner
@@ -989,6 +1027,7 @@ engine's decoder choice changes.
 
 ## Amendment log
 
+- 2026-11-17 — the per-kernel gate runs ten seeds: two more for the loop restoration tails (validation above).
 - 2026-11-17 — loop restoration on NEON, 8 and 16 bpc (validation above).
 - 2026-11-17 — intra prediction wrappers: `top_out` and `left_out` zeroed whole, the edge array's slack checked by a test (validation above).
 - 2026-11-17 — intra prediction 16 bpc on NEON (validation above).

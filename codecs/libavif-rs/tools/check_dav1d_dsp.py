@@ -49,8 +49,18 @@ SIMD_MASKS = {'neon': 0x1, 'avx2': 0x2f}
 # added on 2026-11-17, after a one-constant fault in the 16 bpc chroma loop
 # filter passed at 42 alone (the numbers were fixed before the fault was run
 # against them).
+# 1129287872 and 2326805120 were added on 2026-11-17 for loop restoration,
+# whose test draws one width and one height per function and seed. checkasm
+# seeds xorshift128 without mixing, so neighboring seeds draw related sizes:
+# at the first eight the 5x5 and 3x3 self-guided filters only got heights
+# that are multiples of 8 and the combined filter only widths that are
+# multiples of 8, and the wrappers' tails for a height of 1 (`vert_1`) and,
+# at 5x5, for an odd height (`odd`) never ran. The first new seed draws a
+# height of 1 for all three filters (5x5 and 3x3 at 186x1, combined at
+# 257x1), the second 235x7 for 5x5 and 3x3 and 135x1 for the combined filter
+# (ADR 0062, validation of 2026-11-17, "gate seeds").
 # Never remove a seed to make a run pass: a failure at any seed is a finding.
-SEEDS = [42, 1, 2, 3, 4, 5, 6, 7]
+SEEDS = [42, 1, 2, 3, 4, 5, 6, 7, 1129287872, 2326805120]
 # The seven msac entry points of src/arm/msac.h, with their C types.
 MSAC_NEON = {
     'dav1d_msac_decode_symbol_adapt4_neon': 'unsigned (*)(MsacContext *, uint16_t *, size_t)',
