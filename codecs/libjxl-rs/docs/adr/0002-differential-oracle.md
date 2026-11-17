@@ -1226,6 +1226,7 @@ tests, and the same per-request diagnostic counts; `simd_public` and
 both sets on both toolchains; the release-only `from_linear` passed (4) with
 the shipped flags. At `c832dbe4` (encoder SIMD selection on), with the
 conformance corpus: nightly 1,166 passed, 2 ignored with and without the
-flags, the same tests and diagnostics. x86-64 (AVX2) is covered by the hosted
-gate, which now builds with the shipped flags; the local qemu-user evidence
-is recorded in the commit that removed the configuration.
+flags, the same tests and diagnostics. On x86-64 (AVX2) the two flag sets
+were not compared locally beyond the `set_dc_quant` case above; the evidence
+there is the hosted gate, which builds with the shipped flags since this
+change.

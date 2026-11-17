@@ -42,6 +42,12 @@ jobs:
       with:
         msrv: true
         oracle: false
+    - name: Install the x86-64 target for the attribute-context check
+      # tools/check.py builds three examples for x86-64 and inspects their
+      # code (port ADR 0004); on an ARM64 Mac that is a cross build, and the
+      # hosted image carries only the host's target.
+      if: runner.os == 'macOS'
+      run: rustup target add x86_64-apple-darwin
     - name: Check pins, notices, links, formatting, Clippy, MSRV, and release builds
       run: python3 tools/check.py --stage static --msrv
     defaults:
