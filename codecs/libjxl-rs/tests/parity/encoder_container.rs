@@ -441,24 +441,13 @@ fn output_mode_2_gate_histories(size: (usize, usize)) -> Vec<String> {
                         continue;
                     }
                     if (xsize, ysize) == size {
-                        let buffering = [-1, 0, 1, 2, 3][k % 5];
-                        let mut settings = if buffering == -1 {
-                            String::new()
-                        } else {
-                            format!(" o0,34,{buffering}")
-                        };
-                        settings.push_str(" o0,40,2");
-                        let history =
-                            lossy_history(xsize, ysize, gray, k % 4, 4, distance, k, "", &settings);
-                        let (input, _) = history.split_once(" Z ").unwrap();
-                        let chunk = 4 << 20;
-                        let count = (xsize * ysize * if gray { 1 } else { 3 }).div_ceil(chunk) + 1;
-                        let output = if processor {
-                            format!("w{},0,0,0 i r", if k.is_multiple_of(2) { 0 } else { 4 })
-                        } else {
-                            vec![format!("p{chunk}"); count].join(" ")
-                        };
-                        requests.push(run(0, 0, &format!("{input} Z {output}")));
+                        requests.push(output_mode_2_history(
+                            (xsize, ysize),
+                            gray,
+                            distance,
+                            processor,
+                            k,
+                        ));
                     }
                     k += 1;
                 }
@@ -466,6 +455,35 @@ fn output_mode_2_gate_histories(size: (usize, usize)) -> Vec<String> {
         }
     }
     requests
+}
+
+/// The output-mode-2 gate's history number `k` of one size: its buffering
+/// value, content and seed follow `k`, its output mode is 2, and buffer mode
+/// takes chunks of at most 4 MiB.
+fn output_mode_2_history(
+    (xsize, ysize): (usize, usize),
+    gray: bool,
+    distance: f32,
+    processor: bool,
+    k: usize,
+) -> String {
+    let buffering = [-1, 0, 1, 2, 3][k % 5];
+    let mut settings = if buffering == -1 {
+        String::new()
+    } else {
+        format!(" o0,34,{buffering}")
+    };
+    settings.push_str(" o0,40,2");
+    let history = lossy_history(xsize, ysize, gray, k % 4, 4, distance, k, "", &settings);
+    let (input, _) = history.split_once(" Z ").unwrap();
+    let chunk = 4 << 20;
+    let count = (xsize * ysize * if gray { 1 } else { 3 }).div_ceil(chunk) + 1;
+    let output = if processor {
+        format!("w{},0,0,0 i r", if k.is_multiple_of(2) { 0 } else { 4 })
+    } else {
+        vec![format!("p{chunk}"); count].join(" ")
+    };
+    run(0, 0, &format!("{input} Z {output}"))
 }
 
 /// One part of the output-mode-2 gate of one size: the histories `part` of
@@ -511,6 +529,49 @@ output_mode_2_gate_parts! {
     public_encoder_output_mode_2_gate_4000x3000_h1_matches_original: "output-mode-2-gate-4000x3000-h1", (4000, 3000), 1..2;
     public_encoder_output_mode_2_gate_4000x3000_h2_matches_original: "output-mode-2-gate-4000x3000-h2", (4000, 3000), 2..3;
     public_encoder_output_mode_2_gate_4000x3000_h3_matches_original: "output-mode-2-gate-4000x3000-h3", (4000, 3000), 3..4;
+}
+
+/// The output-mode-2 gate at the thin shapes of the streaming gate
+/// (ADR-0027, amendment 2026-11-17): eight histories per shape, d1.0 and
+/// d2.0, gray and RGB, buffer mode and an output processor, `k` counting
+/// from 0 within the shape. 2049x257 and 257x2049 cross one DC-group
+/// boundary in one direction; 4097x9 and 9x4097 have three DC groups in a
+/// row and a side above 2^12. They run with every nightly; the 2048x1536 and
+/// 4000x3000 parts run in the deep tier (tools/check.py DEEP_TESTS).
+fn output_mode_2_thin_gate(family: &str, size: (usize, usize)) {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
+    let mut requests = Vec::new();
+    let mut k = 0;
+    for distance in [1.0f32, 2.0] {
+        for gray in [false, true] {
+            for processor in [false, true] {
+                requests.push(output_mode_2_history(size, gray, distance, processor, k));
+                k += 1;
+            }
+        }
+    }
+    super::compare_gate(family, requests);
+}
+
+#[test]
+fn public_encoder_output_mode_2_gate_2049x257_matches_original() {
+    output_mode_2_thin_gate("output-mode-2-gate-2049x257", (2049, 257));
+}
+
+#[test]
+fn public_encoder_output_mode_2_gate_257x2049_matches_original() {
+    output_mode_2_thin_gate("output-mode-2-gate-257x2049", (257, 2049));
+}
+
+#[test]
+fn public_encoder_output_mode_2_gate_4097x9_matches_original() {
+    output_mode_2_thin_gate("output-mode-2-gate-4097x9", (4097, 9));
+}
+
+#[test]
+fn public_encoder_output_mode_2_gate_9x4097_matches_original() {
+    output_mode_2_thin_gate("output-mode-2-gate-9x4097", (9, 4097));
 }
 
 /// The EncoderStreamingTest instances that need the container: every

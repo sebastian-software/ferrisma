@@ -1465,6 +1465,38 @@ fn enc_public_streaming_gate_4000x3000_matches_the_original_target() {
     );
 }
 
+// The scalar gate's thin shapes on the SIMD path (ADR-0027, amendment
+// 2026-11-17): the gate's eight histories (seed 2) at 2049x257 and 257x2049
+// (one DC-group boundary in one direction) and 4097x9 and 9x4097 (three DC
+// groups in a row, a side above 2^12). Every encode must match
+// (assert_family); unlike the large gates, they do not also require each
+// SIMD call site of the lossy profile (assert_reached), which those reach.
+fn thin_streaming_gate(family: &str, (xsize, ysize): (usize, usize)) {
+    let _guard = lock();
+    let result = compare_family(family, &gate_histories(xsize, ysize, 2));
+    assert_family(family, &result);
+}
+
+#[test]
+fn enc_public_streaming_gate_2049x257_matches_the_original_target() {
+    thin_streaming_gate("streaming-gate-2049x257", (2049, 257));
+}
+
+#[test]
+fn enc_public_streaming_gate_257x2049_matches_the_original_target() {
+    thin_streaming_gate("streaming-gate-257x2049", (257, 2049));
+}
+
+#[test]
+fn enc_public_streaming_gate_4097x9_matches_the_original_target() {
+    thin_streaming_gate("streaming-gate-4097x9", (4097, 9));
+}
+
+#[test]
+fn enc_public_streaming_gate_9x4097_matches_the_original_target() {
+    thin_streaming_gate("streaming-gate-9x4097", (9, 4097));
+}
+
 // ---------------------------------------------------------------------------
 // Lossless effort 2 (`LosslessThunderConfig::encode_pixels`).
 
