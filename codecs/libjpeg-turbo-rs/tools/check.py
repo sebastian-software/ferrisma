@@ -42,8 +42,9 @@ builds for x86_64-apple-darwin, the oracle is tools/build_oracle.py's
 stay within the nightly tier's 60 minutes per job (engine ADR-0027, amendment
 2026-11-17); the N partitions together run every test once, and each writes a
 record under build/partitions/ that `tools/partition.py verify` checks for
-completeness. The in-scope bit tests (tools/bittests.py --check --run) run in
-the last partition only.
+completeness. Every partition runs the in-scope bit tests
+(tools/bittests.py --check --run): they write bittests-port.txt, the input of
+tests/wp7_bittests.rs.
 """
 
 import argparse
@@ -210,10 +211,9 @@ def check_tests(oracle_variant, msrv, arch, part=None):
     if oracle_variant:
         jobs = str(os.cpu_count() or 4)
         directory = build_oracle.build(oracle_variant, jobs, fresh=False, arch=arch)
-        if shard is None or shard.index == shard.count:
-            run(sys.executable, ROOT / "tools/bittests.py", "--check", "--run",
-                "--variant", oracle_variant, "--jobs", jobs,
-                *(["--arch", arch] if arch is not None else []), env=env)
+        run(sys.executable, ROOT / "tools/bittests.py", "--check", "--run",
+            "--variant", oracle_variant, "--jobs", jobs,
+            *(["--arch", arch] if arch is not None else []), env=env)
         env["LIBJPEG_ORACLE_DIR"] = str(directory)
         env["LIBJPEG_T83_DIR"] = str(fetch_t83.fetch(fetch_t83.DEFAULT_DIR))
         if build_oracle.VARIANTS[oracle_variant]["simd"]:

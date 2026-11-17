@@ -69,8 +69,9 @@ jobs:
     # The nightly tier allows 60 minutes per job (engine ADR-0027, amendment
     # 2026-11-17); the macOS job took 107 minutes in nightly 44066960183, 94
     # of them in the asan-ubsan tests. Its tests run in three disjoint
-    # partitions (tools/check.py --partition, tools/partition.py), the
-    # upstream suite and the in-scope bit tests in the last one;
+    # partitions (tools/check.py --partition, tools/partition.py), upstream's
+    # whole suite in the last one (each partition runs the in-scope bit
+    # tests, whose manifest tests/wp7_bittests.rs reads);
     # oracle-complete checks that the partitions ran every test.
     strategy:
       fail-fast: false
