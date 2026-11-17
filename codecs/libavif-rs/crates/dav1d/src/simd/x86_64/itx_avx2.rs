@@ -135,7 +135,7 @@ type Coef = *mut i16;
 
 /// The 1-D transform of a pass: `type1`/`type2` of `INV_TXFM_FN` (`dct`, `adst`, `flipadst`, `identity`).
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum K {
+pub(crate) enum K {
     Dct,
     Adst,
     FlipAdst,
@@ -145,25 +145,25 @@ enum K {
 /// The register file before the first instruction. (The hardware registers hold whatever the caller left; no
 /// kernel reads one before writing it, and zero makes that a non-issue: the compiler drops the stores.)
 #[inline(always)]
-unsafe fn regs() -> M {
+pub(crate) unsafe fn regs() -> M {
     [_mm256_setzero_si256(); 16]
 }
 
 /// `xmN`: the low half of a register.
 #[inline(always)]
-unsafe fn lo(x: __m256i) -> __m128i {
+pub(crate) unsafe fn lo(x: __m256i) -> __m128i {
     _mm256_castsi256_si128(x)
 }
 
 /// The register after a VEX-encoded instruction wrote `xmN`: the upper half is zero.
 #[inline(always)]
-unsafe fn zx(x: __m128i) -> __m256i {
+pub(crate) unsafe fn zx(x: __m128i) -> __m256i {
     _mm256_zextsi128_si256(x)
 }
 
 /// `[p+off]`: the address only (wrapping, so forming it claims nothing).
 #[inline(always)]
-fn at<T>(p: *mut T, off: isize) -> *mut T {
+pub(crate) fn at<T>(p: *mut T, off: isize) -> *mut T {
     p.wrapping_byte_offset(off)
 }
 
@@ -174,25 +174,25 @@ fn at<T>(p: *mut T, off: isize) -> *mut T {
 
 /// `vpbroadcastd m, [o(pw_A_B)]`
 #[inline(always)]
-unsafe fn pw2(a: i32, b: i32) -> __m256i {
+pub(crate) unsafe fn pw2(a: i32, b: i32) -> __m256i {
     _mm256_set1_epi32((((b as u16 as u32) << 16) | (a as u16 as u32)) as i32)
 }
 
 /// `vpbroadcastd m, [o(pw_N)]` (`times 2 dw N`)
 #[inline(always)]
-unsafe fn pw(n: i32) -> __m256i {
+pub(crate) unsafe fn pw(n: i32) -> __m256i {
     _mm256_set1_epi16(n as i16)
 }
 
 /// `vpbroadcastd m, [o(pd_N)]`
 #[inline(always)]
-unsafe fn pd(n: i32) -> __m256i {
+pub(crate) unsafe fn pd(n: i32) -> __m256i {
     _mm256_set1_epi32(n)
 }
 
 /// `movd xmN, [o(pw_N)]`: the doubleword `N, N` in the low lane, the rest zero.
 #[inline(always)]
-unsafe fn movd_pw(n: i32) -> __m256i {
+pub(crate) unsafe fn movd_pw(n: i32) -> __m256i {
     zx(_mm_cvtsi32_si128(
         (((n as u16 as u32) << 16) | (n as u16 as u32)) as i32,
     ))
@@ -201,13 +201,13 @@ unsafe fn movd_pw(n: i32) -> __m256i {
 /// `movhps xm, [p]`: the 8 bytes at `p` into the upper half of the `xmm` register, the lower half kept. (Written
 /// with an unaligned 8-byte load: `_mm_loadh_pd` reads through an `f64` pointer, which a pixel row is not.)
 #[inline(always)]
-unsafe fn movhps_ld(x: __m128i, p: *const u8) -> __m128i {
+pub(crate) unsafe fn movhps_ld(x: __m128i, p: *const u8) -> __m128i {
     _mm_unpacklo_epi64(x, _mm_loadl_epi64(p.cast()))
 }
 
 /// `movhps [p], xm`: the upper 8 bytes of the register to `p`.
 #[inline(always)]
-unsafe fn movhps_st(p: *mut u8, x: __m128i) {
+pub(crate) unsafe fn movhps_st(p: *mut u8, x: __m128i) {
     p.cast::<i64>().write_unaligned(_mm_extract_epi64::<1>(x))
 }
 
@@ -529,7 +529,7 @@ macro_rules! inv_txfm_fn {
 /// Callgrind counts once per byte: 4096 instructions for the frame of 64x32). The frame is reached only through
 /// the returned pointer afterwards.
 #[inline(always)]
-unsafe fn zeroed_frame<const N: usize>(buf: &mut core::mem::MaybeUninit<[__m256i; N]>) -> *mut __m256i {
+pub(crate) unsafe fn zeroed_frame<const N: usize>(buf: &mut core::mem::MaybeUninit<[__m256i; N]>) -> *mut __m256i {
     let p = buf.as_mut_ptr().cast::<__m256i>();
     let zero = core::hint::black_box(_mm256_setzero_si256());
     for i in 0..N {
@@ -618,7 +618,7 @@ pub unsafe extern "C" fn dav1d_inv_txfm_add_wht_wht_4x4_8bpc_avx2(
 
 /// `deint_shuf` (`SECTION_RODATA`)
 #[allow(non_upper_case_globals)]
-static deint_shuf: [u8; 16] = [0, 1, 4, 5, 8, 9, 12, 13, 2, 3, 6, 7, 10, 11, 14, 15];
+pub(crate) static deint_shuf: [u8; 16] = [0, 1, 4, 5, 8, 9, 12, 13, 2, 3, 6, 7, 10, 11, 14, 15];
 
 // The macros that the assembly expands at both widths have a form per width: the 256-bit form carries the
 // macro's name, the 128-bit form (`INIT_XMM` code and `WRAP_XMM …`) the suffix `_x`. In a 128-bit form every
@@ -848,7 +848,7 @@ unsafe fn iadst_4x4_internal_end2(m: &mut M, dst: Dst, stride: isize) {
 
 /// `.main` of `iadst_4x4_internal_8bpc`
 #[inline(always)]
-unsafe fn iadst_4x4_internal_main(m: &mut M) {
+pub(crate) unsafe fn iadst_4x4_internal_main(m: &mut M) {
     iadst4_1d_packed_x(m) // IADST4_1D_PACKED
 }
 
@@ -1215,7 +1215,7 @@ unsafe fn idct_4x8_internal_pass2(m: &mut M, dst: Dst, stride: isize, c: Coef) {
 
 /// `.main` of `idct_4x8_internal_8bpc`
 #[inline(always)]
-unsafe fn idct_4x8_internal_main(m: &mut M) {
+pub(crate) unsafe fn idct_4x8_internal_main(m: &mut M) {
     idct8_1d_packed_x(m) // WRAP_XMM IDCT8_1D_PACKED
 }
 
@@ -1284,7 +1284,7 @@ unsafe fn iadst_4x8_internal_main_pass1(m: &mut M) {
 
 /// `.main_pass2` of `iadst_4x8_internal_8bpc`
 #[inline(always)]
-unsafe fn iadst_4x8_internal_main_pass2(m: &mut M) {
+pub(crate) unsafe fn iadst_4x8_internal_main_pass2(m: &mut M) {
     iadst8_1d_packed_x(m, 2) // WRAP_XMM IADST8_1D_PACKED 2
 }
 
@@ -1559,7 +1559,7 @@ unsafe fn iadst_8x4_internal_end2(m: &mut M, dst: Dst, stride: isize, c: Coef) {
 
 /// `.main` of `iadst_8x4_internal_8bpc`
 #[inline(always)]
-unsafe fn iadst_8x4_internal_main(m: &mut M) {
+pub(crate) unsafe fn iadst_8x4_internal_main(m: &mut M) {
     iadst4_1d_packed(m) // IADST4_1D_PACKED
 }
 
@@ -1874,7 +1874,7 @@ unsafe fn idct_4x16_internal_pass2(m: &mut M, dst: Dst, stride: isize, c: Coef) 
 
 /// `.main` of `idct_4x16_internal_8bpc`
 #[inline(always)]
-unsafe fn idct_4x16_internal_main(m: &mut M) {
+pub(crate) unsafe fn idct_4x16_internal_main(m: &mut M) {
     idct16_1d_packed_x(m) // WRAP_XMM IDCT16_1D_PACKED
 }
 
@@ -1975,7 +1975,7 @@ unsafe fn iadst_4x16_internal_main(m: &mut M) {
 
 /// `.main2` of `iadst_4x16_internal_8bpc`
 #[inline(always)]
-unsafe fn iadst_4x16_internal_main2(m: &mut M) {
+pub(crate) unsafe fn iadst_4x16_internal_main2(m: &mut M) {
     m[8] = pd(2048); // vpbroadcastd m8, [o(pd_2048)]
     m[7] = _mm256_setzero_si256(); // pxor m7, m7
     m[4] = _mm256_unpackhi_epi16(m[3], m[0]); // punpckhwd m4, m3, m0 ; in12 in3 in14 in1
@@ -2310,7 +2310,7 @@ unsafe fn idct_16x4_internal_pass2(m: &mut M, dst: Dst, stride: isize, c: Coef) 
 
 /// `.main` of `idct_16x4_internal_8bpc`
 #[inline(always)]
-unsafe fn idct_16x4_internal_main(m: &mut M) {
+pub(crate) unsafe fn idct_16x4_internal_main(m: &mut M) {
     m[6] = pd(2048); // vpbroadcastd m6, [o(pd_2048)]
     idct4_1d(m, [0, 1, 2, 3], [4, 5], 6); // IDCT4_1D 0, 1, 2, 3, 4, 5, 6
 }
@@ -2383,7 +2383,7 @@ unsafe fn iadst_16x4_internal_end(m: &mut M, mut dst: Dst, stride: isize, c: Coe
 
 /// `.main` of `iadst_16x4_internal_8bpc`
 #[inline(always)]
-unsafe fn iadst_16x4_internal_main(m: &mut M) {
+pub(crate) unsafe fn iadst_16x4_internal_main(m: &mut M) {
     m[6] = pw2(-3344, 3344); // vpbroadcastd m6, [o(pw_m3344_3344)]
     m[7] = pw2(3803, 1321); // vpbroadcastd m7, [o(pw_3803_1321)]
     m[8] = pw2(-1321, 2482); // vpbroadcastd m8, [o(pw_m1321_2482)]
@@ -2893,7 +2893,7 @@ unsafe fn idct_8x8_internal_pass2(m: &mut M, dst: Dst, stride: isize, c: Coef) {
 
 /// `.main` of `idct_8x8_internal_8bpc`
 #[inline(always)]
-unsafe fn idct_8x8_internal_main(m: &mut M) {
+pub(crate) unsafe fn idct_8x8_internal_main(m: &mut M) {
     idct8_1d_packed(m) // IDCT8_1D_PACKED
 }
 
@@ -2985,7 +2985,7 @@ unsafe fn iadst_8x8_internal_main_pass1(m: &mut M) {
 
 /// `.main_pass2` of `iadst_8x8_internal_8bpc`
 #[inline(always)]
-unsafe fn iadst_8x8_internal_main_pass2(m: &mut M) {
+pub(crate) unsafe fn iadst_8x8_internal_main_pass2(m: &mut M) {
     iadst8_1d_packed(m, 2) // IADST8_1D_PACKED 2
 }
 
@@ -3308,7 +3308,7 @@ unsafe fn idct_8x16_internal_end3(m: &mut M, mut dst: Dst, stride: isize, c: Coe
 
 /// `.main` of `idct_8x16_internal_8bpc`
 #[inline(always)]
-unsafe fn idct_8x16_internal_main(m: &mut M) {
+pub(crate) unsafe fn idct_8x16_internal_main(m: &mut M) {
     idct16_1d_packed(m) // IDCT16_1D_PACKED
 }
 
@@ -3343,7 +3343,7 @@ unsafe fn iadst_8x16_internal_pass2(m: &mut M, dst: Dst, stride: isize, c: Coef)
 
 /// `.main` of `iadst_8x16_internal_8bpc`
 #[inline(always)]
-unsafe fn iadst_8x16_internal_main(m: &mut M) {
+pub(crate) unsafe fn iadst_8x16_internal_main(m: &mut M) {
     for i in [7, 1, 5, 3] {
         m[i] = _mm256_shuffle_epi32::<0x4e>(m[i]); // REPX {pshufd x, x, q1032}, m7, m1, m5, m3
     }
@@ -3463,7 +3463,7 @@ unsafe fn iadst_8x16_internal_main_pass1_end(m: &mut M) {
 
 /// `.main_pass2_end` of `iadst_8x16_internal_8bpc`
 #[inline(always)]
-unsafe fn iadst_8x16_internal_main_pass2_end(m: &mut M) {
+pub(crate) unsafe fn iadst_8x16_internal_main_pass2_end(m: &mut M) {
     m[8] = pw(2896 * 8); // vpbroadcastd m8, [o(pw_2896x8)]
     m[2] = _mm256_shuffle_epi8(m[11], m[12]); // pshufb m2, m11, m12
     m[5] = _mm256_shuffle_epi8(m[5], m[12]); // pshufb m5, m12
@@ -3847,7 +3847,7 @@ unsafe fn idct_16x8_internal_end4(m: &mut M, mut dst: Dst, stride: isize, r3: is
 
 /// `.main` of `idct_16x8_internal_8bpc`
 #[inline(always)]
-unsafe fn idct_16x8_internal_main(m: &mut M) {
+pub(crate) unsafe fn idct_16x8_internal_main(m: &mut M) {
     m[10] = pd(2048); // vpbroadcastd m10, [o(pd_2048)]
     idct_16x8_internal_main2(m)
 }
@@ -3894,7 +3894,7 @@ unsafe fn iadst_16x8_internal_pass2(m: &mut M, dst: Dst, stride: isize, c: Coef)
 
 /// `.main` of `iadst_16x8_internal_8bpc`
 #[inline(always)]
-unsafe fn iadst_16x8_internal_main(m: &mut M) {
+pub(crate) unsafe fn iadst_16x8_internal_main(m: &mut M) {
     m[10] = pd(2048); // vpbroadcastd m10, [o(pd_2048)]
     itx_mulsub_2w(m, 7, 0, 8, 9, 10, 401, 4076, None); // ITX_MULSUB_2W 7, 0, 8, 9, 10, 401, 4076 ; t1a, t0a
     itx_mulsub_2w(m, 3, 4, 8, 9, 10, 3166, 2598, None); // ITX_MULSUB_2W 3, 4, 8, 9, 10, 3166, 2598 ; t5a, t4a
@@ -3957,7 +3957,7 @@ unsafe fn iadst_16x8_internal_main_pass1_end(m: &mut M) {
 
 /// `.main_pass2_end` of `iadst_16x8_internal_8bpc`
 #[inline(always)]
-unsafe fn iadst_16x8_internal_main_pass2_end(m: &mut M) {
+pub(crate) unsafe fn iadst_16x8_internal_main_pass2_end(m: &mut M) {
     m[8] = pw(2896 * 8); // vpbroadcastd m8, [o(pw_2896x8)]
     m[4] = _mm256_subs_epi16(m[5], m[3]); // psubsw m4, m5, m3
     m[3] = _mm256_adds_epi16(m[3], m[5]); // paddsw m3, m5
@@ -4462,7 +4462,7 @@ unsafe fn iadst_16x16_internal_pass2(m: &mut M, dst: Dst, stride: isize, c: Coef
 /// `.main` of `iadst_16x16_internal_8bpc`: `s` is the caller's frame; slot 0 holds in15 on entry, and
 /// -out1 is returned in slot 1.
 #[inline(always)]
-unsafe fn iadst_16x16_internal_main(m: &mut M, s: &mut [__m256i; 3]) {
+pub(crate) unsafe fn iadst_16x16_internal_main(m: &mut M, s: &mut [__m256i; 3]) {
     m[15] = pd(2048); // vpbroadcastd m15, [o(pd_2048)]
     s[1] = m[0]; // mova [rsp+gprsize+32*1], m0
     s[2] = m[4]; // mova [rsp+gprsize+32*2], m4
@@ -4598,7 +4598,7 @@ unsafe fn iadst_16x16_internal_main_pass1_end(m: &mut M, c: Coef) {
 
 /// `.main_pass2_end` of `iadst_16x16_internal_8bpc`
 #[inline(always)]
-unsafe fn iadst_16x16_internal_main_pass2_end(m: &mut M) {
+pub(crate) unsafe fn iadst_16x16_internal_main_pass2_end(m: &mut M) {
     // In pass 2 we're going to clip to pixels afterwards anyway, so clipping to
     // 16-bit here will produce the same result as using 32-bit intermediates.
     m[5] = _mm256_adds_epi16(m[10], m[11]); // paddsw m5, m10, m11 ; -out5
@@ -5764,7 +5764,7 @@ unsafe fn inv_txfm_add_dct_dct_16x32(mut dst: Dst, stride: isize, c: Coef, eob: 
 /// `.main_oddhalf_fast` of `inv_txfm_add_dct_dct_16x32_8bpc` ("lower half is zero"): the odd half of the
 /// 32-point DCT for in1, in3, …, in15 in `m0`-`m7`; falls into `.main2`.
 #[inline(always)]
-unsafe fn inv_txfm_add_dct_dct_16x32_main_oddhalf_fast(
+pub(crate) unsafe fn inv_txfm_add_dct_dct_16x32_main_oddhalf_fast(
     m: &mut M,
     stack: &mut [__m256i; 3],
     tmp1: *mut __m256i,
@@ -5806,7 +5806,7 @@ unsafe fn inv_txfm_add_dct_dct_16x32_main_oddhalf_fast(
 /// in `m0`-`m15`. Uses the three spill slots `[rsp+gprsize+32*0..3]` (`stack`) and stores t16 … t31 to
 /// `[tmp1q-32*4]` … `[tmp1q+32*3]` and `[tmp2q-32*4]` … `[tmp2q+32*3]` (all sixteen, on both entries).
 #[inline(always)]
-unsafe fn inv_txfm_add_dct_dct_16x32_main_oddhalf(
+pub(crate) unsafe fn inv_txfm_add_dct_dct_16x32_main_oddhalf(
     m: &mut M,
     stack: &mut [__m256i; 3],
     tmp1: *mut __m256i,
@@ -6642,7 +6642,7 @@ const fn coef_x8_p5(x: i32) -> i32 {
 /// `idct64_mul` (`SECTION_RODATA`): `COEF_X8` of the idct64 step-1 multipliers. `.main_part1` reads the doublewords
 /// at `r6 + 4*k` for the `k` it names; its caller sets `r6` to the table (`r6` = 0 here) and then 8 bytes on (2).
 #[allow(non_upper_case_globals)]
-static idct64_mul: [i32; 32] = [
+pub(crate) static idct64_mul: [i32; 32] = [
     coef_x8_p5(4095),
     coef_x8_p5(101),
     coef_x8_p5(4065),
@@ -6765,7 +6765,12 @@ unsafe fn idct64_mul_p5(r6: usize, k: usize) -> __m256i {
 /// `ITX_MULSUB_2W` `pw_m401_m4076`/`pw_m4076_401` → `pw_m1931_m3612`/`pw_m3612_1931`,
 /// `pw_m3166_m2598`/`pw_m2598_3166` → `pw_m3920_m1189`/`pw_m1189_3920`): those are written out per call.
 #[inline(always)]
-unsafe fn inv_txfm_add_dct_dct_16x64_main_part1(m: &mut M, r6: usize, tmp1: *mut __m256i, tmp2: *mut __m256i) {
+pub(crate) unsafe fn inv_txfm_add_dct_dct_16x64_main_part1(
+    m: &mut M,
+    r6: usize,
+    tmp1: *mut __m256i,
+    tmp2: *mut __m256i,
+) {
     m[11] = idct64_mul_p5(r6, 0); // vpbroadcastd m11, [o(idct64_mul+4* 0)]
     m[13] = idct64_mul_p5(r6, 1); // vpbroadcastd m13, [o(idct64_mul+4* 1)]
     m[10] = idct64_mul_p5(r6, 4); // vpbroadcastd m10, [o(idct64_mul+4* 4)]
@@ -6889,7 +6894,11 @@ unsafe fn inv_txfm_add_dct_dct_16x64_main_part2_pass1(m: &mut M, tmp1: &mut *mut
 /// `.main_part2_internal` of `inv_txfm_add_dct_dct_16x64_8bpc` (`m11`-`m14` hold its constants, `m15`
 /// `pd_2048`); advances `tmp1q` and steps `tmp2q` back by one slot.
 #[inline(always)]
-unsafe fn inv_txfm_add_dct_dct_16x64_main_part2_internal(m: &mut M, tmp1: &mut *mut __m256i, tmp2: &mut *mut __m256i) {
+pub(crate) unsafe fn inv_txfm_add_dct_dct_16x64_main_part2_internal(
+    m: &mut M,
+    tmp1: &mut *mut __m256i,
+    tmp2: &mut *mut __m256i,
+) {
     m[0] = ld_p5(*tmp1, -32 * 12); // mova m0, [tmp1q-32*12] ; t32a
     m[6] = ld_p5(*tmp2, -32 * 13); // mova m6, [tmp2q-32*13] ; t39a
     m[1] = ld_p5(*tmp1, -32 * 4); // mova m1, [tmp1q-32* 4] ; t40a

@@ -4,6 +4,7 @@ cdef_8bpc_arm
 ipred_16bpc_arm
 ipred_8bpc_arm
 itx_16bpc_arm
+itx_16bpc_x86
 itx_8bpc_arm
 itx_8bpc_x86
 loopfilter_16bpc_arm
