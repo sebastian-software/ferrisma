@@ -18,11 +18,18 @@ to the port's rebuilt kernels through test-only accessors; the port is then
 built with its `port-test-bridges` feature (accessors only) into
 `build/dav1d-bridges-target`.
 
+Every run repeats the bodies with each seed of `SEEDS`: checkasm draws its
+block contents, strengths and sizes from the seed, and a fault in a narrow
+rounding step can stay hidden at one seed (ADR 0062, validation of
+2026-11-17). All seeds must pass; `results.log` holds every seed's output in
+the order of `SEEDS`.
+
 The original checkasm framework also needs NASM on GNU Linux x86-64. That
 assembler builds test infrastructure only; codec assembly stays disabled.
 ADR 0029 records the test-only binding bridge and native helpers.
 """
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 from pathlib import Path
@@ -38,6 +45,12 @@ ROOT = Path(__file__).resolve().parents[1]
 # src/x86/cpu.h): NEON alone (no DotProd/I8MM/SVE); SSE2, SSSE3, SSE4.1 and
 # AVX2 without AVX-512, with SLOW_GATHER passed through as detected.
 SIMD_MASKS = {'neon': 0x1, 'avx2': 0x2f}
+# checkasm's random seeds. 42 is the gate's first seed and stays; 1 to 7 were
+# added on 2026-11-17, after a one-constant fault in the 16 bpc chroma loop
+# filter passed at 42 alone (the numbers were fixed before the fault was run
+# against them).
+# Never remove a seed to make a run pass: a failure at any seed is a finding.
+SEEDS = [42, 1, 2, 3, 4, 5, 6, 7]
 # The seven msac entry points of src/arm/msac.h, with their C types.
 MSAC_NEON = {
     'dav1d_msac_decode_symbol_adapt4_neon': 'unsigned (*)(MsacContext *, uint16_t *, size_t)',
@@ -60,6 +73,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--simd', choices=sorted(SIMD_MASKS))
+    parser.add_argument('--jobs', type=int, default=min(4, os.cpu_count() or 1),
+                        help='seeds run at the same time (default: 4, or the CPU count if lower)')
     args = parser.parse_args()
     profile = 'debug' if args.debug else 'release'
     reference = ROOT / f'build/dav1d-reference-{profile}'
@@ -187,30 +202,49 @@ def main():
     environment.pop('DAV1D_PORT_SIMD_MASK', None)
     if args.simd:
         environment['DAV1D_PORT_SIMD_MASK'] = hex(SIMD_MASKS[args.simd])
-    result = subprocess.run([executable, '42'], env=environment, text=True,
-                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    (work / 'results.log').write_text(result.stdout)
-    selections = re.findall(r'\[port\] checked C=(\d+) Rust=(\d+) function selections', result.stdout)
-    unsupported = re.findall(r'\[port\] null C=(\d+) Rust=(\d+) unsupported selections', result.stdout)
-    if result.returncode or len(selections) != 1 or selections[0][0] != selections[0][1] or int(selections[0][0]) == 0:
-        raise SystemExit(f'Original DSP comparison failed: inspect {work / "results.log"}')
-    if len(unsupported) != 1 or unsupported[0][0] != unsupported[0][1]:
-        raise SystemExit('Unsupported DSP selection inventories differ')
-    levels = dict(re.findall(r'\[port\] phase=(\d) cpu_flags=(0x[0-9a-f]+)', result.stdout))
+
+    def run(seed):
+        return subprocess.run([executable, str(seed)], env=environment, text=True,
+                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+    with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
+        results = list(pool.map(run, SEEDS))
+    (work / 'results.log').write_text(''.join(result.stdout for result in results))
     expected = hex(SIMD_MASKS[args.simd]) if args.simd else '0x0'
-    if args.simd:
-        # Both sides at the same level, and the level fully available here.
-        if levels.get('0') != levels.get('1') or int(levels.get('1', '0'), 16) & 0xf != SIMD_MASKS[args.simd] & 0xf:
-            raise SystemExit(f'CPU levels differ or are unavailable: {levels} (expected {expected})')
-    elif levels != {'0': '0x0', '1': '0x0'}:
-        raise SystemExit(f'Scalar comparison ran with CPU flags: {levels}')
+    failed = []
+    counts = set()
+    for seed, result in zip(SEEDS, results):
+        if f'Random seed: {seed}\n' not in result.stdout:
+            raise SystemExit(f'checkasm did not run with seed {seed}: inspect {work / "results.log"}')
+        selections = re.findall(r'\[port\] checked C=(\d+) Rust=(\d+) function selections', result.stdout)
+        unsupported = re.findall(r'\[port\] null C=(\d+) Rust=(\d+) unsupported selections', result.stdout)
+        if result.returncode or len(selections) != 1 or selections[0][0] != selections[0][1] or int(selections[0][0]) == 0:
+            failed.append(seed)
+            continue
+        if len(unsupported) != 1 or unsupported[0][0] != unsupported[0][1]:
+            raise SystemExit(f'Unsupported DSP selection inventories differ at seed {seed}')
+        levels = dict(re.findall(r'\[port\] phase=(\d) cpu_flags=(0x[0-9a-f]+)', result.stdout))
+        if args.simd:
+            # Both sides at the same level, and the level fully available here.
+            if levels.get('0') != levels.get('1') or int(levels.get('1', '0'), 16) & 0xf != SIMD_MASKS[args.simd] & 0xf:
+                raise SystemExit(f'CPU levels differ or are unavailable: {levels} (expected {expected})')
+        elif levels != {'0': '0x0', '1': '0x0'}:
+            raise SystemExit(f'Scalar comparison ran with CPU flags: {levels}')
+        counts.add((selections[0][0], unsupported[0][0], tuple(sorted(levels.items()))))
+    if failed:
+        raise SystemExit(f'Original DSP comparison failed at seed(s) {failed} of {SEEDS}: inspect {work / "results.log"}')
+    if len(counts) != 1:
+        raise SystemExit(f'Selection inventories differ between seeds: {sorted(counts)}')
+    selected, unselected, levels = counts.pop()
+    levels = dict(levels)
     (work / 'inventory.json').write_text(json.dumps({'original_test_instantiations': inventory,
-        'source_groups': len(inputs), 'function_selections_each': int(selections[0][0]),
-        'unsupported_selections_each': int(unsupported[0][0]),
-        'seed': 42, 'reference': str(library), 'candidate': str(candidate),
+        'source_groups': len(inputs), 'function_selections_each': int(selected),
+        'unsupported_selections_each': int(unselected),
+        'seed': SEEDS[0], 'seeds': SEEDS, 'reference': str(library), 'candidate': str(candidate),
         'simd_level': args.simd, 'cpu_flags': levels}, indent=2) + '\n')
     print(f'Passed {len(inputs)} original DSP test groups at level {args.simd or "scalar"} '
-          f'with {selections[0][0]} original/Rust function selections each')
+          f'with {selected} original/Rust function selections each, at each of the {len(SEEDS)} seeds '
+          f'{", ".join(map(str, SEEDS))}')
 
 
 if __name__ == '__main__':

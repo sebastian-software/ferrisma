@@ -423,6 +423,23 @@ through the original checkasm with seeds 1 to 40, fails `lpf_h_sb_uv` in
 changed rounding. No path is uncovered; one seed catches a one-constant
 error in a narrow rounding step only with that probability.
 
+**2026-11-17, the per-kernel gate runs eight seeds.** `check_dav1d_dsp.py`
+ran the checkasm bodies once, with seed 42. It now runs them with the seeds
+42, 1, 2, 3, 4, 5, 6 and 7 (`SEEDS` in the tool; 42 stays the first, the
+other seven were fixed before the fault below was run against them), up to
+four at a time (`--jobs`), and passes only if every seed passes with the
+same selection inventory; `results.log` holds all eight outputs,
+`inventory.json` lists the seeds. On this machine the gate takes 9.3 s
+instead of 6.2 s at each level (27 s instead of 5.3 s of CPU time); eight
+seeds one after the other would take about 28 s. All families rebuilt so far
+pass at every seed: 17 groups, 3,155 selections each at `neon` and at scalar,
+79 test rows per seed, 632 of 632 at each level. Positive control: the
+`f + 4` constant of the 16 bpc wd4 core set to 5 fails all eight seeds;
+`lpf_h_sb_uv` fails at seeds 1, 3, 4, 6 and 7 and `lpf_v_sb_uv` at 3, 6 and
+7 (at 42, as before, only the two luma groups fail); restored, the gate
+passes at both levels. Not run: the `--debug` mode of the tool (no debug
+reference candidate on this machine; the seed loop is the same code).
+
 ## Review when
 
 A family is completed on a target; the x86-64 AVX2 kernels arrive; the owner
@@ -431,6 +448,7 @@ engine's decoder choice changes.
 
 ## Amendment log
 
+- 2026-11-17 — the per-kernel gate runs eight seeds (validation above).
 - 2026-11-17 — CDEF on NEON, 8 and 16 bpc (validation above).
 - 2026-11-17 — inverse transforms 16 bpc on NEON (validation above).
 - 2026-11-16 — msac selected at compile time; portable build configuration for the scalar gate (decision and validation above).

@@ -8,7 +8,9 @@ selection with implementation selection; no optimized CPU path is claimed.
 Verify every nonnull tested function pointer belongs to the selected shared
 library, and require equal nonzero function inventories and equal unsupported
 null selections. The fixed-seed runs make 3,155 nonnull function selections and 1,923 unsupported
-combinations in each implementation.
+combinations in each implementation. Since 2026-11-17 the tool repeats the
+bodies with eight fixed seeds (42 and 1 to 7; ADR 0062, validation of that
+date) and requires every seed to pass with that inventory.
 
 Build the C test reference from its original 51 objects. Small test-only
 accessors expose five deliberately hidden constant-table addresses. They do not
