@@ -50,11 +50,14 @@ pub mod arm {
 
 #[cfg(target_arch = "x86_64")]
 pub mod x86_64 {
+    pub mod loopfilter16_avx2;
+    pub mod loopfilter_avx2;
     pub mod msac;
     pub mod util;
 }
 
 #[cfg(target_arch = "x86_64")]
 pub mod x86 {
+    pub mod loopfilter;
     pub mod msac;
 }

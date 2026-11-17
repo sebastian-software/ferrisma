@@ -6,7 +6,9 @@ ipred_8bpc_arm
 itx_16bpc_arm
 itx_8bpc_arm
 loopfilter_16bpc_arm
+loopfilter_16bpc_x86
 loopfilter_8bpc_arm
+loopfilter_8bpc_x86
 looprestoration_16bpc_arm
 looprestoration_8bpc_arm
 msac_arm

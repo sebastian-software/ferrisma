@@ -407,7 +407,7 @@
         "original-c-record-field-alignment": 3
       },
       "raw_sha256": "405e5a409e764d231c89c050ff904a4adcc6d9835ef7a35db7ffe89e6c36872d",
-      "rust_sha256": "fb5ab0983d49caedf5d9b91fd204dd8a655945bc60c842d6f3679c3e77dd995c"
+      "rust_sha256": "ec6519bb4666504c0de829d0cfc90e3bc4a9790668cc55cd600cc9edb434e941"
     },
     {
       "source": "upstream/dav1d/src/looprestoration_tmpl.c",
@@ -565,7 +565,7 @@
         "original-c-record-field-alignment": 3
       },
       "raw_sha256": "4fe0658c7763e9982b7ff4b434ee56d61dcba52d822273b2a558948494ea8f18",
-      "rust_sha256": "b5813884a327259dbf439aeee75a08f57e4d5190c216b6ecb3f89ac7deb0730b"
+      "rust_sha256": "dbd419ef070731bcd09cfaa8182f2b49bbf3a3fa2bed6b476babc1a33d352edf"
     },
     {
       "source": "upstream/dav1d/src/looprestoration_tmpl.c",

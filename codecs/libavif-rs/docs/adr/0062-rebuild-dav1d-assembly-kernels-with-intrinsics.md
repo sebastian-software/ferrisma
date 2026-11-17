@@ -1182,6 +1182,135 @@ at the eleven seeds, whole images 994 of 994 at `neon` and `scalar`, 1,711
 of 1,711, ABI 12,157 checks, API, linkage and the dispatch check pass (the
 gate tools changed; no file of the NEON kernels did).
 
+**2026-11-17, loop filter on AVX2, 8 and 16 bpc** (`loopfilter_avx2.asm`:
+`simd/x86_64/loopfilter_avx2.rs`; `loopfilter16_avx2.asm`:
+`simd/x86_64/loopfilter16_avx2.rs`, used at 10 and 12 bit as in the
+original; the header `src/x86/loopfilter.h`: `simd/x86/loopfilter.rs`;
+`dispatch.txt`: `loopfilter_8bpc_x86`, `loopfilter_16bpc_x86`). The four
+entry points of each file are assigned under `DAV1D_X86_CPU_FLAG_AVX2`, as
+the original's init does after its SSSE3 test; its SSSE3 assignments (taken
+only on a CPU without AVX2) and its AVX-512 assignments have no counterpart
+(stated gap and scope of "Levels"), so below AVX2 the C kernels stay. The
+macro `FILTER width, dir` is one function generic over the two arguments in
+each file, the transposes are `macro_rules!`, the vector registers typed
+locals. The two files were translated at the same time by two part agents,
+each in a private copy of the crate and gated there against the assembly
+(ten gate seeds and the seeds 1 to 200 each; part agents' runs), then
+joined; every gate and control below was run on the joined state.
+
+| Check (x86-64 GNU Linux under Rosetta, Clang 19, eleven seeds) | Result |
+| --- | --- |
+| `check_dav1d_dsp.py --simd avx2` | 17 groups, 3,155 selections each, pass; the four `loopfilter_8bpc` and the four `loopfilter_16bpc` groups (10 and 12 bit) compare the original's AVX2 assembly with the rebuilt kernels |
+| `check_dav1d_dsp.py --simd sse2`, scalar | the same counts (the loop filter slots hold C there) |
+| `check_dav1d_simd_original.py --level avx2` / `sse2` / `scalar` | 994 of 994 decodes identical each |
+| `run_dav1d_tests.py` | 1,711 of 1,711 |
+| `check_dav1d_abi.py`, `check_dav1d_api.py`, `check_dav1d_linkage.py` | 12,284 layout checks, 0 differences; 83 API comparisons; pass |
+| `enable_dav1d_dispatch.py --check` | 14 entries, 60 units |
+| unit tests (`cargo test --lib simd::`) | 7 of 7: also the context layout and, per bit depth, that AVX2 selects the rebuilt kernel and a mask below AVX2 keeps C |
+
+Positive controls on the joined state, one constant each, restored
+afterwards:
+8 bpc: `paddsb m8, [pb_4]` with `pb_3` in the wd4 core fails all four
+`loopfilter_8bpc` groups (both luma groups at every seed, `lpf_h_sb_uv` at
+9 and `lpf_v_sb_uv` at 8 of the eleven), whole images at `avx2` 463 of 994
+identical; the flat8out threshold `pb_129` as `pb_254` (wd16 only) fails
+the two luma groups at 6 seeds and no chroma group; `pb_7_1` as `pb_3_1` in
+the first flat16 stage (wd16 arithmetic) fails the two luma groups at seed
+15 and at no other seed, which is the hole that seed closes; `pw_4096` as
+`pw_2048` in the flat6 filter (chroma only) fails the two chroma groups at
+9 seeds and no luma group. 16 bpc: `pw_4` as 5 in the wd4 core fails all
+four `loopfilter_16bpc` groups (`lpf_h_sb_y` at every seed), whole images
+758 of 994; `psllw m8, 3` as 2 in the flat16 filter fails the two luma
+groups at 10 seeds and no chroma group; `pw_4096` as 2048 in the flat6
+filter fails the two chroma groups at 9 seeds and no luma group.
+
+Instructions per call against the assembly (`measure_dav1d_kernels.py
+--family lpf`, Callgrind, one superblock edge of 32 units with wd4/8/16
+mixed, 12,500 calls each, identical pictures; assembly and rebuild):
+8 bpc row edges (`v`) 1,540 and 1,636 (1.06) for luma, 758 and
+754 (1.00) for chroma, column edges (`h`) 2,309 and 2,553 (1.11) and 1,261
+and 1,306 (1.04); 16 bpc (10-bit pixels) row edges 1,888 and 2,080 (1.10)
+and 1,032 and 1,062 (1.03), column edges 2,881 and 2,984 (1.04) and 1,547
+and 1,627 (1.05). None above 1.3. Causes, counted by the part agents in the
+disassembly (not re-derived): the compiler moves more vectors to and from
+the stack than the assembly's own frame use in the luma `h` filters; in
+`lpf_v_sb_y` its loop strength reduction keeps the row addresses as
+separate pointers, computed in a prologue of about 60 instructions and
+reloaded from the stack, where the assembly forms them with `lea`; six
+`push`/`pop` pairs and `vzeroupper` per call. The kernels contain no call
+to an intrinsic and only VEX-encoded vector instructions (part agents'
+scan of the disassembly).
+
+Deviations from the assembly, and whether they change the count: (a)
+every vector access to caller memory is an unaligned move where the
+assembly uses `mova` (the pixel rows of the `v` filters at both bit depths,
+the two 16-byte halves of each row of the 16 bpc wd16 `h` filter): same
+bytes, same count; the assembly would fault on a destination that is not
+aligned to 32, the rebuild accepts it. (b) The stack frames (`32 * 11` and
+`32 * 21` bytes at 8 bpc, `32 * 5` and `32 * 15` at 16 bpc) hold spilled
+registers and the transposed columns of the wd16 `h` filter; at 8 bpc each
+slot is a local, at 16 bpc the slots are one array of fifteen vectors,
+zero-initialized whole and indexed by constants only, and the registers
+that only some widths load start as zero. No zero store appears in the
+code. (c) At 8 bpc the constants of `SECTION_RODATA` are loaded with
+volatile reads (`mem`), so that each use stays the memory operand the
+assembly has: with plain constants the compiler broadcasts each into a
+register per path, runs out of registers for pixels and rewrites constant
+arithmetic, and the four kernels measure 1.15, 1.16, 1.12 and 1.11 (part
+agent's measurement); same values. (d) `movhps` to and from pixel rows is
+written with unaligned reads and writes (`vmovhps`, `vpextrq [mem], xm, 1`:
+one instruction each): the intrinsics `_mm_loadh_pd`/`_mm_storeh_pd` go
+through an aligned `f64` pointer, which a pixel row is not. (e) `.v4` and
+`.h4`, which the assembly `call`s from the luma and the chroma function,
+are functions the compiler inlines (16 bpc: both; 8 bpc: `v4`) or calls
+(8 bpc `h4`). (f) `FILTER n, h` advances `dstq` and `lq` inside the macro;
+the function returns the advanced pointers. Pointer arithmetic is wrapping
+throughout, so a pointer the assembly leaves past the last access is never
+claimed to be in bounds.
+
+Reads and writes of the assembly beyond what the C kernels touch, kept as
+the assembly (part agents' derivation from the code; the bounds are the
+original's, not checked with guard pages): (1) a group is 32 bytes of a row along
+the edge (eight units at 8 bpc, four at 16 bpc) and is loaded and stored
+whole, with the widest filter any of its units asks for, whatever the
+other units' mask bits are and also when `w` ends inside it; pixels that
+are not filtered are written back as read. (2) The masks are read as
+doublewords at a byte offset that advances by one per group at 8 bpc, up to
+3 bytes into the word behind `vmask[2]` (`vmask[1]` for chroma); the caller
+provides it (`lf_apply_tmpl` builds four and three words, the last one 0;
+the translated unit has `[uint32_t; 4]` and `[uint32_t; 3]`). (3) The level
+loads are 32 (8 bpc `v`), 16 (16 bpc `v`) or 8 (`h`) bytes from the
+caller's pointer into the entries' second to fourth byte, so they end up to
+3 bytes behind the last entry; the original allocates `lf.level` with 3
+spare bytes for it, and so does the translation (`decode.rs`:
+`.wrapping_add(3)`). (4) The `h` filters read and rewrite outer columns the
+C filter does not touch (wd16: 8 pixels on either side; wd8: `p3` and `q3`
+unchanged; wd6 reads one or two pixels more), and the 16 bpc wd4 `h` filter
+loads 16 bytes for the rows 8 to 15 of a group, four pixels behind `q1`
+("this overreads by 8 bytes but the buffers are padded", the assembly's
+comment).
+
+Formatting: `rustfmt --check --config-path` with `max_width = 120` on the
+files of `simd/x86` and `simd/x86_64`; `cargo fmt --all --check` passes
+without looking at them. No `asm!`. ARM64 after the change:
+the per-kernel gate at `neon` and scalar at the eleven seeds, whole
+images 994 of 994 at both levels, 1,711 of 1,711, ABI 12,157 checks, API,
+linkage and the dispatch check pass, and `measure_dav1d_kernels.py` gives
+the NEON figures of the msac and loop filter entries above.
+
+Instructions per decode on x86-64 (Callgrind; the whole process of the
+original CLI linked to each library, one thread, no output; the color item
+of four of the profiling stills; stock dav1d at the AVX2 level, the port
+now, and the port's portable build, which is the port before any x86
+kernel): 8-bit 4:2:0 1.01 G, 4.21 G, 5.04 G; 8-bit 4:4:4 1.10, 5.78, 6.84;
+10-bit 4:2:0 1.16, 4.86, 5.88; 10-bit 4:4:4 1.29, 6.39, 7.74. msac and the
+loop filter take 15 to 17 % off; the port still executes 4.2 to 5.2 times
+the instructions of stock dav1d on x86-64. Not measured: the lossless still
+(too long under Callgrind), and any time.
+
+On x86-64 the port now has msac and the loop filter; the inverse
+transforms, CDEF, intra prediction and loop restoration still run C there.
+
 ## Review when
 
 A family is completed on a target; the x86-64 AVX2 kernels arrive; the owner
@@ -1190,6 +1319,7 @@ engine's decoder choice changes.
 
 ## Amendment log
 
+- 2026-11-17 — loop filter on AVX2, 8 and 16 bpc (validation above).
 - 2026-11-17 — msac on x86-64 (SSE2 and AVX2), the first x86 kernels; a local x86-64 loop under Rosetta; the `sse2` gate level (decision paragraphs and validation above).
 - 2026-11-17 — the per-kernel gate runs eleven seeds: one more for the 8 bpc loop filter's 16-pixel filter (validation above).
 - 2026-11-17 — the per-kernel gate runs ten seeds: two more for the loop restoration tails (validation above).

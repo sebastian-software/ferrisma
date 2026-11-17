@@ -673,4 +673,5 @@ pub unsafe extern "C" fn dav1d_loop_filter_dsp_init_16bpc(
                 core::ffi::c_int,
             ) -> (),
     ) as loopfilter_sb_fn;
+    crate::simd::x86::loopfilter::loop_filter_dsp_init_x86_16bpc(c.cast()); // dav1d-dispatch
 }
