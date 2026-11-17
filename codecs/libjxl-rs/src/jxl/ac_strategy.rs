@@ -91,12 +91,14 @@ impl AcStrategyImage {
     pub fn fill_invalid(&mut self) {
         fill_image(Self::INVALID, &mut self.layers);
     }
+    #[inline(always)]
     pub fn set(&mut self, x: usize, y: usize, kind: AcStrategyType) -> Status {
         let acs = AcStrategy::from_raw_strategy(kind);
         debug_assert!(y + acs.covered_blocks_y() <= self.layers.ysize());
         debug_assert!(x + acs.covered_blocks_x() <= self.layers.xsize());
         self.set_no_bounds_check(x, y, kind, false)
     }
+    #[inline(always)]
     pub fn set_no_bounds_check(
         &mut self,
         x: usize,
@@ -116,6 +118,7 @@ impl AcStrategyImage {
         }
         Ok(())
     }
+    #[inline(always)]
     pub fn const_row(&self, y: usize, x_prefix: usize) -> AcStrategyRow<'_> {
         AcStrategyRow {
             row: &self.layers.row(y)[x_prefix..],

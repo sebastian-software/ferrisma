@@ -17,6 +17,37 @@ from rust_probe_artifacts import jxl_extern_args
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def nan_word(token):
+    """A decimal token that is a binary32 NaN word (it fits in 32 bits) or a
+    binary64 NaN word (it needs 64 bits), as `nan_word` in tests/parity.rs."""
+    if not token.isdigit():
+        return False
+    value = int(token)
+    if value < 1 << 32:
+        return value & 0x7F800000 == 0x7F800000 and value & 0x7FFFFF != 0
+    return value < 1 << 64 and value & 0x7FF0000000000000 == 0x7FF0000000000000 \
+        and value & 0xFFFFFFFFFFFFF != 0
+
+
+def port_row_matches(port, original):
+    """ADR-0041 section 3 (D8) for the port's row against the original's: the
+    same tokens, each identical, except that two NaN words of the same width
+    are equal whatever their sign and payload. Returns the number of NaN
+    words equalized, or None on a mismatch."""
+    a, b = port.split(), original.split()
+    if len(a) != len(b):
+        return None
+    equalized = 0
+    for x, y in zip(a, b):
+        if x == y:
+            continue
+        if nan_word(x) and nan_word(y) and (int(x) < 1 << 32) == (int(y) < 1 << 32):
+            equalized += 1
+            continue
+        return None
+    return equalized
+
+
 def sha(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
@@ -284,14 +315,23 @@ def audit(output, record_native=False):
                 raw.unlink()
                 family_graph[kind] = {"raw_sha256": digest, "gzip_sha256": sha(compressed), "binary_sha256": sha(binary)}
                 observed.append(compressed)
+            # The original's observers must agree exactly; the port's row (the
+            # last) follows ADR-0041 section 3: NaN payloads are not compared.
+            nan_payload_words = 0
             with gzip.open(observed[0], "rb") as source:
                 references = [gzip.open(path, "rb") for path in observed[1:]]
                 try:
                     for index, rows in enumerate(itertools.zip_longest(source, *references)):
-                        assert all(row is not None and row.rstrip() == rows[0].rstrip() for row in rows), (graph, family, index, "exact observation mismatch")
+                        assert all(row is not None for row in rows), (graph, family, index, "observation count mismatch")
+                        assert all(row.rstrip() == rows[0].rstrip() for row in rows[:-1]), (graph, family, index, "exact observation mismatch")
+                        if rows[-1].rstrip() != rows[0].rstrip():
+                            equalized = port_row_matches(rows[-1].decode(), rows[0].decode())
+                            assert equalized, (graph, family, index, "observation mismatch outside NaN payloads")
+                            nan_payload_words += equalized
                     assert index + 1 == count
                 finally:
                     for reference in references: reference.close()
+            family_graph["port_nan_payload_words"] = nan_payload_words
             if graph == "oracle-asan":
                 ordinary = output / "oracle" / observed[0].name
                 with gzip.open(ordinary, "rb") as left, gzip.open(observed[0], "rb") as right:
@@ -299,7 +339,8 @@ def audit(output, record_native=False):
                         assert a == b, (family, index, "ordinary/instrumented source discrepancy")
                     assert index + 1 == count
             previous["graphs"][graph] = family_graph
-            print(graph, family, count, "exact", flush=True)
+            print(graph, family, count, "exact" if nan_payload_words == 0
+                  else f"exact except {nan_payload_words} port NaN payload words", flush=True)
         assert stable == {path: sha(path) for path in stable}, "Frozen source/helper graph changed"
     assert len(native) == 16
     captures = output / "native.tsv"

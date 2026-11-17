@@ -98,6 +98,13 @@ impl<'a> StateOwner<'a> {
         // pointer slots must retain their allocator-seeded/unknown bytes.
         result.bit_reader_init();
         write!(result, state, BROTLI_STATE_UNINITED);
+        // The whole packed flag word, padding included, starts at zero, so
+        // the field assignments below and later are plain integer operations
+        // on an initialized word. The original assigns only the fields and
+        // leaves the padding bits as the allocator returned them (owner
+        // decision of 2026-11-16; ADR 0003, "Brotli flag word and transform
+        // tail bytes").
+        result.storage_mut().flags.write(0);
         result.write_flag(5, 1, 0); // large_window
         write!(
             result,
@@ -307,7 +314,9 @@ impl<'a> StateOwner<'a> {
         let owner = self.allocation.as_mut().expect("live state owner");
         let offset = offset_of!(DecoderStateStorage, flags);
         let bytes = &mut owner.storage_mut()[offset..offset + 4];
-        BitfieldWord::new(bytes.try_into().expect("four native flag bytes"))
+        // SAFETY: initialize zeroes the whole flag word before the first
+        // field assignment, and every write keeps it initialized.
+        unsafe { BitfieldWord::new(bytes.try_into().expect("four native flag bytes")) }
             .write(shift, width, value);
     }
 

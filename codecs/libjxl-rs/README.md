@@ -10,7 +10,7 @@ A mechanical Rust port of the JPEG XL reference implementation, starting from
 the pinned [libjxl](https://github.com/libjxl/libjxl) source. Phase one preserves
 source algorithms and behavior before any redesign or additional optimization.
 
-The crate builds on stable Rust 1.88 or later (`rust-version`), on its own and
+The crate builds on stable Rust 1.94 or later (`rust-version`), on its own and
 independent of the Ferrisma engine's 1.99 ([minimum Rust versions](../../docs/supported-matrix.md#minimum-rust-versions)).
 
 **The first complete lossless image path is implemented in Rust.** The fixed

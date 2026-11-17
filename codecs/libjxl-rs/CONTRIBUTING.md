@@ -11,9 +11,12 @@ separate from the mechanical port. Read [PORTING.md](docs/PORTING.md) and the
 [living ADRs](docs/adr/README.md) before changing a translated boundary.
 Create commits without signatures, using `git commit --no-gpg-sign`.
 
-Repository Cargo configuration disables LLVM loop and SLP vectorization to
-match the pinned scalar reference's Clang settings. Retain those flags when
-overriding `RUSTFLAGS`; changing them requires renewed numeric parity evidence.
+The port has no Cargo configuration of its own: the gate builds with the
+code generation that the engine and every dependent ship (no rustflags,
+LLVM's default auto-vectorization; [ADR 0002](docs/adr/0002-differential-oracle.md),
+"The gate builds what ships"). Do not add port-local rustflags; where a result
+would depend on the vectorizer, write the source's operation so that it cannot
+(as `DequantMatrices::set_dc_quant` does for its copy).
 
 The oracle also fixes Quantizer constructor/recomputation calls with a scoped
 `-fno-inline-functions` option on the original quantizer.cc. Rust keeps
@@ -104,7 +107,7 @@ selects another profile. See [ADR 0002](docs/adr/0002-differential-oracle.md).
 
 ## Prerequisites
 
-- The shared root toolchain and stable Clippy; the library supports Rust 1.88 or later (`rust-version`).
+- The shared root toolchain and stable Clippy; the library supports Rust 1.94 or later (`rust-version`).
 - Python 3, Git, CMake 3.18 or later, and a C++17 compiler for the oracle.
 - Linux or macOS for the current oracle build configuration.
 
@@ -150,7 +153,7 @@ python3 tools/check.py --sanitizers --msrv
 ```
 
 `--msrv` compiles all targets with the toolchain named by `rust-version` in
-`Cargo.toml`, currently `1.88`, which must be installed already. It does not
+`Cargo.toml`, currently `1.94`, which must be installed already. It does not
 run the tests on that toolchain. Sanitizers cover the oracle adapters, original
 codec library, and its built dependencies; they do not instrument Rust or prove
 Rust memory safety. The current platform evidence is listed in
@@ -237,9 +240,11 @@ for cadence and high-risk change requirements. Historical results in
 [PORT_STATUS.md](docs/PORT_STATUS.md) apply to their stated revisions; a local
 result does not establish hosted or release acceptance.
 
-The minimum supported Rust version is the port's measured floor, 1.88 since
-2026-11-15 (owner decision, [Ferrisma ADR-0040](../../docs/adr/0040-stable-public-contract-and-compatibility-policy.md)
-amendment). Raise it only deliberately, in its own change with a changelog
+The minimum supported Rust version is 1.94 since 2026-11-16, raised from the
+measured floor 1.88 (2026-11-15) for the NEON half-precision intrinsics that
+replace inline assembly (owner decisions of 2026-11-16; [Ferrisma ADR-0040](../../docs/adr/0040-stable-public-contract-and-compatibility-policy.md)
+and [ADR-0044](../../docs/adr/0044-no-assembly-acceleration-through-rust-intrinsics.md)
+amendments). Raise it only deliberately, in its own change with a changelog
 note, to a release that is then at least three months old: update
 `rust-version` and the documentation. The audit tools read the `msrv`
 toolchain from `rust-version` (`tools/rust_version.py`), so they need no edit.

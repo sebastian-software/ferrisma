@@ -676,6 +676,7 @@ impl DequantMatrices {
         LIBRARY.get_or_init(Self::library_init)
     }
 
+    #[inline(always)]
     fn tables(&self) -> &[f32] {
         let storage = self
             .table_storage
@@ -687,6 +688,7 @@ impl DequantMatrices {
         // bit pattern is valid, and its owner remains immutably borrowed.
         unsafe { std::slice::from_raw_parts(bytes.as_ptr().cast(), bytes.len() / 4) }
     }
+    #[inline(always)]
     pub fn matrix(&self, strategy: AcStrategyType, c: usize) -> &[f32] {
         let strategy = strategy.0;
         assert!(strategy < NUM_VALID_STRATEGIES as u32 && c < 3);
@@ -698,6 +700,7 @@ impl DequantMatrices {
         let offset = self.table_offsets[strategy as usize * 3 + c];
         &self.tables()[offset..offset + len]
     }
+    #[inline(always)]
     pub fn inv_matrix(&self, strategy: AcStrategyType, c: usize) -> &[f32] {
         let strategy = strategy.0;
         assert!(strategy < NUM_VALID_STRATEGIES as u32 && c < 3);

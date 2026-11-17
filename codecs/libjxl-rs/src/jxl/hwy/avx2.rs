@@ -554,6 +554,48 @@ impl SimdF32 for Avx2 {
         avx!(_mm256_permute2f128_ps::<0x31>(lo, hi))
     }
     // end transpose
+    // capped4: HWY_CAPPED(float, 4) of HWY_AVX2 is Vec128<float>
+    // (hwy/ops/x86_128-inl.h): LoadU/StoreU/Set/Add/Sub/Mul and, with the
+    // target's FMA, MulAdd/NegMulAdd as _mm_fmadd_ps/_mm_fnmadd_ps.
+    type Q = __m128;
+    #[inline(always)]
+    fn q_load(self, src: &[f32]) -> Self::Q {
+        let src = &src[..4];
+        // SAFETY: `src` holds four readable f32 values; loadu has no
+        // alignment requirement; SSE support as for every operation.
+        unsafe { _mm_loadu_ps(src.as_ptr()) }
+    }
+    #[inline(always)]
+    fn q_store(self, v: Self::Q, dst: &mut [f32]) {
+        let dst = &mut dst[..4];
+        // SAFETY: `dst` holds four writable, exclusively borrowed f32 values.
+        unsafe { _mm_storeu_ps(dst.as_mut_ptr(), v) }
+    }
+    #[inline(always)]
+    fn q_set(self, v: f32) -> Self::Q {
+        avx!(_mm_set1_ps(v))
+    }
+    #[inline(always)]
+    fn q_add(self, a: Self::Q, b: Self::Q) -> Self::Q {
+        avx!(_mm_add_ps(a, b))
+    }
+    #[inline(always)]
+    fn q_sub(self, a: Self::Q, b: Self::Q) -> Self::Q {
+        avx!(_mm_sub_ps(a, b))
+    }
+    #[inline(always)]
+    fn q_mul(self, a: Self::Q, b: Self::Q) -> Self::Q {
+        avx!(_mm_mul_ps(a, b))
+    }
+    #[inline(always)]
+    fn q_mul_add(self, mul: Self::Q, x: Self::Q, add: Self::Q) -> Self::Q {
+        avx!(_mm_fmadd_ps(mul, x, add))
+    }
+    #[inline(always)]
+    fn q_neg_mul_add(self, mul: Self::Q, x: Self::Q, add: Self::Q) -> Self::Q {
+        avx!(_mm_fnmadd_ps(mul, x, add))
+    }
+    // end capped4
 }
 
 #[inline(always)]

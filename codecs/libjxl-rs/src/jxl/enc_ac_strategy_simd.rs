@@ -197,7 +197,11 @@ pub fn estimate_entropy_d<D: SimdF32>(
                     }
                 }
             }
-            let channel_mul = [8.2f64.powf(8.0), 1.0f64.powf(8.0), 1.03f64.powf(8.0)];
+            // `static const double kChannelMul[3]` in the source: the same
+            // `pow` calls, made once rather than on every call.
+            static CHANNEL_MUL: std::sync::OnceLock<[f64; 3]> = std::sync::OnceLock::new();
+            let channel_mul =
+                CHANNEL_MUL.get_or_init(|| [8.2f64.powf(8.0), 1.0f64.powf(8.0), 1.03f64.powf(8.0)]);
             lossc = d.mul(d.set(channel_mul[c] as f32), lossc);
             loss = d.add(loss, lossc);
         }

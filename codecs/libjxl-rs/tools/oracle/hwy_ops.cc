@@ -175,6 +175,33 @@ size_t RunOp(const std::string& op, const uint32_t* in, uint32_t* out) {
   if (op == "table_lookup_bytes") return puti(hn::TableLookupBytes(ai, bi));
 #endif
   // end stages2
+#if HWY_TARGET != HWY_SCALAR
+  // transpose: transpose-inl.h's 8x8 halves moves.
+  if (op == "concat_lower_lower") return put(hn::ConcatLowerLower(d, a, b));
+  if (op == "concat_upper_upper") return put(hn::ConcatUpperUpper(d, a, b));
+  // end transpose
+  // capped4: HWY_CAPPED(float, 4) of the DCT's 4-column transforms, on the
+  // first four lanes of a, b and c.
+  if (op.rfind("q_", 0) == 0) {
+    const hn::CappedTag<float, 4> d4;
+    const hn::RebindToUnsigned<decltype(d4)> du4;
+    const auto qa = hn::BitCast(d4, hn::LoadU(du4, in));
+    const auto qb = hn::BitCast(d4, hn::LoadU(du4, in + n));
+    const auto qc = hn::BitCast(d4, hn::LoadU(du4, in + 2 * n));
+    auto putq = [&](decltype(qa) v) {
+      hn::StoreU(hn::BitCast(du4, v), du4, out);
+      return size_t{4};
+    };
+    if (op == "q_load_store") return putq(qa);
+    if (op == "q_set") return putq(hn::Set(d4, hn::GetLane(qa)));
+    if (op == "q_add") return putq(hn::Add(qa, qb));
+    if (op == "q_sub") return putq(hn::Sub(qa, qb));
+    if (op == "q_mul") return putq(hn::Mul(qa, qb));
+    if (op == "q_mul_add") return putq(hn::MulAdd(qa, qb, qc));
+    if (op == "q_neg_mul_add") return putq(hn::NegMulAdd(qa, qb, qc));
+  }
+  // end capped4
+#endif
   return 0;
 }
 

@@ -96,8 +96,8 @@ with a changelog entry, and the new minimum is then at least three months old
 | `libavif-sharpyuv` | 1.95 | unchanged with the AVIF port | not checked separately at 1.95 |
 | `libwebp-rs` | 1.95 | x86 SIMD calls `__cpuid_count` without an `unsafe` block, rejected with `E0133` by 1.93, accepted by 1.95 | `check.py --msrv` (codec PR job, `webp-check.yml`) |
 | `libjpeg-turbo-rs` | 1.93 | x86 SIMD calls `_mm_sfence` without an `unsafe` block, rejected with `E0133` by 1.88, accepted by 1.93 | `check.py --msrv` (codec PR job), `jpeg-check.yml` `msrv` |
-| `libjxl-rs` | 1.88 | lowest installed toolchain tested; edition 2024 allows nothing below 1.85 | `check.py --msrv` (codec PR job, `jxl-check.yml`) |
-| `libsharpyuv-core` | 1.88 | as `libjxl-rs` | CI `workspace` (check and Clippy) |
+| `libjxl-rs` | 1.94 | the AArch64 half-precision conversions use `vcvt_f16_f32` and `vcvt_f32_f16` with the `float16x4_t` type instead of inline assembly (ADR-0044), stable since 1.94.0, `E0658` on 1.93; raised from the measured floor 1.88 on 2026-11-16 (owner decision; 1.94.0 was released on 2026-03-05) | `check.py --msrv` (codec PR job, `jxl-check.yml`); the codec PR job also runs the port's no-oracle tests at this version |
+| `libsharpyuv-core` | 1.88 | lowest installed toolchain tested; edition 2024 allows nothing below 1.85 | CI `workspace` (check and Clippy) |
 
 Evidence (2026-11-15, macOS ARM64, with the installed toolchains 1.88, 1.93,
 1.95; none in between): `cargo +<version> check --locked -p <package>
@@ -124,6 +124,16 @@ x86-64 (AVX-512 target features and `stdarch_x86_avx512`, `E0658` on 1.88).
 Versions 1.85 to 1.87, 1.89 to 1.92 and 1.94 were not tested. The `rust`
 job checks each feature alone (`cargo check --no-default-features
 --features <feature>`) on the pinned nightly.
+
+`libjxl-rs` at 1.94 (2026-11-16, macOS ARM64, after replacing its
+half-precision inline assembly): `cargo +1.94.0 check --locked --all-targets
+--all-features` passes, and with 1.94 (1.94.1) also for
+`x86_64-unknown-linux-gnu` and `x86_64-apple-darwin`; `cargo +1.93 check
+--lib` fails with `E0658` (`stdarch_neon_f16`) at the ten uses of
+`float16x4_t`, `vcvt_f16_f32` and `vcvt_f32_f16`; `cargo +1.94 test --locked
+-p libjxl-rs --profile checked` without the oracle passes 449 tests natively.
+x86-64 was checked, not run (Rosetta 2 unavailable that day); the port's
+x86-64 code did not change with the raise.
 
 The `libjxl-rs` difference is fixed since 2026-11-16: LLVM 20 to 22 (Rust
 1.88 to 1.98) lower the port's `std::max` compare-and-select to AArch64

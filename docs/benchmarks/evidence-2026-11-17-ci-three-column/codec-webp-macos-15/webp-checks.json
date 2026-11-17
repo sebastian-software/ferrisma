@@ -1,0 +1,249 @@
+{
+  "codec": "webp",
+  "checks": [
+    {
+      "check": "decode-lossy/photo12: port-t1 output identical to c-t1 (SIMD, one thread)",
+      "c": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/decode-lossy-12-c-t1.ppm",
+      "port": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/decode-lossy-12-port-t1.ppm",
+      "c_sha256": "f0f8dcafacee08068282edc0b44e130980f95331e07544e80a85fc83ad28aceb",
+      "port_sha256": "f0f8dcafacee08068282edc0b44e130980f95331e07544e80a85fc83ad28aceb",
+      "c_bytes": 36578321,
+      "port_bytes": 36578321,
+      "result": "identical"
+    },
+    {
+      "check": "decode-lossy/photo12: c-scalar-t1 output identical to c-t1 (SIMD, one thread)",
+      "c": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/decode-lossy-12-c-t1.ppm",
+      "port": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/decode-lossy-12-c-scalar-t1.ppm",
+      "c_sha256": "f0f8dcafacee08068282edc0b44e130980f95331e07544e80a85fc83ad28aceb",
+      "port_sha256": "f0f8dcafacee08068282edc0b44e130980f95331e07544e80a85fc83ad28aceb",
+      "c_bytes": 36578321,
+      "port_bytes": 36578321,
+      "result": "identical"
+    },
+    {
+      "check": "decode-lossy/photo12: c-tN output identical to c-t1 (SIMD, one thread)",
+      "c": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/decode-lossy-12-c-t1.ppm",
+      "port": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/decode-lossy-12-c-tN.ppm",
+      "c_sha256": "f0f8dcafacee08068282edc0b44e130980f95331e07544e80a85fc83ad28aceb",
+      "port_sha256": "f0f8dcafacee08068282edc0b44e130980f95331e07544e80a85fc83ad28aceb",
+      "c_bytes": 36578321,
+      "port_bytes": 36578321,
+      "result": "identical"
+    },
+    {
+      "check": "decode-lossless/photo12: port-t1 output identical to c-t1 (SIMD, one thread)",
+      "c": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/decode-lossless-12-c-t1.ppm",
+      "port": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/decode-lossless-12-port-t1.ppm",
+      "c_sha256": "35061de922fa21565b3f21d7d7ba413a2d9fb8e00b780fcc3da63e4b9a2b9aa7",
+      "port_sha256": "35061de922fa21565b3f21d7d7ba413a2d9fb8e00b780fcc3da63e4b9a2b9aa7",
+      "c_bytes": 36578321,
+      "port_bytes": 36578321,
+      "result": "identical"
+    },
+    {
+      "check": "decode-lossless/photo12: c-scalar-t1 output identical to c-t1 (SIMD, one thread)",
+      "c": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/decode-lossless-12-c-t1.ppm",
+      "port": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/decode-lossless-12-c-scalar-t1.ppm",
+      "c_sha256": "35061de922fa21565b3f21d7d7ba413a2d9fb8e00b780fcc3da63e4b9a2b9aa7",
+      "port_sha256": "35061de922fa21565b3f21d7d7ba413a2d9fb8e00b780fcc3da63e4b9a2b9aa7",
+      "c_bytes": 36578321,
+      "port_bytes": 36578321,
+      "result": "identical"
+    },
+    {
+      "check": "encode-lossy/photo12: port-t1 output identical to c-t1 (SIMD, one thread)",
+      "c": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossy-12-c-t1.webp",
+      "port": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossy-12-port-t1.webp",
+      "c_sha256": "ff5f2d22f158f5eab25c1dd5da475279bbea08677df467a9751eaf1877f02c11",
+      "port_sha256": "ff5f2d22f158f5eab25c1dd5da475279bbea08677df467a9751eaf1877f02c11",
+      "c_bytes": 762896,
+      "port_bytes": 762896,
+      "result": "identical"
+    },
+    {
+      "check": "encode-lossy/photo12: c-scalar-t1 output identical to c-t1 (SIMD, one thread)",
+      "c": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossy-12-c-t1.webp",
+      "port": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossy-12-c-scalar-t1.webp",
+      "c_sha256": "ff5f2d22f158f5eab25c1dd5da475279bbea08677df467a9751eaf1877f02c11",
+      "port_sha256": "ff5f2d22f158f5eab25c1dd5da475279bbea08677df467a9751eaf1877f02c11",
+      "c_bytes": 762896,
+      "port_bytes": 762896,
+      "result": "identical"
+    },
+    {
+      "check": "encode-lossy/photo12: c-tN output identical to c-t1 (SIMD, one thread)",
+      "c": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossy-12-c-t1.webp",
+      "port": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossy-12-c-tN.webp",
+      "c_sha256": "ff5f2d22f158f5eab25c1dd5da475279bbea08677df467a9751eaf1877f02c11",
+      "port_sha256": "ff5f2d22f158f5eab25c1dd5da475279bbea08677df467a9751eaf1877f02c11",
+      "c_bytes": 762896,
+      "port_bytes": 762896,
+      "result": "identical"
+    },
+    {
+      "check": "encode-lossy/photo12: C run reproduces the reference input",
+      "result": "identical"
+    },
+    {
+      "check": "encode-lossless/photo12: port-t1 output identical to c-t1 (SIMD, one thread)",
+      "c": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossless-12-c-t1.webp",
+      "port": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossless-12-port-t1.webp",
+      "c_sha256": "88595591b21f57a0a83e05a0a1fc71d3d084af1ba85986769407fd1034607872",
+      "port_sha256": "88595591b21f57a0a83e05a0a1fc71d3d084af1ba85986769407fd1034607872",
+      "c_bytes": 9102584,
+      "port_bytes": 9102584,
+      "result": "identical"
+    },
+    {
+      "check": "encode-lossless/photo12: c-scalar-t1 output identical to c-t1 (SIMD, one thread)",
+      "c": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossless-12-c-t1.webp",
+      "port": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossless-12-c-scalar-t1.webp",
+      "c_sha256": "88595591b21f57a0a83e05a0a1fc71d3d084af1ba85986769407fd1034607872",
+      "port_sha256": "88595591b21f57a0a83e05a0a1fc71d3d084af1ba85986769407fd1034607872",
+      "c_bytes": 9102584,
+      "port_bytes": 9102584,
+      "result": "identical"
+    },
+    {
+      "check": "encode-lossless/photo12: c-tN output identical to c-t1 (SIMD, one thread)",
+      "c": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossless-12-c-t1.webp",
+      "port": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossless-12-c-tN.webp",
+      "c_sha256": "88595591b21f57a0a83e05a0a1fc71d3d084af1ba85986769407fd1034607872",
+      "port_sha256": "88595591b21f57a0a83e05a0a1fc71d3d084af1ba85986769407fd1034607872",
+      "c_bytes": 9102584,
+      "port_bytes": 9102584,
+      "result": "identical"
+    },
+    {
+      "check": "encode-lossless/photo12: C run reproduces the reference input",
+      "result": "identical"
+    },
+    {
+      "check": "decode-lossless/photo12: port decode equals the master pixels",
+      "result": "identical"
+    },
+    {
+      "check": "decode-lossy/photo24: port-t1 output identical to c-t1 (SIMD, one thread)",
+      "c": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/decode-lossy-24-c-t1.ppm",
+      "port": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/decode-lossy-24-port-t1.ppm",
+      "c_sha256": "446010cda9badacdfccd7794b36c1920c6c1939ce93d8a38c3ad68680c0ca87e",
+      "port_sha256": "446010cda9badacdfccd7794b36c1920c6c1939ce93d8a38c3ad68680c0ca87e",
+      "c_bytes": 72000017,
+      "port_bytes": 72000017,
+      "result": "identical"
+    },
+    {
+      "check": "decode-lossy/photo24: c-scalar-t1 output identical to c-t1 (SIMD, one thread)",
+      "c": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/decode-lossy-24-c-t1.ppm",
+      "port": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/decode-lossy-24-c-scalar-t1.ppm",
+      "c_sha256": "446010cda9badacdfccd7794b36c1920c6c1939ce93d8a38c3ad68680c0ca87e",
+      "port_sha256": "446010cda9badacdfccd7794b36c1920c6c1939ce93d8a38c3ad68680c0ca87e",
+      "c_bytes": 72000017,
+      "port_bytes": 72000017,
+      "result": "identical"
+    },
+    {
+      "check": "decode-lossy/photo24: c-tN output identical to c-t1 (SIMD, one thread)",
+      "c": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/decode-lossy-24-c-t1.ppm",
+      "port": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/decode-lossy-24-c-tN.ppm",
+      "c_sha256": "446010cda9badacdfccd7794b36c1920c6c1939ce93d8a38c3ad68680c0ca87e",
+      "port_sha256": "446010cda9badacdfccd7794b36c1920c6c1939ce93d8a38c3ad68680c0ca87e",
+      "c_bytes": 72000017,
+      "port_bytes": 72000017,
+      "result": "identical"
+    },
+    {
+      "check": "decode-lossless/photo24: port-t1 output identical to c-t1 (SIMD, one thread)",
+      "c": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/decode-lossless-24-c-t1.ppm",
+      "port": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/decode-lossless-24-port-t1.ppm",
+      "c_sha256": "b7b3c0bae6fd47f682804ee485afc4ae0dd2fe1c17d7d771cfc7e77360c0a3a3",
+      "port_sha256": "b7b3c0bae6fd47f682804ee485afc4ae0dd2fe1c17d7d771cfc7e77360c0a3a3",
+      "c_bytes": 72000017,
+      "port_bytes": 72000017,
+      "result": "identical"
+    },
+    {
+      "check": "decode-lossless/photo24: c-scalar-t1 output identical to c-t1 (SIMD, one thread)",
+      "c": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/decode-lossless-24-c-t1.ppm",
+      "port": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/decode-lossless-24-c-scalar-t1.ppm",
+      "c_sha256": "b7b3c0bae6fd47f682804ee485afc4ae0dd2fe1c17d7d771cfc7e77360c0a3a3",
+      "port_sha256": "b7b3c0bae6fd47f682804ee485afc4ae0dd2fe1c17d7d771cfc7e77360c0a3a3",
+      "c_bytes": 72000017,
+      "port_bytes": 72000017,
+      "result": "identical"
+    },
+    {
+      "check": "encode-lossy/photo24: port-t1 output identical to c-t1 (SIMD, one thread)",
+      "c": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossy-24-c-t1.webp",
+      "port": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossy-24-port-t1.webp",
+      "c_sha256": "def2482660ff1c97205c0faac11d49a7bc8d1f103abb5f987da5320df6c89f21",
+      "port_sha256": "def2482660ff1c97205c0faac11d49a7bc8d1f103abb5f987da5320df6c89f21",
+      "c_bytes": 2090700,
+      "port_bytes": 2090700,
+      "result": "identical"
+    },
+    {
+      "check": "encode-lossy/photo24: c-scalar-t1 output identical to c-t1 (SIMD, one thread)",
+      "c": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossy-24-c-t1.webp",
+      "port": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossy-24-c-scalar-t1.webp",
+      "c_sha256": "def2482660ff1c97205c0faac11d49a7bc8d1f103abb5f987da5320df6c89f21",
+      "port_sha256": "def2482660ff1c97205c0faac11d49a7bc8d1f103abb5f987da5320df6c89f21",
+      "c_bytes": 2090700,
+      "port_bytes": 2090700,
+      "result": "identical"
+    },
+    {
+      "check": "encode-lossy/photo24: c-tN output identical to c-t1 (SIMD, one thread)",
+      "c": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossy-24-c-t1.webp",
+      "port": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossy-24-c-tN.webp",
+      "c_sha256": "def2482660ff1c97205c0faac11d49a7bc8d1f103abb5f987da5320df6c89f21",
+      "port_sha256": "def2482660ff1c97205c0faac11d49a7bc8d1f103abb5f987da5320df6c89f21",
+      "c_bytes": 2090700,
+      "port_bytes": 2090700,
+      "result": "identical"
+    },
+    {
+      "check": "encode-lossy/photo24: C run reproduces the reference input",
+      "result": "identical"
+    },
+    {
+      "check": "encode-lossless/photo24: port-t1 output identical to c-t1 (SIMD, one thread)",
+      "c": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossless-24-c-t1.webp",
+      "port": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossless-24-port-t1.webp",
+      "c_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "port_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "c_bytes": 23246058,
+      "port_bytes": 23246058,
+      "result": "identical"
+    },
+    {
+      "check": "encode-lossless/photo24: c-scalar-t1 output identical to c-t1 (SIMD, one thread)",
+      "c": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossless-24-c-t1.webp",
+      "port": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossless-24-c-scalar-t1.webp",
+      "c_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "port_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "c_bytes": 23246058,
+      "port_bytes": 23246058,
+      "result": "identical"
+    },
+    {
+      "check": "encode-lossless/photo24: c-tN output identical to c-t1 (SIMD, one thread)",
+      "c": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossless-24-c-t1.webp",
+      "port": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossless-24-c-tN.webp",
+      "c_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "port_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "c_bytes": 23246058,
+      "port_bytes": 23246058,
+      "result": "identical"
+    },
+    {
+      "check": "encode-lossless/photo24: C run reproduces the reference input",
+      "result": "identical"
+    },
+    {
+      "check": "decode-lossless/photo24: port decode equals the master pixels",
+      "result": "identical"
+    }
+  ]
+}

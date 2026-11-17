@@ -26,7 +26,16 @@ fn main() {
         assert_eq!(allocation.len(), size);
         assert!(!allocation.is_empty());
         assert_eq!(allocation.as_ptr() as usize % 4, 0);
-        if initialized { allocation.fill(seed as u8); }
+        if initialized {
+            allocation.fill(seed as u8);
+        } else {
+            // The decoder's flag word starts at zero (owner decision of
+            // 2026-11-16; ADR 0003); only the field values are compared in
+            // this lane, never the word's other bits.
+            for byte in &mut allocation.storage_mut()[offset..offset + 4] {
+                byte.write(0);
+            }
+        }
         print!("{size} {offset}");
         for _ in 0..count {
             let field = values.next().unwrap();
@@ -41,11 +50,11 @@ fn main() {
                 [offset..offset + 4])
                 .try_into()
                 .unwrap();
-            let mut word = bitfield::BitfieldWord::new(storage);
+            // SAFETY: The seeded lane filled every byte of the block; the
+            // other lane zeroed the four bytes of the word.
+            let mut word = unsafe { bitfield::BitfieldWord::new(storage) };
             word.write(shift, width, value);
-            // SAFETY: The immediately preceding write initialized every bit
-            // selected for this read, even in the uninitialized-block lane.
-            let read = unsafe { word.read(shift, width) };
+            let read = word.read(shift, width);
             print!(" {read}:");
             // SAFETY: fill initialized every byte and the helper retains that
             // initialization without reading unknown bits into Rust scalars.

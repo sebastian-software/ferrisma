@@ -1,0 +1,706 @@
+{
+  "plan": {
+    "reps": 7,
+    "warmups": 1,
+    "group": "webp/encode-lossless/photo24",
+    "candidates": [
+      {
+        "id": "c-scalar:t1",
+        "cmd": [
+          "bash",
+          "-c",
+          "exec \"$0\" \"$@\" -v 2> >(awk '/^Time to (de|en)code picture:/ { t = $5; sub(/s$/, \"\", t); printf \"elapsed_ms=%.3f\\n\", t * 1000; next } { print > \"/dev/stderr\" }')",
+          "/Users/runner/work/ferrisma/ferrisma/bench/work/libwebp-scalar/cwebp",
+          "-lossless",
+          "/Users/runner/work/ferrisma/ferrisma/bench/inputs/photo24.ppm",
+          "-o",
+          "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossless-24-c-scalar-t1.webp"
+        ],
+        "env": {},
+        "output": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossless-24-c-scalar-t1.webp",
+        "meta": {
+          "codec": "webp",
+          "op": "encode-lossless",
+          "column": "a",
+          "input": "photo24.ppm",
+          "impl": "c",
+          "threads": 1,
+          "notes": "internal timer: the -v 'Time to ... picture' region (C: DecodeWebP / WebPEncode with the file writer; ms resolution) and the same calls in the port example; wall time includes reading the input and writing the WEBP output on both sides; WEBP_ENABLE_SIMD=OFF build"
+        }
+      },
+      {
+        "id": "c:t1",
+        "cmd": [
+          "bash",
+          "-c",
+          "exec \"$0\" \"$@\" -v 2> >(awk '/^Time to (de|en)code picture:/ { t = $5; sub(/s$/, \"\", t); printf \"elapsed_ms=%.3f\\n\", t * 1000; next } { print > \"/dev/stderr\" }')",
+          "/Users/runner/work/ferrisma/ferrisma/bench/work/libwebp-release/cwebp",
+          "-lossless",
+          "/Users/runner/work/ferrisma/ferrisma/bench/inputs/photo24.ppm",
+          "-o",
+          "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossless-24-c-t1.webp"
+        ],
+        "env": {},
+        "output": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossless-24-c-t1.webp",
+        "meta": {
+          "codec": "webp",
+          "op": "encode-lossless",
+          "column": "b",
+          "input": "photo24.ppm",
+          "impl": "c",
+          "threads": 1,
+          "notes": "internal timer: the -v 'Time to ... picture' region (C: DecodeWebP / WebPEncode with the file writer; ms resolution) and the same calls in the port example; wall time includes reading the input and writing the WEBP output on both sides"
+        }
+      },
+      {
+        "id": "c:tN",
+        "cmd": [
+          "bash",
+          "-c",
+          "exec \"$0\" \"$@\" -v 2> >(awk '/^Time to (de|en)code picture:/ { t = $5; sub(/s$/, \"\", t); printf \"elapsed_ms=%.3f\\n\", t * 1000; next } { print > \"/dev/stderr\" }')",
+          "/Users/runner/work/ferrisma/ferrisma/bench/work/libwebp-release/cwebp",
+          "-lossless",
+          "-mt",
+          "/Users/runner/work/ferrisma/ferrisma/bench/inputs/photo24.ppm",
+          "-o",
+          "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossless-24-c-tN.webp"
+        ],
+        "env": {},
+        "output": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossless-24-c-tN.webp",
+        "meta": {
+          "codec": "webp",
+          "op": "encode-lossless",
+          "column": "c",
+          "input": "photo24.ppm",
+          "impl": "c",
+          "threads": 2,
+          "notes": "internal timer: the -v 'Time to ... picture' region (C: DecodeWebP / WebPEncode with the file writer; ms resolution) and the same calls in the port example; wall time includes reading the input and writing the WEBP output on both sides; -mt = libwebp's one extra worker thread"
+        }
+      },
+      {
+        "id": "port:t1",
+        "cmd": [
+          "/Users/runner/work/ferrisma/ferrisma/target/release/examples/cli_bench",
+          "encode",
+          "/Users/runner/work/ferrisma/ferrisma/bench/inputs/photo24.ppm",
+          "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossless-24-port-t1.webp",
+          "lossless"
+        ],
+        "env": {},
+        "output": "/Users/runner/work/ferrisma/ferrisma/bench/work/results/encode-lossless-24-port-t1.webp",
+        "meta": {
+          "codec": "webp",
+          "op": "encode-lossless",
+          "column": "port",
+          "input": "photo24.ppm",
+          "impl": "port",
+          "threads": 1,
+          "notes": "internal timer: the -v 'Time to ... picture' region (C: DecodeWebP / WebPEncode with the file writer; ms resolution) and the same calls in the port example; wall time includes reading the input and writing the WEBP output on both sides"
+        }
+      }
+    ]
+  },
+  "platform": "macOS-15.8.2-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "cpus": 3,
+  "uptime_before": "23:31  up 11 mins, 1 user, load averages: 14.13 14.59 10.77",
+  "uptime_after": "23:40  up 20 mins, 1 user, load averages: 1.72 4.83 7.47",
+  "order": "alternating forward/reverse per repetition, fresh process per sample",
+  "complete": true,
+  "summary": {
+    "c-scalar:t1": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 16.454259624999963,
+      "wall_min_s": 14.945514915999865,
+      "wall_max_s": 20.36519166700009,
+      "load_min": 1.58447265625,
+      "load_max": 13.244140625,
+      "rss_median_bytes": 757121024,
+      "rss_max_bytes": 757792768,
+      "internal_median_ms": 16231.0,
+      "internal_min_ms": 14750.0,
+      "internal_max_ms": 20198.0,
+      "output_sha256": [
+        "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74"
+      ],
+      "output_bytes": [
+        23246058
+      ]
+    },
+    "c:t1": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 14.84869225,
+      "wall_min_s": 13.572685624999963,
+      "wall_max_s": 17.664633707999883,
+      "load_min": 1.58447265625,
+      "load_max": 12.90966796875,
+      "rss_median_bytes": 756727808,
+      "rss_max_bytes": 757661696,
+      "internal_median_ms": 14689.0,
+      "internal_min_ms": 13478.0,
+      "internal_max_ms": 17492.0,
+      "output_sha256": [
+        "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74"
+      ],
+      "output_bytes": [
+        23246058
+      ]
+    },
+    "c:tN": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 16.095333708999988,
+      "wall_min_s": 14.859483500000124,
+      "wall_max_s": 16.440116666999984,
+      "load_min": 1.6572265625,
+      "load_max": 10.7197265625,
+      "rss_median_bytes": 757317632,
+      "rss_max_bytes": 757891072,
+      "internal_median_ms": 15923.0,
+      "internal_min_ms": 14761.0,
+      "internal_max_ms": 16166.0,
+      "output_sha256": [
+        "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74"
+      ],
+      "output_bytes": [
+        23246058
+      ]
+    },
+    "port:t1": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 16.846634416999905,
+      "wall_min_s": 15.915763707999986,
+      "wall_max_s": 23.07626991699999,
+      "load_min": 1.6728515625,
+      "load_max": 8.78076171875,
+      "rss_median_bytes": 776650752,
+      "rss_max_bytes": 784859136,
+      "internal_median_ms": 16700.511,
+      "internal_min_ms": 15793.537,
+      "internal_max_ms": 22882.164,
+      "output_sha256": [
+        "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74"
+      ],
+      "output_bytes": [
+        23246058
+      ]
+    }
+  },
+  "samples": [
+    {
+      "id": "port:t1",
+      "wall_s": 23.553455957999972,
+      "load_before": 14.1328125,
+      "load_after": 16.03369140625,
+      "returncode": 0,
+      "max_rss_bytes": 784678912,
+      "internal_ms": 23415.673,
+      "stdout": [
+        "elapsed_ms=23415.673 bytes=23246058"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 19.02518670799998,
+      "load_before": 16.03369140625,
+      "load_after": 13.1494140625,
+      "returncode": 0,
+      "max_rss_bytes": 738344960,
+      "internal_ms": 18855.0,
+      "stdout": [
+        "elapsed_ms=18855.000"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 20.048200542000018,
+      "load_before": 13.1494140625,
+      "load_after": 12.7568359375,
+      "returncode": 0,
+      "max_rss_bytes": 758743040,
+      "internal_ms": 19836.0,
+      "stdout": [
+        "elapsed_ms=19836.000"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "c-scalar:t1",
+      "wall_s": 21.82413570799997,
+      "load_before": 12.7568359375,
+      "load_after": 14.31005859375,
+      "returncode": 0,
+      "max_rss_bytes": 757153792,
+      "internal_ms": 21576.0,
+      "stdout": [
+        "elapsed_ms=21576.000"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "c-scalar:t1",
+      "wall_s": 20.36519166700009,
+      "load_before": 13.244140625,
+      "load_after": 12.90966796875,
+      "returncode": 0,
+      "max_rss_bytes": 757121024,
+      "internal_ms": 20198.0,
+      "stdout": [
+        "elapsed_ms=20198.000"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 17.53365962500004,
+      "load_before": 12.90966796875,
+      "load_after": 10.7197265625,
+      "returncode": 0,
+      "max_rss_bytes": 573784064,
+      "internal_ms": 17352.0,
+      "stdout": [
+        "elapsed_ms=17352.000"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 16.29229558299994,
+      "load_before": 10.7197265625,
+      "load_after": 8.78076171875,
+      "returncode": 0,
+      "max_rss_bytes": 757268480,
+      "internal_ms": 16166.0,
+      "stdout": [
+        "elapsed_ms=16166.000"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 15.915763707999986,
+      "load_before": 8.78076171875,
+      "load_after": 7.056640625,
+      "returncode": 0,
+      "max_rss_bytes": 776650752,
+      "internal_ms": 15793.537,
+      "stdout": [
+        "elapsed_ms=15793.537 bytes=23246058"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 18.251442957999984,
+      "load_before": 7.056640625,
+      "load_after": 5.65966796875,
+      "returncode": 0,
+      "max_rss_bytes": 776634368,
+      "internal_ms": 18162.464,
+      "stdout": [
+        "elapsed_ms=18162.464 bytes=23246058"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 16.440116666999984,
+      "load_before": 5.65966796875,
+      "load_after": 4.830078125,
+      "returncode": 0,
+      "max_rss_bytes": 757317632,
+      "internal_ms": 16075.0,
+      "stdout": [
+        "elapsed_ms=16075.000"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 13.572685624999963,
+      "load_before": 4.830078125,
+      "load_after": 4.12255859375,
+      "returncode": 0,
+      "max_rss_bytes": 757661696,
+      "internal_ms": 13478.0,
+      "stdout": [
+        "elapsed_ms=13478.000"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "c-scalar:t1",
+      "wall_s": 17.686133041999938,
+      "load_before": 4.12255859375,
+      "load_after": 5.439453125,
+      "returncode": 0,
+      "max_rss_bytes": 755712000,
+      "internal_ms": 17599.0,
+      "stdout": [
+        "elapsed_ms=17599.000"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "c-scalar:t1",
+      "wall_s": 16.454259624999963,
+      "load_before": 5.439453125,
+      "load_after": 5.14013671875,
+      "returncode": 0,
+      "max_rss_bytes": 757628928,
+      "internal_ms": 16231.0,
+      "stdout": [
+        "elapsed_ms=16231.000"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 14.84869225,
+      "load_before": 5.14013671875,
+      "load_after": 4.302734375,
+      "returncode": 0,
+      "max_rss_bytes": 755613696,
+      "internal_ms": 14689.0,
+      "stdout": [
+        "elapsed_ms=14689.000"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 16.195154500000058,
+      "load_before": 4.302734375,
+      "load_after": 3.79833984375,
+      "returncode": 0,
+      "max_rss_bytes": 757268480,
+      "internal_ms": 15979.0,
+      "stdout": [
+        "elapsed_ms=15979.000"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 22.894207041999948,
+      "load_before": 3.79833984375,
+      "load_after": 3.6279296875,
+      "returncode": 0,
+      "max_rss_bytes": 784859136,
+      "internal_ms": 22694.02,
+      "stdout": [
+        "elapsed_ms=22694.020 bytes=23246058"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 23.07626991699999,
+      "load_before": 3.6279296875,
+      "load_after": 3.14599609375,
+      "returncode": 0,
+      "max_rss_bytes": 776667136,
+      "internal_ms": 22882.164,
+      "stdout": [
+        "elapsed_ms=22882.164 bytes=23246058"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 16.095333708999988,
+      "load_before": 3.14599609375,
+      "load_after": 2.67041015625,
+      "returncode": 0,
+      "max_rss_bytes": 757891072,
+      "internal_ms": 15923.0,
+      "stdout": [
+        "elapsed_ms=15923.000"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 14.528087333999906,
+      "load_before": 2.67041015625,
+      "load_after": 2.2998046875,
+      "returncode": 0,
+      "max_rss_bytes": 757137408,
+      "internal_ms": 14315.0,
+      "stdout": [
+        "elapsed_ms=14315.000"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "c-scalar:t1",
+      "wall_s": 16.69347720799999,
+      "load_before": 2.2998046875,
+      "load_after": 2.38037109375,
+      "returncode": 0,
+      "max_rss_bytes": 757792768,
+      "internal_ms": 16376.0,
+      "stdout": [
+        "elapsed_ms=16376.000"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "c-scalar:t1",
+      "wall_s": 15.375542332999885,
+      "load_before": 2.38037109375,
+      "load_after": 2.07373046875,
+      "returncode": 0,
+      "max_rss_bytes": 756006912,
+      "internal_ms": 15157.0,
+      "stdout": [
+        "elapsed_ms=15157.000"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 14.465218916999902,
+      "load_before": 2.07373046875,
+      "load_after": 1.83544921875,
+      "returncode": 0,
+      "max_rss_bytes": 756695040,
+      "internal_ms": 14318.0,
+      "stdout": [
+        "elapsed_ms=14318.000"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 15.421151209000072,
+      "load_before": 1.83544921875,
+      "load_after": 1.71728515625,
+      "returncode": 0,
+      "max_rss_bytes": 757563392,
+      "internal_ms": 15304.0,
+      "stdout": [
+        "elapsed_ms=15304.000"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 16.846634416999905,
+      "load_before": 1.71728515625,
+      "load_after": 1.6728515625,
+      "returncode": 0,
+      "max_rss_bytes": 776585216,
+      "internal_ms": 16700.511,
+      "stdout": [
+        "elapsed_ms=16700.511 bytes=23246058"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 16.494542333000027,
+      "load_before": 1.6728515625,
+      "load_after": 1.7509765625,
+      "returncode": 0,
+      "max_rss_bytes": 776568832,
+      "internal_ms": 16428.557,
+      "stdout": [
+        "elapsed_ms=16428.557 bytes=23246058"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 15.381626916999949,
+      "load_before": 1.7509765625,
+      "load_after": 1.6572265625,
+      "returncode": 0,
+      "max_rss_bytes": 757661696,
+      "internal_ms": 15283.0,
+      "stdout": [
+        "elapsed_ms=15283.000"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 17.664633707999883,
+      "load_before": 1.6572265625,
+      "load_after": 1.58447265625,
+      "returncode": 0,
+      "max_rss_bytes": 757661696,
+      "internal_ms": 17492.0,
+      "stdout": [
+        "elapsed_ms=17492.000"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "c-scalar:t1",
+      "wall_s": 14.945514915999865,
+      "load_before": 1.58447265625,
+      "load_after": 1.83544921875,
+      "returncode": 0,
+      "max_rss_bytes": 756645888,
+      "internal_ms": 14750.0,
+      "stdout": [
+        "elapsed_ms=14750.000"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "c-scalar:t1",
+      "wall_s": 15.044364665999865,
+      "load_before": 1.83544921875,
+      "load_after": 1.64990234375,
+      "returncode": 0,
+      "max_rss_bytes": 757284864,
+      "internal_ms": 14948.0,
+      "stdout": [
+        "elapsed_ms=14948.000"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 15.014989499999956,
+      "load_before": 1.64990234375,
+      "load_after": 1.72607421875,
+      "returncode": 0,
+      "max_rss_bytes": 756727808,
+      "internal_ms": 14894.0,
+      "stdout": [
+        "elapsed_ms=14894.000"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 14.859483500000124,
+      "load_before": 1.72607421875,
+      "load_after": 1.724609375,
+      "returncode": 0,
+      "max_rss_bytes": 756056064,
+      "internal_ms": 14761.0,
+      "stdout": [
+        "elapsed_ms=14761.000"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 16.322589459000028,
+      "load_before": 1.724609375,
+      "load_after": 1.71728515625,
+      "returncode": 0,
+      "max_rss_bytes": 777699328,
+      "internal_ms": 16183.003,
+      "stdout": [
+        "elapsed_ms=16183.003 bytes=23246058"
+      ],
+      "output_bytes": 23246058,
+      "output_sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+      "rep": 6,
+      "warmup": false
+    }
+  ]
+}

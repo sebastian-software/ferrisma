@@ -1,6 +1,6 @@
 # ADR-0044: No assembly; acceleration only through Rust intrinsics
 
-- **Status:** Accepted (the principle and decisions D1–D4). The treatment of the ten inline assembly sites that remain in libjxl-rs is an [open question](#open-questions-pending-owner-decision).
+- **Status:** Accepted (the principle and decisions D1–D4). Its open question on the inline assembly that remained in libjxl-rs is closed (owner decisions of 2026-11-16): no assembly site is left.
 - **Date:** 2026-11-15
 - **Last reviewed:** 2026-11-16
 - **Source:** owner decision of 2026-11-15 on open question O4 of [ADR-0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) (#250)
@@ -184,27 +184,70 @@ listed in `tools/xtask/assembly-allowlist.txt`:
 `src/skcms/transform_simd.rs` (2). The table's brotli row names only the
 AArch64 instructions; three of its six sites are the x86-64 counterparts.
 
+**State on 2026-11-16, later: 10 sites became 6.** The owner decided on
+2026-11-16 that all remaining assembly is replaced and that libjxl-rs may
+raise its minimum Rust version for it. Branch `v1/jxl-no-asm` removed four
+libjxl-rs sites without changing a compared value:
+
+| Sites | Commit | Change |
+| ---: | --- | --- |
+| 3 (`fcvtn`/`fcvtl`: `src/jxl/hwy/neon.rs` 1, `src/skcms/transform_simd.rs` 2) | `build(jxl): raise libjxl-rs rust-version to 1.94`, then `fix(jxl): convert half precision through the NEON f16 intrinsics` | `vcvt_f16_f32`/`vcvt_f32_f16` with `float16x4_t`, the intrinsics the original uses, stable since Rust 1.94.0; the port's `rust-version` rises from 1.88 to 1.94 ([ADR-0040](0040-stable-public-contract-and-compatibility-policy.md) amendment). An exhaustive comparison on AArch64 (all 65,536 halves widened, all 2^32 singles narrowed; rustc 1.94.0 and the pinned nightly) found no word where the intrinsic and the instruction differ |
+| 1 (two `fmul`: `src/jxl/cms/jxl_cms_profile.rs`) | `fix(jxl): multiply the CIE xy chromaticity without operand-order assembly` | the plain multiplication the x86-64 path already used; only NaN payloads can differ, which section 3 of [ADR-0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) leaves out of the gate. The libjxl-rs parity comparator now applies that section to binary64 words as well (before, it equalized only binary32 NaN words) |
+
+The remaining six are the Brotli sites, listed in
+`tools/xtask/assembly-allowlist.txt`: `src/brotli/bitfield.rs` (4) and
+`src/brotli/raw_bytes.rs` (2).
+
+**State on 2026-11-16, last: 6 sites became 0.** The owner decided on
+2026-11-16 that the six Brotli blocks are replaced by zero-initialized state
+and plain integer operations, and that the comparisons of the formerly
+uninitialized bits and bytes are given up. Branch `v1/jxl-brotli-no-asm`,
+commit `fix(jxl): replace the Brotli assembly with plain integer operations`:
+the decoder zeroes the state's packed flag word when it creates the state,
+reads and writes its fields as a plain `u32`, and applies the dictionary
+transform's byte XOR only inside the destination's initialized prefix
+([libjxl-rs ADR 0003](../../codecs/libjxl-rs/docs/adr/0003-rust-representation.md),
+"Brotli flag word and transform tail bytes"). What changes is only the content
+of bits and bytes the original leaves uninitialized, which a caller's custom
+allocator could observe: in the flag word the 12 padding bits and, until the
+first metablock header is read, the 8 bits of `size_nibbles`, because the
+original leaves them as the allocator returned them; and a not-yet-written
+destination byte past the transform's initialized prefix. The two proofs
+named with the decision (the bitfield and raw-transform proofs) pass
+unchanged; the Brotli state comparison leaves out exactly those flag-word
+bits. Every decoded byte,
+every status, consumed and produced counts and every allocation call with its
+size and order stay identical with the original and stay compared. The
+Brotli code is no longer tied to AArch64 and x86-64.
+`tools/xtask/assembly-allowlist.txt` is empty; `cargo xtask assembly` now
+fails on any assembly site in the workspace outside the upstream snapshots.
+
 ## Open questions (pending owner decision)
 
-- **The ten inline assembly sites that remain in libjxl-rs** (the brotli,
-  NaN-order `fmul` and half-precision rows of the table above, listed in
-  `tools/xtask/assembly-allowlist.txt`). Whether D1 applies to them as they
-  stand, and with what route: an intrinsic where one exists (the AArch64
-  half-precision conversions), removal where the reason is gone (the
-  NaN-order `fmul`, if ADR-0041 section 3 makes it unnecessary), or a
-  narrow, named exception. Until the owner decides, these sites stay as
-  they are, and no new site is added (the guard enforces both).
+None. The question on the inline assembly that remained in libjxl-rs was
+closed on 2026-11-16: the half-precision and NaN-order `fmul` sites were
+replaced first, the six Brotli sites last (state paragraphs above).
 
 ## Review when
 
 - The hosted performance run measures the libaom kernels of D2.
 - A kernel is rebuilt with intrinsics, or an original adds an assembly-only
   kernel on a path in scope.
-- Rust stabilizes an intrinsic that replaces one of the sites in the table.
-- The owner decides the open question.
+- Rust stabilizes a way to merge bits into partly uninitialized memory
+  (a `freeze` operation), which would let the Brotli flag word keep the
+  allocator's padding bits again without assembly.
 
 ## Amendment log
 
+- 2026-11-16 — The six Brotli sites are replaced (owner decision of
+  2026-11-16; state paragraph "6 sites became 0"). The open question is
+  closed and the allowlist is empty.
+
+- 2026-11-16 — The four non-Brotli libjxl-rs sites are removed (state
+  paragraph "10 sites became 6"): the half-precision conversions through
+  the NEON f16 intrinsics with `rust-version` 1.94, the NaN-order `fmul`
+  through plain multiplication. The open question concerns only the six
+  Brotli sites.
 - 2026-11-16 — dav1d's kernels: the remark that they matter only for a
   test cross-check is replaced. The owner paused dav1d's removal and
   decided to rebuild its assembly kernels with intrinsics under D2

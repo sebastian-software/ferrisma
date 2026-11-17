@@ -1616,6 +1616,33 @@ mod lanes8 {
         fn table_lookup_bytes(self, bytes: Self::I, from: Self::I) -> Self::I {
             halves!(self, table_lookup_bytes, bytes, from)
         }
+        // HWY_CAPPED(float, 4): one NEON vector, as AVX2's 128-bit vector of
+        // the 4-column transforms.
+        type Q = <Neon as SimdF32>::V;
+        fn q_load(self, src: &[f32]) -> Self::Q {
+            self.0.load(src)
+        }
+        fn q_store(self, v: Self::Q, dst: &mut [f32]) {
+            self.0.store(v, dst)
+        }
+        fn q_set(self, v: f32) -> Self::Q {
+            self.0.set(v)
+        }
+        fn q_add(self, a: Self::Q, b: Self::Q) -> Self::Q {
+            self.0.add(a, b)
+        }
+        fn q_sub(self, a: Self::Q, b: Self::Q) -> Self::Q {
+            self.0.sub(a, b)
+        }
+        fn q_mul(self, a: Self::Q, b: Self::Q) -> Self::Q {
+            self.0.mul(a, b)
+        }
+        fn q_mul_add(self, mul: Self::Q, x: Self::Q, add: Self::Q) -> Self::Q {
+            self.0.mul_add(mul, x, add)
+        }
+        fn q_neg_mul_add(self, mul: Self::Q, x: Self::Q, add: Self::Q) -> Self::Q {
+            self.0.neg_mul_add(mul, x, add)
+        }
     }
 
     /// The original EstimateEntropy for eight lanes, lane by lane.

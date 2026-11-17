@@ -420,11 +420,10 @@ fn public_encoder_output_mode_2_matches_original() {
 /// Encoder step 2's gate sizes in output mode 2 (#117): 768x768, 1024x1024,
 /// 2048x1536, 2049x2049 and 4000x3000 at d1.0 and d2.0, gray and RGB, buffer
 /// mode and an output processor with and without seek, rotating the
-/// buffering values -1 to 3.
-#[test]
-fn public_encoder_output_mode_2_gate_sizes_match_original() {
-    jxl::jxl::hwy::select_scalar_decoder_for_test();
-    jxl::jxl::hwy::select_scalar_encoder_for_test();
+/// buffering values -1 to 3. The histories of one size; the counter `k` runs
+/// over all sizes, so each size's histories are those of one list over all
+/// sizes. One test per size lets the check's partitions spread them.
+fn output_mode_2_gate_histories(size: (usize, usize)) -> Vec<String> {
     let mut requests = Vec::new();
     let mut k = 0;
     for (xsize, ysize) in [
@@ -441,30 +440,64 @@ fn public_encoder_output_mode_2_gate_sizes_match_original() {
                     if xsize == 4000 && gray == processor {
                         continue;
                     }
-                    let buffering = [-1, 0, 1, 2, 3][k % 5];
-                    let mut settings = if buffering == -1 {
-                        String::new()
-                    } else {
-                        format!(" o0,34,{buffering}")
-                    };
-                    settings.push_str(" o0,40,2");
-                    let history =
-                        lossy_history(xsize, ysize, gray, k % 4, 4, distance, k, "", &settings);
-                    let (input, _) = history.split_once(" Z ").unwrap();
-                    let chunk = 4 << 20;
-                    let count = (xsize * ysize * if gray { 1 } else { 3 }).div_ceil(chunk) + 1;
-                    let output = if processor {
-                        format!("w{},0,0,0 i r", if k.is_multiple_of(2) { 0 } else { 4 })
-                    } else {
-                        vec![format!("p{chunk}"); count].join(" ")
-                    };
-                    requests.push(run(0, 0, &format!("{input} Z {output}")));
+                    if (xsize, ysize) == size {
+                        let buffering = [-1, 0, 1, 2, 3][k % 5];
+                        let mut settings = if buffering == -1 {
+                            String::new()
+                        } else {
+                            format!(" o0,34,{buffering}")
+                        };
+                        settings.push_str(" o0,40,2");
+                        let history =
+                            lossy_history(xsize, ysize, gray, k % 4, 4, distance, k, "", &settings);
+                        let (input, _) = history.split_once(" Z ").unwrap();
+                        let chunk = 4 << 20;
+                        let count = (xsize * ysize * if gray { 1 } else { 3 }).div_ceil(chunk) + 1;
+                        let output = if processor {
+                            format!("w{},0,0,0 i r", if k.is_multiple_of(2) { 0 } else { 4 })
+                        } else {
+                            vec![format!("p{chunk}"); count].join(" ")
+                        };
+                        requests.push(run(0, 0, &format!("{input} Z {output}")));
+                    }
                     k += 1;
                 }
             }
         }
     }
-    super::compare_gate("output-mode-2-gate", requests);
+    requests
+}
+
+fn output_mode_2_gate(size: (usize, usize)) {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
+    let family = format!("output-mode-2-gate-{}x{}", size.0, size.1);
+    super::compare_gate(&family, output_mode_2_gate_histories(size));
+}
+
+#[test]
+fn public_encoder_output_mode_2_gate_768_matches_original() {
+    output_mode_2_gate((768, 768));
+}
+
+#[test]
+fn public_encoder_output_mode_2_gate_1024_matches_original() {
+    output_mode_2_gate((1024, 1024));
+}
+
+#[test]
+fn public_encoder_output_mode_2_gate_2048x1536_matches_original() {
+    output_mode_2_gate((2048, 1536));
+}
+
+#[test]
+fn public_encoder_output_mode_2_gate_2049_matches_original() {
+    output_mode_2_gate((2049, 2049));
+}
+
+#[test]
+fn public_encoder_output_mode_2_gate_4000x3000_matches_original() {
+    output_mode_2_gate((4000, 3000));
 }
 
 /// The EncoderStreamingTest instances that need the container: every
@@ -806,7 +839,7 @@ fn upstream_encode_test_container_cases_match_original() {
         }
     }
     let count = requests.len();
-    let exact = super::compare_counted("upstream-encode-container", requests);
+    let exact = super::compare_counted_with("upstream-encode-container", requests, Some(originals));
     assert_eq!(exact, count, "every admitted upstream case is exact");
     // The decoder half of EncodeBoxTest: the last ProcessEncoder output holds
     // the whole file; frame and box events (JXL_DEC_FRAME | JXL_DEC_BOX).
@@ -915,7 +948,11 @@ fn upstream_roundtrip_test_extra_boxes_matches_original() {
         ),
     );
     let cpp = super::super::original_observations(std::slice::from_ref(&request)).remove(0);
-    let exact = super::compare_counted("upstream-extra-boxes", vec![request]);
+    let exact = super::compare_counted_with(
+        "upstream-extra-boxes",
+        vec![request],
+        Some(vec![cpp.clone()]),
+    );
     assert_eq!(exact, 1, "ExtraBoxesTest is exact");
     let field = cpp
         .split(' ')

@@ -34,8 +34,9 @@ git -C codecs/libjxl-rs/upstream/libjxl submodule update --init \
   third_party/highway third_party/brotli third_party/skcms
 rustup show active-toolchain
 rustup toolchain install "$(cat tools/lint-toolchain)" --profile minimal --component clippy
-# each port's rust-version, for its --msrv step (1.88, 1.93, 1.95 today)
-rustup toolchain install 1.88 1.93 1.95 --profile minimal
+# each port's rust-version, for its --msrv step (1.93, 1.94, 1.95 today;
+# 1.88 for libsharpyuv-core)
+rustup toolchain install 1.88 1.93 1.94 1.95 --profile minimal
 cargo fetch --locked
 ```
 
@@ -56,7 +57,7 @@ explicitly. This is a verifier exception, not another workspace or dependency gr
 The engine builds on Rust 1.99 or later with every feature; enabling an AVIF
 feature reaches generated libavif/AOM code and requires native macOS ARM64 or
 GNU Linux x86-64. The handwritten ports declare and check their own lower
-floors: `libjxl-rs` 1.88, `libjpeg-turbo-rs` 1.93, `libwebp-rs` 1.95
+floors: `libjxl-rs` 1.94, `libjpeg-turbo-rs` 1.93, `libwebp-rs` 1.95
 ([minimum Rust versions](supported-matrix.md#minimum-rust-versions)).
 
 Engine Clippy selects `ferrisma` and `ferrisma-kernels` with `--no-deps` when
@@ -106,9 +107,9 @@ validation configurations still need scoped checks. The former
 `avif-decode`/libavif `dav1d_*` collision is removed; current AVIF input and
 the libavif encoder adapter can link together. Engine all-feature checks select
 `-p ferrisma -p ferrisma-kernels` on the pinned nightly; stable checks omit
-`avif-read` and `avif-write`. JXL's local Cargo configuration disables auto-vectorization for its
-reference-sensitive checks. Run those checks through its script or from its
-directory. Rust artifacts live in the root `target/`; C/C++ reference outputs
+`avif-read` and `avif-write`. No codec has a Cargo configuration of its own: its
+gate builds with the code generation the engine ships. Run JXL's
+reference-sensitive checks through its script or from its directory. Rust artifacts live in the root `target/`; C/C++ reference outputs
 stay local to each codec. Generated AVIF source is excluded from rustfmt because
 its translation manifests verify source hashes. The shared SharpYUV core supplies
 one safe production conversion loop to WebP and AVIF through their distinct

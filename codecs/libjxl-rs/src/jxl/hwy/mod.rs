@@ -248,6 +248,25 @@ pub trait SimdF32: Copy + core::fmt::Debug + Send + Sync + 'static {
         self.load(&out)
     }
     // end transpose
+    // capped4: HWY_CAPPED(float, 4), the 4-lane descriptor of the DCT's
+    // 4-column transforms (port ADR 0004, "4-lane vectors on AVX2"). On NEON
+    // it is the full vector; on AVX2 it is the original's 128-bit vector.
+    /// The 4-lane vector type of `HWY_CAPPED(float, 4)`.
+    type Q: Copy;
+    /// `LoadU(d4, src)`: four lanes.
+    fn q_load(self, src: &[f32]) -> Self::Q;
+    /// `StoreU(v, d4, dst)`: four lanes.
+    fn q_store(self, v: Self::Q, dst: &mut [f32]);
+    /// `Set(d4, v)`.
+    fn q_set(self, v: f32) -> Self::Q;
+    fn q_add(self, a: Self::Q, b: Self::Q) -> Self::Q;
+    fn q_sub(self, a: Self::Q, b: Self::Q) -> Self::Q;
+    fn q_mul(self, a: Self::Q, b: Self::Q) -> Self::Q;
+    /// `MulAdd(mul, x, add)` of four lanes, fused.
+    fn q_mul_add(self, mul: Self::Q, x: Self::Q, add: Self::Q) -> Self::Q;
+    /// `NegMulAdd(mul, x, add)` of four lanes, fused.
+    fn q_neg_mul_add(self, mul: Self::Q, x: Self::Q, add: Self::Q) -> Self::Q;
+    // end capped4
 }
 
 /// The SIMD target a kernel runs on, capped at NEON/AVX2 (decision D6).

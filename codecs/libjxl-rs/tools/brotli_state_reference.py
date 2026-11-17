@@ -14,6 +14,7 @@ from pathlib import Path
 import re
 import shlex
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parent.parent
 PIN = "db24a98aed38a16de78cc05ca15cdd8dc2a0d92d"
@@ -67,10 +68,77 @@ def capture(binary, requests, path):
     assert count == len(requests), (binary, count)
 
 
-def exact(left, right):
+def exact(left, right, flag_word=None):
+    """Byte-exact lines. With flag_word=(size, offset, mask), the flag-word
+    bits the original has not written are set to zero on both sides of every
+    state-block dump first, after checking that the port (right) holds them
+    as zero (owner decision of 2026-11-16, port ADR 0003)."""
     with left.open("rb") as a, right.open("rb") as b:
         for index, (x, y) in enumerate(zip_longest(a, b, fillvalue=b"")):
+            if flag_word is not None:
+                size, offset, mask = flag_word
+                x = mask_flag_word(x, size, offset, mask, 0)
+                y = mask_flag_word(y, size, offset, mask, mask)
             assert x == y, (index, x[:80], y[:80])
+
+
+def original_flag_fields():
+    """The packed flag word of upstream c/dec/state.h as (name, shift, width):
+    the consecutive `unsigned int name : width;` members from
+    is_last_metablock to size_nibbles, allocated from the least significant
+    bit of one unsigned int by Clang and GCC on AArch64 and x86-64."""
+    header = (ROOT / "upstream/libjxl/third_party/brotli/c/dec/state.h").read_text()
+    fields, shift = [], 0
+    for line in header[header.index("unsigned int is_last_metablock : 1;"):].splitlines():
+        match = re.fullmatch(r"\s*unsigned int (\w+) : (\d+);\s*", line)
+        if not match:
+            break
+        fields.append((match[1], shift, int(match[2])))
+        shift += int(match[2])
+    assert 0 < shift < 32
+    return fields
+
+
+def unwritten_flag_mask(requests):
+    """The flag-word bits the original has not written at the corpus's
+    checkpoints: the padding, and the fields BrotliDecoderStateInit
+    (c/dec/state.c) does not assign, as long as no request reads a metablock
+    header (DecodeMetaBlockLength, the only writer of size_nibbles). Every
+    request must be StateInit plus at most one of the bs-state actions 0..3,
+    bs-default or bs-layout; anything else fails here."""
+    for request in requests:
+        words = request.split()
+        if words[0] == "bs-state":
+            assert words[3] in {"0", "1", "2", "3"}, ("request may write a flag field", request)
+        else:
+            assert words[0] in {"bs-default", "bs-layout"}, ("unclassified request", request)
+    source = (ROOT / "upstream/libjxl/third_party/brotli/c/dec/state.c").read_text()
+    start = source.index("BROTLI_BOOL BrotliDecoderStateInit(")
+    body = source[start:source.index("\n}", start)]
+    fields = original_flag_fields()
+    unassigned = [f for f in fields if f"s->{f[0]} = " not in body]
+    # Pinned upstream: StateInit assigns every field but size_nibbles
+    # (state.c lines 49 and 82-88).
+    assert [f[0] for f in unassigned] == ["size_nibbles"], unassigned
+    used = sum(f[2] for f in fields)
+    mask = (0xFFFFFFFF << used) & 0xFFFFFFFF
+    for _, shift, width in unassigned:
+        mask |= ((1 << width) - 1) << shift
+    assert mask == 0xFFFFF000, hex(mask)
+    return mask
+
+
+def mask_flag_word(line, size, offset, mask, zero):
+    """Zero the masked flag-word bits in every ` B<n>:<hex>` dump of exactly
+    the state block's size, after asserting that the bits in `zero` are zero."""
+    assert sys.byteorder == "little"
+    def replace(match):
+        data = bytearray(bytes.fromhex(match[2].decode()))
+        word = int.from_bytes(data[offset:offset + 4], "little")
+        assert word & zero == 0, ("port flag word has unwritten bits set", hex(word))
+        data[offset:offset + 4] = (word & ~mask & 0xFFFFFFFF).to_bytes(4, "little")
+        return match[1] + data.hex().encode()
+    return re.sub(rb"( B\d+:)([0-9a-f]{%d})(?![0-9a-f])" % (2 * size), replace, line)
 
 
 def compile_options(command, sanitized):
@@ -199,8 +267,20 @@ def main():
         path = args.output / f"{name}.txt"
         source = binding(binary, name == "sanitized") if name in ["ordinary", "sanitized"] else None
         capture(binary, requests, path)
-        if name != "ordinary":
+        if name == "sanitized":
             exact(args.output / "ordinary.txt", path)
+        elif name != "ordinary":
+            # The port's flag word starts at zero; the original keeps the
+            # allocator's bytes in the bits it has not written (owner
+            # decision of 2026-11-16). Only those bits are left out.
+            flag = subprocess.run([binary], input=b"bs-flag-word\n", stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+            assert not flag.stderr
+            size, offset = map(int, flag.stdout.split())
+            assert offset % 4 == 0 and offset + 4 <= size
+            mask = unwritten_flag_mask(requests)
+            exact(args.output / "ordinary.txt", path, (size, offset, mask))
+            report["flag_word_unwritten_bits"] = {"state_size": size, "word_offset": offset, "mask": f"{mask:#010x}",
+                                                  "excluded": "12 padding bits; size_nibbles (not assigned by StateInit, no request reads a header)"}
         report["configurations"][name] = {"source_binding": source, "binary_sha256": sha(binary),
                                            "output_sha256": sha(path), "output_bytes": path.stat().st_size}
         if name not in ["ordinary", "sanitized"]:
@@ -220,9 +300,9 @@ def main():
             report["configurations"][name]["private_default_alignment"] = {
                 "actual_source_required": required, "rust_payload": payload,
                 "private_header": header, "observed_payload_residue": residue}
-    report["all_exact"] = True
+    report["all_exact_except_unwritten_flag_bits"] = True
     (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
-    print(json.dumps({"requests": len(requests), "configurations": list(report["configurations"]), "all_exact": True}))
+    print(json.dumps({"requests": len(requests), "configurations": list(report["configurations"]), "all_exact_except_unwritten_flag_bits": True}))
 
 
 if __name__ == "__main__":

@@ -42,14 +42,20 @@ jobs:
       with:
         msrv: true
         oracle: false
+    - name: Install the x86-64 target for the attribute-context check
+      # tools/check.py builds three examples for x86-64 and inspects their
+      # code (port ADR 0004); on an ARM64 Mac that is a cross build, and the
+      # hosted image carries only the host's target.
+      if: runner.os == 'macOS'
+      run: rustup target add x86_64-apple-darwin
     - name: Check pins, notices, links, formatting, Clippy, MSRV, and release builds
       run: python3 tools/check.py --stage static --msrv
     defaults:
       run:
         working-directory: codecs/libjxl-rs
   parity:
-    name: 'JXL: Tests (${{ matrix.os }}, ${{ matrix.oracle }} oracle, ${{ matrix.shard }}/${{ matrix.os == ''macos-latest''
-      && matrix.oracle == ''ordinary'' && 2 || 4 }})'
+    name: 'JXL: Tests (${{ matrix.os }}, ${{ matrix.oracle }} oracle, ${{ matrix.shard }}/${{ matrix.oracle == ''sanitized''
+      && 6 || (matrix.os == ''macos-latest'' && 3 || 4) }})'
     strategy:
       fail-fast: false
       max-parallel: 2
@@ -58,24 +64,34 @@ jobs:
           && '["ubuntu-latest", "macos-latest"]' || '["ubuntu-latest"]') }}
         oracle: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || inputs.macos) && '["ordinary",
           "sanitized"]' || '["ordinary"]') }}
+        # Partitions per job (tools/check.py deals the heaviest tests out
+        # first): six with the sanitized oracle, whose whole encodes of the
+        # gate sizes take several times as long; four with the ordinary
+        # oracle on Linux and three on macOS.
         shard:
         - 1
         - 2
         - 3
         - 4
+        - 5
+        - 6
         exclude:
-        - os: macos-latest
-          oracle: ordinary
-          shard: 3
+        - oracle: ordinary
+          shard: 5
+        - oracle: ordinary
+          shard: 6
         - os: macos-latest
           oracle: ordinary
           shard: 4
     runs-on: ${{ matrix.os }}
     # A hung test otherwise holds the shard until GitHub's 360-minute job
-    # limit (issue #119); completed shards have taken well under an hour.
+    # limit (issue #119). Hosted runners differ in speed by up to about two
+    # times (the same C++ oracle build took 100 to 220 seconds on
+    # 2026-11-16); the partitions are sized to finish well inside the limit
+    # on the slower ones.
     timeout-minutes: 120
     env:
-      PARTITION: ${{ matrix.shard }}/${{ matrix.os == 'macos-latest' && matrix.oracle == 'ordinary' && 2 || 4 }}
+      PARTITION: ${{ matrix.shard }}/${{ matrix.oracle == 'sanitized' && 6 || (matrix.os == 'macos-latest' && 3 || 4) }}
       ORACLE_FLAGS: ${{ matrix.oracle == 'sanitized' && '--sanitizers' || '' }}
       ORACLE_GRAPH: ${{ matrix.oracle == 'sanitized' && 'oracle-asan' || 'oracle' }}
     steps:
@@ -123,7 +139,27 @@ jobs:
           codecs/libjxl-rs/target/brotli-support/${{ matrix.oracle }}
           !codecs/libjxl-rs/target/brotli-support/${{ matrix.oracle }}/captures
     - name: Run the checked-profile tests
-      run: python3 tools/check.py --stage test --partition "$PARTITION" $ORACLE_FLAGS
+      # On Linux the step also reports the job's peak memory use (MemTotal
+      # minus MemAvailable, sampled every 5 s) and the largest single
+      # process (GNU time), since the gate tests run their references
+      # concurrently.
+      run: |
+        if [ "$RUNNER_OS" = Linux ]; then
+          ( peak=0; while sleep 5; do
+              used=$(awk '/^MemTotal/ {t=$2} /^MemAvailable/ {a=$2} END {print int((t-a)/1024)}' /proc/meminfo)
+              [ "$used" -gt "$peak" ] && peak=$used && echo "$peak" > "$RUNNER_TEMP/peak-mib"
+            done ) &
+          sampler=$!
+          status=0
+          timer=()
+          [ -x /usr/bin/time ] && timer=(/usr/bin/time -v -o "$RUNNER_TEMP/time.txt")
+          "${timer[@]}" python3 tools/check.py --stage test --partition "$PARTITION" $ORACLE_FLAGS || status=$?
+          kill "$sampler" || true
+          echo "Peak memory in use: $(cat "$RUNNER_TEMP/peak-mib" 2>/dev/null) MiB of $(awk '/^MemTotal/ {print int($2/1024)}' /proc/meminfo) MiB"
+          grep 'Maximum resident set size' "$RUNNER_TEMP/time.txt" 2>/dev/null || true
+          exit "$status"
+        fi
+        python3 tools/check.py --stage test --partition "$PARTITION" $ORACLE_FLAGS
     defaults:
       run:
         working-directory: codecs/libjxl-rs

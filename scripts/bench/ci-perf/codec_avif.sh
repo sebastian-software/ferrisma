@@ -186,7 +186,13 @@ cat >"$WORK/c-bin/decode_still.c" <<'EOF'
 #include <time.h>
 
 #include "avif/avif.h"
-#include "dav1d/dav1d.h"
+// The scalar reference prefix has no dav1d (it is context, not column (a)),
+// so only the build against the release prefix defines BENCH_DAV1D. dav1d
+// exports this function (src/cpu.c) but declares it only in its internal
+// src/cpu.h, as its own tools use it; the prototype is repeated here.
+#ifdef BENCH_DAV1D
+void dav1d_set_cpu_flags_mask(unsigned mask);
+#endif
 
 static void fail(const char * message)
 {
@@ -210,7 +216,11 @@ int main(int argc, char ** argv)
     // c-dav1d-v1 column); dav1d documents it to be set before any decoder.
     const char * mask = getenv("DAV1D_CPU_MASK");
     if (mask) {
+#ifdef BENCH_DAV1D
         dav1d_set_cpu_flags_mask((unsigned)strtoul(mask, NULL, 0));
+#else
+        fail("DAV1D_CPU_MASK is set, but this build has no dav1d");
+#endif
     }
     FILE * file = fopen(argv[3], "rb");
     if (!file) {
@@ -282,7 +292,7 @@ C_LIBS=("$PREFIX/lib/libavif.a" "$PREFIX/lib/libaom.a" "$PREFIX/lib/libdav1d.a" 
 C_LIBS_SCALAR=("$PREFIX_SCALAR/lib/libavif.a" "$PREFIX_SCALAR/lib/libaom.a" -lpthread -lm)
 [[ "$SYSTEM" == Linux ]] && C_LIBS_SCALAR+=(-ldl)
 for driver in encode_still decode_still; do
-  "$CC" -O2 -I"$PREFIX/include" -o "$WORK/c-bin/$driver" "$WORK/c-bin/$driver.c" "${C_LIBS[@]}"
+  "$CC" -O2 -DBENCH_DAV1D -I"$PREFIX/include" -o "$WORK/c-bin/$driver" "$WORK/c-bin/$driver.c" "${C_LIBS[@]}"
   "$CC" -O2 -I"$PREFIX_SCALAR/include" -o "$WORK/c-bin/$driver-scalar" "$WORK/c-bin/$driver.c" "${C_LIBS_SCALAR[@]}"
 done
 C_ENC=$WORK/c-bin/encode_still

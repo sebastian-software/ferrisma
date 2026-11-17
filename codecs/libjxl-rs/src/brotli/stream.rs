@@ -63,8 +63,8 @@ macro_rules! array_write {
     }};
 }
 impl<'a> DecoderInstance<'a> {
-    // Selected initialized packed fields only; unknown neighboring flags stay
-    // entirely inside the already independently accepted raw representation.
+    // StateInit zeroes the whole packed flag word, so all four bytes are
+    // initialized; the selected field is masked and shifted out.
     unsafe fn stream_flag(&mut self, shift: u32, width: u32) -> u32 {
         let native = self.state.as_ptr().cast_mut().cast::<DecoderStateStorage>();
         let bytes = unsafe {

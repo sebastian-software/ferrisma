@@ -980,9 +980,19 @@ static REFERENCE_VARIANT: std::sync::LazyLock<
 > = std::sync::LazyLock::new(Default::default);
 
 fn original_observations(requests: &[String]) -> Vec<String> {
-    let pinned = program_observations(&oracle_path(), requests);
-    if let Some(variant) = reference_variant_path() {
-        let other = program_observations(&variant, requests);
+    let variant = reference_variant_path();
+    // The two references are separate processes: they run concurrently.
+    let (pinned, other) = std::thread::scope(|scope| {
+        let other = variant
+            .as_ref()
+            .map(|variant| scope.spawn(|| program_observations(variant, requests)));
+        let pinned = program_observations(&oracle_path(), requests);
+        (
+            pinned,
+            other.map(|thread| thread.join().expect("the second scalar reference")),
+        )
+    });
+    if let Some(other) = other {
         // Per family: reference words, words O1 excludes (requests with NaN or
         // infinity inputs), exceptional requests whose references differ in
         // token count, and words in which the references disagree on a request
@@ -1036,11 +1046,17 @@ fn family(request: &str) -> &str {
     request.split_whitespace().next().unwrap_or("")
 }
 
-/// A protocol token that is a 32-bit word encoding a binary32 NaN.
+/// A protocol token that is a floating-point word encoding a NaN: a 32-bit
+/// word (it parses as `u32`) encoding a binary32 NaN, or a 64-bit word (it
+/// parses as `u64` but not as `u32`) encoding a binary64 NaN. Every binary64
+/// NaN has a nonzero upper half, so no binary64 NaN is read as a 32-bit word.
 fn nan_word(token: &str) -> bool {
-    token
-        .parse::<u32>()
-        .is_ok_and(|bits| f32::from_bits(bits).is_nan())
+    match token.parse::<u32>() {
+        Ok(bits) => f32::from_bits(bits).is_nan(),
+        Err(_) => token
+            .parse::<u64>()
+            .is_ok_and(|bits| f64::from_bits(bits).is_nan()),
+    }
 }
 
 /// Whether a request carries a NaN or an infinity among its 32-bit word
@@ -1053,9 +1069,35 @@ fn exceptional_request(request: &str) -> bool {
     })
 }
 
-/// Tokens equal under D8: identical, or two NaN words.
+/// Tokens equal under D8: identical, or differing only in NaN words
+/// (`nan_payload_words`).
 fn token_eq(a: &str, b: &str) -> bool {
-    a == b || (nan_word(a) && nan_word(b))
+    a == b || nan_payload_words(a, b).is_some()
+}
+
+/// For two tokens that are equal under D8, the number of words in which they
+/// differ, all of them NaN on both sides, and how many of those are 64-bit
+/// words; `None` if the tokens differ in anything else. A token is one word
+/// or a comma-separated list of words: some protocols print the words of one
+/// object as a list (`qdc-chain` prints each channel as `dc,inv`). A list is
+/// compared word by word and both lists must have the same length, so a NaN
+/// against a number, two different numbers and a missing word still differ.
+fn nan_payload_words(a: &str, b: &str) -> Option<(usize, usize)> {
+    if a.split(',').count() != b.split(',').count() {
+        return None;
+    }
+    let (mut payloads, mut payloads64) = (0, 0);
+    for (x, y) in a.split(',').zip(b.split(',')) {
+        if x == y {
+            continue;
+        }
+        if !(nan_word(x) && nan_word(y)) {
+            return None;
+        }
+        payloads += 1;
+        payloads64 += usize::from(x.parse::<u32>().is_err());
+    }
+    Some((payloads, payloads64))
 }
 
 /// Per token of `pinned`, whether working rule O1 excludes it: the request
@@ -1071,14 +1113,17 @@ fn reference_mask(request: &str, pinned: &str, other: &str) -> Option<Vec<bool>>
     (a.len() == b.len()).then(|| a.iter().zip(&b).map(|(x, y)| !token_eq(x, y)).collect())
 }
 
-/// Decision D8 with working rule O1 (pending owner confirmation): does the
-/// port's observation `rust` match the pinned scalar reference's `cpp` for
-/// `request`?
+/// Decision D8 with rule O1 (confirmed by the owner on 2026-11-15, ADR-0041):
+/// does the port's observation `rust` match the pinned scalar reference's
+/// `cpp` for `request`?
 ///
 /// Contract: both lines must have the same whitespace-separated tokens, and
 /// every token must be identical, with exactly two exceptions. (1) Two tokens
-/// that are both 32-bit words encoding a binary32 NaN are equal, whatever
-/// their sign and payload. (2) If `request` carries a NaN or infinity word,
+/// that are both 32-bit words encoding a binary32 NaN, or both 64-bit words
+/// encoding a binary64 NaN, are equal, whatever their sign and payload
+/// (ADR-0041 section 3; `nan_word`); in a token that is a comma-separated
+/// list of words, this holds word by word (`nan_payload_words`).
+/// (2) If `request` carries a NaN or infinity word,
 /// a token position is not compared where the second scalar reference of the
 /// original (same sources at upstream's normal optimization level) disagrees
 /// with the pinned one after (1). Finite values, infinities and signed zeros
@@ -1106,13 +1151,15 @@ fn parity_eq(request: &str, rust: &str, cpp: &str) -> bool {
         .as_deref()
         .and_then(|other| reference_mask(request, cpp, other));
     let mut payloads = 0;
+    let mut payloads64 = 0;
     let mut excluded = 0;
     for (index, (x, y)) in a.iter().zip(&b).enumerate() {
         if x == y {
             continue;
         }
-        if nan_word(x) && nan_word(y) {
-            payloads += 1;
+        if let Some((words, words64)) = nan_payload_words(x, y) {
+            payloads += words;
+            payloads64 += words64;
         } else if mask.as_ref().is_some_and(|m| m[index]) {
             excluded += 1;
         } else {
@@ -1125,7 +1172,7 @@ fn parity_eq(request: &str, rust: &str, cpp: &str) -> bool {
         "O1 excluded a word of a request without NaN or infinity inputs: {request}"
     );
     log_parity(std::iter::once(format!(
-        "port {} nan_payload_words={payloads} excluded_differing_words={excluded}",
+        "port {} nan_payload_words={payloads} binary64={payloads64} excluded_differing_words={excluded}",
         family(request)
     )));
     true
@@ -1138,6 +1185,85 @@ fn assert_parity(request: &str, rust: &str, cpp: &str) {
         parity_eq(request, rust, cpp),
         "request: {request}\n  left (Rust): {rust}\n right (C++): {cpp}"
     );
+}
+
+/// D8 on the comparator's own words (ADR-0041 section 3, Validation: the
+/// comparison code is tested with such words). Two NaNs of the same width are
+/// equal whatever their sign, quiet bit and payload; a NaN against a number,
+/// two different numbers, and an infinity against a NaN still differ.
+#[test]
+fn comparator_equalizes_binary32_and_binary64_nan_words_only() {
+    let word32 = |bits: u32| bits.to_string();
+    let word64 = |bits: u64| bits.to_string();
+    for (a, b) in [
+        (word32(0x7fc0_0000), word32(0xffc1_2345)),
+        (word32(0x7f80_0001), word32(0x7fff_ffff)),
+        (word64(0x7ff8_fc00_0000_0000), word64(0x7ff8_d400_0000_0000)),
+        (word64(0x7ff0_0000_0000_0001), word64(0xfff8_0000_0000_0000)),
+    ] {
+        assert!(nan_word(&a) && nan_word(&b) && token_eq(&a, &b), "{a} {b}");
+    }
+    for (a, b) in [
+        (word32(0x7fc0_0000), word32(0x7f80_0000)),
+        (word32(0x3f80_0000), word32(0x3f80_0001)),
+        (word64(0x7ff8_0000_0000_0000), word64(0x7ff0_0000_0000_0000)),
+        (word64(0x7ff8_0000_0000_0000), word64(0x3ff0_0000_0000_0000)),
+        (word64(0x8000_0000_0000_0000), word64(0)),
+        (word64(0x3ff0_0000_0000_0000), word64(0x3ff0_0000_0000_0001)),
+    ] {
+        assert!(!token_eq(&a, &b), "{a} {b}");
+    }
+    // 2^32 is the smallest token read as a 64-bit word: a positive binary64
+    // subnormal, not a NaN, while u32::MAX is a binary32 NaN.
+    assert!(nan_word(&word32(u32::MAX)));
+    assert!(!nan_word(&word64(1 << 32)));
+    assert!(!nan_word("-1") && !nan_word("18446744073709551616") && !nan_word("nan"));
+    // A list of words is compared word by word. The first pair is the one the
+    // hosted x86-64 gate reported on 2026-11-17 (`qdc-chain`, a NaN scale):
+    // both DC words NaN on both sides, with the payload of the other operand.
+    for (a, b) in [
+        ("2143363909,2143363909", "2145530966,2145530966"),
+        ("964689920,2143363909", "964689920,2145530966"),
+        ("17,0,2143363909,0,0", "17,0,4290847573,0,0"),
+    ] {
+        assert!(token_eq(a, b), "{a} {b}");
+    }
+    for (a, b) in [
+        // A NaN against a number, and against an infinity.
+        ("2143363909,2143363909", "2145530966,1166016512"),
+        ("2143363909,2143363909", "2139095040,2145530966"),
+        // A number that differs beside a NaN pair.
+        ("964689920,2143363909", "964689921,2145530966"),
+        // Lists of different lengths, and a list against a word.
+        ("2143363909,2143363909", "2145530966"),
+        ("2143363909,2143363909", "2145530966,2145530966,2145530966"),
+        ("2143363909,", "2145530966"),
+        // Small integers never become equal.
+        ("17,0,0,0,0", "18,0,0,0,0"),
+    ] {
+        assert!(!token_eq(a, b), "{a} {b}");
+    }
+    assert_eq!(
+        nan_payload_words("2143363909,2143363909", "2145530966,2145530966"),
+        Some((2, 0))
+    );
+    assert_eq!(
+        nan_payload_words("5,9221120237041090560", "5,9221120237041090561"),
+        Some((1, 1))
+    );
+    if !strict_parity() {
+        let request = "comparator-self-test 0";
+        assert!(parity_eq(
+            request,
+            &format!("{} 5", word64(0x7ff8_fc00_0000_0000)),
+            &format!("{} 5", word64(0x7ff8_d400_0000_0000)),
+        ));
+        assert!(!parity_eq(
+            request,
+            &format!("{} 5", word64(0x7ff8_fc00_0000_0000)),
+            &format!("{} 5", word64(0x3ff0_0000_0000_0000)),
+        ));
+    }
 }
 
 /// Appends lines to `JXL_PARITY_LOG`, when set, for the per-family statistics.
