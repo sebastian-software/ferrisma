@@ -66,6 +66,21 @@ class Extraction(unittest.TestCase):
             "wp2::b_matches", "src/lib.rs - f (line 3)", "--test wp2_header", "test_deal (__main__.Deal)",
             "test_verify (__main__.Verify)", "test:wp13_tools: 4 tests selected, 3 reported"])
 
+    def test_the_lines_before_the_error(self):
+        log = ("2026-11-17T10:00:00.0000000Z ##[group]Run python3 tools/partition.py verify\n"
+               "2026-11-17T10:00:00.0000000Z python3 tools/partition.py verify\n"
+               "2026-11-17T10:00:00.0000000Z ##[endgroup]\n"
+               "2026-11-17T10:00:01.0000000Z darwin-arm64-asan-ubsan: partitions [3] of 3\n"
+               "2026-11-17T10:00:01.0000000Z ##[error]Process completed with exit code 1.\n"
+               "2026-11-17T10:00:02.0000000Z later\n")
+        self.assertEqual(report.error_context(log), ["python3 tools/partition.py verify",
+                                                     "darwin-arm64-asan-ubsan: partitions [3] of 3"])
+        self.assertEqual(report.error_context("no error here\n"), [])
+        api = FakeApi([job(1, "x / Oracle partitions complete", "failure")], logs={1: log})
+        actions = report.report(api, 5, None, "Nightly", dry_run=False, out=io.StringIO())
+        self.assertEqual(actions[0][3], [])
+        self.assertIn("darwin-arm64-asan-ubsan: partitions [3] of 3\n```", api.created[0][1])
+
     def test_a_green_log_names_nothing(self):
         self.assertEqual(report.failing_tests("test a ... ok\ntest result: ok. 1 passed; 0 failed;\n"), [])
 

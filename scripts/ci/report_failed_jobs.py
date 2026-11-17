@@ -14,7 +14,9 @@ names the job's log shows and the link to the job and the run.
 - Failing tests are read from the job log: libtest's `test NAME ... FAILED`,
   cargo's `error: test failed, to rerun pass ...`, unittest's
   `FAIL: test (case)` / `ERROR: ...`, and a partition's `N tests selected`
-  problems (tools/partition.py). A log that cannot be fetched (a cancelled
+  problems (tools/partition.py). Without them, the issue quotes the last
+  lines before the failing step's `##[error]` (a tool's own message, such
+  as a partition record problem). A log that cannot be fetched (a cancelled
   job may have none) is said so in the issue.
 - Open issues are matched by exact title through the REST API (all pages),
   not by search, so a new issue is not opened beside an unindexed one.
@@ -63,6 +65,18 @@ def failing_tests(log):
     return found
 
 
+def error_context(log, lines=6):
+    """The last lines before the first failing step's `##[error]` line."""
+    seen = []
+    for line in log.splitlines():
+        line = ANSI.sub("", TIMESTAMP.sub("", line)).rstrip()
+        if line.startswith("##[error]"):
+            return seen[-lines:]
+        if line and not line.startswith("##[") and not line.startswith("[command]"):
+            seen.append(line)
+    return []
+
+
 def failed_jobs(jobs, ignore=None):
     """The jobs to report: failed ones, aggregators only if nothing else failed."""
     failed = [job for job in jobs if job.get("conclusion") in FAILED and not (ignore and ignore.search(job["name"]))]
@@ -77,7 +91,7 @@ def title(tier, job, strip=""):
     return f"{tier}: {name} failed"
 
 
-def body(tier, job, run, tests, log_error):
+def body(tier, job, run, tests, log_error, context=()):
     lines = [
         f"The {tier.lower()} job **{job['name']}** ended with `{job['conclusion']}`.",
         "",
@@ -96,6 +110,8 @@ def body(tier, job, run, tests, log_error):
     else:
         lines.append("The log names no failing test (a build, setup or tool step failed, or the job was "
                      "cancelled); see the job link.")
+        if context:
+            lines += ["", "The last lines before the error:", "", "```", *context, "```"]
     lines += ["", "Opened by the failure report of engine ADR-0027 (amendment 2026-11-17, decision D5)."]
     return "\n".join(lines) + "\n"
 
@@ -149,13 +165,14 @@ def report(api, run_id, attempt, tier, dry_run, out=sys.stdout, ignore=None, str
         issues.setdefault(issue["title"], issue["number"])
     actions = []
     for job in jobs:
-        log_error = None
+        log_error, context = None, []
         try:
-            tests = failing_tests(api.log(job["id"]))
+            log = api.log(job["id"])
+            tests, context = failing_tests(log), error_context(log)
         except subprocess.CalledProcessError as error:
             tests, log_error = [], f"exit {error.returncode}"
         issue_title = title(tier, job, strip)
-        text = body(tier, job, run, tests, log_error)
+        text = body(tier, job, run, tests, log_error, context)
         number = issues.get(issue_title)
         action = ("comment", number) if number else ("create", None)
         actions.append((action[0], issue_title, number, tests))
