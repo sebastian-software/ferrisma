@@ -168,6 +168,18 @@ fn initialized_state_bytes_and_callbacks_match_actual_pinned_source() {
     eprintln!("Brotli source state checkpoints: {}", requests.len());
 }
 
+/// A file of the original's Brotli source, read when the oracle test runs
+/// (the upstream submodule is there only where the oracle is built; a
+/// compile-time include would make every --all-features build need it).
+#[cfg(feature = "cpp-oracle")]
+fn original_source(path: &str) -> String {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("upstream/libjxl/third_party/brotli")
+        .join(path);
+    std::fs::read_to_string(&path)
+        .unwrap_or_else(|error| panic!("the original's {}: {error}", path.display()))
+}
+
 /// The packed flag word of c/dec/state.h (`BrotliDecoderStateStruct`): the
 /// consecutive `unsigned int name : width;` members from `is_last_metablock`
 /// to `size_nibbles`, as `(name, shift, width)`. Clang and GCC allocate them
@@ -175,7 +187,7 @@ fn initialized_state_bytes_and_callbacks_match_actual_pinned_source() {
 /// x86-64, as the port's `BitfieldWord` shifts do.
 #[cfg(feature = "cpp-oracle")]
 fn original_flag_fields() -> Vec<(String, u32, u32)> {
-    let header = include_str!("../upstream/libjxl/third_party/brotli/c/dec/state.h");
+    let header = original_source("c/dec/state.h");
     let start = header
         .find("unsigned int is_last_metablock : 1;")
         .expect("the original's flag bitfield");
@@ -201,7 +213,7 @@ fn original_flag_fields() -> Vec<(String, u32, u32)> {
 /// every `s->name = ` statement in its body for a field of the word.
 #[cfg(feature = "cpp-oracle")]
 fn fields_assigned_by_state_init(fields: &[(String, u32, u32)]) -> Vec<String> {
-    let source = include_str!("../upstream/libjxl/third_party/brotli/c/dec/state.c");
+    let source = original_source("c/dec/state.c");
     let start = source
         .find("BROTLI_BOOL BrotliDecoderStateInit(")
         .expect("the original's StateInit");
