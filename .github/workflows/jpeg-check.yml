@@ -65,15 +65,28 @@ jobs:
       run:
         working-directory: codecs/libjpeg-turbo-rs
   oracle:
-    name: 'JPEG: Oracle (${{ matrix.os }})'
+    name: 'JPEG: Oracle (${{ matrix.os }}, ${{ matrix.shard }}/${{ matrix.of }})'
+    # The nightly tier allows 60 minutes per job (engine ADR-0027, amendment
+    # 2026-11-17); the macOS job took 107 minutes in nightly 44066960183, 94
+    # of them in the asan-ubsan tests. Its tests run in three disjoint
+    # partitions (tools/check.py --partition, tools/partition.py), the
+    # upstream suite and the in-scope bit tests in the last one;
+    # oracle-complete checks that the partitions ran every test.
     strategy:
       fail-fast: false
-      max-parallel: 2
+      max-parallel: 4
       matrix:
-        os:
-        - ubuntu-latest
-        - macos-latest
+        include:
+        - {os: ubuntu-latest, shard: 1, of: 1}
+        - {os: macos-latest, shard: 1, of: 3}
+        - {os: macos-latest, shard: 2, of: 3}
+        - {os: macos-latest, shard: 3, of: 3}
     runs-on: ${{ matrix.os }}
+    # Hosted runners differ in speed by up to about two times; the limit
+    # stops a hung test, the partitions keep the job inside the budget.
+    timeout-minutes: 120
+    env:
+      PARTITION: ${{ matrix.shard }}/${{ matrix.of }}
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
@@ -92,27 +105,57 @@ jobs:
     - name: Fetch and verify the compliance data
       run: python3 tools/fetch_t83.py
     - name: Upstream's whole test suite against both oracles
+      if: matrix.shard == matrix.of
       run: |
         python3 tools/bittests.py --run --all --variant release --jobs 4
         python3 tools/bittests.py --run --all --variant asan-ubsan --jobs 4
-    - name: In-scope bit tests and differential tests against the release oracle
-      run: python3 tools/check.py --stage test --oracle-variant release
-    - name: In-scope bit tests and differential tests against the asan-ubsan oracle
-      run: python3 tools/check.py --stage test --oracle-variant asan-ubsan
+    - name: In-scope bit tests and differential tests against the release oracle, one partition
+      run: python3 tools/check.py --stage test --oracle-variant release --partition "$PARTITION"
+    - name: In-scope bit tests and differential tests against the asan-ubsan oracle, one partition
+      run: python3 tools/check.py --stage test --oracle-variant asan-ubsan --partition "$PARTITION"
     - name: Keep the oracle records
       if: ${{ !cancelled() }}
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
       with:
-        name: jpeg-oracle-${{ matrix.os }}
+        name: jpeg-oracle-${{ matrix.os }}-${{ matrix.shard }}
         path: |
           codecs/libjpeg-turbo-rs/build/oracle/*/oracle.json
           codecs/libjpeg-turbo-rs/build/oracle/*/bittests-result.json
           codecs/libjpeg-turbo-rs/build/t83/t83.json
         if-no-files-found: error
         retention-days: 30
+    - name: Keep the partition record
+      if: ${{ !cancelled() }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: jpeg-partitions-${{ matrix.os }}-${{ matrix.shard }}
+        path: codecs/libjpeg-turbo-rs/build/partitions/
+        if-no-files-found: error
+        retention-days: 30
     defaults:
       run:
         working-directory: codecs/libjpeg-turbo-rs
+  oracle-complete:
+    name: 'JPEG: Oracle partitions complete'
+    # Fail closed: every partition of every oracle group ran, on one commit,
+    # and together they selected each listed test exactly once. EXPECTED
+    # names the groups of the matrix above, so a dropped row fails too.
+    if: ${{ !cancelled() }}
+    needs: oracle
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+        sparse-checkout: codecs/libjpeg-turbo-rs/tools
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        pattern: jpeg-partitions-*
+        path: ${{ runner.temp }}/partitions
+    - name: Verify the partition records
+      env:
+        EXPECTED: linux-x86_64-release,linux-x86_64-asan-ubsan,darwin-arm64-release,darwin-arm64-asan-ubsan
+      run: python3 -I codecs/libjpeg-turbo-rs/tools/partition.py verify --expect "$EXPECTED" "$RUNNER_TEMP/partitions"
   simd:
     name: 'JPEG: SIMD oracle (${{ matrix.os }})'
     strategy:
@@ -207,6 +250,7 @@ jobs:
     - checks
     - msrv
     - oracle
+    - oracle-complete
     - simd
     - bench
     runs-on: ubuntu-latest

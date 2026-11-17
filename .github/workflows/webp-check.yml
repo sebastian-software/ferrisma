@@ -53,38 +53,70 @@ jobs:
       run:
         working-directory: codecs/libwebp-rs
   oracle:
-    name: 'WEBP: Oracle (${{ matrix.os }})'
+    name: 'WEBP: Oracle (${{ matrix.os }}, ${{ matrix.variant }}, ${{ matrix.shard }}/${{ matrix.of }})'
+    # The nightly tier allows 60 minutes per job (engine ADR-0027, amendment
+    # 2026-11-17). One job per OS took 163 (Linux) and 218 (macOS) minutes in
+    # nightly 44066960183, so each oracle variant runs in its own jobs, and
+    # its tests in disjoint partitions (tools/check.py --partition,
+    # tools/partition.py); oracle-complete checks that the partitions ran
+    # every test. Each variant's baseline runs in its last partition. The
+    # partition counts follow the measured step times (asan-ubsan 125 min on
+    # macOS, release-simd's three levels 66 min on Linux) and leave room for
+    # a Linux runner 1.8 times slower (nightly 43840953408: 295 minutes for
+    # the same job). More jobs at a time than the other families: at two, the
+    # shards would only queue.
     strategy:
       fail-fast: false
-      max-parallel: 2
+      max-parallel: 4
       matrix:
-        os:
-        - ubuntu-latest
-        - macos-latest
+        include:
+        - {os: ubuntu-latest, variant: release, shard: 1, of: 2}
+        - {os: ubuntu-latest, variant: release, shard: 2, of: 2}
+        - {os: ubuntu-latest, variant: asan-ubsan, shard: 1, of: 2}
+        - {os: ubuntu-latest, variant: asan-ubsan, shard: 2, of: 2}
+        - {os: ubuntu-latest, variant: release-simd, shard: 1, of: 3}
+        - {os: ubuntu-latest, variant: release-simd, shard: 2, of: 3}
+        - {os: ubuntu-latest, variant: release-simd, shard: 3, of: 3}
+        - {os: ubuntu-latest, variant: debug, shard: 1, of: 1}
+        - {os: macos-latest, variant: release, shard: 1, of: 2}
+        - {os: macos-latest, variant: release, shard: 2, of: 2}
+        - {os: macos-latest, variant: asan-ubsan, shard: 1, of: 4}
+        - {os: macos-latest, variant: asan-ubsan, shard: 2, of: 4}
+        - {os: macos-latest, variant: asan-ubsan, shard: 3, of: 4}
+        - {os: macos-latest, variant: asan-ubsan, shard: 4, of: 4}
+        - {os: macos-latest, variant: release-simd, shard: 1, of: 2}
+        - {os: macos-latest, variant: release-simd, shard: 2, of: 2}
+        - {os: macos-latest, variant: debug, shard: 1, of: 1}
     runs-on: ${{ matrix.os }}
+    # Hosted runners differ in speed by up to about two times; the limit
+    # stops a hung test, the partitions keep the job inside the budget.
+    timeout-minutes: 120
+    env:
+      VARIANT: ${{ matrix.variant }}
+      PARTITION: ${{ matrix.shard }}/${{ matrix.of }}
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
         persist-credentials: false
     - uses: ./codecs/libwebp-rs/.github/actions/prepare
-    - name: Build the release, asan-ubsan and debug oracles
-      run: python3 tools/build_oracle.py --variant all
-    - name: Differential tests and baseline against the release oracle
-      run: python3 tools/check.py --stage test --oracle-variant release --baseline
-    - name: Differential tests and baseline against the asan-ubsan oracle
-      run: python3 tools/check.py --stage test --oracle-variant asan-ubsan --baseline
-    - name: Differential tests of the scalar build against the release oracle
-      if: matrix.os == 'ubuntu-latest'
-      run: python3 tools/check.py --stage test --oracle-variant release --no-simd
-    - name: Differential tests of the SIMD build against the release-simd oracle per level
-      run: python3 tools/check.py --stage test --oracle-variant release-simd
+    - name: Build the oracle variant
+      run: python3 tools/build_oracle.py --variant "$VARIANT"
+    - name: Differential tests and baseline against the oracle variant, one partition
+      # release-simd runs once per SIMD level of the runner (tools/check.py);
+      # --baseline applies to the scalar variants only.
+      if: matrix.variant != 'debug'
+      run: python3 tools/check.py --stage test --oracle-variant "$VARIANT" --baseline --partition "$PARTITION"
+    - name: Differential tests of the scalar build against the release oracle, one partition
+      if: matrix.os == 'ubuntu-latest' && matrix.variant == 'release'
+      run: python3 tools/check.py --stage test --oracle-variant release --no-simd --partition "$PARTITION"
     - name: Baseline of the debug oracle
+      if: matrix.variant == 'debug'
       run: python3 tools/oracle_baseline.py --variant debug
     - name: Keep the oracle and baseline records
       if: ${{ !cancelled() }}
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
       with:
-        name: webp-oracle-${{ matrix.os }}
+        name: webp-oracle-${{ matrix.os }}-${{ matrix.variant }}-${{ matrix.shard }}
         path: |
           codecs/libwebp-rs/build/oracle/*/oracle.json
           codecs/libwebp-rs/build/oracle/*/upstream-flags.txt
@@ -92,9 +124,40 @@ jobs:
           codecs/libwebp-rs/build/oracle/*/baseline/*.log
         if-no-files-found: error
         retention-days: 30
+    - name: Keep the partition record
+      if: ${{ !cancelled() && matrix.variant != 'debug' }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: webp-partitions-${{ matrix.os }}-${{ matrix.variant }}-${{ matrix.shard }}
+        path: codecs/libwebp-rs/build/partitions/
+        if-no-files-found: error
+        retention-days: 30
     defaults:
       run:
         working-directory: codecs/libwebp-rs
+  oracle-complete:
+    name: 'WEBP: Oracle partitions complete'
+    # Fail closed: every partition of every oracle group ran, on one commit,
+    # and together they selected each listed test exactly once. EXPECTED
+    # names the groups of the matrix above, so a dropped row fails too.
+    if: ${{ !cancelled() }}
+    needs: oracle
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+        sparse-checkout: codecs/libwebp-rs/tools
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        pattern: webp-partitions-*
+        path: ${{ runner.temp }}/partitions
+    - name: Verify the partition records
+      env:
+        EXPECTED: >-
+          linux-x86_64-release,linux-x86_64-release-no-simd,linux-x86_64-asan-ubsan,linux-x86_64-release-simd,
+          darwin-arm64-release,darwin-arm64-asan-ubsan,darwin-arm64-release-simd
+      run: python3 -I codecs/libwebp-rs/tools/partition.py verify --expect "$EXPECTED" "$RUNNER_TEMP/partitions"
   bench:
     name: 'WEBP: Bench (ubuntu)'
     runs-on: ubuntu-latest
@@ -119,6 +182,7 @@ jobs:
     - checks
     - msrv
     - oracle
+    - oracle-complete
     runs-on: ubuntu-latest
     steps:
     - name: Require every job to pass
