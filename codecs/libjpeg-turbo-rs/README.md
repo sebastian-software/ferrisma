@@ -85,7 +85,14 @@ The differential tests need the C oracle, which needs CMake and a C compiler:
 python3 tools/build_oracle.py          # build/oracle/release
 python3 tools/fetch_t83.py             # build/t83, the ISO/IEC 10918-2 data
 python3 tools/check.py --oracle        # all checks, bit tests and oracle tests
+python3 tools/check.py --stage test --oracle-variant asan-ubsan --partition 2/3   # one share, as a nightly job runs it
 ```
+
+`--partition K/N` runs the K-th of N disjoint shares of every `cargo test`
+invocation's tests ([tools/partition.py](tools/partition.py)); the hosted
+nightly runs the macOS asan-ubsan tests in three, and
+`python3 tools/partition.py verify build/partitions` checks that a set of
+shares ran every test exactly once.
 
 [AGENTS.md](AGENTS.md) has the rules for working on the port.
 

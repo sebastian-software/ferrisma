@@ -36,6 +36,14 @@ and skip otherwise.
 --arch x86_64 checks the x86-64 build on an ARM64 Mac through Rosetta 2: Cargo
 builds for x86_64-apple-darwin, the oracle is tools/build_oracle.py's
 --arch x86_64 variant, and ROSETTA_ADVERTISE_AVX=1 lets Rosetta report AVX2.
+
+--partition K/N runs only the K-th of N disjoint shares of the tests in every
+`cargo test` invocation (tools/partition.py), so that the hosted oracle jobs
+stay within the nightly tier's 60 minutes per job (engine ADR-0027, amendment
+2026-11-17); the N partitions together run every test once, and each writes a
+record under build/partitions/ that `tools/partition.py verify` checks for
+completeness. The in-scope bit tests (tools/bittests.py --check --run) run in
+the last partition only.
 """
 
 import argparse
@@ -51,6 +59,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import build_oracle  # noqa: E402
 import fetch_t83  # noqa: E402
+import partition  # noqa: E402
 import pools  # noqa: E402
 import units  # noqa: E402
 
@@ -64,6 +73,35 @@ SIMD_MODES = {
                ("none", {"JSIMD_FORCENONE": "1"})],
 }
 SIMD_VARIABLES = ["JSIMD_FORCENONE", "JSIMD_FORCESSE2", "LIBJPEG_EXPECT_SIMD"]
+# The slowest tests of the hosted oracle jobs (nightly 44066960183,
+# 2026-11-17, macOS with the asan-ubsan oracle), slowest first. --partition
+# deals them out before the other tests, so that no partition gets several of
+# them; the list only orders the deal, and a name that no test has any more
+# fails the stage (tools/partition.py).
+HEAVY_TESTS = [
+    "test:wp2_header::truncations_match_the_oracle",
+    "test:wp2_header::mutations_match_the_oracle",
+    "test:wp6_api::skips_near_the_end_match_the_oracle",
+    "test:wp9_simd::widths_and_samplings_match_the_oracle",
+    "test:wp4_coefidct::mutations_match_the_oracle",
+    "test:wp6_api::skips_match_the_oracle",
+    "test:wp4_coefidct::unneeded_components_and_cropping_match_the_oracle",
+    "test:wp4_coefidct::truncations_match_the_oracle",
+    "test:wp6_api::test_images_match_the_oracle",
+    "test:wp3_entropy::mutations_match_the_oracle",
+    "test:wp6_api::suspension_matches_the_oracle",
+    "test:wp5_decode::scaling_and_sampling_match_the_oracle",
+    "test:wp6_api::scales_match_the_oracle",
+    "test:wp4_coefidct::scaled_sizes_match_the_oracle",
+    "test:wp5_decode::damaged_streams_match_the_oracle",
+    "test:wp5_decode::test_images_match_the_oracle",
+    "test:wp5_decode::suspension_matches_the_oracle",
+    "test:wp5_decode::rows_per_call_match_the_oracle",
+    "test:wp2_header::marker_streams_match_the_oracle",
+    "test:wp6_api::raw_data_matches_the_oracle",
+    "test:wp3_entropy::truncations_match_the_oracle",
+    "test:wp8_decode::scales_match_the_oracle",
+]
 
 
 def run(*args, env=None):
@@ -145,6 +183,7 @@ def check_static(msrv, arch):
     check_pools()
     check_docs()
     target = cargo_target(arch)
+    run(sys.executable, "-I", ROOT / "tools/partition_test.py")
     run("cargo", "fmt", "-p", "libjpeg-turbo-rs", "--", "--check")
     run("cargo", f"+{lint_toolchain()}", "clippy", *CARGO, *target, "--all-targets", "--all-features", "--", "-D",
         "warnings")
@@ -155,7 +194,7 @@ def check_static(msrv, arch):
             "--all-features")
 
 
-def check_tests(oracle_variant, msrv, arch):
+def check_tests(oracle_variant, msrv, arch, part=None):
     env = dict(os.environ)
     for name in SIMD_VARIABLES:
         env.pop(name, None)
@@ -164,12 +203,17 @@ def check_tests(oracle_variant, msrv, arch):
         env["ROSETTA_ADVERTISE_AVX"] = "1"
     features = []
     modes = [(None, env)]
+    shard = None
+    if part is not None:
+        group = (oracle_variant or "no-oracle") + (f"-{arch}" if arch else "")
+        shard = partition.Partition(*part, HEAVY_TESTS, ROOT, group)
     if oracle_variant:
         jobs = str(os.cpu_count() or 4)
         directory = build_oracle.build(oracle_variant, jobs, fresh=False, arch=arch)
-        run(sys.executable, ROOT / "tools/bittests.py", "--check", "--run",
-            "--variant", oracle_variant, "--jobs", jobs,
-            *(["--arch", arch] if arch is not None else []), env=env)
+        if shard is None or shard.index == shard.count:
+            run(sys.executable, ROOT / "tools/bittests.py", "--check", "--run",
+                "--variant", oracle_variant, "--jobs", jobs,
+                *(["--arch", arch] if arch is not None else []), env=env)
         env["LIBJPEG_ORACLE_DIR"] = str(directory)
         env["LIBJPEG_T83_DIR"] = str(fetch_t83.fetch(fetch_t83.DEFAULT_DIR))
         if build_oracle.VARIANTS[oracle_variant]["simd"]:
@@ -181,18 +225,39 @@ def check_tests(oracle_variant, msrv, arch):
     else:
         env.pop("LIBJPEG_ORACLE_DIR", None)
         env.pop("LIBJPEG_T83_DIR", None)
+    problems = []
+
+    def test(label, cargo_args, run_env):
+        if shard is None:
+            run("cargo", "test", *cargo_args, env=run_env)
+        else:
+            problems.extend(shard.test(label, cargo_args, run_env))
+
     for expected, mode in modes:
+        settings = []
         if expected is not None:
             settings = [f"{name}={mode[name]}" for name in SIMD_VARIABLES if name in mode]
             print("+ SIMD mode: " + " ".join(settings), flush=True)
         for profile in PROFILES:
-            run("cargo", "test", *CARGO, *target, *profile, *features, env=mode)
+            label = ", ".join([*settings, " ".join(profile) or "dev profile"])
+            test(label, [*CARGO, *target, *profile, *features], mode)
     if not oracle_variant:
-        run("cargo", "test", *CARGO, *target, "--no-default-features", env=env)
+        test("no default features, dev profile", [*CARGO, *target, "--no-default-features"], env)
+    if shard is not None:
+        shard.check_heavy()
+        if problems:
+            raise SystemExit("Partition failed:\n" + "\n".join(problems))
     if msrv:
         toolchain = f"+{rust_version()}"
         run("cargo", toolchain, "build", *CARGO, *target, "--all-targets", *features)
         run("cargo", toolchain, "test", *CARGO, *target, *features, env=modes[0][1])
+
+
+def partition_argument(value):
+    try:
+        return partition.parse(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(str(error)) from None
 
 
 def main():
@@ -207,7 +272,12 @@ def main():
                         help="also build and test with the toolchain named by rust-version")
     parser.add_argument("--arch", choices=list(build_oracle.CROSS_ARCHES),
                         help="check this architecture on an ARM64 Mac (Rosetta 2)")
+    parser.add_argument("--partition", type=partition_argument, metavar="K/N",
+                        help="test stage: run only the K-th of N disjoint shares of the tests "
+                             "(tools/partition.py)")
     args = parser.parse_args()
+    if args.partition is not None and (args.msrv or args.stage != "test"):
+        parser.error("--partition applies to --stage test without --msrv")
     oracle_variant = None
     if args.oracle or args.oracle_variant:
         oracle_variant = args.oracle_variant or "release"
@@ -217,7 +287,7 @@ def main():
         check_upstream()
         check_skeleton()
     if args.stage in ("all", "test"):
-        check_tests(oracle_variant, args.msrv, args.arch)
+        check_tests(oracle_variant, args.msrv, args.arch, args.partition)
     run("git", "diff", "--check")
     run("git", "diff", "--cached", "--check")
 
