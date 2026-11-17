@@ -299,3 +299,32 @@ pub fn transpose_8x8h_mov(v: &mut V, r: [usize; 8], t8: usize, t9: usize, o: [us
 pub fn transpose_8x8h(v: &mut V, r: [usize; 8], t8: usize, t9: usize) {
     transpose_8x8h_mov(v, r, t8, t9, r);
 }
+
+/// `trn1 vd.2d, vn.2d, vm.2d` / `trn2` on the 32-bit view: used by
+/// `transpose_4x4s`.
+#[inline(always)]
+fn trn_2d<const HI: bool>(a: int16x8_t, b: int16x8_t) -> int16x8_t {
+    // SAFETY: NEON value intrinsics; NEON is baseline on AArch64.
+    unsafe {
+        let (a, b) = (vreinterpretq_s64_s16(a), vreinterpretq_s64_s16(b));
+        vreinterpretq_s16_s64(if HI { vtrn2q_s64(a, b) } else { vtrn1q_s64(a, b) })
+    }
+}
+
+/// `transpose_4x4s r0, r1, r2, r3, t4, t5, t6, t7` (util.S)
+#[inline(always)]
+pub fn transpose_4x4s(v: &mut V, r: [usize; 4], t: [usize; 4]) {
+    let [r0, r1, r2, r3] = r;
+    let [t4, t5, t6, t7] = t;
+    // SAFETY: NEON value intrinsics; NEON is baseline on AArch64.
+    unsafe {
+        v[t4] = h32(vtrn1q_s32(s32(v[r0]), s32(v[r1])));
+        v[t5] = h32(vtrn2q_s32(s32(v[r0]), s32(v[r1])));
+        v[t6] = h32(vtrn1q_s32(s32(v[r2]), s32(v[r3])));
+        v[t7] = h32(vtrn2q_s32(s32(v[r2]), s32(v[r3])));
+    }
+    v[r0] = trn_2d::<false>(v[t4], v[t6]);
+    v[r2] = trn_2d::<true>(v[t4], v[t6]);
+    v[r1] = trn_2d::<false>(v[t5], v[t7]);
+    v[r3] = trn_2d::<true>(v[t5], v[t7]);
+}

@@ -562,7 +562,7 @@ fn iadst_16<const Q: bool>(v: &V) -> [int16x8_t; 16] {
 
 /// The kind of a 1-D transform an entry point loads into `x4`/`x5`.
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum K {
+pub(super) enum K {
     Dct,
     Adst,
     Flip,
@@ -572,7 +572,7 @@ enum K {
 /// `blr` to `inv_<k>_8h_x<n>_neon` (`Q`) or `inv_<k>_4h_x<n>_neon` on
 /// v16 onwards.
 #[inline(always)]
-fn call<const Q: bool>(k: K, n: usize, v: &mut V) {
+pub(super) fn call<const Q: bool>(k: K, n: usize, v: &mut V) {
     match (k, n) {
         (K::Dct, 4) => idct_4::<Q>(v, 16, 17, 18, 19),
         (K::Dct, 8) => idct_8::<Q>(v, [16, 17, 18, 19, 20, 21, 22, 23]),
@@ -1277,7 +1277,7 @@ const C32B: [i16; 8] = [995, 3973, 3513, 2106, 2440, 3290, 4052, 601];
 /// `inv_dct32_odd_8h_x16_neon` on v16–v31 (the odd inputs of a 32-point
 /// DCT); the outputs replace the inputs as in the assembly.
 #[inline(always)]
-fn idct32_odd(v: &mut V) {
+pub(super) fn idct32_odd(v: &mut V) {
     let a = |k: usize, v: &V| v[k];
     let (p, q) = (C32A, C32B);
     let m = |s0, s1, c0, c1, sub: bool| {
@@ -1964,7 +1964,7 @@ unsafe fn dct64_step2(x6: *mut i16) {
 /// eight columns of `x7` (32 rows, `x8` values apart; the upper 32 inputs
 /// are zero) into 64 vectors at `sp` (the assembly's stack scratch).
 #[inline(always)]
-unsafe fn dct_8h_x64<const CLEAR: bool, const SCALE: bool>(v: &mut V, sp: *mut i16, x7: Coef, x8: usize) {
+pub(super) unsafe fn dct_8h_x64<const CLEAR: bool, const SCALE: bool>(v: &mut V, sp: *mut i16, x7: Coef, x8: usize) {
     let x8_4 = 4 * x8;
     // load8 x7, x8 (rows 0, 4, … 28); clear_upper8
     for i in 0..8 {

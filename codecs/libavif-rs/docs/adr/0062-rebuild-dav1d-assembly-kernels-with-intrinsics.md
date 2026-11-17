@@ -328,6 +328,60 @@ per decode: 8-bit 4:2:0 1.35 G (from 1.44), 8-bit 4:4:4 1.78 G (1.87),
 4:4:4 3.69 G (3.75), lossless 8-bit 4:4:4 10.81 G (11.70); pictures
 unchanged.
 
+**2026-11-16/17, inverse transforms 16 bpc on NEON** (`itx16.S`: all 156
+entry points of `itx_dsp_init_arm` at 16 bpc, `simd/arm64/itx16.rs`; the
+second pass reuses the 16-bit transforms of `itx.rs` as the assembly
+reuses those of `itx.S`; `dispatch.txt`: `itx_16bpc_arm`). As in the
+original, the init assigns WHT at every bit depth and the rest only at
+10 bit (`bpc != 10` returns), and sets `all_simd` only then. Gates:
+per-kernel 17 groups, 3,155 selections each at `neon` and scalar (the
+`itx_16bpc.add_tx4` … `add_tx64` groups now compare the original's
+assembly with the rebuilt kernels at 10 bit); whole images 994 of 994 at
+`neon` and at `scalar`; `run_dav1d_tests.py` 1,711 of 1,711; ABI 12,157
+checks, 0 differences; API 83, linkage, dispatch `--check` and its unit
+test pass; the init's selection test checks 10 bit (rebuilt), 12 bit
+(WHT only) and mask 0 (C). Positive control: the idct4 coefficient 1567
+of the 32-bit first pass set to 1568 fails all five `itx_16bpc` groups and
+the 10-bit whole-image gate (767 of 989 decodes identical). Instructions
+per call against the assembly (`measure_dav1d_kernels.py --family itx16`,
+new 16 bpc mode of `dav1d-kernel-bench.c`: 32-bit coefficients, 10-bit
+pixels; largest codable eob and the DC-only path, identical outputs):
+0.85 to 1.29 over 175 kernel/path pairs, median 1.12; none above 1.3. The
+highest are the ADST/flipADST combinations of 4x16 and 8x16 (1.26 to
+1.29), as at 8 bpc register spills of the 16-point ADST.
+
+The deviations stated in the module doc, and their effect on the
+instruction count: (a) the `load_add_store*` macros run row by row
+instead of interleaving four rows: the same instructions per row, only
+their order differs, no effect on the count; done because the per-row
+form reads against the macro body. (b) `idct_dc_w*` first loaded and
+stored each row with one instruction per register, where the assembly
+uses one multi-register `ld1`/`st1`; that put the DC-only paths of 32x32,
+32x64 and 64x32 at 1.32 to 1.55. They now use `vld1q_s16_x2`/`_x4`, and
+the 32- and 64-point dct_dct entry points call their coefficient path as a
+separate function after the DC test, as the assembly sets up its stack
+frame only after the `idct_dc` macro (one Rust function saved ten
+registers and probed a 3 KiB frame before the test): the DC-only paths
+are now 0.90 to 1.18. (c) The stack buffers are zero-initialized local
+arrays: a `memset` per call on the full paths (the assembly leaves them
+uninitialized; every element is written before it is read); it counts
+against the port in the figures above and was kept so that no
+uninitialized memory is read through a reference. (d) Pointer updates
+that step past the block (post-increments after the last row, the
+64-point first pass pointing `x9` past the coefficients) use wrapping
+arithmetic or element offsets, so that no out-of-bounds pointer is formed
+with `add`; no instruction difference.
+
+Instructions per decode, from now on without the profiling harness's
+luma hash (`--no-hash`; it cost 6 instructions per byte: 0.073 G at 8 bit,
+0.146 G at 10 bit), stock dav1d with NEON on the same basis (the second and
+third decode of a stream minus the first, `--cpumask neon`, null muxer) in
+brackets; "before" is the msac entry's figure minus the hash: 10-bit 4:2:0
+1.51 G (before 2.57; 1.13), 10-bit 4:4:4 2.08 G (3.54; 1.31); unchanged:
+8-bit 4:2:0 1.28 G (0.96), 8-bit 4:4:4 1.71 G (1.09), 8-bit 4:2:0 with
+alpha 1.39 G (0.96, color only), lossless 8-bit 4:4:4 10.72 G (9.14);
+pictures unchanged.
+
 ## Review when
 
 A family is completed on a target; the x86-64 AVX2 kernels arrive; the owner
@@ -336,6 +390,7 @@ engine's decoder choice changes.
 
 ## Amendment log
 
+- 2026-11-17 — inverse transforms 16 bpc on NEON (validation above).
 - 2026-11-16 — msac selected at compile time; portable build configuration for the scalar gate (decision and validation above).
 - 2026-11-16 — loop filter 16 bpc on NEON (validation above).
 - 2026-11-16 — loop filter 8 bpc on NEON (validation above).
