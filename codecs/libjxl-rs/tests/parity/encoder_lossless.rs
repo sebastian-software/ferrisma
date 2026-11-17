@@ -357,8 +357,8 @@ fn public_encoder_lossless_chunked_frame_matches_original() {
             }
         }
     }
-    let originals = super::super::original_observations(&requests);
-    for (request, cpp) in requests.iter().zip(&originals) {
+    let originals = super::original_runs_and_probes(&requests);
+    for (request, cpp) in requests.iter().zip(&originals.runs) {
         assert!(
             cpp.contains(" c:0;"),
             "the original accepts the chunked frame: {request}"

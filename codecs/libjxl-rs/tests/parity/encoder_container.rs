@@ -468,36 +468,49 @@ fn output_mode_2_gate_histories(size: (usize, usize)) -> Vec<String> {
     requests
 }
 
-fn output_mode_2_gate(size: (usize, usize)) {
+/// One part of the output-mode-2 gate of one size: the histories `part` of
+/// [`output_mode_2_gate_histories`] (eight per size, four at 4000x3000).
+/// One test per size at 768 and 1024, per pair at 2048x1536 and 2049x2049,
+/// and per history at 4000x3000: together the same histories as one test
+/// over all sizes, in parts that the check's partitions spread over shards.
+fn output_mode_2_gate_part(family: &str, size: (usize, usize), part: std::ops::Range<usize>) {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
     jxl::jxl::hwy::select_scalar_encoder_for_test();
-    let family = format!("output-mode-2-gate-{}x{}", size.0, size.1);
-    super::compare_gate(&family, output_mode_2_gate_histories(size));
+    let histories = output_mode_2_gate_histories(size);
+    assert_eq!(
+        histories.len(),
+        if size.0 == 4000 { 4 } else { 8 },
+        "the gate's histories per size"
+    );
+    super::compare_gate(family, histories[part].to_vec());
 }
 
-#[test]
-fn public_encoder_output_mode_2_gate_768_matches_original() {
-    output_mode_2_gate((768, 768));
+macro_rules! output_mode_2_gate_parts {
+    ($($name:ident: $family:literal, $size:expr, $part:expr;)*) => {
+        $(
+            #[test]
+            fn $name() {
+                output_mode_2_gate_part($family, $size, $part);
+            }
+        )*
+    };
 }
 
-#[test]
-fn public_encoder_output_mode_2_gate_1024_matches_original() {
-    output_mode_2_gate((1024, 1024));
-}
-
-#[test]
-fn public_encoder_output_mode_2_gate_2048x1536_matches_original() {
-    output_mode_2_gate((2048, 1536));
-}
-
-#[test]
-fn public_encoder_output_mode_2_gate_2049_matches_original() {
-    output_mode_2_gate((2049, 2049));
-}
-
-#[test]
-fn public_encoder_output_mode_2_gate_4000x3000_matches_original() {
-    output_mode_2_gate((4000, 3000));
+output_mode_2_gate_parts! {
+    public_encoder_output_mode_2_gate_768_matches_original: "output-mode-2-gate-768x768", (768, 768), 0..8;
+    public_encoder_output_mode_2_gate_1024_matches_original: "output-mode-2-gate-1024x1024", (1024, 1024), 0..8;
+    public_encoder_output_mode_2_gate_2048x1536_h0_h1_matches_original: "output-mode-2-gate-2048x1536-h0-h1", (2048, 1536), 0..2;
+    public_encoder_output_mode_2_gate_2048x1536_h2_h3_matches_original: "output-mode-2-gate-2048x1536-h2-h3", (2048, 1536), 2..4;
+    public_encoder_output_mode_2_gate_2048x1536_h4_h5_matches_original: "output-mode-2-gate-2048x1536-h4-h5", (2048, 1536), 4..6;
+    public_encoder_output_mode_2_gate_2048x1536_h6_h7_matches_original: "output-mode-2-gate-2048x1536-h6-h7", (2048, 1536), 6..8;
+    public_encoder_output_mode_2_gate_2049_h0_h1_matches_original: "output-mode-2-gate-2049x2049-h0-h1", (2049, 2049), 0..2;
+    public_encoder_output_mode_2_gate_2049_h2_h3_matches_original: "output-mode-2-gate-2049x2049-h2-h3", (2049, 2049), 2..4;
+    public_encoder_output_mode_2_gate_2049_h4_h5_matches_original: "output-mode-2-gate-2049x2049-h4-h5", (2049, 2049), 4..6;
+    public_encoder_output_mode_2_gate_2049_h6_h7_matches_original: "output-mode-2-gate-2049x2049-h6-h7", (2049, 2049), 6..8;
+    public_encoder_output_mode_2_gate_4000x3000_h0_matches_original: "output-mode-2-gate-4000x3000-h0", (4000, 3000), 0..1;
+    public_encoder_output_mode_2_gate_4000x3000_h1_matches_original: "output-mode-2-gate-4000x3000-h1", (4000, 3000), 1..2;
+    public_encoder_output_mode_2_gate_4000x3000_h2_matches_original: "output-mode-2-gate-4000x3000-h2", (4000, 3000), 2..3;
+    public_encoder_output_mode_2_gate_4000x3000_h3_matches_original: "output-mode-2-gate-4000x3000-h3", (4000, 3000), 3..4;
 }
 
 /// The EncoderStreamingTest instances that need the container: every
@@ -822,9 +835,9 @@ fn upstream_encode_test_container_cases_match_original() {
     for _xml_box_size in [256usize, (1 << 32) - 8 + 77] {
         requests.push(run(0, 0, &box_test(0)));
     }
-    let originals = super::super::original_observations(&requests);
+    let originals = super::original_runs_and_probes(&requests);
     let mut decodes = Vec::new();
-    for (request, cpp) in requests.iter().zip(&originals) {
+    for (request, cpp) in requests.iter().zip(&originals.runs) {
         for field in cpp.split(' ').filter_map(|f| f.strip_prefix("P:")) {
             let (statuses, bytes) = field.split_once(';').unwrap();
             let bytes = bytes.split('/').next().unwrap();
@@ -947,12 +960,9 @@ fn upstream_roundtrip_test_extra_boxes_matches_original() {
             xsize * ysize * 16
         ),
     );
-    let cpp = super::super::original_observations(std::slice::from_ref(&request)).remove(0);
-    let exact = super::compare_counted_with(
-        "upstream-extra-boxes",
-        vec![request],
-        Some(vec![cpp.clone()]),
-    );
+    let originals = super::original_runs_and_probes(std::slice::from_ref(&request));
+    let cpp = originals.runs[0].clone();
+    let exact = super::compare_counted_with("upstream-extra-boxes", vec![request], Some(originals));
     assert_eq!(exact, 1, "ExtraBoxesTest is exact");
     let field = cpp
         .split(' ')
