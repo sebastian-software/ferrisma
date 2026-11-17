@@ -11,9 +11,12 @@ separate from the mechanical port. Read [PORTING.md](docs/PORTING.md) and the
 [living ADRs](docs/adr/README.md) before changing a translated boundary.
 Create commits without signatures, using `git commit --no-gpg-sign`.
 
-Repository Cargo configuration disables LLVM loop and SLP vectorization to
-match the pinned scalar reference's Clang settings. Retain those flags when
-overriding `RUSTFLAGS`; changing them requires renewed numeric parity evidence.
+The port has no Cargo configuration of its own: the gate builds with the
+code generation that the engine and every dependent ship (no rustflags,
+LLVM's default auto-vectorization; [ADR 0002](docs/adr/0002-differential-oracle.md),
+"The gate builds what ships"). Do not add port-local rustflags; where a result
+would depend on the vectorizer, write the source's operation so that it cannot
+(as `DequantMatrices::set_dc_quant` does for its copy).
 
 The oracle also fixes Quantizer constructor/recomputation calls with a scoped
 `-fno-inline-functions` option on the original quantizer.cc. Rust keeps

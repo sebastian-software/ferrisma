@@ -60,6 +60,21 @@ and with current stable before calling a change done. CI's codec job runs
 libjxl-rs's no-oracle checked-profile tests on the port's `rust-version`
 and on stable, on Linux x86-64 and ARM64.
 
+**The gate builds what ships.** A comparison proves something about users'
+binaries only if it is compiled the way they are: with the workspace's
+`release`-derived profiles, the toolchains above and no extra rustflags,
+because the engine, the benchmark and every dependent build the codecs from
+the repository root, where no codec-local Cargo configuration applies. No
+codec has one: libjxl-rs's former `.cargo/config.toml`
+(`-C no-vectorize-slp -C no-vectorize-loops`, mirroring the original's
+`-fno-slp-vectorize -fno-vectorize`) was removed on 2026-11-16 after its full
+test stage gave the same result with and without it on AArch64, and its
+`tools/check.py` refuses a port-local Cargo configuration (libjxl-rs
+[ADR 0002](../codecs/libjxl-rs/docs/adr/0002-differential-oracle.md),
+"The gate builds what ships"). Where a result could depend on a compiler's
+optimization choice, the port writes the source's operation so that it
+cannot, rather than switching the optimization off in the gate only.
+
 ## Targets on the development Mac
 
 | Target | How | Notes |
