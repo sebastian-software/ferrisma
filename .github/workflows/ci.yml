@@ -206,11 +206,16 @@ jobs:
     if: needs.affected.outputs.has-codecs == 'true'
     strategy:
       fail-fast: false
-      max-parallel: 4
+      # Eleven jobs when every codec is selected (JXL's six parts among
+      # them): eight at once keep the codecs within two waves.
+      max-parallel: 8
       matrix: ${{ fromJSON(needs.affected.outputs.matrix) }}
     runs-on: ${{ matrix.runner }}
-    # JXL also tests at its rust-version and on stable (last step).
-    timeout-minutes: ${{ matrix.codec == 'jxl' && 45 || 20 }}
+    # JXL runs as three parts per architecture (matrix.part: the pinned
+    # nightly's stage, rust-version, stable; `cargo xtask affected`), each
+    # within the tier-1 budget of 15 minutes (ADR-0027, amendment
+    # 2026-11-17); the timeout is the hang guard above it.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -220,9 +225,9 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: target
-          key: codec-pr-v1-${{ runner.os }}-${{ runner.arch }}-${{ matrix.codec }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'codecs/libjxl-rs/.cargo/config.toml') }}-${{ github.sha }}
+          key: codec-pr-v1-${{ runner.os }}-${{ runner.arch }}-${{ matrix.codec }}${{ matrix.part && format('-{0}', matrix.part) || '' }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'codecs/libjxl-rs/.cargo/config.toml') }}-${{ github.sha }}
           restore-keys: |
-            codec-pr-v1-${{ runner.os }}-${{ runner.arch }}-${{ matrix.codec }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'codecs/libjxl-rs/.cargo/config.toml') }}-
+            codec-pr-v1-${{ runner.os }}-${{ runner.arch }}-${{ matrix.codec }}${{ matrix.part && format('-{0}', matrix.part) || '' }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'codecs/libjxl-rs/.cargo/config.toml') }}-
       - name: Initialize pinned codec references
         env:
           CODEC: ${{ matrix.codec }}
@@ -255,7 +260,8 @@ jobs:
             *) exit 1 ;;
           esac
           rustup toolchain install "$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' "$manifest")" --profile minimal
-      - env:
+      - if: ${{ !matrix.part || matrix.part == 'pr' }}
+        env:
           CODEC: ${{ matrix.codec }}
           ARCH: ${{ runner.arch }}
         run: |
@@ -270,16 +276,27 @@ jobs:
       # without the C++ oracle, at its declared rust-version (installed above)
       # and on current stable, whose LLVM versions differ from the nightly's.
       # Each toolchain builds in its own target directory, which the build
-      # cache above keeps.
-      - name: Test the JXL port at its rust-version and on stable
-        if: matrix.codec == 'jxl'
+      # cache above keeps (one cache per part).
+      - name: Test the JXL port at its rust-version or on stable
+        if: matrix.codec == 'jxl' && (matrix.part == 'msrv' || matrix.part == 'stable')
         working-directory: codecs/libjxl-rs
+        env:
+          PART: ${{ matrix.part }}
         run: |
-          msrv="$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)"
-          for toolchain in "$msrv" stable; do
-            CARGO_TARGET_DIR="$GITHUB_WORKSPACE/target/rust-$toolchain" \
-              cargo +"$toolchain" test --locked --offline -p libjxl-rs --profile checked
-          done
+          toolchain=stable
+          if [ "$PART" = msrv ]; then
+            toolchain="$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)"
+          fi
+          CARGO_TARGET_DIR="$GITHUB_WORKSPACE/target/rust-$toolchain" \
+            cargo +"$toolchain" test --locked --offline -p libjxl-rs --profile checked --timings
+      - name: Keep the JXL build timings
+        if: ${{ !cancelled() && matrix.codec == 'jxl' && (matrix.part == 'msrv' || matrix.part == 'stable') }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: jxl-cargo-timings-${{ matrix.part }}-${{ runner.arch }}
+          path: target/rust-*/cargo-timings/cargo-timing.html
+          if-no-files-found: warn
+          retention-days: 7
   checks-passed:
     name: Checks passed
     if: always()
