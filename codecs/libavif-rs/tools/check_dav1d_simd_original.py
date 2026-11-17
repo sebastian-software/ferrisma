@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Whole-image decodes of the port against the original's SIMD and C builds.
 
-Usage: python3 tools/check_dav1d_simd_original.py --level neon|avx2|sse2|scalar [--image F.avif]... [--jobs N]
+Usage: python3 tools/check_dav1d_simd_original.py --level neon|avx2|scalar [--image F.avif]... [--jobs N]
 
 The gate of ADR 0062 at one level, on this host:
 
@@ -9,11 +9,6 @@ The gate of ADR 0062 at one level, on this host:
   (`tools/build_dav1d.py --asm`, `build/dav1d-asm-release/tools/dav1d`) and
   the original CLI relinked against the port (`tools/build_dav1d_consumers.py`,
   `build/dav1d-rust-release/tools/dav1d`), both with the same `--cpumask`.
-- `sse2` (x86-64): as `avx2`, both sides restricted to SSE2. It is the
-  level at which the original selects msac's SSE2 16-symbol function
-  (`src/x86/msac.h`: on a CPU without AVX2), which the AVX2 level never
-  reaches; the DSP kernels the original selects there are compared with the
-  port's C.
 - `scalar`: the original portable build (`build/dav1d-reference-release`)
   against the port's portable build (`--cfg dav1d_portable`,
   `tools/build_dav1d_consumers.py --portable`,
@@ -40,7 +35,7 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-CPUMASK = {'neon': 'neon', 'avx2': 'avx2', 'sse2': 'sse2', 'scalar': '0'}
+CPUMASK = {'neon': 'neon', 'avx2': 'avx2', 'scalar': '0'}
 
 
 def boxes(data, start, end):

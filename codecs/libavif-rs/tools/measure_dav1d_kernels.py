@@ -68,9 +68,7 @@ On GNU Linux x86-64 (families `msac` and `lpf`) the level is AVX2 (mask
 Valgrind's Callgrind there (`Collected`, the x86-64 instructions the process
 executes), which needs no hardware counter and so also works where the
 process runs under an emulator (Rosetta in a Linux VM on the development
-Mac): the count is that of the x86-64 code, whatever executes it. msac's
-SSE2 16-symbol function is measured as well; the original selects it only
-on a CPU without AVX2.
+Mac): the count is that of the x86-64 code, whatever executes it.
 """
 import os
 import sys
@@ -88,7 +86,6 @@ if X86:
     MSAC = [('dav1d_msac_decode_symbol_adapt4_sse2', ns) for ns in (1, 2, 3)]
     MSAC += [('dav1d_msac_decode_symbol_adapt8_sse2', ns) for ns in (4, 7)]
     MSAC += [('dav1d_msac_decode_symbol_adapt16_avx2', ns) for ns in (10, 12, 15)]
-    MSAC += [('dav1d_msac_decode_symbol_adapt16_sse2', ns) for ns in (10, 15)]
     MSAC += [('dav1d_msac_decode_hi_tok_sse2', 3), ('dav1d_msac_decode_bool_adapt_sse2', 1),
              ('dav1d_msac_decode_bool_equi_sse2', 0), ('dav1d_msac_decode_bool_sse2', 0)]
 import argparse

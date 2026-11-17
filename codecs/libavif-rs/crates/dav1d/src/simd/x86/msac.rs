@@ -11,6 +11,11 @@
 //! symb)`, which `dav1d_msac_init` sets for every tile from the CPU flags:
 //! the C function, then under `DAV1D_X86_CPU_FLAG_SSE2` the SSE2 function,
 //! then under `DAV1D_X86_CPU_FLAG_AVX2` the AVX2 function (`msac_init_x86`).
+//! The port has the AVX2 function and, below AVX2, the C function: the SSE2
+//! 16-symbol function is selected by the original only on a CPU without
+//! AVX2 and is not rebuilt (engine ADR-0041 section 4; ADR 0062, "Levels"),
+//! as the SSSE3 and SSE4.1 kernels of the DSP families are not; there the
+//! port runs its C kernel, as every DSP init mirror does.
 //! The translation is made without assembly, so its call sites call the C
 //! functions by name (`dav1d_msac_decode_symbol_adapt_c` for all three
 //! symbol sizes); `tools/enable_dav1d_dispatch.py` (entry `msac_x86`)
@@ -22,7 +27,7 @@
 //! costs a direct call and nothing else, and `dav1d_set_cpu_flags_mask`
 //! does not reach them, as it does not in the original.
 //!
-//! One deviation, in `dav1d_msac_decode_symbol_adapt16`: the translated
+//! One more deviation, in `dav1d_msac_decode_symbol_adapt16`: the translated
 //! `MsacContext` keeps the portable layout, without the `symbol_adapt16`
 //! pointer that the original adds under `ARCH_X86_64 && HAVE_ASM` (the
 //! layout is that of the portable original, which the ABI gate compares;
@@ -31,7 +36,9 @@
 //! call instead of once per tile: two loads, a test and a branch where the
 //! original loads the pointer and calls through it. The flags do not change
 //! while a decoder runs (`dav1d_set_cpu_flags_mask` is to be called before
-//! a decoder is opened), so the same kernel runs as in the original.
+//! a decoder is opened), so on an AVX2 machine the same kernel runs as in
+//! the original. Decided 2026-11-17: the per-call choice and the portable
+//! context layout stay (ADR 0062).
 //!
 //! The original's portable build (`-Denable_asm=false`) calls the C
 //! functions. The port's counterpart is the build configuration
@@ -45,7 +52,7 @@
 
 use core::ffi::c_uint;
 
-use super::super::cpu::{dav1d_get_cpu_flags, DAV1D_X86_CPU_FLAG_AVX2, DAV1D_X86_CPU_FLAG_SSE2};
+use super::super::cpu::{dav1d_get_cpu_flags, DAV1D_X86_CPU_FLAG_AVX2};
 use super::super::x86_64::msac::*;
 use crate::common::msac as c;
 
@@ -83,7 +90,8 @@ pub unsafe fn dav1d_msac_decode_symbol_adapt8<S>(s: *mut S, cdf: *mut u16, n_sym
 
 /// `dav1d_msac_decode_symbol_adapt16` (n_symbols 3–15): the function
 /// `msac_init_x86` stores in the context, chosen here (see the module
-/// documentation).
+/// documentation): the AVX2 kernel under `DAV1D_X86_CPU_FLAG_AVX2`, the C
+/// function otherwise (where the original has its SSE2 function).
 #[inline(always)]
 pub unsafe fn dav1d_msac_decode_symbol_adapt16<S>(s: *mut S, cdf: *mut u16, n_symbols: usize) -> c_uint {
     if asm() {
@@ -93,9 +101,9 @@ pub unsafe fn dav1d_msac_decode_symbol_adapt16<S>(s: *mut S, cdf: *mut u16, n_sy
             // and XCR0 report it, simd/cpu.rs).
             return dav1d_msac_decode_symbol_adapt16_avx2(s.cast(), cdf, n_symbols);
         }
-        if flags & DAV1D_X86_CPU_FLAG_SSE2 != 0 {
-            return dav1d_msac_decode_symbol_adapt16_sse2(s.cast(), cdf, n_symbols);
-        }
+        // if (flags & DAV1D_X86_CPU_FLAG_SSE2) s->symbol_adapt16 =
+        // dav1d_msac_decode_symbol_adapt16_sse2: not rebuilt, the C function
+        // stays (module documentation).
     }
     c::dav1d_msac_decode_symbol_adapt_c(s.cast(), cdf, n_symbols)
 }
@@ -140,7 +148,7 @@ pub unsafe fn dav1d_msac_decode_bool<S>(s: *mut S, f: c_uint) -> c_uint {
     }
 }
 
-/// The eight kernels by their assembly names, for the per-kernel gate and
+/// The seven kernels by their assembly names, for the per-kernel gate and
 /// the instruction counts (`tools/check_dav1d_dsp.py --simd avx2`,
 /// `tools/measure_dav1d_kernels.py`). The original's are hidden symbols of
 /// its library; both sides reach them through an accessor
@@ -163,7 +171,6 @@ mod bridges {
     bridge! {
         port_table_dav1d_msac_decode_symbol_adapt4_sse2 => dav1d_msac_decode_symbol_adapt4_sse2,
         port_table_dav1d_msac_decode_symbol_adapt8_sse2 => dav1d_msac_decode_symbol_adapt8_sse2,
-        port_table_dav1d_msac_decode_symbol_adapt16_sse2 => dav1d_msac_decode_symbol_adapt16_sse2,
         port_table_dav1d_msac_decode_symbol_adapt16_avx2 => dav1d_msac_decode_symbol_adapt16_avx2,
         port_table_dav1d_msac_decode_hi_tok_sse2 => dav1d_msac_decode_hi_tok_sse2,
         port_table_dav1d_msac_decode_bool_adapt_sse2 => dav1d_msac_decode_bool_adapt_sse2,
@@ -226,8 +233,8 @@ mod tests {
         for len in [128usize, 61, 9, 5] {
             let buf: Vec<u8> = (0..len).map(|_| rnd() as u8).collect();
             unsafe {
-                for kind in 0..8 {
-                    if kind == 7 && !avx2 {
+                for kind in 0..7 {
+                    if kind == 2 && !avx2 {
                         continue;
                     }
                     for update in 0..2 {
@@ -235,7 +242,7 @@ mod tests {
                             let ok = match kind {
                                 0 => ns <= 3,
                                 1 => ns <= 7,
-                                2 | 7 => ns >= 3,
+                                2 => ns >= 3,
                                 _ => ns == 3,
                             };
                             if !ok {
@@ -268,7 +275,7 @@ mod tests {
                                     ),
                                     2 => (
                                         c::dav1d_msac_decode_symbol_adapt_c(&mut a, pa, ns),
-                                        dav1d_msac_decode_symbol_adapt16_sse2(pb, pc, ns),
+                                        dav1d_msac_decode_symbol_adapt16_avx2(pb, pc, ns),
                                     ),
                                     3 => (
                                         c::dav1d_msac_decode_hi_tok_c(&mut a, pa),
@@ -282,13 +289,9 @@ mod tests {
                                         c::dav1d_msac_decode_bool_equi_c(&mut a),
                                         dav1d_msac_decode_bool_equi_sse2(pb),
                                     ),
-                                    6 => (
+                                    _ => (
                                         c::dav1d_msac_decode_bool_c(&mut a, f),
                                         dav1d_msac_decode_bool_sse2(pb, f),
-                                    ),
-                                    _ => (
-                                        c::dav1d_msac_decode_symbol_adapt_c(&mut a, pa, ns),
-                                        dav1d_msac_decode_symbol_adapt16_avx2(pb, pc, ns),
                                     ),
                                 };
                                 assert_eq!(ra, rb, "kind {kind} ns {ns} len {len}");
@@ -309,15 +312,17 @@ mod tests {
         }
     }
 
-    /// `dav1d_msac_decode_symbol_adapt16` follows `msac_init_x86`: AVX2
-    /// when the flags allow it, and the C function with every flag masked
-    /// off (the original's `dav1d_msac_init` leaves the C pointer then).
-    /// The three give the same symbol; the test checks that each choice
-    /// decodes.
+    /// `dav1d_msac_decode_symbol_adapt16` follows the CPU flags: the AVX2
+    /// kernel when the flags allow it, and the C function below AVX2 (a
+    /// mask of SSE2 alone, where the original has its SSE2 function, and
+    /// with every flag masked off, where the original's `dav1d_msac_init`
+    /// leaves the C pointer as well). Both give the same symbols; the test
+    /// checks that each choice decodes.
     #[test]
     fn symbol_adapt16_follows_the_cpu_flags() {
         use crate::common::cpu::{dav1d_init_cpu, dav1d_set_cpu_flags_mask};
         use crate::common::msac::{dav1d_msac_init, MsacContext as C};
+        use crate::simd::cpu::DAV1D_X86_CPU_FLAG_SSE2;
         let _guard = crate::simd::cpu::CPU_MASK_TEST_LOCK
             .lock()
             .unwrap_or_else(|e| e.into_inner());

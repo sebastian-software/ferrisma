@@ -138,6 +138,15 @@ kernel runs as in the original. The per-kernel gate compiles the msac test
 body with `HAVE_ASM` 1 on x86-64, so that the test's contexts have the
 original's layout there (the original's `dav1d_msac_init` writes the
 member); the port's functions use the members before it.
+Decided 2026-11-17 (coordinator, on the open points of the first x86
+kernels): the choice at every call and the portable context layout stay,
+because the ABI gate compares that layout; and of the two functions the
+pointer can hold only the AVX2 one is rebuilt. On a CPU without AVX2 the
+owned 16-symbol function calls the translated C function, where the
+original runs its SSE2 function (see "Levels"); the six functions that the
+header selects at compile time are the rebuilt SSE2 kernels on every x86-64
+CPU, as in the original. The module layout of "Kernels" (`x86/<family>.rs`
+for the header, `x86_64/<file>.rs` for the assembly file) stays as well.
 
 **CPU detection without assembly.** `simd/cpu.rs` mirrors
 `src/x86/cpu.c` statement by statement with `__cpuid_count` and
@@ -150,18 +159,21 @@ selects an AVX2 kernel for every still-image slot that has one (the x86
 init headers, preprocessed with assembly on), and SSE2 for msac's entry
 points; the 12 bpc DCT_DCT transforms of 16x32 and larger have no x86
 kernel and run C in the original as well. Those AVX2 and SSE2 kernels are
-the x86-64 scope. **Stated gap:** the SSSE3 and SSE4.1 kernels,
-which the original selects only on CPUs without AVX2, are out of scope for
-now; on such CPUs the port runs its C kernels where the original runs SSSE3
-or SSE4.1. On an AVX-512 (Ice Lake) machine the original selects
+the x86-64 scope (engine ADR-0041 section 4: what the original selects on
+an AVX2 machine). **Stated gap:** the kernels that the original selects
+only on CPUs without AVX2 are out of scope for now: the SSSE3 and SSE4.1
+kernels of the DSP families, the SSE2 kernels of DSP slots (WHT) and msac's
+SSE2 16-symbol function. On such a CPU the port runs its C kernels and the
+C 16-symbol function where the original runs those; its six msac
+functions selected at compile time are the rebuilt SSE2 kernels there too.
+On an AVX-512 (Ice Lake) machine the original selects
 `avx512icl` kernels; the gate restricts it with
 `dav1d_set_cpu_flags_mask(0x2f)` (SSE2 to AVX2, `SLOW_GATHER` passed
-through), as libaom's oracle is built without AVX-512. msac's SSE2
-16-symbol function is the one SSE2 kernel the original selects only on a CPU
-without AVX2; it is rebuilt with the other entry points of `msac.asm` and
-gated at a level of its own, `sse2` (mask 0x1, both gate tools; amended
-2026-11-17), at which the DSP slots compare the original's SSE2 assembly
-with the port's C.
+through), as libaom's oracle is built without AVX-512. The x86-64 gate has
+the one level `avx2` beside scalar. (Amended 2026-11-17, twice: a first
+form of this paragraph rebuilt msac's SSE2 16-symbol function and gated it
+at a level of its own, `sse2`, with mask 0x1 in both gate tools; the
+function and the level were removed the same day, validation below.)
 
 **Gate (engine ADR-0041, ADR-0044 D2).**
 
@@ -1311,6 +1323,66 @@ the instructions of stock dav1d on x86-64. Not measured: the lossless still
 On x86-64 the port now has msac and the loop filter; the inverse
 transforms, CDEF, intra prediction and loop restoration still run C there.
 
+**2026-11-17, decisions on the first x86 kernels** (coordinator's decisions
+on the open points of the two entries above; the tree after `8cef14a4`).
+
+1. *msac's SSE2 16-symbol function and the gate level `sse2` are removed.*
+   Engine ADR-0041 section 4 puts in scope what the original selects on an
+   AVX2 machine; that function is selected only without AVX2, and a third
+   gate level for one function cost a round of both gates every time. Gone
+   are the rebuilt `dav1d_msac_decode_symbol_adapt16_sse2`, its test-only
+   accessor, its case in the unit test and its rows in
+   `measure_dav1d_kernels.py`, and the value `sse2` of `check_dav1d_dsp.py
+   --simd` and `check_dav1d_simd_original.py --level`. On a CPU without AVX2
+   the port's 16-symbol function is the translated C function, as every DSP
+   init mirror keeps its C kernels there ("Levels"; the unit test decodes
+   with the AVX2 choice, under a mask of SSE2 alone and under mask 0 and
+   requires the same symbols). The original's msac test body assigns the
+   SSE2 16-symbol function and, two statements later under
+   `DAV1D_X86_CPU_FLAG_AVX2`, the AVX2 one; the per-kernel gate takes the
+   first assignment out of its copy of the body (third x86 entry of
+   `MSAC_SIMD_EDITS`), because the port has no function of that name to
+   resolve. The gate fails unless both sides report AVX2, so the second
+   assignment always replaces the first before anything is called: the
+   compared functions are the same with and without the line. The positive
+   control of the msac entry that only the level `sse2` caught (the fault in
+   the SSE2 16-symbol function) has no object anymore.
+2. *The volatile loads of constants are removed*; the constants are plain
+   loads and the compiler does with them what it does. Cost in instructions
+   per call against the assembly, re-measured (`measure_dav1d_kernels.py`,
+   Callgrind, identical outputs; assembly and rebuild): the SSE2 8-symbol
+   msac function 72 and 85 (1.18; 78 and 1.08 with the volatile load: the
+   compiler turns `punpcklqdq` and `pand` with the known constant into a
+   nine-instruction byte shuffle); the 8 bpc loop filter, row edges 1,540
+   and 1,779 (1.16; was 1.06) for luma and 758 and 842 (1.11; was 1.00) for
+   chroma, column edges 2,309 and 2,647 (1.15; was 1.11) and 1,261 and 1,414
+   (1.12; was 1.04): the compiler broadcasts each constant into a register
+   per path and has fewer registers left for pixels. All far below 1.3; a
+   volatile read to steer the compiler is not worth carrying. The other
+   rows are unchanged: adapt4 1.10, adapt16 AVX2 1.06, hi_tok 1.19,
+   bool_adapt 1.17, bool_equi 1.12, bool 1.09; the 16 bpc loop filter
+   1.04 and 1.05 (column edges), 1.10 and 1.03 (row edges).
+3. *Kept as they are:* the 16-symbol function's choice at every call with
+   the portable `MsacContext` layout, and the module layout
+   `simd/x86/<family>.rs` + `simd/x86_64/<file>.rs` (both recorded in
+   "Decision").
+
+| Check (x86-64 GNU Linux under Rosetta, Clang 19, eleven seeds) | Result |
+| --- | --- |
+| `check_dav1d_dsp.py --simd avx2` | 17 groups, 3,155 selections each, pass |
+| `check_dav1d_dsp.py` (scalar) | the same counts |
+| `check_dav1d_simd_original.py --level avx2` / `scalar` | 994 of 994 decodes identical each |
+| `run_dav1d_tests.py` | 1,711 of 1,711 |
+| `check_dav1d_abi.py`, `check_dav1d_api.py`, `check_dav1d_linkage.py` | 12,284 layout checks, 0 differences; 83 API comparisons; pass |
+| `enable_dav1d_dispatch.py --check` and its unit test | 14 entries, 60 units; pass |
+| unit tests (`cargo test --lib simd::`) | 7 of 7 |
+
+ARM64 after the change (no file of the NEON kernels changed; the gate
+tools did): the per-kernel gate at `neon` and scalar at the eleven seeds
+(17 groups, 3,155 selections each), whole images 994 of 994 at both levels,
+1,711 of 1,711, ABI 12,157 checks, API 83, linkage, the dispatch check and
+`cargo fmt --all --check` pass.
+
 ## Review when
 
 A family is completed on a target; the x86-64 AVX2 kernels arrive; the owner
@@ -1319,6 +1391,7 @@ engine's decoder choice changes.
 
 ## Amendment log
 
+- 2026-11-17 — decisions on the first x86 kernels: msac's SSE2 16-symbol function and the gate level `sse2` removed (below AVX2 the port runs C there too), the volatile constant loads removed, the per-call 16-symbol choice and the module layout kept ("msac on x86-64", "Levels", validation above).
 - 2026-11-17 — loop filter on AVX2, 8 and 16 bpc (validation above).
 - 2026-11-17 — msac on x86-64 (SSE2 and AVX2), the first x86 kernels; a local x86-64 loop under Rosetta; the `sse2` gate level (decision paragraphs and validation above).
 - 2026-11-17 — the per-kernel gate runs eleven seeds: one more for the 8 bpc loop filter's 16-pixel filter (validation above).

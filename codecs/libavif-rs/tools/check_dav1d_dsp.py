@@ -13,16 +13,17 @@ msac has no DSP table: the original selects its assembly at compile time
 (`src/arm/msac.h`, `src/x86/msac.h`) and its checkasm test takes the assembly
 functions by name under `HAVE_ASM`. With `--simd` that branch of the
 unchanged test body is enabled (the textual edits are in `MSAC_SIMD_EDITS`),
-and the seven `_neon` names, or the seven `_sse2` names and the `_avx2`
+and the seven `_neon` names, or the six `_sse2` names and the `_avx2`
 16-symbol function, resolve to the original's hidden assembly functions and
 to the port's rebuilt kernels through test-only accessors; the port is then
 built with its `port-test-bridges` feature (accessors only) into
 `build/dav1d-bridges-target`. At the AVX2 level the test selects the AVX2
-16-symbol function, as the original does on such a CPU; `--simd sse2`
-restricts both sides to SSE2, where the test selects the SSE2 16-symbol
-function (the original's choice on a CPU without AVX2), and the DSP slots,
-none of which the port has rebuilt for that level, compare the original's
-SSE2 assembly with the port's C. On x86-64 the test body of msac is compiled
+16-symbol function, as the original does on such a CPU. The SSE2 16-symbol
+function, which the original selects only on a CPU without AVX2, is outside
+the scope (engine ADR-0041 section 4; ADR 0062, "Levels") and not rebuilt:
+the test body's assignment of it, which the AVX2 assignment overwrites at
+this level, is taken out (`MSAC_SIMD_EDITS`), and there is no gate level
+below AVX2 on x86-64. On x86-64 the test body of msac is compiled
 with `HAVE_ASM` 1: the original's `MsacContext` has one more member there
 (`symbol_adapt16`), which the original's `dav1d_msac_init` writes; the
 port's functions use the members before it.
@@ -52,11 +53,10 @@ from build_dav1d import copy_inputs
 ROOT = Path(__file__).resolve().parents[1]
 # dav1d_set_cpu_flags_mask values of each SIMD level (src/arm/cpu.h,
 # src/x86/cpu.h): NEON alone (no DotProd/I8MM/SVE); SSE2, SSSE3, SSE4.1 and
-# AVX2 without AVX-512, with SLOW_GATHER passed through as detected; SSE2
-# alone.
-SIMD_MASKS = {'neon': 0x1, 'avx2': 0x2f, 'sse2': 0x1}
+# AVX2 without AVX-512, with SLOW_GATHER passed through as detected.
+SIMD_MASKS = {'neon': 0x1, 'avx2': 0x2f}
 # The architecture each level belongs to (`uname -m` names).
-SIMD_MACHINES = {'neon': ('arm64', 'aarch64'), 'avx2': ('x86_64',), 'sse2': ('x86_64',)}
+SIMD_MACHINES = {'neon': ('arm64', 'aarch64'), 'avx2': ('x86_64',)}
 # checkasm's random seeds. 42 is the gate's first seed and stays; 1 to 7 were
 # added on 2026-11-17, after a one-constant fault in the 16 bpc chroma loop
 # filter passed at 42 alone (the numbers were fixed before the fault was run
@@ -87,23 +87,30 @@ MSAC_NEON = {
     'dav1d_msac_decode_bool_equi_neon': 'unsigned (*)(MsacContext *)',
     'dav1d_msac_decode_bool_neon': 'unsigned (*)(MsacContext *, unsigned)',
 }
-# The eight msac entry points of src/x86/msac.h on x86-64.
+# The seven msac entry points of src/x86/msac.h that the original runs on an
+# x86-64 machine with AVX2 (the eighth, the SSE2 16-symbol function, is
+# selected only without AVX2 and is not rebuilt).
 MSAC_X86 = {
     'dav1d_msac_decode_symbol_adapt4_sse2': 'unsigned (*)(MsacContext *, uint16_t *, size_t)',
     'dav1d_msac_decode_symbol_adapt8_sse2': 'unsigned (*)(MsacContext *, uint16_t *, size_t)',
-    'dav1d_msac_decode_symbol_adapt16_sse2': 'unsigned (*)(MsacContext *, uint16_t *, size_t)',
     'dav1d_msac_decode_symbol_adapt16_avx2': 'unsigned (*)(MsacContext *, uint16_t *, size_t)',
     'dav1d_msac_decode_hi_tok_sse2': 'unsigned (*)(MsacContext *, uint16_t *)',
     'dav1d_msac_decode_bool_adapt_sse2': 'unsigned (*)(MsacContext *, uint16_t *)',
     'dav1d_msac_decode_bool_equi_sse2': 'unsigned (*)(MsacContext *)',
     'dav1d_msac_decode_bool_sse2': 'unsigned (*)(MsacContext *, unsigned)',
 }
-MSAC_KERNELS = {'neon': MSAC_NEON, 'avx2': MSAC_X86, 'sse2': MSAC_X86}
+MSAC_KERNELS = {'neon': MSAC_NEON, 'avx2': MSAC_X86}
 # The test body's assembly branch, enabled at the SIMD level: HAVE_ASM is 0
 # in the portable configuration the bodies are compiled with, and the CPU
 # flags are those of the library under test. On x86-64 the msac test body is
 # compiled with HAVE_ASM 1 instead (MSAC_X86_PROLOGUE), which enables the
-# branch and gives the test the original's MsacContext with assembly.
+# branch and gives the test the original's MsacContext with assembly. The
+# third x86 edit takes out the assignment of the SSE2 16-symbol function,
+# which the port does not have: at the AVX2 level, the only x86-64 level of
+# this gate, the assignment under DAV1D_X86_CPU_FLAG_AVX2 two statements
+# below replaces it on both sides before anything is called (the run fails
+# unless both sides report AVX2), so the functions compared are the same
+# with and without that line.
 MSAC_SIMD_EDITS = {
     'neon': [('#if (ARCH_AARCH64 || ARCH_ARM) && HAVE_ASM', '#if (ARCH_AARCH64 || ARCH_ARM)'),
              ('if (dav1d_get_cpu_flags() & DAV1D_ARM_CPU_FLAG_NEON) {',
@@ -111,7 +118,8 @@ MSAC_SIMD_EDITS = {
     'x86': [('if (dav1d_get_cpu_flags() & DAV1D_X86_CPU_FLAG_SSE2) {',
              'if (port_cpu_level() & DAV1D_X86_CPU_FLAG_SSE2) {'),
             ('if (dav1d_get_cpu_flags() & DAV1D_X86_CPU_FLAG_AVX2) {',
-             'if (port_cpu_level() & DAV1D_X86_CPU_FLAG_AVX2) {')],
+             'if (port_cpu_level() & DAV1D_X86_CPU_FLAG_AVX2) {'),
+            ('        c.decode_symbol_adapt16 = dav1d_msac_decode_symbol_adapt16_sse2;\n', '')],
 }
 MSAC_X86_PROLOGUE = ['#include "config.h"', '#undef HAVE_ASM', '#define HAVE_ASM 1']
 

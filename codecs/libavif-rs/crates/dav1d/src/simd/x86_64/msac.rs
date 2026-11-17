@@ -6,9 +6,14 @@
 //! intrinsics (engine ADR-0044 D2, libavif-rs ADR 0062), in its x86-64
 //! System V form (`ARCH_X86_64`, `UNIX64`).
 //!
-//! The eight entry points of the entropy decoder: the SSE2 functions
-//! `symbol_adapt4/8/16`, `bool_adapt`, `bool_equi`, `bool` and `hi_tok`,
-//! and the AVX2 `symbol_adapt16`.
+//! Seven of the assembly's eight entry points of the entropy decoder: the
+//! SSE2 functions `symbol_adapt4/8`, `bool_adapt`, `bool_equi`, `bool` and
+//! `hi_tok`, and the AVX2 `symbol_adapt16`. These are the functions the
+//! original runs on an AVX2 machine. The eighth, the SSE2
+//! `symbol_adapt16`, is not rebuilt: the original selects it only on a CPU
+//! without AVX2, which is outside the scope (engine ADR-0041 section 4;
+//! ADR 0062, "Levels"). On such a CPU the port's 16-symbol function is the
+//! translated C function (`simd/x86/msac.rs`).
 //!
 //! Correspondence with the assembly:
 //! - Each `cglobal` function is one `extern "C"` function of the same name
@@ -29,7 +34,7 @@
 //! - The red-zone buffer (`buf`, `rsp-40`) that holds `rng` and the `v`
 //!   values for the indexed load after `tzcnt` is a local array of
 //!   halfwords: `buf[0..2]` is the doubleword the assembly stores at
-//!   `buf+12` (`buf-4` in the 16-symbol functions), the `v` values follow.
+//!   `buf+12` (`buf-4` in the 16-symbol function), the `v` values follow.
 //! - The tables `min_prob`, `pw_0xff00` and `pw_32` are one array, as the
 //!   assembly addresses `min_prob` with a negative offset from `pw_0xff00`
 //!   and reads past its end into `pw_0xff00` and `pw_32` for the lanes
@@ -57,15 +62,15 @@
 //!   memory is an unaligned move of the same bytes, so a CDF that is not
 //!   aligned as the original's are is not undefined behavior. Same number
 //!   of instructions.
-//! - In the SSE2 8- and 16-symbol functions `pw_0xff00` is loaded with a
-//!   volatile read. With a plain load the compiler knows the constant and
-//!   turns `punpcklqdq` and `pand m, [pw_0xff00]` on the replicated `rng`
-//!   into a shuffle with zero bytes, which takes nine SSE2 instructions
-//!   (`punpcklbw`, four `pshuf*w`, `pshufd`, `packuswb`, `pxor`,
-//!   `punpcklbw`) where the assembly has two; the volatile load keeps the
-//!   assembly's memory operand. Same values; 7 instructions per
-//!   call fewer in each. The other functions compile to the assembly's form with a
-//!   plain load.
+//! - In the SSE2 8-symbol function the compiler, which knows the constant
+//!   `pw_0xff00`, turns `punpcklqdq` and `pand m, [pw_0xff00]` on the
+//!   replicated `rng` into a shuffle with zero bytes: nine SSE2
+//!   instructions (`punpcklbw`, four `pshuf*w`, `pshufd`, `packuswb`,
+//!   `pxor`, `punpcklbw`) where the assembly has two. Same values; the
+//!   function is seven instructions per call longer for it. A volatile
+//!   load of the constant kept the assembly's memory operand and was
+//!   removed again (ADR 0062, 2026-11-17): a volatile read to steer the
+//!   compiler is not worth carrying for seven instructions.
 //! - The stack buffers are zero-initialized arrays. Every element a kernel
 //!   loads is stored first in the same block, a few lines above the load,
 //!   so the compiler drops the zero stores.
@@ -116,17 +121,6 @@ static RODATA: Rodata = Rodata([
 const MIN_PROB: usize = 0;
 const PW_0XFF00: usize = 16;
 const PW_32: usize = 24;
-
-/// The memory operand `[pw_0xff00]` (16 bytes) of the SSE2 8- and 16-symbol
-/// functions. A volatile read, so that the compiler keeps it a load and the
-/// `pand` with it a `pand` (see the module documentation); the value is the
-/// table's.
-#[inline(always)]
-unsafe fn pw_0xff00() -> __m128i {
-    // SAFETY: 16 initialized bytes of the static table, at offset 32 of its
-    // 64-byte alignment.
-    core::ptr::read_volatile(RODATA.0.as_ptr().add(PW_0XFF00).cast::<__m128i>())
-}
 
 /// `pshuflw m, m, q3333` (`c_shuf` on x86-64) and `q0000`.
 const Q3333: i32 = 0b11_11_11_11;
@@ -342,7 +336,7 @@ pub unsafe extern "C" fn dav1d_msac_decode_symbol_adapt8_sse2(
     m2 = _mm_unpacklo_epi64(m2, m2); // punpcklqdq m2, m2
     let mut m0 = m1; // mova m0, m1
     m1 = _mm_srli_epi16::<6>(m1); // psrlw m1, 6
-    m2 = _mm_and_si128(m2, pw_0xff00()); // pand m2, [rax]
+    m2 = _mm_and_si128(m2, _mm_loadu_si128(rax.cast())); // pand m2, [rax]
     m1 = _mm_slli_epi16::<7>(m1); // psllw m1, 7
     m1 = _mm_mulhi_epu16(m1, m2); // pmulhuw m1, m2
     m2 = _mm_loadu_si128(rax.offset(t2 as i64 as isize).cast()); // movu m2, [rax+t2*2]
@@ -372,82 +366,6 @@ pub unsafe extern "C" fn dav1d_msac_decode_symbol_adapt8_sse2(
         core::ptr::write(t1.add(t4d as usize), t2d as u16); // mov [t1+t4*2], t2w
     }
     renorm(t0, &buf, eax) // jmp m(msac_decode_symbol_adapt4, SUFFIX).renorm
-}
-
-/// `cglobal msac_decode_symbol_adapt16` (SSE2):
-/// `unsigned dav1d_msac_decode_symbol_adapt16_sse2(MsacContext *s, uint16_t *cdf, size_t n_symbols)`
-pub unsafe extern "C" fn dav1d_msac_decode_symbol_adapt16_sse2(
-    s: *mut MsacContext,
-    cdf: *mut u16,
-    n_symbols: usize,
-) -> c_uint {
-    let (t0, t1, mut t2) = (s, cdf, n_symbols as u64);
-    // The doubleword at buf-4 and the 32 bytes at buf.
-    let mut buf = [0u16; 18];
-    let rax = RODATA.0.as_ptr().add(PW_0XFF00); // LEA rax, pw_0xff00
-    let mut m4 = _mm_cvtsi32_si128((*t0).rng as i32); // movd m4, [t0+msac.rng]
-    let mut m2 = _mm_loadu_si128(t1.cast()); // mova m2, [t1]
-    let mut m3 = _mm_loadu_si128(t1.add(8).cast()); // mova m3, [t1+16]
-    let mut m5 = _mm_cvtsi64_si128((*t0).dif as i64); // movp m5, [t0+msac.dif]
-    let mut t3d = (*t0).update_cdf as u32; // mov t3d, [t0+msac.update_cdf]
-    let t4d = t2 as u32; // mov t4d, t2d
-    t2 = !t2; // not t2
-    m4 = _mm_shufflelo_epi16::<Q0000>(m4); // pshuflw m4, m4, q0000
-    _mm_storeu_si32(buf.as_mut_ptr().cast(), m4); // movd [buf-4], m4
-    m4 = _mm_unpacklo_epi64(m4, m4); // punpcklqdq m4, m4
-    let mut m0 = m2; // mova m0, m2
-    m2 = _mm_srli_epi16::<6>(m2); // psrlw m2, 6
-    let mut m1 = m3; // mova m1, m3
-    m3 = _mm_srli_epi16::<6>(m3); // psrlw m3, 6
-    m4 = _mm_and_si128(m4, pw_0xff00()); // pand m4, [rax]
-    m2 = _mm_slli_epi16::<7>(m2); // psllw m2, 7
-    m3 = _mm_slli_epi16::<7>(m3); // psllw m3, 7
-    m2 = _mm_mulhi_epu16(m2, m4); // pmulhuw m2, m4
-    m3 = _mm_mulhi_epu16(m3, m4); // pmulhuw m3, m4
-    m4 = _mm_loadu_si128(rax.offset(t2 as i64 as isize).cast()); // movu m4, [rax+t2*2]
-    m5 = _mm_shufflelo_epi16::<Q3333>(m5); // pshuflw m5, m5, c_shuf
-    m2 = _mm_add_epi16(m2, m4); // paddw m2, m4
-    m4 = _mm_sub_epi16(m4, _mm_loadu_si128(RODATA.0.as_ptr().add(PW_32).cast())); // psubw m4, [rax-pw_0xff00+pw_32]
-    m5 = _mm_unpacklo_epi64(m5, m5); // punpcklqdq m5, m5
-    m3 = _mm_add_epi16(m3, m4); // paddw m3, m4
-    _mm_storeu_si128(buf.as_mut_ptr().add(2).cast(), m2); // mova [buf], m2
-    m2 = _mm_subs_epu16(m2, m5); // psubusw m2, m5
-    _mm_storeu_si128(buf.as_mut_ptr().add(10).cast(), m3); // mova [buf+16], m3
-    m3 = _mm_subs_epu16(m3, m5); // psubusw m3, m5
-    m4 = _mm_setzero_si128(); // pxor m4, m4
-    m2 = _mm_cmpeq_epi16(m2, m4); // pcmpeqw m2, m4
-    m3 = _mm_cmpeq_epi16(m3, m4); // pcmpeqw m3, m4
-    m5 = _mm_packs_epi16(m2, m3); // packsswb m5, m2, m3
-    let eax = _mm_movemask_epi8(m5) as u32; // pmovmskb eax, m5
-    if t3d != 0 {
-        // test t3d, t3d ; jz .renorm
-        t3d = core::ptr::read(t1.add(t4d as usize)) as u32; // movzx t3d, word [t1+t4*2]
-        m4 = _mm_cmpeq_epi16(m4, m4); // pcmpeqw m4, m4
-        m5 = m4; // mova m5, m4
-        let mut t2d = t3d + 80; // lea t2d, [t3+80] ; only support n_symbols > 2
-        t2d >>= 4; // shr t2d, 4
-        t3d += (t3d < 32) as u32; // cmp t3d, 32 ; adc t3d, 0
-        m4 = _mm_avg_epu16(m4, m2); // pavgw m4, m2
-        m5 = _mm_avg_epu16(m5, m3); // pavgw m5, m3
-        m4 = _mm_sub_epi16(m4, m0); // psubw m4, m0
-        m0 = _mm_sub_epi16(m0, m2); // psubw m0, m2
-        m2 = _mm_cvtsi32_si128(t2d as i32); // movd m2, t2d
-        m5 = _mm_sub_epi16(m5, m1); // psubw m5, m1
-        m1 = _mm_sub_epi16(m1, m3); // psubw m1, m3
-        m4 = _mm_sra_epi16(m4, m2); // psraw m4, m2
-        m5 = _mm_sra_epi16(m5, m2); // psraw m5, m2
-        m0 = _mm_add_epi16(m0, m4); // paddw m0, m4
-        m1 = _mm_add_epi16(m1, m5); // paddw m1, m5
-        _mm_storeu_si128(t1.cast(), m0); // mova [t1], m0
-        _mm_storeu_si128(t1.add(8).cast(), m1); // mova [t1+16], m1
-        core::ptr::write(t1.add(t4d as usize), t3d as u16); // mov [t1+t4*2], t3w
-    }
-    // .renorm:
-    let eax = tzcnt(eax); // tzcnt eax, eax
-    let t4 = (*t0).dif as u64; // mov t4, [t0+msac.dif]
-    let t1 = *buf.as_ptr().add(2 + eax as usize) as u64; // movzx t1d, word [buf+rax*2]
-    let t2d = *buf.as_ptr().add(1 + eax as usize) as u32; // movzx t2d, word [buf+rax*2-2]
-    renorm2(t0, eax, t1, t2d, t4) // jmp m(msac_decode_symbol_adapt4, SUFFIX).renorm2
 }
 
 /// `cglobal msac_decode_bool_adapt` (SSE2 build; general-purpose code):

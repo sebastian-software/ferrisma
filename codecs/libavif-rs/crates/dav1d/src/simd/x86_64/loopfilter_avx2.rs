@@ -37,11 +37,10 @@
 //!   which of them live in memory. There is no stack buffer.
 //! - The constants of `SECTION_RODATA 32` are statics of the same names
 //!   (`pb_128`, `pw_2048`, …), and an instruction's memory operand
-//!   `[pb_128]` is `mem(&pb_128)`. `mem` loads the 32 bytes with a
-//!   volatile read. The compiler then keeps every use as the memory
-//!   operand the assembly has; a plain constant becomes one broadcast
-//!   into a register per constant and path, and takes the registers the
-//!   filter needs for pixels (see the deviations).
+//!   `[pb_128]` is `mem(&pb_128)`, a plain load of the 32 bytes. The
+//!   compiler knows the values: it keeps some uses as memory operands and
+//!   turns others into one broadcast into a register per constant and
+//!   path (see the deviations).
 //! - `maskq` advances by one *byte* per group of eight units, and the
 //!   masks are read from it as bytes (`cmp byte [maskq+8], 0`) and as
 //!   doublewords (`vpbroadcastd m, [maskq+4]`, whose low byte is compared
@@ -54,10 +53,14 @@
 //!   `v` filters (`dst` is aligned by 32 by contract): the same bytes and
 //!   the same number of instructions, and a pointer that is not aligned
 //!   is not undefined behavior.
-//! - The volatile reads of the constants (`mem`) are not in the assembly;
-//!   they are what makes the compiler emit the assembly's memory operands.
-//!   With plain constants (`mem` returning the value) the outputs are the
-//!   same and the kernels take more instructions.
+//! - The constants are plain loads, so the compiler is free to broadcast
+//!   one into a register where the assembly has a memory operand, and to
+//!   rewrite arithmetic with a known constant; the registers it takes for
+//!   them are then missing for pixels. The outputs are the same and the
+//!   kernels take a few percent more instructions than with the
+//!   assembly's memory operands (ADR 0062 has the figures). Volatile
+//!   reads, which forced the memory operands, were removed on 2026-11-17:
+//!   a volatile read to steer the compiler is not worth carrying.
 //! - `movhps xm, [mem]` and `movhps [mem], xm` are written out with an
 //!   unaligned read or write of the 8 bytes (they compile to `vmovhps`
 //!   and `vpextrq [mem], xm, 1`: the same bytes, one instruction each).
@@ -169,17 +172,16 @@ static pb_mask: Rodata = Rodata([ // dd 1, 2, 4, 8, 16, 32, 64, 128
 ]);
 
 /// The memory operand `[c]` of an instruction, `c` one of the constants
-/// above. A volatile read, so that every use stays a load the compiler
-/// folds into the instruction as its memory operand, as in the assembly
-/// (see the module documentation); the value is the constant's.
+/// above: a plain load of its 32 bytes (see the module documentation for
+/// what the compiler makes of it).
 ///
 /// # Safety
 /// The CPU supports AVX2. (`c` is a live, initialized, 32-byte aligned
-/// static of 32 bytes: valid for the read.)
+/// static of 32 bytes: valid for the aligned load.)
 #[inline]
 #[target_feature(enable = "avx2")]
 unsafe fn mem(c: &'static Rodata) -> __m256i {
-    core::ptr::read_volatile((c as *const Rodata).cast::<__m256i>())
+    _mm256_load_si256((c as *const Rodata).cast::<__m256i>())
 }
 
 // --- addresses and the memory forms of the 128-bit instructions --------------------------------------------
