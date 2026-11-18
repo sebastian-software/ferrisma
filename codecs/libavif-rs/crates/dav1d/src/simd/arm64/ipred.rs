@@ -32,7 +32,7 @@
 //! (`4:`/`8:`/`16:`/`32:`/`64:`) are the inlined functions
 //! `ipred_dc_128_w{4,8,16,32,64}`. The 16+ column loops of `ipred_paeth`
 //! (`160:`/`320:`/`640:`) and `ipred_smooth` (`160:`) are the functions
-//! `ipred_paeth_160` and `ipred_smooth_160`, tail-called by their entry points.
+//! `ipred_paeth_160` and `ipred_smooth_160`, called by their entry points.
 //! `pa_*` are instruction helpers: `pa_tbl_idx` (`clz`/`sub` of the dispatch),
 //! `pa_subs_gt` (`subs` + `b.gt`), `pa_ldr_s`, `pa_ldr_s_ld1r`,
 //! `pa_ldr_h_ld1r`, `pa_ld1r_2s`, `pa_uxtl_zip1`, `pa_st1_s`, `pa_st1_s_8b`,
@@ -885,16 +885,12 @@ pub unsafe extern "C" fn dav1d_ipred_dc_8bpc_neon(
     }
 }
 
-/// `160:`/`320:`/`640:` of `ipred_paeth_8bpc_neon`: the loop over four rows and 16 columns at a time. A function
-/// of its own, so that the registers it needs do not cost the small blocks a stack frame; the entry point
-/// branches to it with every argument in the register it already has.
+/// `160:`/`320:`/`640:` of `ipred_paeth_8bpc_neon`: the loop over four rows and 16 columns at a time.
 ///
 /// # Safety
 /// As the entry point; `x2` = `topleft - 4`, `x6` = `x0` + stride, `x1` = 2 * stride, `x8` = `topleft + 1`,
 /// `v4` = the top left pixel in every byte.
-#[inline(never)]
-#[allow(improper_ctypes_definitions)] // a NEON register argument (v0 under the C ABI), not a foreign interface
-unsafe extern "C" fn ipred_paeth_160(
+unsafe fn ipred_paeth_160(
     mut x0: *mut u8,
     mut x1: isize,
     mut x2: *const u8,
@@ -1112,17 +1108,12 @@ pub unsafe extern "C" fn dav1d_ipred_paeth_8bpc_neon(
     }
 }
 
-/// `160:` of `ipred_smooth_8bpc_neon` (width >= 16). A function of its own: its multiplications by an element
-/// need two of the registers v0-v15 beside the loop's constants, which costs a saved register pair that the
-/// small blocks should not pay for. The entry point branches to it with every argument in the register it
-/// already has.
+/// `160:` of `ipred_smooth_8bpc_neon` (width >= 16).
 ///
 /// # Safety
 /// As the entry point; `x8` = `topleft + 1`, `x10` = `sm_weights + width`, `x11` = `sm_weights + height`, `v4` =
 /// the bottom pixel in every byte.
-#[inline(never)]
-#[allow(improper_ctypes_definitions)] // a NEON register argument (v0 under the C ABI), not a foreign interface
-unsafe extern "C" fn ipred_smooth_160(
+unsafe fn ipred_smooth_160(
     mut x0: *mut u8,
     x1: isize,
     x2: *const u8,
@@ -2390,7 +2381,6 @@ unsafe fn z2_st1_s<const LANE: i32>(x0: *mut u8, v: uint8x8_t) {
 /// # Safety
 /// As for `dav1d_ipred_z2_fill1_8bpc_neon` with `width == 4`; `w8` is the
 /// entry's `xpos`, `w7` is `-dy`, `v31` the first half of `increments`.
-#[inline(never)]
 unsafe fn ipred_z2_fill1_w4(
     mut x0: *mut u8,
     x1: isize,
@@ -2535,7 +2525,6 @@ unsafe fn ipred_z2_fill1_w4(
 /// # Safety
 /// As for `dav1d_ipred_z2_fill1_8bpc_neon` with `width == 8`; `w8` is the
 /// entry's `xpos`, `w7` is `-dy`, `v31` the first half of `increments`.
-#[inline(never)]
 unsafe fn ipred_z2_fill1_w8(
     mut x0: *mut u8,
     x1: isize,
@@ -2688,7 +2677,6 @@ unsafe fn ipred_z2_fill1_w8(
 /// # Safety
 /// As for `dav1d_ipred_z2_fill1_8bpc_neon` with `width == 16`; `w8` is the
 /// entry's `xpos`, `w7` is `-dy`, `v31` the first half of `increments`.
-#[inline(never)]
 unsafe fn ipred_z2_fill1_w16(
     mut x0: *mut u8,
     x1: isize,
@@ -2880,7 +2868,6 @@ unsafe fn ipred_z2_fill1_w16(
 /// # Safety
 /// As for `dav1d_ipred_z2_fill1_8bpc_neon` with `width` 32 or 64; `w7` is
 /// `-dy`, `v31` the first half of `increments`.
-#[inline(never)]
 unsafe fn ipred_z2_fill1_w32(
     mut x0: *mut u8,
     mut x1: isize,
@@ -4195,7 +4182,6 @@ unsafe fn ipred_z3_fill1_w32(
 /// is a constant of each instance, so that the compiler unrolls the loop
 /// `2:` over the 16 rows and has the `dup`s of the column pair beside the
 /// multiplications (`umull2`/`umlal2`).
-#[inline(never)]
 unsafe fn ipred_z3_fill1_large_h16<const H: c_int>(
     mut x0: *mut u8,
     x1: isize,
@@ -4377,7 +4363,6 @@ unsafe fn ipred_z3_fill_padding_cols<const N: usize>(
 ///
 /// # Safety
 /// Writes the remaining `w3` columns of the `w4` rows of `dst`.
-#[inline(never)]
 unsafe fn ipred_z3_fill_padding_neon(
     mut x0: *mut u8,
     x1: isize,
@@ -4847,10 +4832,8 @@ pub unsafe extern "C" fn dav1d_ipred_filter_8bpc_neon(
     }
 }
 
-/// The blocks `160:`/`320:` of `ipred_filter_8bpc_neon` (w 16 and 32), with the entry point's registers: `x1`
-/// twice the stride, `x6` = `x0` + stride, `v16`-`v22` the taps. A function of its own so that the
-/// registers this path keeps across its loops (callee-saved ones) are not saved on the small paths.
-#[inline(never)]
+/// The blocks `160:`/`320:` of `ipred_filter_8bpc_neon` (w 16 and 32), with the entry point's registers: `x1` twice
+/// the stride, `x6` = `x0` + stride, `v16`-`v22` the taps.
 unsafe fn ipred_filter_w16_8bpc_neon(
     mut x0: *mut u8,
     mut x1: isize,
@@ -5151,7 +5134,6 @@ unsafe fn ipred_cfl_splat_px(ac: int16x8_t, v0: int16x8_t, v1: int16x8_t) -> uin
 
 /// `L(ipred_cfl_splat_w4)` of `ipred_cfl_128_8bpc_neon`; `v0` is the dc, `v1` alpha, `x6` = `x0` + stride and
 /// `x1` twice the stride.
-#[inline(never)]
 unsafe fn ipred_cfl_splat_w4_8bpc_neon(
     mut x0: *mut u8,
     x1: isize,
@@ -5183,7 +5165,6 @@ unsafe fn ipred_cfl_splat_w4_8bpc_neon(
 }
 
 /// `L(ipred_cfl_splat_w8)` of `ipred_cfl_128_8bpc_neon`.
-#[inline(never)]
 unsafe fn ipred_cfl_splat_w8_8bpc_neon(
     mut x0: *mut u8,
     x1: isize,
@@ -5217,7 +5198,6 @@ unsafe fn ipred_cfl_splat_w8_8bpc_neon(
 }
 
 /// `L(ipred_cfl_splat_w16)` of `ipred_cfl_128_8bpc_neon` (w 16 and w 32).
-#[inline(never)]
 unsafe fn ipred_cfl_splat_w16_8bpc_neon(
     mut x0: *mut u8,
     mut x1: isize,
@@ -5559,7 +5539,6 @@ fn ipred_cfl_ac_head(w4: c_int, w5: c_int, w6: c_int) -> (c_int, c_int) {
 /// `L(ipred_cfl_ac_420_w8_subtract_dc)`: subtracts the dc `v4` from `w6 / 4` groups of 32 coefficients.
 /// (The blocks shared by the `ipred_cfl_ac_*` entry points take their registers in one order, `x0`, `w6`, `w9`,
 /// `w4`, the sums `v16`-`v19`, then the last row, so that the branch from one into the next moves nothing.)
-#[inline(never)]
 unsafe fn ipred_cfl_ac_420_w8_subtract_dc_8bpc_neon(mut x0: *mut u16, mut w6: c_int, v4: uint16x8_t) {
     loop {
         // 6: Subtract dc from ac
@@ -5590,7 +5569,6 @@ unsafe fn ipred_cfl_ac_dc(s0: u32, w9: c_int) -> uint16x8_t {
 }
 
 /// `L(ipred_cfl_ac_420_w8_calc_subtract_dc)`: aggregates the sums, then subtracts the dc.
-#[inline(never)]
 unsafe fn ipred_cfl_ac_420_w8_calc_subtract_dc_8bpc_neon(
     x0: *mut u16,
     w6: c_int,
@@ -5614,7 +5592,6 @@ unsafe fn ipred_cfl_ac_420_w8_calc_subtract_dc_8bpc_neon(
 
 /// `L(ipred_cfl_ac_420_w4_hpad)`: the vertical padding, the dc and its subtraction for w 4; `v0`, `v1` hold
 /// the last row twice each.
-#[inline(never)]
 unsafe fn ipred_cfl_ac_420_w4_hpad_8bpc_neon(
     mut x0: *mut u16,
     mut w6: c_int,
@@ -5661,7 +5638,6 @@ unsafe fn ipred_cfl_ac_420_w4_hpad_8bpc_neon(
 
 /// `L(ipred_cfl_ac_420_w8_hpad)`: the vertical padding for w 8, then
 /// `L(ipred_cfl_ac_420_w8_calc_subtract_dc)`; `v0`, `v1` hold the last row.
-#[inline(never)]
 unsafe fn ipred_cfl_ac_420_w8_hpad_8bpc_neon(
     mut x0: *mut u16,
     w6: c_int,
@@ -5700,7 +5676,6 @@ unsafe fn ipred_cfl_ac_420_w8_hpad_8bpc_neon(
 /// `L(ipred_cfl_ac_420_w16_hpad)`: the vertical padding for w 16, then
 /// `L(ipred_cfl_ac_420_w8_calc_subtract_dc)` with twice the height; `v0`, `v1` and `v2`, `v3` hold the last
 /// row.
-#[inline(never)]
 unsafe fn ipred_cfl_ac_420_w16_hpad_8bpc_neon(
     mut x0: *mut u16,
     w6: c_int,

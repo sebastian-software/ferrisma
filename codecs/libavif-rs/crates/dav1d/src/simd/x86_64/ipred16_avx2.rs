@@ -47,12 +47,8 @@
 //! - The jump tables' indices outside the contract (`w`, `h` powers of two
 //!   from 4 to 64) go to the last arm (smooth_v: `unreachable_unchecked`,
 //!   as the assembly's jump beyond its table is undefined).
-//! - z3's height paths are separate `#[target_feature(enable = "avx2")]`
-//!   functions that the entry point jumps to (a tail call, no `call`), so
-//!   that the small heights do not carry the 12 KiB column buffers of h32
-//!   and h64 in their frame; its frames are zeroed at the start of each
-//!   path that uses them and 16-byte aligned (all their accesses are
-//!   unaligned moves).
+//! - z3's frames are zeroed at the start of each path that uses them and
+//!   16-byte aligned (all their accesses are unaligned moves).
 //! - Stack frames (`ALLOC_STACK`) are locals zeroed whole, or written whole
 //!   before the first load (said at each site). The z1 and z3 frames are
 //!   larger than the assembly's: its main loops load lanes from beyond its
@@ -5265,23 +5261,23 @@ pub unsafe extern "C" fn dav1d_ipred_z3_16bpc_avx2(
     // cglobal ipred_z3_16bpc, 4, 9, 0, dst, stride, tl, w, h, angle, dy, org_w, maxbase
     // lea r6, [ipred_z3_16bpc_avx2_table]
     let h = (height as u32).trailing_zeros(); // tzcnt hd, hm (h is a power of two >= 4, never zero)
-                                              // movsxd hq, [r6+hq*4] ; add hq, r6 ; jmp hq: the match below. Each height path is its own non-inlined function
-                                              // (`ipred_z3_16bpc_hN_q5`), entered by a tail jump with the arguments in their registers, so that the small
-                                              // heights do not pay for the frames, the stack probes and the callee-saved registers of the large ones. The rest
-                                              // of the prologue (`sub tlq, 2` up to `mov org_wd, wd`, which the assembly runs before the jump) runs at the
-                                              // start of each of them (`ipred_z3_16bpc_entry_q5`). h4/h8 receive `r8m` (bitdepth_max) in the register of `h`,
-                                              // which they do not use; the others receive `h` unchanged and ignore it.
+                                              // The rest of the prologue (`sub tlq, 2` up to `vpbroadcastd m5, [pw_62]`) runs before the jump, as in the
+                                              // assembly; `mov org_wd, wd` is the argument `org_w` of h32 and h64.
+    let m = &mut regs();
+    let (tl, angle, dy) = ipred_z3_16bpc_entry_q5(m, topleft, angle);
+    let dst = dst as *mut u8;
+    // movsxd hq, [r6+hq*4] ; add hq, r6 ; jmp hq
     match h {
-        2 => ipred_z3_16bpc_h4_q5(dst, stride, topleft, width, bitdepth_max, angle),
-        3 => ipred_z3_16bpc_h8_q5(dst, stride, topleft, width, bitdepth_max, angle),
-        4 => ipred_z3_16bpc_h16_q5(dst, stride, topleft, width, height, angle),
-        5 => ipred_z3_16bpc_h32_q5(dst, stride, topleft, width, height, angle),
-        _ => ipred_z3_16bpc_h64_q5(dst, stride, topleft, width, height, angle), // 6: heights are 4..=64
+        2 => ipred_z3_16bpc_h4(m, dst, stride, tl, width, angle, dy, bitdepth_max),
+        3 => ipred_z3_16bpc_h8(m, dst, stride, tl, width, angle, dy, bitdepth_max),
+        4 => ipred_z3_16bpc_h16(m, dst, stride, tl, width, angle, dy),
+        5 => ipred_z3_16bpc_h32(m, dst, stride, tl, width, angle, dy, width),
+        _ => ipred_z3_16bpc_h64(m, dst, stride, tl, width, angle, dy, width), // 6: heights are 4..=64
     }
 }
 
-/// The entry's prologue from `movifnidn` to `vpbroadcastd m5, [pw_62]` (in the assembly before the jump table;
-/// here at the start of each height function): returns `tlq`, `angled`, `dyd`.
+/// The entry's prologue from `movifnidn` to `vpbroadcastd m5, [pw_62]` (before the jump table): returns `tlq`,
+/// `angled`, `dyd`.
 #[inline(always)]
 unsafe fn ipred_z3_16bpc_entry_q5(m: &mut M, topleft: *const u16, angle: c_int) -> (*const u8, i32, i32) {
     let mut angle = angle; // movifnidn angled, anglem
@@ -5296,88 +5292,6 @@ unsafe fn ipred_z3_16bpc_entry_q5(m: &mut M, topleft: *const u16, angle: c_int) 
     let dy = ldw_q5(r7, dyq); // movzx dyd, word [r7+dyq]
     m[5] = bcd_q5(ro(pw_62, 0)); // vpbroadcastd m5, [pw_62]
     (tl, angle, dy)
-}
-
-/// `.h4` as its own function (see the jump in `dav1d_ipred_z3_16bpc_avx2`).
-#[target_feature(enable = "avx2")]
-#[inline(never)]
-unsafe extern "C" fn ipred_z3_16bpc_h4_q5(
-    dst: *mut u16,
-    stride: isize,
-    topleft: *const u16,
-    w: c_int,
-    pixel_max: c_int,
-    angle: c_int,
-) {
-    let m = &mut regs();
-    let (tl, angle, dy) = ipred_z3_16bpc_entry_q5(m, topleft, angle);
-    ipred_z3_16bpc_h4(m, dst as *mut u8, stride, tl, w, angle, dy, pixel_max)
-}
-
-/// `.h8` as its own function (see `ipred_z3_16bpc_h4_q5`).
-#[target_feature(enable = "avx2")]
-#[inline(never)]
-unsafe extern "C" fn ipred_z3_16bpc_h8_q5(
-    dst: *mut u16,
-    stride: isize,
-    topleft: *const u16,
-    w: c_int,
-    pixel_max: c_int,
-    angle: c_int,
-) {
-    let m = &mut regs();
-    let (tl, angle, dy) = ipred_z3_16bpc_entry_q5(m, topleft, angle);
-    ipred_z3_16bpc_h8(m, dst as *mut u8, stride, tl, w, angle, dy, pixel_max)
-}
-
-/// `.h16` as its own function (see `ipred_z3_16bpc_h4_q5`).
-#[target_feature(enable = "avx2")]
-#[inline(never)]
-unsafe extern "C" fn ipred_z3_16bpc_h16_q5(
-    dst: *mut u16,
-    stride: isize,
-    topleft: *const u16,
-    w: c_int,
-    _h: c_int,
-    angle: c_int,
-) {
-    let m = &mut regs();
-    let (tl, angle, dy) = ipred_z3_16bpc_entry_q5(m, topleft, angle);
-    ipred_z3_16bpc_h16(m, dst as *mut u8, stride, tl, w, angle, dy)
-}
-
-/// `.h32` as its own function (see `ipred_z3_16bpc_h4_q5`).
-#[target_feature(enable = "avx2")]
-#[inline(never)]
-unsafe extern "C" fn ipred_z3_16bpc_h32_q5(
-    dst: *mut u16,
-    stride: isize,
-    topleft: *const u16,
-    w: c_int,
-    _h: c_int,
-    angle: c_int,
-) {
-    let m = &mut regs();
-    let (tl, angle, dy) = ipred_z3_16bpc_entry_q5(m, topleft, angle);
-    let org_w = w; // mov org_wd, wd
-    ipred_z3_16bpc_h32(m, dst as *mut u8, stride, tl, w, angle, dy, org_w)
-}
-
-/// `.h64` as its own function (see `ipred_z3_16bpc_h4_q5`).
-#[target_feature(enable = "avx2")]
-#[inline(never)]
-unsafe extern "C" fn ipred_z3_16bpc_h64_q5(
-    dst: *mut u16,
-    stride: isize,
-    topleft: *const u16,
-    w: c_int,
-    _h: c_int,
-    angle: c_int,
-) {
-    let m = &mut regs();
-    let (tl, angle, dy) = ipred_z3_16bpc_entry_q5(m, topleft, angle);
-    let org_w = w; // mov org_wd, wd
-    ipred_z3_16bpc_h64(m, dst as *mut u8, stride, tl, w, angle, dy, org_w)
 }
 
 /// `.filter_strength` (h4/h8/h16; `call`ed): the mask whose population count is the edge filter's strength.

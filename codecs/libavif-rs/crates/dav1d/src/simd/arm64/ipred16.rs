@@ -386,18 +386,13 @@ unsafe fn ipred_dc_128_w32(mut x0: *mut u8, x1: isize, mut w4: c_int, v0123: uin
 /// `64:` of `ipred_dc_128` (`640:`), `ipred_dc_top`, `L(ipred_dc_left_w64)`, `L(ipred_dc_w64)`, with the `sub x1,
 /// x1, #64` that precedes it.
 ///
-/// The assembly's two row pointers `x0`, `x6` each store the two halves of their row and advance by two rows.
-/// Here `x0` stores the first halves of all rows and `x0h` (= `x0` + 64) the second halves, each advancing by
-/// the stride, in the assembly's order of stores. The stride is passed twice (`x1`, `x1h`), and the loop is a
-/// function of its own that the entry points branch to: so the compiler keeps two pointers with a
-/// post-incremented `st1` each (ten instructions per four rows, as the assembly); with one stride, or inlined,
-/// it forms every second address with an add (thirteen or fourteen).
+/// The assembly's two row pointers `x0`, `x6` each store the two halves of their row and advance by two rows. Here
+/// `x0` stores the first halves of all rows and `x0h` (= `x0` + 64) the second halves, each advancing by the
+/// stride, in the assembly's order of stores. The stride is passed twice (`x1`, `x1h`).
 ///
 /// # Safety
 /// Writes 64 bytes at `x0`, `x0 + x1`, ... and at `x0h`, `x0h + x1h`, ... for `w4` rows.
-#[inline(never)]
-#[allow(improper_ctypes_definitions)] // NEON register arguments (v0-v7 under the C ABI), not a foreign interface
-unsafe extern "C" fn ipred_dc_128_w64(
+unsafe fn ipred_dc_128_w64(
     mut x0: *mut u8,
     x1: isize,
     mut x0h: *mut u8,
@@ -434,9 +429,7 @@ unsafe extern "C" fn ipred_dc_128_w64(
 ///
 /// # Safety
 /// Writes 64 bytes at `x0`, `x0 + x1`, ... and at `x0h`, `x0h + x1h`, ... for `w4` rows.
-#[inline(never)]
-#[allow(improper_ctypes_definitions)] // NEON register arguments (v0-v7 under the C ABI), not a foreign interface
-unsafe extern "C" fn ipred_v_w64(
+unsafe fn ipred_v_w64(
     mut x0: *mut u8,
     x1: isize,
     mut x0h: *mut u8,
@@ -546,9 +539,7 @@ pub unsafe extern "C" fn dav1d_ipred_v_16bpc_neon(
     }
 }
 
-/// `160:`, `320:`, `640:` of `ipred_h_16bpc_neon`. A function of its own that the entry point branches to (with
-/// the arguments where they are): with all five loops in one function the compiler steps through the rows of
-/// the loops for 4 and 8 columns with an add each (three more instructions per four rows).
+/// `160:`, `320:`, `640:` of `ipred_h_16bpc_neon`.
 ///
 /// The loops use one row pointer that advances by the stride and store a whole row at a time (the assembly's
 /// `x0` and `x6` = `x0` + stride advance by twice the stride, and it stores the upper parts of two rows before
@@ -556,8 +547,7 @@ pub unsafe extern "C" fn dav1d_ipred_v_16bpc_neon(
 ///
 /// # Safety
 /// As the entry point, for `width` >= 16.
-#[inline(never)]
-unsafe extern "C" fn ipred_h_160(dst: *mut u16, stride: isize, topleft: *const u16, width: c_int, height: c_int) {
+unsafe fn ipred_h_160(dst: *mut u16, stride: isize, topleft: *const u16, width: c_int, height: c_int) {
     let (mut x0, mut w4) = (dst.cast::<u8>(), height);
     let mut x2 = topleft.cast::<u8>().sub(8); // sub x2, x2, #8; mov x7, #-8
     match pa_tbl_idx(width) {
@@ -2749,7 +2739,6 @@ unsafe fn z2_smov_b<const LANE: i32>(v: uint8x16_t) -> isize {
 /// # Safety
 /// As for `dav1d_ipred_z2_fill1_16bpc_neon` with `width == 4`; `w8` is the
 /// entry's `xpos`, `w7` is `-dy`, `v31` is `increments`.
-#[inline(never)]
 unsafe fn ipred_z2_fill1_w4(
     mut x0: *mut u16,
     x1: isize,
@@ -2910,7 +2899,6 @@ unsafe fn ipred_z2_fill1_w4(
 /// # Safety
 /// As for `dav1d_ipred_z2_fill1_16bpc_neon` with `width == 8`; `w8` is the
 /// entry's `xpos`, `w7` is `-dy`, `v31` is `increments`.
-#[inline(never)]
 unsafe fn ipred_z2_fill1_w8(
     mut x0: *mut u16,
     x1: isize,
@@ -3091,7 +3079,6 @@ unsafe fn ipred_z2_fill1_w8(
 /// # Safety
 /// As for `dav1d_ipred_z2_fill1_16bpc_neon` with `width` 16, 32 or 64; `w7`
 /// is `-dy`, `v31` is `increments`.
-#[inline(never)]
 unsafe fn ipred_z2_fill1_w16(
     mut x0: *mut u16,
     mut x1: isize,
@@ -3791,7 +3778,6 @@ unsafe fn ipred_z2_fill2_w4(
 /// # Safety
 /// As for `dav1d_ipred_z2_fill2_16bpc_neon` with `width == 8`; `w8` is the
 /// entry's `xpos`, `w7` is `-dy`, `v31` is `increments`.
-#[inline(never)]
 unsafe fn ipred_z2_fill2_w8(
     mut x0: *mut u16,
     x1: isize,
@@ -4163,7 +4149,6 @@ unsafe fn ipred_z2_fill3_w4(
 /// # Safety
 /// As for `dav1d_ipred_z2_fill3_16bpc_neon` with `width == 8`; `w8` is the
 /// entry's `xpos`, `w7` is `-dy`, `v31` is `increments`.
-#[inline(never)]
 unsafe fn ipred_z2_fill3_w8(
     mut x0: *mut u16,
     x1: isize,
@@ -4598,11 +4583,8 @@ unsafe fn ipred_z3_fill1_h8(
     }
 }
 
-/// `160:`/`320:`/`640:` of `ipred_z3_fill1_16bpc_neon` (height 16, 32, 64):
-/// one block in the assembly; here one instance per height `H`, so that
-/// the compiler unrolls the loop `2:` over the 16 rows and the entry point
-/// keeps no frame for it.
-#[inline(never)]
+/// `160:`/`320:`/`640:` of `ipred_z3_fill1_16bpc_neon` (height 16, 32, 64): one block in the assembly; here one
+/// instance per height `H`.
 unsafe fn ipred_z3_fill1_h16<const H: c_int>(
     mut x0: *mut u8,
     x1: isize,
@@ -4791,7 +4773,6 @@ unsafe fn ipred_z3_fill_padding_cols<const N: usize>(
 ///
 /// # Safety
 /// Writes the remaining `w3` columns of the `w4` rows of `dst`.
-#[inline(never)]
 unsafe fn ipred_z3_fill_padding_neon(
     mut x0: *mut u8,
     x1: isize,
@@ -5241,9 +5222,7 @@ unsafe fn filter_fn<const BPC: u32>(
 }
 
 /// The blocks `160:`/`320:` of `filter_fn bpc` (w 16 and 32), with the registers of `filter_fn`: `x1` twice the
-/// stride, `x6` = `x0` + stride, `v16`-`v22` the taps, `v31` bitdepth_max. A function of its own so that the
-/// registers this path keeps across its loops (callee-saved ones) are not saved on the small paths.
-#[inline(never)]
+/// stride, `x6` = `x0` + stride, `v16`-`v22` the taps, `v31` bitdepth_max.
 unsafe fn ipred_filter_w16_neon<const BPC: u32>(
     mut x0: *mut u16,
     mut x1: isize,
@@ -5317,7 +5296,6 @@ unsafe fn ipred_filter_w16_neon<const BPC: u32>(
 }
 
 /// `ipred_filter_10bpc_neon` (`filter_fn 10`).
-#[inline(never)]
 unsafe fn ipred_filter_10bpc_neon(
     dst: *mut u16,
     stride: isize,
@@ -5331,7 +5309,6 @@ unsafe fn ipred_filter_10bpc_neon(
 }
 
 /// `ipred_filter_12bpc_neon` (`filter_fn 12`).
-#[inline(never)]
 unsafe fn ipred_filter_12bpc_neon(
     dst: *mut u16,
     stride: isize,
@@ -5582,7 +5559,6 @@ unsafe fn ipred_cfl_splat_px(ac: int16x8_t, v0: int16x8_t, v1: int16x8_t, v31: i
 
 /// `L(ipred_cfl_splat_w4)` of `ipred_cfl_128_16bpc_neon`; `v0` is the dc, `v1` alpha, `v31` bitdepth_max, `x6`
 /// = `x0` + stride and `x1` twice the stride (`v30` = 0 is formed in `ipred_cfl_splat_px`).
-#[inline(never)]
 unsafe fn ipred_cfl_splat_w4_16bpc_neon(
     mut x0: *mut u16,
     x1: isize,
@@ -5615,7 +5591,6 @@ unsafe fn ipred_cfl_splat_w4_16bpc_neon(
 }
 
 /// `L(ipred_cfl_splat_w8)` of `ipred_cfl_128_16bpc_neon`.
-#[inline(never)]
 unsafe fn ipred_cfl_splat_w8_16bpc_neon(
     mut x0: *mut u16,
     x1: isize,
@@ -5644,7 +5619,6 @@ unsafe fn ipred_cfl_splat_w8_16bpc_neon(
 }
 
 /// `L(ipred_cfl_splat_w16)` of `ipred_cfl_128_16bpc_neon` (w 16 and w 32).
-#[inline(never)]
 unsafe fn ipred_cfl_splat_w16_16bpc_neon(
     mut x0: *mut u16,
     mut x1: isize,
@@ -6008,7 +5982,6 @@ fn ipred_cfl_ac_head(w4: c_int, w5: c_int, w6: c_int) -> (c_int, c_int) {
 /// so that the shared blocks get `w9` in a general register and at most eight vector registers. (The blocks
 /// shared by the `ipred_cfl_ac_*` entry points take their registers in one order, `x0`, `w6`, `w9`, `w4`, the
 /// sums `v24`-`v27`, then the last row, so that the branch from one into the next moves nothing.)
-#[inline(never)]
 unsafe fn ipred_cfl_ac_420_w4_calc_subtract_dc_16bpc_neon(
     x0: *mut u16,
     mut w6: c_int,
@@ -6045,7 +6018,6 @@ unsafe fn ipred_cfl_ac_420_w4_calc_subtract_dc_16bpc_neon(
 
 /// `L(ipred_cfl_ac_420_w4_hpad)`: the vertical padding for w 4, then
 /// `L(ipred_cfl_ac_420_w4_calc_subtract_dc)`; `v0`, `v1` hold the last row twice each.
-#[inline(never)]
 unsafe fn ipred_cfl_ac_420_w4_hpad_16bpc_neon(
     mut x0: *mut u16,
     w6: c_int,
@@ -6079,7 +6051,6 @@ unsafe fn ipred_cfl_ac_420_w4_hpad_16bpc_neon(
 
 /// `L(ipred_cfl_ac_420_w8_hpad)`: the vertical padding for w 8, then
 /// `L(ipred_cfl_ac_420_w4_calc_subtract_dc)` with twice the height; `v0`, `v1` hold the last row.
-#[inline(never)]
 unsafe fn ipred_cfl_ac_420_w8_hpad_16bpc_neon(
     mut x0: *mut u16,
     w6: c_int,
@@ -6120,7 +6091,6 @@ unsafe fn ipred_cfl_ac_420_w8_hpad_16bpc_neon(
 /// `L(ipred_cfl_ac_420_w16_hpad)`: the vertical padding for w 16, then
 /// `L(ipred_cfl_ac_420_w4_calc_subtract_dc)` with four times the height; `v0`, `v1` and `v2`, `v3` hold the
 /// last row.
-#[inline(never)]
 unsafe fn ipred_cfl_ac_420_w16_hpad_16bpc_neon(
     mut x0: *mut u16,
     w6: c_int,

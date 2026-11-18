@@ -2953,10 +2953,7 @@ pub unsafe extern "C" fn dav1d_inv_txfm_add_dct_dct_32x32_16bpc_neon(
     inv_txfm_add_dct_dct_32x32_16bpc_coefs(dst, stride, coeff, eob)
 }
 
-/// The part of `dav1d_inv_txfm_add_dct_dct_32x32_16bpc_neon` after the `idct_dc` macro (`1:`): the
-/// assembly sets up its stack frame only there, so the DC-only path
-/// above runs without it.
-#[inline(never)]
+/// The part of `dav1d_inv_txfm_add_dct_dct_32x32_16bpc_neon` after the `idct_dc` macro (`1:`).
 unsafe fn inv_txfm_add_dct_dct_32x32_16bpc_coefs(dst: Dst, stride: isize, coeff: Coef, eob: c_int) {
     let mut v = regs();
     // sub sp, sp, #2048
@@ -3007,10 +3004,7 @@ pub unsafe extern "C" fn dav1d_inv_txfm_add_dct_dct_16x32_16bpc_neon(
     inv_txfm_add_dct_dct_16x32_16bpc_coefs(dst, stride, coeff, eob)
 }
 
-/// The part of `dav1d_inv_txfm_add_dct_dct_16x32_16bpc_neon` after the `idct_dc` macro (`1:`): the
-/// assembly sets up its stack frame only there, so the DC-only path
-/// above runs without it.
-#[inline(never)]
+/// The part of `dav1d_inv_txfm_add_dct_dct_16x32_16bpc_neon` after the `idct_dc` macro (`1:`).
 unsafe fn inv_txfm_add_dct_dct_16x32_16bpc_coefs(dst: Dst, stride: isize, coeff: Coef, eob: c_int) {
     let mut v = regs();
     // sub sp, sp, #1024
@@ -3060,10 +3054,7 @@ pub unsafe extern "C" fn dav1d_inv_txfm_add_dct_dct_32x16_16bpc_neon(
     inv_txfm_add_dct_dct_32x16_16bpc_coefs(dst, stride, coeff, eob)
 }
 
-/// The part of `dav1d_inv_txfm_add_dct_dct_32x16_16bpc_neon` after the `idct_dc` macro (`1:`): the
-/// assembly sets up its stack frame only there, so the DC-only path
-/// above runs without it.
-#[inline(never)]
+/// The part of `dav1d_inv_txfm_add_dct_dct_32x16_16bpc_neon` after the `idct_dc` macro (`1:`).
 unsafe fn inv_txfm_add_dct_dct_32x16_16bpc_coefs(dst: Dst, stride: isize, coeff: Coef, eob: c_int) {
     let mut v = regs();
     // sub sp, sp, #1024
@@ -3113,10 +3104,7 @@ pub unsafe extern "C" fn dav1d_inv_txfm_add_dct_dct_8x32_16bpc_neon(
     inv_txfm_add_dct_dct_8x32_16bpc_coefs(dst, stride, coeff, eob)
 }
 
-/// The part of `dav1d_inv_txfm_add_dct_dct_8x32_16bpc_neon` after the `idct_dc` macro (`1:`): the
-/// assembly sets up its stack frame only there, so the DC-only path
-/// above runs without it.
-#[inline(never)]
+/// The part of `dav1d_inv_txfm_add_dct_dct_8x32_16bpc_neon` after the `idct_dc` macro (`1:`).
 unsafe fn inv_txfm_add_dct_dct_8x32_16bpc_coefs(dst: Dst, stride: isize, coeff: Coef, eob: c_int) {
     let mut v = regs();
     // sub sp, sp, #512
@@ -3197,10 +3185,7 @@ pub unsafe extern "C" fn dav1d_inv_txfm_add_dct_dct_32x8_16bpc_neon(
     inv_txfm_add_dct_dct_32x8_16bpc_coefs(dst, stride, coeff, eob)
 }
 
-/// The part of `dav1d_inv_txfm_add_dct_dct_32x8_16bpc_neon` after the `idct_dc` macro (`1:`): the
-/// assembly sets up its stack frame only there, so the DC-only path
-/// above runs without it.
-#[inline(never)]
+/// The part of `dav1d_inv_txfm_add_dct_dct_32x8_16bpc_neon` after the `idct_dc` macro (`1:`).
 unsafe fn inv_txfm_add_dct_dct_32x8_16bpc_coefs(dst: Dst, stride: isize, coeff: Coef, eob: c_int) {
     let mut v = regs();
     // sub sp, sp, #512
@@ -3853,10 +3838,7 @@ pub unsafe extern "C" fn dav1d_inv_txfm_add_dct_dct_64x64_16bpc_neon(
     inv_txfm_add_dct_dct_64x64_16bpc_coefs(dst, stride, coeff, eob)
 }
 
-/// The part of `dav1d_inv_txfm_add_dct_dct_64x64_16bpc_neon` after the `idct_dc` macro (`1:`): the
-/// assembly sets up its stack frame only there, so the DC-only path
-/// above runs without it.
-#[inline(never)]
+/// The part of `dav1d_inv_txfm_add_dct_dct_64x64_16bpc_neon` after the `idct_dc` macro (`1:`).
 unsafe fn inv_txfm_add_dct_dct_64x64_16bpc_coefs(dst: Dst, stride: isize, coeff: Coef, eob: c_int) {
     let mut v = regs();
     // sub_sp 64*32*2+64*4*4; add x5, sp, #64*4*4
@@ -3913,10 +3895,7 @@ pub unsafe extern "C" fn dav1d_inv_txfm_add_dct_dct_64x32_16bpc_neon(
     inv_txfm_add_dct_dct_64x32_16bpc_coefs(dst, stride, coeff, eob)
 }
 
-/// The part of `dav1d_inv_txfm_add_dct_dct_64x32_16bpc_neon` after the `idct_dc` macro (`1:`): the
-/// assembly sets up its stack frame only there, so the DC-only path
-/// above runs without it.
-#[inline(never)]
+/// The part of `dav1d_inv_txfm_add_dct_dct_64x32_16bpc_neon` after the `idct_dc` macro (`1:`).
 unsafe fn inv_txfm_add_dct_dct_64x32_16bpc_coefs(dst: Dst, stride: isize, coeff: Coef, eob: c_int) {
     let mut v = regs();
     // sub_sp 64*32*2+64*4*4; add x5, sp, #64*4*4
@@ -3967,10 +3946,7 @@ pub unsafe extern "C" fn dav1d_inv_txfm_add_dct_dct_32x64_16bpc_neon(
     inv_txfm_add_dct_dct_32x64_16bpc_coefs(dst, stride, coeff, eob)
 }
 
-/// The part of `dav1d_inv_txfm_add_dct_dct_32x64_16bpc_neon` after the `idct_dc` macro (`1:`): the
-/// assembly sets up its stack frame only there, so the DC-only path
-/// above runs without it.
-#[inline(never)]
+/// The part of `dav1d_inv_txfm_add_dct_dct_32x64_16bpc_neon` after the `idct_dc` macro (`1:`).
 unsafe fn inv_txfm_add_dct_dct_32x64_16bpc_coefs(dst: Dst, stride: isize, coeff: Coef, eob: c_int) {
     let mut v = regs();
     // sub_sp 32*32*2+64*8*2; add x5, sp, #64*8*2
@@ -4023,10 +3999,7 @@ pub unsafe extern "C" fn dav1d_inv_txfm_add_dct_dct_64x16_16bpc_neon(
     inv_txfm_add_dct_dct_64x16_16bpc_coefs(dst, stride, coeff, eob)
 }
 
-/// The part of `dav1d_inv_txfm_add_dct_dct_64x16_16bpc_neon` after the `idct_dc` macro (`1:`): the
-/// assembly sets up its stack frame only there, so the DC-only path
-/// above runs without it.
-#[inline(never)]
+/// The part of `dav1d_inv_txfm_add_dct_dct_64x16_16bpc_neon` after the `idct_dc` macro (`1:`).
 unsafe fn inv_txfm_add_dct_dct_64x16_16bpc_coefs(dst: Dst, stride: isize, coeff: Coef, eob: c_int) {
     let mut v = regs();
     // sub_sp 64*16*2+64*4*4; add x4, sp, #64*4*4
@@ -4079,10 +4052,7 @@ pub unsafe extern "C" fn dav1d_inv_txfm_add_dct_dct_16x64_16bpc_neon(
     inv_txfm_add_dct_dct_16x64_16bpc_coefs(dst, stride, coeff, eob)
 }
 
-/// The part of `dav1d_inv_txfm_add_dct_dct_16x64_16bpc_neon` after the `idct_dc` macro (`1:`): the
-/// assembly sets up its stack frame only there, so the DC-only path
-/// above runs without it.
-#[inline(never)]
+/// The part of `dav1d_inv_txfm_add_dct_dct_16x64_16bpc_neon` after the `idct_dc` macro (`1:`).
 unsafe fn inv_txfm_add_dct_dct_16x64_16bpc_coefs(dst: Dst, stride: isize, coeff: Coef, eob: c_int) {
     let mut v = regs();
     // sub_sp 16*32*2+64*8*2; add x5, sp, #64*8*2
