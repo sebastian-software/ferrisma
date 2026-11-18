@@ -55,8 +55,11 @@
 //! - `core::hint::black_box` keeps a value opaque where the compiler
 //!   otherwise rewrote the assembly's instruction pattern into a longer one
 //!   (`stride*3` in the dc family, `top` in paeth, the read-only base and
-//!   the `psrlw 8` count in smooth, the edge pointer and the shuffle masks
-//!   in z2, the destination of z3's h4 end loop): one store and load each;
+//!   the `psrlw 8` count in smooth, the edge pointer, the shuffle masks,
+//!   `r2` at the head of the w4 and w16 loops and `dst`/`r5` on entering
+//!   `.w16_leftonly_loop` in z2, the destination of z3's h4 end loop): one
+//!   store and load each, and in z2 an empty `black_box(())` that makes the
+//!   compiler reload frame slots where the assembly reloads them;
 //!   each took a kernel from above 1.3 times the assembly's instructions to
 //!   below. No `black_box` changes a value.
 //! - Every vector access to caller memory is an unaligned move where the
@@ -3697,8 +3700,9 @@ struct GprP4 {
     r2: i32,
     /// `r3d`.
     r3: i32,
-    /// `r5`: `rsp + r5` is the left edge pointer of the gathers (`left-7`, `left-3`).
-    r5: isize,
+    /// `r5`: the left edge pointer of the gathers (`left-7`, `left-3`) in the frame. A pointer, as in the assembly:
+    /// as an offset from `rsp` the compiler adds `rsp` to it before every gather (two instructions).
+    r5: *mut u8,
     /// `r8d`: the x position below which the rows use the left edge only (w4, w8); rows and columns left (w16+).
     r8: i32,
     /// `r6m`.
@@ -3831,6 +3835,25 @@ fn barrier_p4(fp: *mut u8) {
     core::hint::black_box(fp);
 }
 
+/// Not in the assembly: hands the x position to an opaque hint at the head of a row loop and takes it back
+/// unchanged (a store and a reload). The assembly computes the positions of a loop pass as a chain of `lea`s from
+/// `r2`; without the hint the compiler's loop strength reduction turns the chain into separate induction variables
+/// with `2*dx`/`3*dx` held in registers, runs out of general-purpose registers and spills and shuffles them
+/// (counted in the `.w4_loop`/`.w16_loop` disassembly). No effect on any value.
+#[inline(always)]
+fn opaque_p4<T>(x: T) -> T {
+    core::hint::black_box(x)
+}
+
+/// Not in the assembly: an empty compiler barrier (`black_box(())` is an empty block that may write memory: no
+/// instruction). Placed before the assembly reloads a value it stored to its frame, so that the compiler reloads
+/// it as well instead of keeping the value in a register across the loop, where it would have to spill it to a
+/// slot of its own. No effect on any value.
+#[inline(always)]
+fn reload_p4() {
+    core::hint::black_box(());
+}
+
 /// `ipred_z2_8bpc` (`ipred_avx2.asm` lines 2132–2986).
 #[target_feature(enable = "avx2")]
 pub unsafe extern "C" fn dav1d_ipred_z2_8bpc_avx2(
@@ -3862,7 +3885,7 @@ pub unsafe extern "C" fn dav1d_ipred_z2_8bpc_avx2(
         dy: 0,
         r2: 0,
         r3: 0,
-        r5: 0,
+        r5: fp,
         r8: 0,
         max_width,
         max_height,
@@ -4122,7 +4145,7 @@ unsafe fn ipred_z2_8bpc_w4_main(m: &mut M, g: &mut GprP4) {
     let fp = g.fp;
     m[0] = zx(_mm_cvtsi32_si128(g.dx)); // movd xm0, dxd
     m[12] = ld256_p4(ro(z2_y_shuf_h4, 0)); // mova m12, [base+z2_y_shuf_h4]
-    g.r5 = 56; // lea r5, [rsp+56] ; left-7
+    g.r5 = at(fp, 56); // lea r5, [rsp+56] ; left-7
     m[0] = _mm256_broadcastw_epi16(lo(m[0])); // vpbroadcastw m0, xm0
     let r9 = g.stride * 3; // lea r9, [strideq*3]
     m[1] = zx(_mm_srai_epi16::<6>(lo(m[5]))); // psraw xm1, xm5, 6
@@ -4142,6 +4165,7 @@ unsafe fn ipred_z2_8bpc_w4_main(m: &mut M, g: &mut GprP4) {
     m[5] = _mm256_broadcastq_epi64(lo(m[5])); // vpbroadcastq m5, xm5
     loop {
         // .w4_loop:
+        g.r2 = opaque_p4(g.r2); // (not in the assembly: keeps the chain of leas, see opaque_p4)
         g.r3 = g.r2 + g.dx; // lea r3d, [r2+dxq]
         g.r2 = ((g.r2 as u32) >> 6) as i32; // shr r2d, 6 ; base_x0
         m[1] = _mm256_set1_epi64x(rd64_p4(at(fp, g.r2 as isize))); // vpbroadcastq m1, [rsp+r2]
@@ -4170,7 +4194,7 @@ unsafe fn ipred_z2_8bpc_w4_main(m: &mut M, g: &mut GprP4) {
             m[1] = m[7]; // mova m1, m7 ; arbitrary negative value
                          // All four lanes are gathered (the mask is negative); the frame is zeroed whole and the
                          // indices stay within rsp+28..rsp+192 (see FrameP4). The gather clears m1; the next line writes it.
-            m[3] = _mm256_mask_i32gather_epi64::<1>(m[3], at(fp, g.r5) as *const i64, lo(m[4]), m[1]); // vpgatherdq m3, [r5+xm4], m1
+            m[3] = _mm256_mask_i32gather_epi64::<1>(m[3], g.r5 as *const i64, lo(m[4]), m[1]); // vpgatherdq m3, [r5+xm4], m1
             m[1] = _mm256_shuffle_epi8(m[3], m[11]); // pshufb m1, m3, m11
             m[1] = _mm256_permutevar8x32_epi32(m[1], m[12]); // vpermd m1, m12, m1
             m[1] = _mm256_maddubs_epi16(m[1], m[5]); // pmaddubsw m1, m5
@@ -4180,7 +4204,7 @@ unsafe fn ipred_z2_8bpc_w4_main(m: &mut M, g: &mut GprP4) {
         // .w4_toponly:
         m[0] = _mm256_mulhrs_epi16(m[0], m[13]); // pmulhrsw m0, m13
         m[6] = _mm256_add_epi16(m[6], m[7]); // paddw m6, m7 ; xpos += dx
-        g.r5 += g.dy as isize; // add r5, dyq
+        g.r5 = at(g.r5, g.dy as isize); // add r5, dyq
         m[0] = _mm256_packus_epi16(m[0], m[0]); // packuswb m0, m0
         m[1] = zx(_mm256_extracti128_si256::<1>(m[0])); // vextracti128 xm1, m0, 1
         st32_p4(at(g.dst, g.stride * 2), _mm_cvtsi128_si32(lo(m[0]))); // movd [dstq+strideq*2], xm0
@@ -4199,8 +4223,8 @@ unsafe fn ipred_z2_8bpc_w4_main(m: &mut M, g: &mut GprP4) {
     loop {
         // .w4_leftonly_loop:
         m[1] = m[7]; // mova m1, m7
-        m[2] = _mm256_mask_i32gather_epi64::<1>(m[2], at(fp, g.r5) as *const i64, lo(m[4]), m[1]); // vpgatherdq m2, [r5+xm4], m1
-        g.r5 += g.dy as isize; // add r5, dyq
+        m[2] = _mm256_mask_i32gather_epi64::<1>(m[2], g.r5 as *const i64, lo(m[4]), m[1]); // vpgatherdq m2, [r5+xm4], m1
+        g.r5 = at(g.r5, g.dy as isize); // add r5, dyq
         m[0] = _mm256_shuffle_epi8(m[2], m[11]); // pshufb m0, m2, m11
         m[0] = _mm256_permutevar8x32_epi32(m[0], m[12]); // vpermd m0, m12, m0
         m[0] = _mm256_maddubs_epi16(m[0], m[5]); // pmaddubsw m0, m5
@@ -4369,7 +4393,7 @@ unsafe fn ipred_z2_8bpc_w8_filter_left(m: &mut M, g: &mut GprP4) {
 unsafe fn ipred_z2_8bpc_w8_main(m: &mut M, g: &mut GprP4) {
     let fp = g.fp;
     m[3] = zx(_mm_cvtsi32_si128(g.dx)); // movd xm3, dxd
-    g.r5 = 56; // lea r5, [rsp+56] ; left-7
+    g.r5 = at(fp, 56); // lea r5, [rsp+56] ; left-7
     m[1] = zx(_mm_shuffle_epi32::<0xd8>(lo(m[5]))); // pshufd xm1, xm5, q3120
     m[5] = zx(_mm_and_si128(lo(m[5]), lo(m[14]))); // pand xm5, xm14
     m[3] = _mm256_broadcastw_epi16(lo(m[3])); // vpbroadcastw m3, xm3
@@ -4419,9 +4443,9 @@ unsafe fn ipred_z2_8bpc_w8_main(m: &mut M, g: &mut GprP4) {
             // within rsp+28..rsp+192 (see FrameP4). Each gather clears its mask; m7 is restored from m5 as in the
             // assembly, and m5 is written before it is read again.
             m[5] = m[7]; // mova m5, m7
-            m[3] = _mm256_mask_i32gather_epi64::<1>(m[3], at(fp, g.r5) as *const i64, lo(m[9]), m[7]); // vpgatherdq m3, [r5+xm9], m7
+            m[3] = _mm256_mask_i32gather_epi64::<1>(m[3], g.r5 as *const i64, lo(m[9]), m[7]); // vpgatherdq m3, [r5+xm9], m7
             m[7] = m[5]; // mova m7, m5
-            m[2] = _mm256_mask_i32gather_epi64::<1>(m[2], at(fp, g.r5) as *const i64, lo(m[8]), m[5]); // vpgatherdq m2, [r5+xm8], m5
+            m[2] = _mm256_mask_i32gather_epi64::<1>(m[2], g.r5 as *const i64, lo(m[8]), m[5]); // vpgatherdq m2, [r5+xm8], m5
             m[3] = _mm256_shuffle_epi8(m[3], m[11]); // pshufb m3, m11
             m[2] = _mm256_shuffle_epi8(m[2], m[11]); // pshufb m2, m11
             m[5] = _mm256_unpacklo_epi32(m[2], m[3]); // punpckldq m5, m2, m3 ; a0 b0 c0 d0 a1 b1 c1 d1   e0 f0 g0 h0 e1 f1 g1 h1
@@ -4439,7 +4463,7 @@ unsafe fn ipred_z2_8bpc_w8_main(m: &mut M, g: &mut GprP4) {
         m[0] = _mm256_mulhrs_epi16(m[0], m[13]); // pmulhrsw m0, m13
         m[1] = _mm256_mulhrs_epi16(m[1], m[13]); // pmulhrsw m1, m13
         m[6] = _mm256_add_epi16(m[4], m[7]); // paddw m6, m4, m7 ; xpos += dx
-        g.r5 += g.dy as isize; // add r5, dyq
+        g.r5 = at(g.r5, g.dy as isize); // add r5, dyq
         m[0] = _mm256_packus_epi16(m[0], m[1]); // packuswb m0, m1
         m[1] = zx(_mm256_extracti128_si256::<1>(m[0])); // vextracti128 xm1, m0, 1
         stq_p4(g.dst, lo(m[0])); // movq [dstq+strideq*0], xm0
@@ -4458,10 +4482,10 @@ unsafe fn ipred_z2_8bpc_w8_main(m: &mut M, g: &mut GprP4) {
     loop {
         // .w8_leftonly_loop:
         m[0] = m[7]; // mova m0, m7
-        m[5] = _mm256_mask_i32gather_epi64::<1>(m[5], at(fp, g.r5) as *const i64, lo(m[9]), m[7]); // vpgatherdq m5, [r5+xm9], m7
+        m[5] = _mm256_mask_i32gather_epi64::<1>(m[5], g.r5 as *const i64, lo(m[9]), m[7]); // vpgatherdq m5, [r5+xm9], m7
         m[7] = m[0]; // mova m7, m0
-        m[3] = _mm256_mask_i32gather_epi64::<1>(m[3], at(fp, g.r5) as *const i64, lo(m[8]), m[0]); // vpgatherdq m3, [r5+xm8], m0
-        g.r5 += g.dy as isize; // add r5, dyq
+        m[3] = _mm256_mask_i32gather_epi64::<1>(m[3], g.r5 as *const i64, lo(m[8]), m[0]); // vpgatherdq m3, [r5+xm8], m0
+        g.r5 = at(g.r5, g.dy as isize); // add r5, dyq
         m[2] = _mm256_shuffle_epi8(m[5], m[11]); // pshufb m2, m5, m11
         m[1] = _mm256_shuffle_epi8(m[3], m[11]); // pshufb m1, m3, m11
         m[0] = _mm256_unpacklo_epi32(m[1], m[2]); // punpckldq m0, m1, m2
@@ -4661,7 +4685,7 @@ unsafe fn ipred_z2_8bpc_w16_main(m: &mut M, g: &mut GprP4) {
         // .w16_loop0:
         g.r2 = r9; // mov r2d, r9d
         st256_p4(at(fp, 160), m[0]); // mova [rsp+160], m0
-        g.r5 = 60; // lea r5, [rsp+60] ; left-3
+        g.r5 = at(fp, 60); // lea r5, [rsp+60] ; left-3
         st256_p4(at(fp, 192), m[6]); // mova [rsp+192], m6
         m[1] = _mm256_setzero_si256(); // pxor m1, m1
         m[2] = _mm256_srai_epi16::<6>(m[0]); // psraw m2, m0, 6
@@ -4675,6 +4699,7 @@ unsafe fn ipred_z2_8bpc_w16_main(m: &mut M, g: &mut GprP4) {
         'w16_end: {
             loop {
                 // .w16_loop:
+                g.r2 = opaque_p4(g.r2); // (not in the assembly: keeps the chain of leas, see opaque_p4)
                 g.r3 = g.r2 + g.dx; // lea r3d, [r2+dxq]
                 g.r2 = ((g.r2 as u32) >> 6) as i32; // shr r2d, 6 ; base_x0
                 m[0] = zx(ld128_p4(at(fp, g.r2 as isize))); // movu xm0, [rsp+r2]
@@ -4703,9 +4728,9 @@ unsafe fn ipred_z2_8bpc_w16_main(m: &mut M, g: &mut GprP4) {
                     // other lanes keep m4/m3 and are blended out below. Each gather clears its mask, which the
                     // next line writes.
                     m[2] = _mm256_unpackhi_epi16(m[5], m[5]); // punpckhwd m2, m5, m5 ; mask out unnecessary loads
-                    m[4] = _mm256_mask_i32gather_epi32::<1>(m[4], at(fp, g.r5) as *const i32, m[9], m[2]); // vpgatherdd m4, [r5+m9], m2
+                    m[4] = _mm256_mask_i32gather_epi32::<1>(m[4], g.r5 as *const i32, m[9], m[2]); // vpgatherdd m4, [r5+m9], m2
                     m[2] = _mm256_unpacklo_epi16(m[5], m[5]); // punpcklwd m2, m5, m5
-                    m[3] = _mm256_mask_i32gather_epi32::<1>(m[3], at(fp, g.r5) as *const i32, m[8], m[2]); // vpgatherdd m3, [r5+m8], m2
+                    m[3] = _mm256_mask_i32gather_epi32::<1>(m[3], g.r5 as *const i32, m[8], m[2]); // vpgatherdd m3, [r5+m8], m2
                     m[4] = _mm256_shuffle_epi8(m[4], m[11]); // pshufb m4, m11 ; e0 f0 g0 h0 e1 f1 g1 h1   m0 n0 o0 p0 m1 n1 o1 p1
                     m[3] = _mm256_shuffle_epi8(m[3], m[11]); // pshufb m3, m11 ; a0 b0 c0 d0 a1 b1 c1 d1   i0 j0 k0 l0 i1 j1 k1 l1
                     m[2] = _mm256_unpacklo_epi64(m[3], m[4]); // punpcklqdq m2, m3, m4 ; y0
@@ -4721,7 +4746,7 @@ unsafe fn ipred_z2_8bpc_w16_main(m: &mut M, g: &mut GprP4) {
                 m[0] = _mm256_mulhrs_epi16(m[0], m[13]); // pmulhrsw m0, m13
                 m[1] = _mm256_mulhrs_epi16(m[1], m[13]); // pmulhrsw m1, m13
                 m[6] = _mm256_add_epi16(m[5], m[7]); // paddw m6, m5, m7 ; xpos += dx
-                g.r5 -= 2; // sub r5, 2
+                g.r5 = at(g.r5, -2); // sub r5, 2
                 m[0] = _mm256_packus_epi16(m[0], m[1]); // packuswb m0, m1
                 m[0] = _mm256_permute4x64_epi64::<0xd8>(m[0]); // vpermq m0, m0, q3120
                 st128_p4(g.dst, lo(m[0])); // mova [dstq+strideq*0], xm0
@@ -4735,14 +4760,17 @@ unsafe fn ipred_z2_8bpc_w16_main(m: &mut M, g: &mut GprP4) {
                     break; // cmp r2d, (63-16)<<6 ; jge .w16_loop
                 }
             }
+            // (not in the assembly: see opaque_p4; without it the compiler keeps the forms of dst and r5 that this
+            // loop uses as extra induction variables of .w16_loop)
+            (g.dst, g.r5) = opaque_p4((g.dst, g.r5));
             loop {
                 // .w16_leftonly_loop:
                 // Every column of these rows uses the left edge (base_x < 0): all lanes are gathered.
                 m[0] = m[7]; // mova m0, m7
-                m[4] = _mm256_mask_i32gather_epi32::<1>(m[4], at(fp, g.r5) as *const i32, m[9], m[7]); // vpgatherdd m4, [r5+m9], m7
+                m[4] = _mm256_mask_i32gather_epi32::<1>(m[4], g.r5 as *const i32, m[9], m[7]); // vpgatherdd m4, [r5+m9], m7
                 m[7] = m[0]; // mova m7, m0
-                m[3] = _mm256_mask_i32gather_epi32::<1>(m[3], at(fp, g.r5) as *const i32, m[8], m[0]); // vpgatherdd m3, [r5+m8], m0
-                g.r5 -= 2; // sub r5, 2
+                m[3] = _mm256_mask_i32gather_epi32::<1>(m[3], g.r5 as *const i32, m[8], m[0]); // vpgatherdd m3, [r5+m8], m0
+                g.r5 = at(g.r5, -2); // sub r5, 2
                 m[2] = _mm256_shuffle_epi8(m[4], m[11]); // pshufb m2, m4, m11
                 m[1] = _mm256_shuffle_epi8(m[3], m[11]); // pshufb m1, m3, m11
                 m[0] = _mm256_unpacklo_epi64(m[1], m[2]); // punpcklqdq m0, m1, m2
@@ -4763,6 +4791,7 @@ unsafe fn ipred_z2_8bpc_w16_main(m: &mut M, g: &mut GprP4) {
             }
         }
         // .w16_end:
+        reload_p4(); // (not in the assembly: [rsp+156], [rsp+160] and [rsp+192] are reloaded, see reload_p4)
         g.r8 -= 1 << 8; // sub r8d, 1<<8
         if g.r8 < 0 {
             return; // jl .w16_ret ; RET
