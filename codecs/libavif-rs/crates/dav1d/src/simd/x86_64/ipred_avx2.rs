@@ -45,8 +45,8 @@
 //!   z1–z3) costs about 12 instructions more per use; `tzcnt` one.
 //! - The jump tables' indices outside the contract (`w`, `h` powers of two
 //!   from 4 to 64) go to the last arm, except in dc/h/v/paeth/pal_pred,
-//!   where they are `unreachable_unchecked` as the assembly's jump through
-//!   bytes beyond its table is undefined (two instructions fewer per call).
+//!   where they reach `unreachable!()` (the assembly's jump through bytes
+//!   beyond its table is undefined; here it is a checked panic).
 //! - Stack frames (`ALLOC_STACK`) are locals zeroed whole, or written whole
 //!   before the first load (said at each site). The z1 and z3 frames are
 //!   larger than the assembly's: its main loops load lanes from beyond its
@@ -348,13 +348,12 @@ unsafe fn vextracti128_p1(x: __m256i) -> __m256i {
     zx(_mm256_extracti128_si256::<1>(x))
 }
 
-/// `tzcnt` of a block dimension (a power of two from 4 to 64, never zero; the original selects these kernels on
-/// AVX2 alone, so this is `trailing_zeros`, not BMI's `tzcnt`). A `match` on it is a jump table: an index outside
-/// the table's range is unreachable by the contract, as the assembly's `jmp` through the table assumes.
+/// `tzcnt` of a block dimension (a power of two from 4 to 64; the original selects these kernels on AVX2 alone, so
+/// this is `trailing_zeros`, not BMI's `tzcnt`). A `match` on it stands for the jump table; an index outside the
+/// table's range is outside the contract and reaches `unreachable!()`.
 #[inline(always)]
-unsafe fn tzcnt_p1(x: c_int) -> u32 {
-    // The contract makes `x` a power of two from 4 to 64: never zero, so the zero case needs no code.
-    core::num::NonZeroU32::new_unchecked(x as u32).trailing_zeros()
+fn tzcnt_p1(x: c_int) -> u32 {
+    (x as u32).trailing_zeros()
 }
 
 // ---- ipred_dc_8bpc: .s4 … .s64 (also the targets of ipred_dc_splat_avx2_table) ----
@@ -458,7 +457,7 @@ unsafe fn ipred_dc_splat_p1(m: &mut M, dst: *mut u8, stride: isize, stride3: isi
         4 => ipred_dc_8bpc_s16(m, dst, stride, stride3, h),
         5 => ipred_dc_8bpc_s32(m, dst, stride, stride3, h),
         6 => ipred_dc_8bpc_s64(m, dst, stride, stride3, h),
-        _ => core::hint::unreachable_unchecked(), // outside the jump table (contract: 2..=6)
+        _ => unreachable!(), // outside the jump table (contract: 2..=6)
     }
 }
 
@@ -520,7 +519,7 @@ unsafe fn ipred_dc_left_jmp_p1(m: &mut M, tl: *const u8, nl: u32) {
         4 => ipred_dc_left_8bpc_h16(m),
         5 => ipred_dc_left_8bpc_h32(m),
         6 => ipred_dc_left_8bpc_h64(m, tl),
-        _ => core::hint::unreachable_unchecked(), // outside the jump table (contract: 2..=6)
+        _ => unreachable!(), // outside the jump table (contract: 2..=6)
     }
 }
 
@@ -807,7 +806,7 @@ pub unsafe extern "C" fn dav1d_ipred_dc_8bpc_avx2(
         4 => ipred_dc_8bpc_h16(m, tl),
         5 => ipred_dc_8bpc_h32(m, tl),
         6 => ipred_dc_8bpc_h64(m, tl),
-        _ => core::hint::unreachable_unchecked(), // outside the jump table (contract: 2..=6)
+        _ => unreachable!(), // outside the jump table (contract: 2..=6)
     }
     match wl {
         //                                                         jmp wq
@@ -816,7 +815,7 @@ pub unsafe extern "C" fn dav1d_ipred_dc_8bpc_avx2(
         4 => ipred_dc_8bpc_w16(m, dst, stride, stride3, tl, h),
         5 => ipred_dc_8bpc_w32(m, dst, stride, stride3, tl, h),
         6 => ipred_dc_8bpc_w64(m, dst, stride, stride3, tl, h),
-        _ => core::hint::unreachable_unchecked(), // outside the jump table (contract: 2..=6)
+        _ => unreachable!(), // outside the jump table (contract: 2..=6)
     }
 }
 
@@ -966,7 +965,7 @@ pub unsafe extern "C" fn dav1d_ipred_h_8bpc_avx2(
         4 => ipred_h::<16>(m, dst, stride, stride3, tl, h), //     .w16: IPRED_H 16, a
         5 => ipred_h::<32>(m, dst, stride, stride3, tl, h), //     .w32: IPRED_H 32, a (INIT_YMM)
         6 => ipred_h_8bpc_w64(m, dst, stride, stride3, tl, h),
-        _ => core::hint::unreachable_unchecked(), // outside the jump table (contract: 2..=6)
+        _ => unreachable!(), // outside the jump table (contract: 2..=6)
     }
 }
 
@@ -1166,7 +1165,7 @@ pub unsafe extern "C" fn dav1d_ipred_paeth_8bpc_avx2(
         4 => ipred_paeth_8bpc_w16(m, dst, stride, tl, h),
         5 => ipred_paeth_8bpc_w32(m, dst, stride, tl, h),
         6 => ipred_paeth_8bpc_w64(m, dst, stride, tl, h),
-        _ => core::hint::unreachable_unchecked(), // outside the jump table (contract: 2..=6)
+        _ => unreachable!(), // outside the jump table (contract: 2..=6)
     }
 }
 
@@ -1314,7 +1313,7 @@ pub unsafe extern "C" fn dav1d_pal_pred_8bpc_avx2(
         4 => pal_pred_8bpc_w16(m, dst, stride, r2, idx, h),
         5 => pal_pred_8bpc_w32(m, dst, stride, idx, h),
         6 => pal_pred_8bpc_w64(m, dst, stride, idx, h),
-        _ => core::hint::unreachable_unchecked(), // outside the jump table (contract: 2..=6)
+        _ => unreachable!(), // outside the jump table (contract: 2..=6)
     }
 }
 

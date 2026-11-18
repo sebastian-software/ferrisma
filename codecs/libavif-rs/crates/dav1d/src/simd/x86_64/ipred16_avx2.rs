@@ -45,8 +45,8 @@
 //!   enables no feature beyond AVX2. `popcnt` (the edge filter strength of
 //!   z1–z3) costs about 12 instructions more per use; `tzcnt` one.
 //! - The jump tables' indices outside the contract (`w`, `h` powers of two
-//!   from 4 to 64) go to the last arm (smooth_v: `unreachable_unchecked`,
-//!   as the assembly's jump beyond its table is undefined).
+//!   from 4 to 64) go to the last arm (smooth_v: `unreachable!()`; the
+//!   assembly's jump beyond its table is undefined).
 //! - z3's frames are zeroed at the start of each path that uses them and
 //!   16-byte aligned (all their accesses are unaligned moves).
 //! - Stack frames (`ALLOC_STACK`) are locals zeroed whole, or written whole
@@ -1423,12 +1423,11 @@ fn cp_q2(p: *const u8, off: isize) -> *const u8 {
     p.wrapping_offset(off)
 }
 
-/// `tzcnt` of a block width (a power of two from 4 to 64 by the contract, never zero; the original selects these
-/// kernels on AVX2 alone, so this is `trailing_zeros`, not BMI's `tzcnt`). Through `NonZeroU32` the zero case needs
-/// no code (without it the compiler loads 32 into the destination first, for `bsf`'s zero case).
+/// `tzcnt` of a block width (a power of two from 4 to 64 by the contract; the original selects these kernels on
+/// AVX2 alone, so this is `trailing_zeros`, not BMI's `tzcnt`).
 #[inline(always)]
-unsafe fn tzcnt_q2(x: u32) -> u32 {
-    core::num::NonZeroU32::new_unchecked(x).trailing_zeros()
+fn tzcnt_q2(x: u32) -> u32 {
+    x.trailing_zeros()
 }
 
 /// `[base+label+off]` with `base` the address of `RODATA`. Every access through it lies inside `RODATA`, as
@@ -1469,7 +1468,7 @@ pub unsafe extern "C" fn dav1d_ipred_smooth_v_16bpc_avx2(
         4 => ipred_smooth_v_16bpc_w16(m, dst, stride, tl, weights, h),
         5 => ipred_smooth_v_16bpc_w32(m, dst, stride, tl, weights, h),
         6 => ipred_smooth_v_16bpc_w64(m, dst, stride, tl, weights, h),
-        _ => core::hint::unreachable_unchecked(), // outside the jump table (contract: 2..=6)
+        _ => unreachable!(), // outside the jump table (contract: 2..=6)
     }
 }
 

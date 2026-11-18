@@ -500,7 +500,7 @@ pub unsafe extern "C" fn dav1d_ipred_dc_128_16bpc_neon(
                 uint16x8x4_t(v0, v0, v0, v0),
             )
         }
-        _ => core::hint::unreachable_unchecked(),
+        _ => unreachable!(),
     }
 }
 
@@ -535,7 +535,7 @@ pub unsafe extern "C" fn dav1d_ipred_v_16bpc_neon(
             ipred_v_w64(x0, stride, x0.wrapping_add(64), stride, w4, v0123, v4567)
             // sub x1, x1, #64; 64:
         }
-        _ => core::hint::unreachable_unchecked(),
+        _ => unreachable!(),
     }
 }
 
@@ -646,7 +646,7 @@ unsafe fn ipred_h_160(dst: *mut u16, stride: isize, topleft: *const u16, width: 
                 break; // b.gt 64b
             }
         },
-        _ => core::hint::unreachable_unchecked(),
+        _ => unreachable!(),
     }
 }
 
@@ -701,7 +701,7 @@ pub unsafe extern "C" fn dav1d_ipred_h_16bpc_neon(
             }
         },
         0..=2 => ipred_h_160(dst, stride, topleft, width, height), // 160: 320: 640:
-        _ => core::hint::unreachable_unchecked(),
+        _ => unreachable!(),
     }
 }
 
@@ -779,7 +779,7 @@ pub unsafe extern "C" fn dav1d_ipred_dc_top_16bpc_neon(
                 uint16x8x4_t(v0, v0, v0, v0),
             ) // sub x1, x1, #64; 64:
         }
-        _ => core::hint::unreachable_unchecked(),
+        _ => unreachable!(),
     }
 }
 
@@ -852,7 +852,7 @@ pub unsafe extern "C" fn dav1d_ipred_dc_left_16bpc_neon(
             let v0 = pa_rshrn_dup::<6>(v0); // rshrn v4.4h, v0.4s, #6; dup v0.8h, v4.h[0]
             v0
         }
-        _ => core::hint::unreachable_unchecked(),
+        _ => unreachable!(),
     };
     // br x3: the width
     match pa_tbl_idx(w3) {
@@ -871,7 +871,7 @@ pub unsafe extern "C" fn dav1d_ipred_dc_left_16bpc_neon(
                 uint16x8x4_t(v0, v0, v0, v0),
             )
         }
-        _ => core::hint::unreachable_unchecked(),
+        _ => unreachable!(),
     }
 }
 
@@ -944,7 +944,7 @@ pub unsafe extern "C" fn dav1d_ipred_dc_16bpc_neon(
             let v0 = pa_uaddlv_8h(v0); // uaddlv s0, v0.8h
             (v0, x2.add(128 + 2)) // add x2, x2, #2
         }
-        _ => core::hint::unreachable_unchecked(),
+        _ => unreachable!(),
     };
     // br x3: the width. The code from `1:` on stands on both sides of `b.eq 1f`: where the paths join again, the
     // compiler computes the multiplication on both and selects (several instructions more for the square blocks).
@@ -1066,7 +1066,7 @@ pub unsafe extern "C" fn dav1d_ipred_dc_16bpc_neon(
                 uint16x8x4_t(v0, v0, v0, v0),
             ) // 2:
         }
-        _ => core::hint::unreachable_unchecked(),
+        _ => unreachable!(),
     }
 }
 
@@ -1221,7 +1221,7 @@ pub unsafe extern "C" fn dav1d_ipred_paeth_16bpc_neon(
             }
             // 9: ret
         }
-        _ => core::hint::unreachable_unchecked(),
+        _ => unreachable!(),
     }
 }
 
@@ -1466,7 +1466,7 @@ pub unsafe extern "C" fn dav1d_ipred_smooth_16bpc_neon(
         2 => ipred_smooth_160::<16>(x0, x1, x2, x6, x8, x10, x11, w4, v4), // 160:
         1 => ipred_smooth_160::<32>(x0, x1, x2, x6, x8, x10, x11, w4, v4), // 320:
         0 => ipred_smooth_160::<64>(x0, x1, x2, x6, x8, x10, x11, w4, v4), // 640:
-        _ => core::hint::unreachable_unchecked(),
+        _ => unreachable!(),
     }
 }
 
@@ -1641,7 +1641,7 @@ pub unsafe extern "C" fn dav1d_ipred_smooth_v_16bpc_neon(
         2 => ipred_smooth_v_160::<16>(x0, x1, x2, x6, x7, w4, v4), // 160:
         1 => ipred_smooth_v_160::<32>(x0, x1, x2, x6, x7, w4, v4), // 320:
         0 => ipred_smooth_v_160::<64>(x0, x1, x2, x6, x7, w4, v4), // 640:
-        _ => core::hint::unreachable_unchecked(),
+        _ => unreachable!(),
     }
 }
 
@@ -1818,7 +1818,7 @@ pub unsafe extern "C" fn dav1d_ipred_smooth_h_16bpc_neon(
         2 => ipred_smooth_h_160::<16>(x0, x1, x2, x6, x8, w4, v5), // 160:
         1 => ipred_smooth_h_160::<32>(x0, x1, x2, x6, x8, w4, v5), // 320:
         0 => ipred_smooth_h_160::<64>(x0, x1, x2, x6, x8, w4, v5), // 640:
-        _ => core::hint::unreachable_unchecked(),
+        _ => unreachable!(),
     }
 }
 
@@ -4435,8 +4435,8 @@ pub unsafe extern "C" fn dav1d_ipred_z3_fill1_16bpc_neon(
         2 => ipred_z3_fill1_h16::<16>(x0, x1, x2, width, dy, max_base_y, w7, x13, v31),
         1 => ipred_z3_fill1_h16::<32>(x0, x1, x2, width, dy, max_base_y, w7, x13, v31),
         0 => ipred_z3_fill1_h16::<64>(x0, x1, x2, width, dy, max_base_y, w7, x13, v31),
-        // SAFETY: the height is one of 4, 8, 16, 32, 64.
-        _ => core::hint::unreachable_unchecked(),
+        // The height is one of 4, 8, 16, 32, 64.
+        _ => unreachable!(),
     }
 }
 
@@ -4798,8 +4798,8 @@ unsafe fn ipred_z3_fill_padding_neon(
             5 => ipred_z3_fill_padding_cols::<2>(&mut x0, x1, &mut x13, &mut w3, &mut w4, w12, v31), // 20:
             4 => ipred_z3_fill_padding_cols::<4>(&mut x0, x1, &mut x13, &mut w3, &mut w4, w12, v31), // 40:
             0 | 1 | 2 | 3 => ipred_z3_fill_padding_cols::<8>(&mut x0, x1, &mut x13, &mut w3, &mut w4, w12, v31), // 80: 160: 320: 640:
-            // SAFETY: the remaining width is even and in 2..=8 here.
-            _ => core::hint::unreachable_unchecked(),
+            // The remaining width is even and in 2..=8 here.
+            _ => unreachable!(),
         };
         if done {
             return; // 9: ret
@@ -5530,8 +5530,8 @@ pub unsafe extern "C" fn dav1d_pal_pred_16bpc_neon(
                 }
             }
         }
-        // SAFETY: the width is 4, 8, 16, 32 or 64 (the assembly indexes its five-entry table with it).
-        _ => core::hint::unreachable_unchecked(),
+        // The width is 4, 8, 16, 32 or 64 (the assembly indexes its five-entry table with it).
+        _ => unreachable!(),
     }
 }
 

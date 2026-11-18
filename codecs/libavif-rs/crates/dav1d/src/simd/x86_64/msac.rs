@@ -46,8 +46,8 @@
 //! `rng` before the shift, is at least `EC_MIN_PROB`), and on the comparison
 //! mask always having the bit of lane `n_symbols` (its `v` is 0, and the
 //! lanes behind the vector's symbols compare equal as well). The rebuild
-//! states both as `NonZero` values, which compile to the bare `bsr` and
-//! `bsf`/`tzcnt`.
+//! uses `leading_zeros` and `trailing_zeros`, which are defined for 0 as
+//! well (the compiler adds the zero case).
 //!
 //! Deviations from the assembly:
 //! - For memory safety: near the end of the buffer (`.refill_eob`) the
@@ -90,7 +90,6 @@
 
 use core::arch::x86_64::*;
 use core::ffi::{c_int, c_uint};
-use core::num::NonZeroU32;
 
 /// `struc msac` of msac.asm, which is `MsacContext` (src/msac.h) without
 /// the `symbol_adapt16` pointer the original adds on x86-64 with assembly
@@ -129,18 +128,18 @@ const Q0000: i32 = 0;
 /// `tzcnt eax, eax` on a comparison mask (never 0, see the module
 /// documentation).
 #[inline(always)]
-unsafe fn tzcnt(eax: u32) -> u32 {
+fn tzcnt(eax: u32) -> u32 {
     debug_assert!(eax != 0);
-    NonZeroU32::new_unchecked(eax).trailing_zeros()
+    eax.trailing_zeros()
 }
 
 /// `bsr ecx, t2d ; xor ecx, 15` (`d`, the number of bits to shift `rng`
 /// up by; `rng` is never 0, see the module documentation).
 #[inline(always)]
-unsafe fn bsr_xor_15(t2d: u32) -> u32 {
+fn bsr_xor_15(t2d: u32) -> u32 {
     debug_assert!(t2d != 0);
     // bsr = 31 - lzcnt, and (31 - x) ^ 15 == x ^ 16 for x in 0..=31.
-    NonZeroU32::new_unchecked(t2d).leading_zeros() ^ 16
+    t2d.leading_zeros() ^ 16
 }
 
 // --- the tail of msac_decode_symbol_adapt4 -----------------------------------
