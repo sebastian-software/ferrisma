@@ -289,6 +289,37 @@ fn public_encoder_lossless_gate_4000x3000_matches_original() {
     );
 }
 
+/// Encoder step 2's lossless gate at the thin shapes of the streaming gate
+/// (ADR-0027, amendment 2026-11-17), seed 2 as at 4000x3000: 2049x257 and
+/// 257x2049 cross one DC-group boundary in one direction (each DC group
+/// codes its own trees, ADR 0002), 4097x9 and 9x4097 have three DC groups in
+/// a row and a side above 2^12.
+fn lossless_thin_gate(family: &str, (xsize, ysize): (usize, usize)) {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
+    compare_gate(family, lossless_gate_histories(xsize, ysize, 2));
+}
+
+#[test]
+fn public_encoder_lossless_gate_2049x257_matches_original() {
+    lossless_thin_gate("lossless-gate-2049x257", (2049, 257));
+}
+
+#[test]
+fn public_encoder_lossless_gate_257x2049_matches_original() {
+    lossless_thin_gate("lossless-gate-257x2049", (257, 2049));
+}
+
+#[test]
+fn public_encoder_lossless_gate_4097x9_matches_original() {
+    lossless_thin_gate("lossless-gate-4097x9", (4097, 9));
+}
+
+#[test]
+fn public_encoder_lossless_gate_9x4097_matches_original() {
+    lossless_thin_gate("lossless-gate-9x4097", (9, 4097));
+}
+
 /// JxlEncoderAddChunkedFrame with input callbacks at the lossless profile:
 /// buffer mode (the frame is copied in AddChunkedFrame) and, with an output
 /// processor, encoding straight from the callbacks per DC group of the

@@ -111,7 +111,21 @@ impl Selection {
             ("jxl", self.jxl),
             ("avif", self.avif),
         ] {
-            if selected {
+            if selected && name == "jxl" {
+                // JXL's per-change checks run as three jobs per architecture
+                // so that each stays within the tier-1 budget of 15 minutes
+                // (ADR-0027, amendment 2026-11-17): the pinned nightly's
+                // stage (`pr`), and the checked-profile tests at the port's
+                // rust-version (`msrv`) and on current stable (`stable`),
+                // each building in its own target directory.
+                for runner in ["ubuntu-24.04", "ubuntu-24.04-arm"] {
+                    for part in JXL_PARTS {
+                        rows.push(format!(
+                            "{{\"codec\":\"jxl\",\"runner\":\"{runner}\",\"part\":\"{part}\"}}"
+                        ));
+                    }
+                }
+            } else if selected {
                 rows.push(format!(
                     "{{\"codec\":\"{name}\",\"runner\":\"ubuntu-24.04\"}}"
                 ));
@@ -237,6 +251,9 @@ fn affected(args: &[String]) -> Result<()> {
     }
     Ok(())
 }
+/// The jobs of JXL's per-change checks on each architecture (ci.yml's
+/// codecs job reads `part`).
+const JXL_PARTS: [&str; 3] = ["pr", "msrv", "stable"];
 fn run(dir: &Path, command: &[&str]) -> Result<()> {
     let start = Instant::now();
     println!("[{}] {}", dir.display(), command.join(" "));
@@ -622,6 +639,20 @@ mod tests {
     #[test]
     fn failed_subcommand_propagates() {
         assert!(run(&root(), &["git", "--not-a-valid-git-option"]).is_err());
+    }
+    #[test]
+    fn jxl_runs_three_parts_per_architecture() {
+        let mut s = Selection::default();
+        s.classify("codecs/libjxl-rs/src/lib.rs");
+        let out = s.output();
+        for runner in ["ubuntu-24.04", "ubuntu-24.04-arm"] {
+            for part in JXL_PARTS {
+                assert!(out.contains(&format!(
+                    "{{\"codec\":\"jxl\",\"runner\":\"{runner}\",\"part\":\"{part}\"}}"
+                )));
+            }
+        }
+        assert_eq!(out.matches("\"codec\":\"jxl\"").count(), 6);
     }
     #[test]
     fn sentinel_matrix() {

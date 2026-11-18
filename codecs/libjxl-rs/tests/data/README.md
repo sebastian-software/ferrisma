@@ -276,3 +276,32 @@ The wesaturate image is CC0 (`LICENSE-wesaturate-CC0.md`, the testdata's
 `external/wesaturate/LICENSE.md`); the flower image is part of the libjxl
 testdata repository under CC BY 4.0 (`LICENSE-testdata-CC-BY-4.0.txt`).
 <!-- end encoder step 1 -->
+
+## Photographs of the deep tier
+
+`photographs/photographs.json` records the photographs that
+`tests/simd_encoder_public.rs`'s `enc_public_photographs_match_the_original_target`
+compares in the deep tier (root ADR-0027, amendment 2026-11-17, owner decision
+D3). They are files of the libjxl testdata submodule at its pinned revision
+`73695d303670c90e4d506ea89d9901b081385089` (upstream's own pin); nothing is
+copied into this repository and nothing is downloaded beyond that submodule.
+`tools/check.py --tier deep` checks the pin, the SHA-256 of each source file
+and of its decoded 8-bit RGB samples, writes them as binary PPM files to
+`target/photographs/` and names them in `JXL_ENCODER_GATE_PHOTOS`; the test
+fails when the variable names no photograph.
+
+| Name | Testdata path | Size | License |
+| --- | --- | --- | --- |
+| `flower` | `jxl/flower/flower.pnm` | 2268x1512 | CC BY 4.0 (`encoder-step1/LICENSE-testdata-CC-BY-4.0.txt`) |
+| `bliznaca` | `external/wesaturate/500px/u76c0g_bliznaca_srgb8.png` | 500x500 | CC0 (`encoder-step1/LICENSE-wesaturate-CC0.md`) |
+| `keong_macan` | `external/wesaturate/500px/cvo9xd_keong_macan_srgb8.png` | 500x500 | CC0 |
+| `riaphotographs` | `external/wesaturate/500px/tmshre_riaphotographs_srgb8.png` | 500x500 | CC0 |
+
+`flower.pnm` is the testdata's own PPM of `jxl/flower/flower.png`
+(`jxl/flower/generate.md`); its samples equal the PNG's, decoded with
+`tools/encoder_step1_fixtures.py`'s decoder (checked when the record was
+written). The PNG files are decoded with that decoder at run time. The
+wesaturate photographs are the three 8-bit sRGB images of the testdata's
+`external/wesaturate/500px/` (`README.md` there: resized and cropped from
+wesaturate.com, CC0); `bliznaca`'s samples are those of
+`encoder-step1/bliznaca.u8`.

@@ -330,7 +330,7 @@
         "raw-c-mutable-address": 1
       },
       "raw_sha256": "01f52503b35d378e5a77d7fb8d0c41cb913517e525e65efeffe8b6a7873ffebd",
-      "rust_sha256": "d97e4a848cef609814075f4f877c3462402ea13341f25b7876dd544b552a5843"
+      "rust_sha256": "43a9635d622889cbf6d6e74317b6dbc14f60b68f4a90d951b86a8993ee95fab8"
     },
     {
       "source": "upstream/dav1d/src/fg_apply_tmpl.c",
@@ -373,7 +373,7 @@
         "raw-c-assignment-temporary": 1
       },
       "raw_sha256": "f4d87c513be4232b0da1ded1c042f197fb2b96e405f2ba8f684bf942caaffdb8",
-      "rust_sha256": "dd0c50f4b1928d6479febb80c204ab630956247f549b7cf5a92cc660c7e065bb"
+      "rust_sha256": "d2694e3f5cfcaae7e757dbb90f1927d6b5f68dc84b0c72a9058e0908b9908f40"
     },
     {
       "source": "upstream/dav1d/src/itx_tmpl.c",
@@ -488,7 +488,7 @@
         "raw-c-mutable-address": 1
       },
       "raw_sha256": "a54538422091ba2abc58c7c0cd8aa0deb6b33eb9d3bb33261260e6b7b5766507",
-      "rust_sha256": "e5d2e5ffa17e0daedfa0c8eab11387fdbfab002a153940f4cdadaec23b1ac77c"
+      "rust_sha256": "6032029352c54c882e228d7713f521dd0e5d1d8fda7631ec5dfa2464e0a7710f"
     },
     {
       "source": "upstream/dav1d/src/fg_apply_tmpl.c",
@@ -531,7 +531,7 @@
         "raw-c-assignment-temporary": 1
       },
       "raw_sha256": "0429ca23788b535f000918edfdb3e93460043720953ac31561410f4d16979f50",
-      "rust_sha256": "9141f19e9c6bd042fb8fc00bae090b0779810d1a716e478418d9e6b6068fd4ae"
+      "rust_sha256": "9e8e3e49ef9f71ab6c18ca696b799b376a061c701c0525dacc4a78e7c697e2f4"
     },
     {
       "source": "upstream/dav1d/src/itx_tmpl.c",
