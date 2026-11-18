@@ -62,14 +62,15 @@
 //! makes them; the values never reach the output. Derived from the code by
 //! the sections, not checked with guard pages:
 //! - the edge (`topleft`): dc_top and v read 32 or 64 pixels at every
-//!   width, dc_left 32 from `tl-h`, paeth (4x4), smooth (`tl[-64..-1]`
-//!   from w16 on, whatever `h`), filter and cfl_top/cfl_left whole vectors;
-//!   z1 reads up to `topleft[198]`, z2 `topleft[-69..67]`, z3 down to
-//!   `topleft[-191]`. In the decoder `topleft` is `edge_8bpc + 128` (inter-
-//!   intra: `+ 32`, smooth reaching 32 bytes before the array) inside the
-//!   task context's scratch structure, which has the bytes before and
-//!   behind the array (`simd/x86/ipred.rs`, test
-//!   `the_edge_array_has_readable_slack_around_it`);
+//!   width, dc_left 32 from `tl-h`, paeth (4x4), smooth and smooth_h
+//!   (`tl[-64..-1]` from w16 on, whatever `h`), filter and cfl_top/cfl_left
+//!   whole vectors; z1 reads up to `topleft[198]`, z2 `topleft[-69..67]`, z3
+//!   down to `topleft[-191]`. In the decoder `topleft` is `edge_8bpc + 128`
+//!   (inter-intra: `+ 32`) in a 257-pixel array. The kernels whose loads can
+//!   leave that array (z1, z3, and smooth and smooth_h from w16 on) copy
+//!   the pixels the C kernel reads into a zero-initialized local first and
+//!   run on the copy (`crate::simd::copy_edge`; not in the original); test
+//!   `the_kernels_read_only_the_edge_array` in `simd/x86/ipred.rs`;
 //! - `cfl_ac` loads 16 or 32 bytes of luma rows where C reads 8 or 16
 //!   (`.w8_wpad`, `.w16_pad1`, 444 `.w8`), inside the luma rows' stride.
 //!
@@ -1723,6 +1724,16 @@ pub unsafe extern "C" fn dav1d_ipred_smooth_h_8bpc_avx2(
     _max_width: c_int,
     _max_height: c_int,
 ) {
+    // Not in the original: from 16 columns on the kernel loads `topleft[-64..-1]` whatever the height, before the
+    // array of an inter-intra edge (`edge + 32`); those calls run on a copy of the pixels the C kernel reads,
+    // `topleft[-height..=width]`, with zeros around them (`copy_edge`).
+    let mut edge: [u8; 257];
+    let topleft = if width >= 16 {
+        edge = [0; 257];
+        crate::simd::copy_edge(&mut edge, 128, topleft, -(height as isize), width as isize)
+    } else {
+        topleft
+    };
     let m = &mut regs();
     let base = RODATA.0.as_ptr(); // lea r5, [ipred_smooth_h_avx2_table] (`base`: the address of RODATA)
     let tl = topleft as *mut u8;
@@ -2011,6 +2022,16 @@ pub unsafe extern "C" fn dav1d_ipred_smooth_8bpc_avx2(
     _max_width: c_int,
     _max_height: c_int,
 ) {
+    // Not in the original: from 16 columns on the kernel loads `topleft[-64..-1]` whatever the height, before the
+    // array of an inter-intra edge (`edge + 32`); those calls run on a copy of the pixels the C kernel reads,
+    // `topleft[-height..=width]`, with zeros around them (`copy_edge`).
+    let mut edge: [u8; 257];
+    let topleft = if width >= 16 {
+        edge = [0; 257];
+        crate::simd::copy_edge(&mut edge, 128, topleft, -(height as isize), width as isize)
+    } else {
+        topleft
+    };
     let m = &mut regs();
     let base = RODATA.0.as_ptr(); // lea r6, [ipred_smooth_avx2_table] (`base`: the address of RODATA)
     let tl = topleft as *mut u8;
@@ -3564,6 +3585,10 @@ pub unsafe extern "C" fn dav1d_ipred_z1_8bpc_avx2(
     _max_width: c_int,
     _max_height: c_int,
 ) {
+    // Not in the original: the kernel loads up to `tl[198]`, behind the caller's array; it runs on a copy of the
+    // pixels the C kernel reads, `tl[0..=w+h]`, with zeros around them (`copy_edge`).
+    let mut edge = [0u8; 64 + 256];
+    let tl = crate::simd::copy_edge(&mut edge, 64, tl, 0, (w + h) as isize);
     let mut m = regs();
     let m = &mut m;
     // lea r6, [ipred_z1_avx2_table]
@@ -4911,6 +4936,10 @@ pub unsafe extern "C" fn dav1d_ipred_z3_8bpc_avx2(
     _max_width: c_int,
     _max_height: c_int,
 ) {
+    // Not in the original: the kernel loads down to `topleft[-191]`, before the caller's array; it runs on a copy
+    // of the pixels the C kernel reads, `topleft[-(width+height)..=0]`, with zeros around them (`copy_edge`).
+    let mut edge = [0u8; 256 + 64];
+    let topleft = crate::simd::copy_edge(&mut edge, 256, topleft, -((width + height) as isize), 0);
     let mut m = regs();
     let m = &mut m;
     // lea r6, [ipred_z3_avx2_table]

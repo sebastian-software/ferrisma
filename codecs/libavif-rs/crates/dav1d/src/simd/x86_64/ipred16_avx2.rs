@@ -67,9 +67,11 @@
 //!   every width, dc_left 16 from `tl-h`, filter and cfl_top/cfl_left whole
 //!   vectors (the filter from `tl[-(h+6)]` to `tl[34]`); z1 reads up to
 //!   `topleft[191]`, z2 `topleft[-66..66]`, z3 down to `topleft[-191]`. In
-//!   the decoder `topleft` is `edge_16bpc + 128` inside the task context's
-//!   scratch structure, which has the bytes before and behind the array
-//!   (`simd/x86/ipred.rs`, test `the_edge_array_has_readable_slack_around_it`);
+//!   the decoder `topleft` is `edge_16bpc + 128` in a 257-pixel array. z1
+//!   and z3, whose loads can leave that array, copy the pixels the C kernel
+//!   reads into a zero-initialized local first and run on the copy
+//!   (`crate::simd::copy_edge`; not in the original); test
+//!   `the_kernels_read_only_the_edge_array` in `simd/x86/ipred.rs`;
 //! - `cfl_ac` loads luma columns 8 to 15 where C reads 0 to 7 (420/422
 //!   `.w16_wpad` with `wpad` 3, 444 `.w16` and `.w32_wpad`), inside the luma
 //!   rows' stride.
@@ -3886,6 +3888,10 @@ pub unsafe extern "C" fn dav1d_ipred_z1_16bpc_avx2(
     _max_height: c_int,
     bitdepth_max: c_int,
 ) {
+    // Not in the original: the kernel loads up to `topleft[191]`, behind the caller's array; it runs on a copy of
+    // the pixels the C kernel reads, `topleft[0..=width+height]`, with zeros around them (`copy_edge`).
+    let mut edge = [0u16; 64 + 256];
+    let topleft = crate::simd::copy_edge(&mut edge, 64, topleft, 0, (width + height) as isize);
     let mut m = regs();
     // lea r6, [ipred_z1_16bpc_avx2_table]
     let w = (width as u32).trailing_zeros(); // tzcnt wd, wm (width is a power of two, never zero)
@@ -5262,6 +5268,10 @@ pub unsafe extern "C" fn dav1d_ipred_z3_16bpc_avx2(
     let h = (height as u32).trailing_zeros(); // tzcnt hd, hm (h is a power of two >= 4, never zero)
                                               // The rest of the prologue (`sub tlq, 2` up to `vpbroadcastd m5, [pw_62]`) runs before the jump, as in the
                                               // assembly; `mov org_wd, wd` is the argument `org_w` of h32 and h64.
+                                              // Not in the original: the kernel loads down to `topleft[-191]`, before the caller's array; it runs on a copy
+                                              // of the pixels the C kernel reads, `topleft[-(width+height)..=0]`, with zeros around them (`copy_edge`).
+    let mut edge = [0u16; 256 + 64];
+    let topleft = crate::simd::copy_edge(&mut edge, 256, topleft, -((width + height) as isize), 0);
     let m = &mut regs();
     let (tl, angle, dy) = ipred_z3_16bpc_entry_q5(m, topleft, angle);
     let dst = dst as *mut u8;

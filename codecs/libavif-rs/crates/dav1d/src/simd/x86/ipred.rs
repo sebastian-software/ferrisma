@@ -215,73 +215,76 @@ mod tests {
         );
     }
 
-    /// The AVX2 kernels read the edge array beyond its 257 pixels, as the
-    /// assembly does (module documentation of `simd/x86_64/ipred_avx2.rs`
-    /// and `ipred16_avx2.rs`; bounds derived from the code when the kernels
-    /// were translated): at 8 bpc z3 down to `topleft[-191]` and z1 up to
-    /// `topleft[198]`, at 16 bpc z3 down to `topleft[-191]` and z1 up to
-    /// `topleft[191]` (pixels), with `topleft` = `edge + 128`; inter-intra
-    /// prediction passes `edge + 32` to smooth, which reads 64 pixels below
-    /// it at 8 bpc. The values read there never reach the output. This
-    /// checks that the decoder's edge array has those bytes before and
-    /// behind it inside its task context's `scratch` union (the structure
-    /// that holds it is followed by the rest of the union).
-    ///
-    /// Outside the decoder the slots are called by the original's checkasm
-    /// test, with a 257-pixel stack array as for the assembly, and by
-    /// `tools/dav1d-kernel-bench.c`, whose array has 64 pixels on either
-    /// side. What the test does not show: the callers derive the pointer
-    /// from the array field, so under Rust's reference-based aliasing models
-    /// it is a pointer to 257 pixels, even though the bytes around them
-    /// belong to the same allocation.
+    /// The intra prediction slots load the edge only inside the caller's array: every slot, every block size,
+    /// the directional modes over their angles and flags, the edge array (257 pixels, `topleft` at index 128, or
+    /// at 32 for the inter-intra modes) placed directly after and directly before a page without access, so that
+    /// a load outside the array faults (`crate::simd::edge_test::check`). The kernels whose loads would leave the
+    /// array run on a copy of the pixels the C kernel reads (`crate::simd::copy_edge`). Each block also equals the
+    /// C kernel's.
     #[test]
-    fn the_edge_array_has_readable_slack_around_it() {
-        use core::mem::{offset_of, size_of};
-        const BEFORE: usize = 191 - 128;
-        const PAST_8BPC: usize = 128 + 198 + 1 - 257;
-        const PAST_16BPC: usize = 128 + 191 + 1 - 257;
-        assert_eq!((BEFORE, PAST_8BPC, PAST_16BPC), (63, 70, 63));
-        fn field_size<T, F>(_: impl Fn(&T) -> &F) -> usize {
-            size_of::<F>()
+    fn the_kernels_read_only_the_edge_array() {
+        if !std::arch::is_x86_feature_detected!("avx2") {
+            return;
+        }
+        use crate::common::cpu::{dav1d_init_cpu, dav1d_set_cpu_flags_mask};
+        let _guard = crate::simd::cpu::CPU_MASK_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        {
+            use crate::b8::ipred_tmpl::{dav1d_intra_pred_dsp_init_8bpc, Dav1dIntraPredDSPContext as Translated};
+            let init = |mask: u32| unsafe {
+                dav1d_init_cpu();
+                dav1d_set_cpu_flags_mask(mask);
+                let mut c: Translated = core::mem::zeroed();
+                dav1d_intra_pred_dsp_init_8bpc(&mut c);
+                dav1d_set_cpu_flags_mask(!0);
+                c
+            };
+            let (port, c) = (init(!0), init(0));
+            assert_ne!(
+                port.intra_pred[Z1_PRED].map(|f| f as usize),
+                c.intra_pred[Z1_PRED].map(|f| f as usize)
+            );
+            crate::simd::edge_test::check(
+                |v| v as u8,
+                |is_port, mode, dst, stride, topleft, w, h, angle| unsafe {
+                    let f = if is_port {
+                        port.intra_pred[mode]
+                    } else {
+                        c.intra_pred[mode]
+                    };
+                    f.unwrap()(dst, stride, topleft, w, h, angle, w, h)
+                },
+            );
         }
         {
-            use crate::b8::recon_tmpl::Dav1dTaskContext as Context;
-            let scratch = offset_of!(Context, scratch);
-            let scratch_end = scratch + field_size(|t: &Context| &t.scratch);
-            let edge = offset_of!(
-                Context,
-                scratch.c2rust_unnamed_0.c2rust_unnamed_1.c2rust_unnamed.edge_8bpc
+            use crate::b16::ipred_tmpl::{dav1d_intra_pred_dsp_init_16bpc, Dav1dIntraPredDSPContext as Translated};
+            let init = |mask: u32| unsafe {
+                dav1d_init_cpu();
+                dav1d_set_cpu_flags_mask(mask);
+                let mut c: Translated = core::mem::zeroed();
+                dav1d_intra_pred_dsp_init_16bpc(&mut c);
+                dav1d_set_cpu_flags_mask(!0);
+                c
+            };
+            let (port, c) = (init(!0), init(0));
+            assert_ne!(
+                port.intra_pred[Z1_PRED].map(|f| f as usize),
+                c.intra_pred[Z1_PRED].map(|f| f as usize)
             );
-            let edge_size = field_size(|t: &Context| unsafe {
-                &t.scratch.c2rust_unnamed_0.c2rust_unnamed_1.c2rust_unnamed.edge_8bpc
-            });
-            assert_eq!(edge_size, 257);
-            assert!(edge >= scratch + BEFORE, "8 bpc: {edge}, scratch starts at {scratch}");
-            assert!(
-                edge + edge_size + PAST_8BPC <= scratch_end,
-                "8 bpc: {edge} + {edge_size}, scratch ends at {scratch_end}"
-            );
-        }
-        {
-            use crate::b16::recon_tmpl::Dav1dTaskContext as Context;
-            let scratch = offset_of!(Context, scratch);
-            let scratch_end = scratch + field_size(|t: &Context| &t.scratch);
-            let edge = offset_of!(
-                Context,
-                scratch.c2rust_unnamed_0.c2rust_unnamed_1.c2rust_unnamed_0.edge_16bpc
-            );
-            let edge_size = field_size(|t: &Context| unsafe {
-                &t.scratch.c2rust_unnamed_0.c2rust_unnamed_1.c2rust_unnamed_0.edge_16bpc
-            });
-            assert_eq!(edge_size, 257 * 2);
-            assert!(
-                edge >= scratch + BEFORE * 2,
-                "16 bpc: {edge}, scratch starts at {scratch}"
-            );
-            assert!(
-                edge + edge_size + PAST_16BPC * 2 <= scratch_end,
-                "16 bpc: {edge} + {edge_size}, scratch ends at {scratch_end}"
-            );
+            for bitdepth_max in [1023, 4095] {
+                crate::simd::edge_test::check(
+                    |v| (v & bitdepth_max) as u16,
+                    |is_port, mode, dst, stride, topleft, w, h, angle| unsafe {
+                        let f = if is_port {
+                            port.intra_pred[mode]
+                        } else {
+                            c.intra_pred[mode]
+                        };
+                        f.unwrap()(dst, stride, topleft, w, h, angle, w, h, bitdepth_max as c_int)
+                    },
+                );
+            }
         }
     }
 
