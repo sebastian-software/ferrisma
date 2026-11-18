@@ -82,8 +82,11 @@ impl<S: Simd> Lanes<S> for i32x8<S> {
     /// diagonal exchanged.
     #[inline(always)]
     fn transpose(block: &mut [Self]) {
-        // Vectors `first..first + 4`, lanes 0..4 or (`high`) 4..8, transposed.
-        let quadrant = |first: usize, high: bool| {
+        // A function, not a closure: a closure called out of line would not
+        // carry the target features of the `vectorize` region.
+        #[inline(always)]
+        fn quadrant<S: Simd>(block: &[i32x8<S>], first: usize, high: bool) -> [i32x4<S>; 4] {
+            // Vectors `first..first + 4`, lanes 0..4 or (`high`) 4..8, transposed.
             let mut q = [block[first].split().0; 4];
             for (i, v) in q.iter_mut().enumerate() {
                 let (low_lanes, high_lanes) = block[first + i].split();
@@ -91,9 +94,9 @@ impl<S: Simd> Lanes<S> for i32x8<S> {
             }
             i32x4::transpose(&mut q);
             q
-        };
-        let (rows0_lanes0, rows4_lanes0) = (quadrant(0, false), quadrant(4, false));
-        let (rows0_lanes4, rows4_lanes4) = (quadrant(0, true), quadrant(4, true));
+        }
+        let (rows0_lanes0, rows4_lanes0) = (quadrant(block, 0, false), quadrant(block, 4, false));
+        let (rows0_lanes4, rows4_lanes4) = (quadrant(block, 0, true), quadrant(block, 4, true));
         for i in 0..4 {
             block[i] = rows0_lanes0[i].combine(rows4_lanes0[i]);
             block[i + 4] = rows0_lanes4[i].combine(rows4_lanes4[i]);
