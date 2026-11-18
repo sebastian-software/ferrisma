@@ -690,15 +690,18 @@ def prepare_photographs():
 # The hosted shards per tier (.github/workflows/jxl-check.yml reads them with
 # --plan): (runner, oracle, tier of tests/check.py, partitions). Each job of
 # the nightly tier stays within 60 minutes on the hosted runners (ADR-0027,
-# amendment 2026-11-17); the deep tier stays within the hosted job limit. The
+# amendment 2026-11-17), with room for runners about 1.5 times slower than
+# the median (runs 44171290082 and 44230182686: Linux sanitized shards up to
+# 55 minutes in 10 partitions, macOS ordinary up to 51 in 5); the deep tier
+# stays within the hosted job limit (run 44171310103: at most 66 minutes). The
 # macOS jobs of the nightly tier run only on the schedule or with the
 # workflow's `macos` input; the deep tier always runs them, since the macOS
 # sanitized matrix is its own (D4).
 CI_PARITY = {
     "nightly": [
         ("ubuntu-latest", "ordinary", "nightly", 4),
-        ("ubuntu-latest", "sanitized", "nightly", 10),
-        ("macos-latest", "ordinary", "nightly", 5),
+        ("ubuntu-latest", "sanitized", "nightly", 12),
+        ("macos-latest", "ordinary", "nightly", 6),
     ],
     "deep": [
         ("ubuntu-latest", "ordinary", "deep", 2),
@@ -710,7 +713,9 @@ CI_PARITY = {
 # The audit groups per tier. The macOS decoder and public-decoder audits use
 # the sanitized oracle beside the ordinary one and take 73 and 108 minutes on
 # the hosted macOS runner (nightly run 44066960183), so they run with the
-# macOS sanitized matrix in the deep tier.
+# macOS sanitized matrix in the deep tier. Both replay request corpora that
+# the parity tests capture per graph; those captures run as jobs of their own
+# (`capture` below), which keeps the Linux audits within the nightly budget.
 AUDIT_GROUPS = ["decoder", "decoder-state", "public-decoder", "extra-channels", "geometry", "components", "brotli",
                 "diagnostics"]
 CI_AUDIT = {
@@ -731,7 +736,11 @@ def ci_plan(tier, macos):
               for runner, oracle, selection, count in CI_PARITY[tier] if keep(runner)
               for shard in range(1, count + 1)]
     audit = [{"os": runner, "group": group} for runner, group in CI_AUDIT[tier] if keep(runner)]
-    return {"parity": parity, "audit": audit}
+    # The decoder and public-decoder audits' request corpora, captured per
+    # graph in jobs of their own (jxl-check.yml, capture).
+    runners = sorted({job["os"] for job in audit if job["group"] in ("decoder", "public-decoder")})
+    capture = [{"os": runner, "oracle": oracle} for runner in runners for oracle in ("ordinary", "sanitized")]
+    return {"parity": parity, "audit": audit, "capture": capture}
 
 
 def verify_records(directory, tier, macos):

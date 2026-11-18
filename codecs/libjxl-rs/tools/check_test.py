@@ -120,6 +120,17 @@ class HostedPlan(unittest.TestCase):
         macos = {job["group"] for job in nightly + deep if job["os"] == "macos-latest"}
         self.assertEqual(macos, set(check.AUDIT_GROUPS) - {"diagnostics"})
 
+    def test_each_replaying_audit_has_both_captures(self):
+        for tier in ("nightly", "deep"):
+            for macos in (False, True):
+                plan = check.ci_plan(tier, macos)
+                for group in ("decoder", "public-decoder"):
+                    self.assertTrue([job for job in plan["audit"] if job["group"] == group], (tier, macos, group))
+                audits = sorted({job["os"] for job in plan["audit"] if job["group"] in ("decoder", "public-decoder")})
+                captures = sorted((job["os"], job["oracle"]) for job in plan["capture"])
+                self.assertEqual(captures, sorted((runner, oracle) for runner in audits
+                                                  for oracle in ("ordinary", "sanitized")))
+
     def test_unknown_hosted_tier_fails(self):
         with self.assertRaises(SystemExit):
             check.ci_plan("all", macos=False)
