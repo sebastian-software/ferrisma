@@ -126,8 +126,13 @@ Consequences of the wording, stated so that they can be tested:
   original's source lines, and is listed in the port's ADR. It applies only
   to an order or layout the library leaves open, never to a value the
   original's own source computes, and never to the port.
-- The code stays a largely mechanical 1:1 port of the original. An
-  optimization that cannot meet the gate is not a v1.0 change.
+- The port follows the original's algorithms and must produce what this
+  gate compares; it need not mirror the original's code shape. Straight,
+  idiomatic, maintainable Rust is preferred over a 1:1 transliteration of
+  the original's assembly or intrinsics, and no code outwits the compiler
+  or Rust's rules to reproduce an instruction stream (owner, 2026-11-18;
+  amendment log). Some speed loss is acceptable for that. An optimization
+  that cannot meet the gate is not a v1.0 change.
 
 ### 3. Floating-point words and NaN (D8)
 
@@ -604,3 +609,18 @@ planned.
   uniform in the oracle adapter, never in the port. Found through the
   hosted Linux run 43779456524, where `std::map`'s destruction order under
   libc++ 21 differed from libc++ 22 on macOS. Decisions D1–D10 unchanged.
+- 2026-11-18 — Owner decision on how ports are written: sustainability over
+  1:1 fidelity. Code that steers or outwits the compiler to match the
+  original's instruction stream (optimizer barriers such as `black_box`,
+  hand-written zeroing to avoid `memset`, splits for stack-frame shape,
+  `unreachable_unchecked` on jump tables, exposed-provenance pointer steps,
+  reads past an array that only a layout test justifies) is removed, and
+  per-call instruction ratios against the original (such as the informal
+  1.3x of libavif-rs ADR 0062) are measurements, not targets that justify
+  such code. Section 2's "largely mechanical 1:1 port" is replaced
+  accordingly. The quality gate itself (bit identity per sections 2-4) is
+  unchanged. Context: an inventory of such code (it sits almost entirely in
+  dav1d's rebuilt SIMD kernels) and a CDEF pilot that rewrote one family
+  from the algorithm, in three variants, all bit-identical, 7-20x smaller,
+  at +1 to +5 % instructions per whole decode; the owner chose the
+  `fearless_simd` variant (one body for NEON and AVX2) for the next pilot.
