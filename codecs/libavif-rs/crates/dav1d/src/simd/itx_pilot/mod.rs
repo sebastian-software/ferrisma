@@ -33,7 +33,7 @@ use std::sync::OnceLock;
 mod blocks;
 pub mod transforms;
 
-use blocks::{Block, Depth};
+use blocks::{Block, Depth, ScanExtent};
 
 #[cfg(target_arch = "aarch64")]
 type Level = fearless_simd::aarch64::Neon;
@@ -101,12 +101,12 @@ const WHT_WHT: usize = 16;
 
 // --- the DSP-table boundary ----------------------------------------------------
 
-/// `dav1d_last_nonzero_col_from_eob` (src/scan.c): per `enum RectTxfmSize`
-/// and `eob`, the last row of the first pass that can hold a nonzero
-/// coefficient. The C builds it only while some slot keeps a C kernel; the
-/// pilot builds its own from the same scans, as `init_tbl` does.
-fn last_nonzero_rows() -> &'static [Box<[u8]>; 19] {
-    static TABLE: OnceLock<[Box<[u8]>; 19]> = OnceLock::new();
+/// For each `enum RectTxfmSize`, the extent of the scan up to each `eob`:
+/// the C's `dav1d_last_nonzero_col_from_eob` (scan.c, `init_tbl`), which the
+/// C builds only while some slot keeps a C kernel, and the same for the
+/// columns.
+fn scan_extents() -> &'static [ScanExtent; 19] {
+    static TABLE: OnceLock<[ScanExtent; 19]> = OnceLock::new();
     TABLE.get_or_init(|| {
         core::array::from_fn(|tx| {
             let (w, h) = SIZES[tx];
@@ -117,22 +117,28 @@ fn last_nonzero_rows() -> &'static [Box<[u8]>; 19] {
                 let scans = *core::ptr::addr_of!(crate::common::scan::dav1d_scans);
                 core::slice::from_raw_parts(scans[tx], sw * sh)
             };
-            let mut max_row = 0;
-            scan.iter()
-                .map(|&rc| {
-                    max_row = max_row.max(rc as usize & (sh - 1));
-                    max_row as u8
-                })
-                .collect()
+            // Coefficient (x, y) is at `y + x * sh`.
+            ScanExtent { rows: running_max(scan, |rc| rc % sh), columns: running_max(scan, |rc| rc / sh) }
         })
     })
+}
+
+/// For each scan position, the largest `coordinate` of the positions up to it.
+fn running_max(scan: &[u16], coordinate: impl Fn(usize) -> usize) -> Box<[u8]> {
+    let mut max = 0;
+    scan.iter()
+        .map(|&rc| {
+            max = max.max(coordinate(rc.into()));
+            max as u8
+        })
+        .collect()
 }
 
 /// `last_nonzero_col + 1` of `inv_txfm_add_c` (for the tests).
 #[cfg(test)]
 fn coded_rows(tx: usize, tx_type: usize, eob: usize) -> usize {
     let (w, h) = SIZES[tx];
-    blocks::coded_rows(tx_type, w, h.min(32), eob, &last_nonzero_rows()[tx])
+    blocks::coded_extent(tx_type, w, h.min(32), eob, &scan_extents()[tx]).0
 }
 
 /// The `H` rows of `W` pixels at `dst`.
@@ -174,13 +180,14 @@ unsafe fn block<'a, P, C, const W: usize, const H: usize>(
         rows: rows::<P, W, H>(dst, stride),
         coeff: coefficients(coeff, W.min(32) * H.min(32)),
         eob: eob as usize,
-        last_nonzero_rows: &last_nonzero_rows()[tx],
+        extent: &scan_extents()[tx],
     }
 }
 
-/// An `itxfm_fn` at 8 bpc: block `W`x`H` (`SH` = min(H, 32)) for DSP-table
+/// An `itxfm_fn` at 8 bpc: block `W`x`H` (`SW`, `SH` = min(W, 32), min(H,
+/// 32)) for DSP-table
 /// slot `SLOT` (an `enum TxfmType` but WHT).
-unsafe extern "C" fn itx_8bpc<const W: usize, const H: usize, const SH: usize, const SLOT: usize>(
+unsafe extern "C" fn itx_8bpc<const W: usize, const H: usize, const SW: usize, const SH: usize, const SLOT: usize>(
     dst: *mut u8,
     stride: isize,
     coeff: *mut i16,
@@ -188,11 +195,11 @@ unsafe extern "C" fn itx_8bpc<const W: usize, const H: usize, const SH: usize, c
 ) {
     let tx_type = const { blocks::kernel_type(SLOT) };
     let block = block::<_, _, W, H>(dst, stride, coeff, eob);
-    blocks::inverse_transform_add::<_, _, _, W, H, SH>(level(), block, tx_type, Depth::eight());
+    blocks::inverse_transform_add::<_, _, _, W, H, SW, SH>(level(), block, tx_type, Depth::eight());
 }
 
 /// An `itxfm_fn` at 16 bpc.
-unsafe extern "C" fn itx_16bpc<const W: usize, const H: usize, const SH: usize, const SLOT: usize>(
+unsafe extern "C" fn itx_16bpc<const W: usize, const H: usize, const SW: usize, const SH: usize, const SLOT: usize>(
     dst: *mut u16,
     stride: isize,
     coeff: *mut i32,
@@ -201,7 +208,7 @@ unsafe extern "C" fn itx_16bpc<const W: usize, const H: usize, const SH: usize, 
 ) {
     let tx_type = const { blocks::kernel_type(SLOT) };
     let block = block::<_, _, W, H>(dst, stride, coeff, eob);
-    blocks::inverse_transform_add::<_, _, _, W, H, SH>(level(), block, tx_type, Depth::high(bitdepth_max));
+    blocks::inverse_transform_add::<_, _, _, W, H, SW, SH>(level(), block, tx_type, Depth::high(bitdepth_max));
 }
 
 /// The WHT `itxfm_fn` at 8 bpc.
@@ -226,96 +233,96 @@ fn selected() -> bool {
 }
 
 /// The pilot's entries of one block size, by `enum TxfmType` (WHT apart).
-fn entries_8bpc<const W: usize, const H: usize, const SH: usize>() -> [ItxFn; 16] {
+fn entries_8bpc<const W: usize, const H: usize, const SW: usize, const SH: usize>() -> [ItxFn; 16] {
     [
-        itx_8bpc::<W, H, SH, 0>,
-        itx_8bpc::<W, H, SH, 1>,
-        itx_8bpc::<W, H, SH, 2>,
-        itx_8bpc::<W, H, SH, 3>,
-        itx_8bpc::<W, H, SH, 4>,
-        itx_8bpc::<W, H, SH, 5>,
-        itx_8bpc::<W, H, SH, 6>,
-        itx_8bpc::<W, H, SH, 7>,
-        itx_8bpc::<W, H, SH, 8>,
-        itx_8bpc::<W, H, SH, 9>,
-        itx_8bpc::<W, H, SH, 10>,
-        itx_8bpc::<W, H, SH, 11>,
-        itx_8bpc::<W, H, SH, 12>,
-        itx_8bpc::<W, H, SH, 13>,
-        itx_8bpc::<W, H, SH, 14>,
-        itx_8bpc::<W, H, SH, 15>,
+        itx_8bpc::<W, H, SW, SH, 0>,
+        itx_8bpc::<W, H, SW, SH, 1>,
+        itx_8bpc::<W, H, SW, SH, 2>,
+        itx_8bpc::<W, H, SW, SH, 3>,
+        itx_8bpc::<W, H, SW, SH, 4>,
+        itx_8bpc::<W, H, SW, SH, 5>,
+        itx_8bpc::<W, H, SW, SH, 6>,
+        itx_8bpc::<W, H, SW, SH, 7>,
+        itx_8bpc::<W, H, SW, SH, 8>,
+        itx_8bpc::<W, H, SW, SH, 9>,
+        itx_8bpc::<W, H, SW, SH, 10>,
+        itx_8bpc::<W, H, SW, SH, 11>,
+        itx_8bpc::<W, H, SW, SH, 12>,
+        itx_8bpc::<W, H, SW, SH, 13>,
+        itx_8bpc::<W, H, SW, SH, 14>,
+        itx_8bpc::<W, H, SW, SH, 15>,
     ]
 }
 
 /// As `entries_8bpc`, at 16 bpc.
-fn entries_16bpc<const W: usize, const H: usize, const SH: usize>() -> [ItxFn16; 16] {
+fn entries_16bpc<const W: usize, const H: usize, const SW: usize, const SH: usize>() -> [ItxFn16; 16] {
     [
-        itx_16bpc::<W, H, SH, 0>,
-        itx_16bpc::<W, H, SH, 1>,
-        itx_16bpc::<W, H, SH, 2>,
-        itx_16bpc::<W, H, SH, 3>,
-        itx_16bpc::<W, H, SH, 4>,
-        itx_16bpc::<W, H, SH, 5>,
-        itx_16bpc::<W, H, SH, 6>,
-        itx_16bpc::<W, H, SH, 7>,
-        itx_16bpc::<W, H, SH, 8>,
-        itx_16bpc::<W, H, SH, 9>,
-        itx_16bpc::<W, H, SH, 10>,
-        itx_16bpc::<W, H, SH, 11>,
-        itx_16bpc::<W, H, SH, 12>,
-        itx_16bpc::<W, H, SH, 13>,
-        itx_16bpc::<W, H, SH, 14>,
-        itx_16bpc::<W, H, SH, 15>,
+        itx_16bpc::<W, H, SW, SH, 0>,
+        itx_16bpc::<W, H, SW, SH, 1>,
+        itx_16bpc::<W, H, SW, SH, 2>,
+        itx_16bpc::<W, H, SW, SH, 3>,
+        itx_16bpc::<W, H, SW, SH, 4>,
+        itx_16bpc::<W, H, SW, SH, 5>,
+        itx_16bpc::<W, H, SW, SH, 6>,
+        itx_16bpc::<W, H, SW, SH, 7>,
+        itx_16bpc::<W, H, SW, SH, 8>,
+        itx_16bpc::<W, H, SW, SH, 9>,
+        itx_16bpc::<W, H, SW, SH, 10>,
+        itx_16bpc::<W, H, SW, SH, 11>,
+        itx_16bpc::<W, H, SW, SH, 12>,
+        itx_16bpc::<W, H, SW, SH, 13>,
+        itx_16bpc::<W, H, SW, SH, 14>,
+        itx_16bpc::<W, H, SW, SH, 15>,
     ]
 }
 
-/// The pilot's entries, by `enum RectTxfmSize` and `enum TxfmType` (`SH` is
-/// min(H, 32)).
+/// The pilot's entries, by `enum RectTxfmSize` and `enum TxfmType` (`SW`,
+/// `SH` are min(W, 32), min(H, 32)).
 fn table_8bpc() -> [[ItxFn; 16]; 19] {
     [
-        entries_8bpc::<4, 4, 4>(),
-        entries_8bpc::<8, 8, 8>(),
-        entries_8bpc::<16, 16, 16>(),
-        entries_8bpc::<32, 32, 32>(),
-        entries_8bpc::<64, 64, 32>(),
-        entries_8bpc::<4, 8, 8>(),
-        entries_8bpc::<8, 4, 4>(),
-        entries_8bpc::<8, 16, 16>(),
-        entries_8bpc::<16, 8, 8>(),
-        entries_8bpc::<16, 32, 32>(),
-        entries_8bpc::<32, 16, 16>(),
-        entries_8bpc::<32, 64, 32>(),
-        entries_8bpc::<64, 32, 32>(),
-        entries_8bpc::<4, 16, 16>(),
-        entries_8bpc::<16, 4, 4>(),
-        entries_8bpc::<8, 32, 32>(),
-        entries_8bpc::<32, 8, 8>(),
-        entries_8bpc::<16, 64, 32>(),
-        entries_8bpc::<64, 16, 16>(),
+        entries_8bpc::<4, 4, 4, 4>(),
+        entries_8bpc::<8, 8, 8, 8>(),
+        entries_8bpc::<16, 16, 16, 16>(),
+        entries_8bpc::<32, 32, 32, 32>(),
+        entries_8bpc::<64, 64, 32, 32>(),
+        entries_8bpc::<4, 8, 4, 8>(),
+        entries_8bpc::<8, 4, 8, 4>(),
+        entries_8bpc::<8, 16, 8, 16>(),
+        entries_8bpc::<16, 8, 16, 8>(),
+        entries_8bpc::<16, 32, 16, 32>(),
+        entries_8bpc::<32, 16, 32, 16>(),
+        entries_8bpc::<32, 64, 32, 32>(),
+        entries_8bpc::<64, 32, 32, 32>(),
+        entries_8bpc::<4, 16, 4, 16>(),
+        entries_8bpc::<16, 4, 16, 4>(),
+        entries_8bpc::<8, 32, 8, 32>(),
+        entries_8bpc::<32, 8, 32, 8>(),
+        entries_8bpc::<16, 64, 16, 32>(),
+        entries_8bpc::<64, 16, 32, 16>(),
     ]
 }
 
 fn table_16bpc() -> [[ItxFn16; 16]; 19] {
     [
-        entries_16bpc::<4, 4, 4>(),
-        entries_16bpc::<8, 8, 8>(),
-        entries_16bpc::<16, 16, 16>(),
-        entries_16bpc::<32, 32, 32>(),
-        entries_16bpc::<64, 64, 32>(),
-        entries_16bpc::<4, 8, 8>(),
-        entries_16bpc::<8, 4, 4>(),
-        entries_16bpc::<8, 16, 16>(),
-        entries_16bpc::<16, 8, 8>(),
-        entries_16bpc::<16, 32, 32>(),
-        entries_16bpc::<32, 16, 16>(),
-        entries_16bpc::<32, 64, 32>(),
-        entries_16bpc::<64, 32, 32>(),
-        entries_16bpc::<4, 16, 16>(),
-        entries_16bpc::<16, 4, 4>(),
-        entries_16bpc::<8, 32, 32>(),
-        entries_16bpc::<32, 8, 8>(),
-        entries_16bpc::<16, 64, 32>(),
-        entries_16bpc::<64, 16, 16>(),
+        entries_16bpc::<4, 4, 4, 4>(),
+        entries_16bpc::<8, 8, 8, 8>(),
+        entries_16bpc::<16, 16, 16, 16>(),
+        entries_16bpc::<32, 32, 32, 32>(),
+        entries_16bpc::<64, 64, 32, 32>(),
+        entries_16bpc::<4, 8, 4, 8>(),
+        entries_16bpc::<8, 4, 8, 4>(),
+        entries_16bpc::<8, 16, 8, 16>(),
+        entries_16bpc::<16, 8, 16, 8>(),
+        entries_16bpc::<16, 32, 16, 32>(),
+        entries_16bpc::<32, 16, 32, 16>(),
+        entries_16bpc::<32, 64, 32, 32>(),
+        entries_16bpc::<64, 32, 32, 32>(),
+        entries_16bpc::<4, 16, 4, 16>(),
+        entries_16bpc::<16, 4, 16, 4>(),
+        entries_16bpc::<8, 32, 8, 32>(),
+        entries_16bpc::<32, 8, 32, 8>(),
+        entries_16bpc::<16, 64, 16, 32>(),
+        entries_16bpc::<64, 16, 32, 16>(),
     ]
 }
 
@@ -344,7 +351,7 @@ pub fn install_8bpc(table: &mut [[Option<ItxFn>; 17]; 19], before: &[[Option<Itx
     if !selected() || !available() {
         return;
     }
-    last_nonzero_rows();
+    scan_extents();
     let pilot = table_8bpc();
     replace_changed(table, before, |f| f as usize, |tx, tx_type| if tx_type == WHT_WHT { wht_8bpc } else { pilot[tx][tx_type] });
 }
@@ -354,7 +361,7 @@ pub fn install_16bpc(table: &mut [[Option<ItxFn16>; 17]; 19], before: &[[Option<
     if !selected() || !available() {
         return;
     }
-    last_nonzero_rows();
+    scan_extents();
     let pilot = table_16bpc();
     replace_changed(table, before, |f| f as usize, |tx, tx_type| if tx_type == WHT_WHT { wht_16bpc } else { pilot[tx][tx_type] });
 }

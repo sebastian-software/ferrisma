@@ -63,9 +63,12 @@ fn c_coded_rows(tx: usize, tx_type: usize, eob: usize) -> usize {
     last + 1
 }
 
-/// One random block of `tx`: pixels, and coefficients in the rows the C
-/// reads (only the DC one for `eob` 0).
+/// One random block of `tx`: pixels, and coefficients where the C reads
+/// them: at the scan positions `0..=eob` where the C takes its rows from the
+/// scan, in every column of the rows it reads otherwise (only the DC one for
+/// `eob` 0).
 fn draw(rng: &mut Rng, tx: usize, tx_type: usize, pixel_max: i32, cf_max: i32) -> (Vec<i32>, Vec<i32>, usize) {
+    use transforms::Kind::Identity;
     let (w, h) = SIZES[tx];
     let (sw, sh) = (w.min(32), h.min(32));
     let eob = match rng.next() % 4 {
@@ -74,15 +77,29 @@ fn draw(rng: &mut Rng, tx: usize, tx_type: usize, pixel_max: i32, cf_max: i32) -
         _ => (rng.next() as usize) % (sw * sh),
     };
     let eob = if tx_type == WHT_WHT { 15 } else { eob };
+    let small = rng.next() % 2 == 0;
+    let mut value = || if small { rng.signed(cf_max >> 6) } else { rng.signed(cf_max) };
     let mut coeff = vec![0; sw * sh];
+    let from_scan = tx_type != WHT_WHT && {
+        let [first, second] = blocks::TX1D_TYPES[blocks::kernel_type(tx_type)];
+        (first == Identity) == (second == Identity)
+    };
     if eob == 0 {
-        coeff[0] = rng.signed(cf_max);
+        coeff[0] = value();
+    } else if from_scan {
+        // SAFETY: the C's constant scan table of the size.
+        let scan = unsafe {
+            let scans = *core::ptr::addr_of!(crate::common::scan::dav1d_scans);
+            core::slice::from_raw_parts(scans[tx], sw * sh)
+        };
+        for &rc in &scan[..=eob] {
+            coeff[usize::from(rc)] = value();
+        }
     } else {
         let rows = c_coded_rows(tx, tx_type, eob);
-        let small = rng.next() % 2 == 0;
         for x in 0..sw {
             for y in 0..rows {
-                coeff[y + x * sh] = if small { rng.signed(cf_max >> 6) } else { rng.signed(cf_max) };
+                coeff[y + x * sh] = value();
             }
         }
     }
@@ -145,6 +162,8 @@ fn check_16bpc(bpc: c_int, draws: usize) {
 fn pilot_matches_c_8bpc() {
     if available() {
         check_8bpc(300);
+    } else {
+        eprintln!("itx pilot: level not available, skipped");
     }
 }
 
@@ -152,6 +171,8 @@ fn pilot_matches_c_8bpc() {
 fn pilot_matches_c_10bpc() {
     if available() {
         check_16bpc(10, 300);
+    } else {
+        eprintln!("itx pilot: level not available, skipped");
     }
 }
 
@@ -159,6 +180,8 @@ fn pilot_matches_c_10bpc() {
 fn pilot_matches_c_12bpc() {
     if available() {
         check_16bpc(12, 300);
+    } else {
+        eprintln!("itx pilot: level not available, skipped");
     }
 }
 

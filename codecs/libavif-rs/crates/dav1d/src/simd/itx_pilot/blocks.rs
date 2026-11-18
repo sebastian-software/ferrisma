@@ -163,6 +163,16 @@ pub const fn shift(w: usize, h: usize) -> u32 {
     }
 }
 
+/// For each `eob` of a block size, the last row and the last column that a
+/// coefficient at scan position `0..=eob` can be in.
+pub struct ScanExtent {
+    /// `dav1d_last_nonzero_col_from_eob` (scan.c; the C's "col" is the row
+    /// of its first pass).
+    pub rows: Box<[u8]>,
+    /// The same for the columns (the first pass's inputs).
+    pub columns: Box<[u8]>,
+}
+
 /// The block's rows, its coefficients and how much of them is coded.
 pub struct Block<'a, P, C, const W: usize, const H: usize> {
     /// Rows `0..H` of the destination, `W` pixels each.
@@ -170,94 +180,139 @@ pub struct Block<'a, P, C, const W: usize, const H: usize> {
     /// `min(W, 32) * min(H, 32)` coefficients, column after column.
     pub coeff: &'a mut [C],
     pub eob: usize,
-    /// `dav1d_last_nonzero_col_from_eob` of the block size.
-    pub last_nonzero_rows: &'static [u8],
+    /// The scan's extent for the block size.
+    pub extent: &'static ScanExtent,
 }
 
-/// `last_nonzero_col + 1` of `inv_txfm_add_c`: the rows of the first pass
-/// that can hold a nonzero coefficient.
-pub fn coded_rows(tx_type: usize, w: usize, sh: usize, eob: usize, last_nonzero_rows: &[u8]) -> usize {
+/// The rows and columns of the coefficient block that can hold a nonzero
+/// coefficient: the rows are `last_nonzero_col + 1` of `inv_txfm_add_c`;
+/// the columns come from the scan as well where the C takes the rows from
+/// it, and are all `sw` otherwise.
+pub fn coded_extent(tx_type: usize, w: usize, sh: usize, eob: usize, extent: &ScanExtent) -> (usize, usize) {
     use Kind::Identity;
     let [first, second] = TX1D_TYPES[tx_type];
-    let last = if second == Identity && first != Identity {
-        (sh - 1).min(eob)
+    let sw = w.min(32);
+    if second == Identity && first != Identity {
+        ((sh - 1).min(eob) + 1, sw)
     } else if first == Identity && second != Identity {
-        eob >> w.trailing_zeros()
+        ((eob >> w.trailing_zeros()) + 1, sw)
     } else {
-        last_nonzero_rows[eob].into()
-    };
-    last + 1
+        (usize::from(extent.rows[eob]) + 1, usize::from(extent.columns[eob]) + 1)
+    }
 }
 
 /// `inv_txfm_add_c` for a `W`x`H` block of `tx_type` (`enum TxfmType`, not
-/// WHT); `SH` is `min(H, 32)`.
-pub fn inverse_transform_add<S: Simd, P: Pixel, C: Coef, const W: usize, const H: usize, const SH: usize>(
+/// WHT); `SW`, `SH` are `min(W, 32)`, `min(H, 32)`.
+pub fn inverse_transform_add<
+    S: Simd,
+    P: Pixel,
+    C: Coef,
+    const W: usize,
+    const H: usize,
+    const SW: usize,
+    const SH: usize,
+>(
     simd: S,
     block: Block<'_, P, C, W, H>,
     tx_type: usize,
     depth: Depth,
 ) {
-    let [first, second] = TX1D_TYPES[tx_type];
-    let rect2 = W == 2 * H || H == 2 * W;
-    let shift = shift(W, H);
-    let Block { mut rows, coeff, eob, last_nonzero_rows } = block;
+    let Block { mut rows, coeff, eob, extent } = block;
+    let pass = Pass { kinds: TX1D_TYPES[tx_type], rect2: W == 2 * H || H == 2 * W, shift: shift(W, H), depth };
     // The whole block in one region compiled with the level's features.
     simd.vectorize(
         #[inline(always)]
         || {
             if tx_type == DCT_DCT && eob == 0 {
-                return dc_only(simd, &mut rows, coeff, rect2, shift, depth);
+                return dc_only(simd, &mut rows, coeff, pass);
             }
-            let coded_rows = coded_rows(tx_type, W, SH, eob, last_nonzero_rows);
-            let mut tmp = [[0; W]; SH];
-            if W.min(SH) == 4 {
-                first_pass::<_, i32x4<S>, _, W>(simd, coeff, SH, coded_rows, first, rect2, shift, depth, &mut tmp);
+            // Where only the first 8 or 16 rows and columns of coefficients
+            // are coded, the passes get that bound as a constant, and the
+            // compiler drops the zero inputs from the transforms (as the C's
+            // tx64 variants and the assembly's eob paths do by hand). Not for
+            // the 64-point sizes: rare, and each bound is another copy of the
+            // passes.
+            let (coded_rows, coded_columns) = coded_extent(tx_type, W, SH, eob, extent);
+            let within = |bound: usize| {
+                W <= 32 && H <= 32 && coded_rows <= bound && coded_columns <= bound && (SW > bound || SH > bound)
+            };
+            if within(8) {
+                passes::<_, _, _, W, H, 8, 8>(simd, &mut rows, coeff, coded_rows, pass);
+            } else if within(16) {
+                passes::<_, _, _, W, H, 16, 16>(simd, &mut rows, coeff, coded_rows, pass);
             } else {
-                first_pass::<_, i32x8<S>, _, W>(simd, coeff, SH, coded_rows, first, rect2, shift, depth, &mut tmp);
-            }
-            if W == 4 {
-                second_pass::<_, i32x4<S>, _, W, H>(simd, &tmp, second, depth, &mut rows);
-            } else {
-                second_pass::<_, i32x8<S>, _, W, H>(simd, &tmp, second, depth, &mut rows);
+                passes::<_, _, _, W, H, SW, SH>(simd, &mut rows, coeff, coded_rows, pass);
             }
         },
     )
 }
 
+/// What the two passes of a block share.
+#[derive(Clone, Copy)]
+struct Pass {
+    /// The first (row) and the second (column) 1-D transform.
+    kinds: [Kind; 2],
+    /// `is_rect2`: the coefficients are scaled by 181 / 256 first.
+    rect2: bool,
+    shift: u32,
+    depth: Depth,
+}
+
+/// Both passes, for a block whose coefficients outside the first `NX`
+/// columns and `NY` rows are zero.
+#[inline(always)]
+fn passes<S: Simd, P: Pixel, C: Coef, const W: usize, const H: usize, const NX: usize, const NY: usize>(
+    simd: S,
+    rows: &mut [&mut [P]; H],
+    coeff: &mut [C],
+    coded_rows: usize,
+    pass: Pass,
+) {
+    let sh = H.min(32);
+    let mut tmp = [[0; W]; NY];
+    if W.min(sh) == 4 {
+        first_pass::<_, i32x4<S>, _, W, NX>(simd, coeff, sh, coded_rows, pass, &mut tmp);
+    } else {
+        first_pass::<_, i32x8<S>, _, W, NX>(simd, coeff, sh, coded_rows, pass, &mut tmp);
+    }
+    if W == 4 {
+        second_pass::<_, i32x4<S>, _, W, H>(simd, &tmp[..NY.min(sh)], pass, rows);
+    } else {
+        second_pass::<_, i32x8<S>, _, W, H>(simd, &tmp[..NY.min(sh)], pass, rows);
+    }
+}
+
 /// The rows of the coefficient block: transformed, rounded, clipped and
 /// stored into `tmp` (row `y` at `tmp[y]`), the coefficients read set to 0.
-/// Rows from `coded_rows` up hold no nonzero coefficient; their part of
-/// `tmp` stays 0, as in the C.
-#[allow(clippy::too_many_arguments)]
+/// Rows from `coded_rows` up and columns from `NX` up hold no nonzero
+/// coefficient; their part of `tmp` stays 0, as in the C.
 #[inline(always)]
-fn first_pass<S: Simd, V: Lanes<S>, C: Coef, const W: usize>(
+fn first_pass<S: Simd, V: Lanes<S>, C: Coef, const W: usize, const NX: usize>(
     simd: S,
     coeff: &mut [C],
     sh: usize,
     coded_rows: usize,
-    kind: Kind,
-    rect2: bool,
-    shift: u32,
-    depth: Depth,
+    pass: Pass,
     tmp: &mut [[i32; W]],
 ) {
     let lanes = V::LEN;
-    let sw = W.min(32);
-    let row_clip = Clip { min: V::splat(simd, depth.row_clip.0), max: V::splat(simd, depth.row_clip.1) };
-    let (col_min, col_max) = depth.col_clip;
-    let rnd = (1 << shift) >> 1;
+    let nx = NX.min(W.min(32));
+    let (row_min, row_max) = pass.depth.row_clip;
+    let row_clip = Clip { min: V::splat(simd, row_min), max: V::splat(simd, row_max) };
+    let (col_min, col_max) = pass.depth.col_clip;
+    let (shift, rnd) = (pass.shift, (1 << pass.shift) >> 1);
     for y0 in (0..coded_rows).step_by(lanes) {
-        // Input x of rows y0..y0 + L; columns from 32 up are zero.
+        // Input x of rows y0..y0 + L; from `nx` up zero.
         let mut input = [V::splat(simd, 0); W];
-        for (x, c) in input[..sw].iter_mut().enumerate() {
+        for (x, c) in input[..nx].iter_mut().enumerate() {
             let column = &mut coeff[x * sh + y0..][..lanes];
             *c = load(simd, column, C::to_i32);
             column.fill(C::ZERO);
-            if rect2 {
+            if pass.rect2 {
                 *c = (*c * 181 + 128) >> 8;
             }
         }
-        let out = transform(kind, input, row_clip);
+        let out = transform(pass.kinds[0], input, row_clip);
         let mut out = each(out, |v| ((v + rnd) >> shift).max(col_min).min(col_max));
         for (x0, square) in out.chunks_exact_mut(lanes).enumerate() {
             V::transpose(square);
@@ -274,20 +329,20 @@ fn first_pass<S: Simd, V: Lanes<S>, C: Coef, const W: usize>(
 fn second_pass<S: Simd, V: Lanes<S>, P: Pixel, const W: usize, const H: usize>(
     simd: S,
     tmp: &[[i32; W]],
-    kind: Kind,
-    depth: Depth,
+    pass: Pass,
     rows: &mut [&mut [P]; H],
 ) {
     let lanes = V::LEN;
-    let col_clip = Clip { min: V::splat(simd, depth.col_clip.0), max: V::splat(simd, depth.col_clip.1) };
+    let (col_min, col_max) = pass.depth.col_clip;
+    let col_clip = Clip { min: V::splat(simd, col_min), max: V::splat(simd, col_max) };
     for x0 in (0..W).step_by(lanes) {
         let mut input = [V::splat(simd, 0); H];
         for (c, row) in input.iter_mut().zip(tmp) {
             *c = V::from_slice(simd, &row[x0..][..lanes]);
         }
-        let out = transform(kind, input, col_clip);
+        let out = transform(pass.kinds[1], input, col_clip);
         for (row, c) in rows.iter_mut().zip(out) {
-            add_to_pixels(simd, &mut row[x0..][..lanes], (c + 8) >> 4, depth.pixel_max);
+            add_to_pixels(simd, &mut row[x0..][..lanes], (c + 8) >> 4, pass.depth.pixel_max);
         }
     }
 }
@@ -312,27 +367,21 @@ fn add_to_pixels<S: Simd, V: Lanes<S>, P: Pixel>(simd: S, pixels: &mut [P], resi
 /// The C's path for a DCT_DCT block with only the DC coefficient
 /// (`eob < has_dconly`): one value added to every pixel, unclipped.
 #[inline(always)]
-fn dc_only<S: Simd, P: Pixel, C: Coef, const H: usize>(
-    simd: S,
-    rows: &mut [&mut [P]; H],
-    coeff: &mut [C],
-    rect2: bool,
-    shift: u32,
-    depth: Depth,
-) {
+fn dc_only<S: Simd, P: Pixel, C: Coef, const H: usize>(simd: S, rows: &mut [&mut [P]; H], coeff: &mut [C], pass: Pass) {
+    let shift = pass.shift;
     let rnd = (1 << shift) >> 1;
     let mut dc = coeff[0].to_i32();
     coeff[0] = C::ZERO;
-    if rect2 {
+    if pass.rect2 {
         dc = (dc * 181 + 128) >> 8;
     }
     dc = (dc * 181 + 128) >> 8;
     dc = (dc + rnd) >> shift;
     dc = (dc * 181 + 128 + 2048) >> 12;
     if rows[0].len() == 4 {
-        add_dc::<_, i32x4<S>, _>(simd, rows, dc, depth.pixel_max);
+        add_dc::<_, i32x4<S>, _>(simd, rows, dc, pass.depth.pixel_max);
     } else {
-        add_dc::<_, i32x8<S>, _>(simd, rows, dc, depth.pixel_max);
+        add_dc::<_, i32x8<S>, _>(simd, rows, dc, pass.depth.pixel_max);
     }
 }
 
