@@ -59,13 +59,15 @@ rows at a time (instruction counts do not depend on the load). Results:
 
 `--port PATH` measures another build of the port's cdylib (a development
 copy) and `--output PATH` writes the JSON elsewhere; both for `ipred`, `lr`,
-`lpf` and the itx families only.
+`lpf`, `cdef` and the itx families only.
 
-On GNU Linux x86-64 (families `msac`, `lpf`, `itx`, `itx16` and `itx12`) the
-level is AVX2 (mask 0x2f; oracle
+On GNU Linux x86-64 (families `msac`, `lpf`, `cdef`, `itx`, `itx16` and
+`itx12`) the level is AVX2 (mask 0x2f; oracle
 `build/dav1d-dsp-release-avx2/libdav1d-dsp-asm.so`, made by
 `check_dav1d_dsp.py --simd avx2`) and the kernels are those of
-`src/x86/msac.h`, `src/x86/loopfilter.h` and `src/x86/itx.h`: the slots that
+`src/x86/msac.h`, `src/x86/loopfilter.h`, `src/x86/cdef.h` (the slots hold
+the assembly itself, which pads the block; no wrapper) and
+`src/x86/itx.h`: the slots that
 `simd/x86/itx.rs` assigns at 8 bpc (`itx`), at 10 bits (`itx16`) and at 12
 bits (`itx12`, for which the x86 assembly has kernels of its own; x86-64
 only). For the itx families `--jobs N` measures N rows at a time. The
@@ -191,10 +193,10 @@ def main():
     parser.add_argument('--bpc', type=int, choices=[8, 16], help='ipred, lr: only this bit depth')
     parser.add_argument('--jobs', type=int, default=1, help='lr and the itx families: rows measured at a time')
     parser.add_argument('--angle', type=int, default=-1, help='ipred: one angle (0..90) for Z1 to Z3')
-    parser.add_argument('--port', type=Path, help='ipred, lr, lpf, itx families: the port cdylib to measure')
-    parser.add_argument('--output', type=Path, help='ipred, lr, lpf, itx families: where to write the JSON')
+    parser.add_argument('--port', type=Path, help='ipred, lr, lpf, cdef, itx families: the port cdylib to measure')
+    parser.add_argument('--output', type=Path, help='ipred, lr, lpf, cdef, itx families: where to write the JSON')
     args = parser.parse_args()
-    if X86 and args.family not in ('msac', 'lpf', 'itx', 'itx16', 'itx12'):
+    if X86 and args.family not in ('msac', 'lpf', 'cdef', 'itx', 'itx16', 'itx12'):
         raise SystemExit(f'--family {args.family} has no x86-64 kernels yet')
     if not X86 and args.family == 'itx12':
         raise SystemExit('--family itx12 is for x86-64: on AArch64 the original has no 12-bit kernels but WHT')
@@ -270,6 +272,7 @@ def main():
             raise SystemExit('outputs differ')
         return
     if args.family == 'cdef':
+        port = args.port or port
         calls = args.calls // 64
         slots = [('dir', 0, ['0xf']), ('fb[0] 8x8', 1, None), ('fb[1] 4x8', 2, None), ('fb[2] 4x4', 3, None)]
         for bpc in (8, 16):
@@ -280,7 +283,7 @@ def main():
                 for edges in edge_sets or ['0xf', '0x0', '0x5', '0xa']:
                     per_call, checksums = {}, {}
                     for side, library in (('original', original), ('port', port)):
-                        command = [driver, library, '0x1', 'cdef', str(bpc), str(slot), edges, str(calls)]
+                        command = [driver, library, MASK, 'cdef', str(bpc), str(slot), edges, str(calls)]
                         base, _ = instructions(command + ['baseline'])
                         total, checksum = instructions(command + ['call'])
                         per_call[side] = (total - base) / calls
@@ -293,8 +296,8 @@ def main():
                     rows.append(row)
                     print(f"{row['kernel']:52s} {row['path']:16s} {row['original_instructions']:9.1f} "
                           f"{row['port_instructions']:9.1f} {row['ratio']:6.3f} {row['identical_output']}", flush=True)
-        (ROOT / 'build/dav1d-kernel-instructions-cdef.json').write_text(json.dumps(
-            {'calls': calls, 'level': 'neon', 'original': str(original), 'port': str(port), 'kernels': rows},
+        (args.output or ROOT / 'build/dav1d-kernel-instructions-cdef.json').write_text(json.dumps(
+            {'calls': calls, 'level': LEVEL, 'original': str(original), 'port': str(port), 'kernels': rows},
             indent=2) + '\n')
         if not all(row['identical_output'] for row in rows):
             raise SystemExit('outputs differ')

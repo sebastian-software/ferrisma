@@ -50,6 +50,8 @@ pub mod arm {
 
 #[cfg(target_arch = "x86_64")]
 pub mod x86_64 {
+    pub mod cdef16_avx2;
+    pub mod cdef_avx2;
     pub mod itx16_avx2;
     pub mod itx_avx2;
     pub mod loopfilter16_avx2;
@@ -60,6 +62,7 @@ pub mod x86_64 {
 
 #[cfg(target_arch = "x86_64")]
 pub mod x86 {
+    pub mod cdef;
     pub mod itx;
     pub mod loopfilter;
     pub mod msac;
