@@ -92,6 +92,31 @@ jobs:
     defaults:
       run:
         working-directory: codecs/libjxl-rs
+  toolchain:
+    name: 'JXL: Tests at rust-version (ubuntu-24.04-arm, simd_vardct_lanes8)'
+    # The per-change rust-version part on ARM64 (ci.yml) leaves out the
+    # AArch64-only simd_vardct_lanes8 binary, which alone takes 11.5 minutes
+    # to compile at Rust 1.94 (CI run 44176391504); the nightly tier runs it
+    # there. cargo fails if the binary no longer exists.
+    if: inputs.tier != 'deep'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - uses: ./codecs/libjxl-rs/.github/actions/prepare
+      with:
+        msrv: true
+        oracle: false
+    - name: Test simd_vardct_lanes8 at the port's rust-version
+      run: |
+        msrv="$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)"
+        CARGO_TARGET_DIR="$GITHUB_WORKSPACE/target/rust-$msrv" \
+          cargo +"$msrv" test --locked --offline -p libjxl-rs --profile checked --test simd_vardct_lanes8
+    defaults:
+      run:
+        working-directory: codecs/libjxl-rs
   parity:
     name: 'JXL: Tests (${{ matrix.os }}, ${{ matrix.oracle }} oracle, ${{ matrix.tier }} ${{ matrix.shard }}/${{ matrix.shards
       }})'
@@ -420,6 +445,7 @@ jobs:
     needs:
     - plan
     - static
+    - toolchain
     - parity
     - selection
     - audit
@@ -428,13 +454,13 @@ jobs:
     - name: Require every gate job to pass
       env:
         TIER: ${{ inputs.tier }}
-        STATIC: ${{ needs.static.result }}
+        STATIC: ${{ needs.static.result }} ${{ needs.toolchain.result }}
         RESULTS: ${{ needs.plan.result }} ${{ needs.parity.result }} ${{ needs.selection.result }} ${{ needs.audit.result }}
       run: |
-        echo "Tier: $TIER; static checks: $STATIC; plan, tests, selection, audits: $RESULTS"
+        echo "Tier: $TIER; static checks and rust-version tests: $STATIC; plan, tests, selection, audits: $RESULTS"
         case "$TIER" in
-          nightly) [ "$STATIC" = success ] || exit 1 ;;
-          deep) [ "$STATIC" = skipped ] || exit 1 ;;
+          nightly) [ "$STATIC" = "success success" ] || exit 1 ;;
+          deep) [ "$STATIC" = "skipped skipped" ] || exit 1 ;;
           *) exit 1 ;;
         esac
         for result in $RESULTS; do [ "$result" = success ] || exit 1; done

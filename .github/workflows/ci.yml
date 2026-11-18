@@ -215,7 +215,7 @@ jobs:
     # nightly's stage, rust-version, stable; `cargo xtask affected`), each
     # within the tier-1 budget of 15 minutes (ADR-0027, amendment
     # 2026-11-17); the timeout is the hang guard above it.
-    timeout-minutes: ${{ matrix.part == 'msrv' && 50 || 20 }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -277,32 +277,37 @@ jobs:
       # and on current stable, whose LLVM versions differ from the nightly's.
       # Each toolchain builds in its own target directory, which the build
       # cache above keeps (one cache per part).
+      # One exception keeps the ARM64 rust-version part within 15 minutes:
+      # at Rust 1.94 the AArch64-only `simd_vardct_lanes8` binary alone takes
+      # 11.5 minutes to compile (CI run 44176391504; library 9.5 minutes, the
+      # other 126 test binaries about 2; on stable the whole build takes 5.3
+      # minutes). It runs at rust-version on ARM64 in the nightly tier
+      # instead (jxl-check.yml, "JXL: Tests at rust-version"), which fails if
+      # the binary is missing.
       - name: Test the JXL port at its rust-version or on stable
         if: matrix.codec == 'jxl' && (matrix.part == 'msrv' || matrix.part == 'stable')
         working-directory: codecs/libjxl-rs
         env:
           PART: ${{ matrix.part }}
+          ARCH: ${{ runner.arch }}
         run: |
           toolchain=stable
           if [ "$PART" = msrv ]; then
             toolchain="$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)"
           fi
           export CARGO_TARGET_DIR="$GITHUB_WORKSPACE/target/rust-$toolchain"
-          start=$SECONDS
-          cargo +"$toolchain" build --locked --offline -p libjxl-rs --profile checked --lib --timings
-          echo "library: $((SECONDS - start)) s"
-          start=$SECONDS
-          cargo +"$toolchain" test --locked --offline -p libjxl-rs --profile checked --no-run --timings
-          echo "test binaries: $((SECONDS - start)) s"
-          cargo +"$toolchain" test --locked --offline -p libjxl-rs --profile checked
-      - name: Keep the JXL build timings
-        if: ${{ always() && matrix.codec == 'jxl' && (matrix.part == 'msrv' || matrix.part == 'stable') }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: jxl-cargo-timings-${{ matrix.part }}-${{ runner.arch }}
-          path: target/rust-*/cargo-timings/cargo-timing*.html
-          if-no-files-found: warn
-          retention-days: 7
+          if [ "$PART" = msrv ] && [ "$ARCH" = ARM64 ]; then
+            # Every target `cargo test` builds by default, but that binary.
+            tests=()
+            while read -r name; do tests+=(--test "$name"); done < <(cargo metadata --no-deps --format-version 1 \
+              | python3 -c 'import json, sys; [print(t["name"]) for p in json.load(sys.stdin)["packages"] if p["name"] == "libjxl-rs" for t in p["targets"] if t["kind"] == ["test"] and t["name"] != "simd_vardct_lanes8"]')
+            [ "${#tests[@]}" -gt 100 ] || { echo "too few test targets: ${#tests[@]}"; exit 1; }
+            cargo +"$toolchain" build --locked --offline -p libjxl-rs --profile checked --examples
+            cargo +"$toolchain" test --locked --offline -p libjxl-rs --profile checked --lib "${tests[@]}"
+            cargo +"$toolchain" test --locked --offline -p libjxl-rs --profile checked --doc
+          else
+            cargo +"$toolchain" test --locked --offline -p libjxl-rs --profile checked
+          fi
   checks-passed:
     name: Checks passed
     if: always()
