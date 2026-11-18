@@ -9,8 +9,8 @@
 //! in `looprestoration_common.rs`, the C side of the self-guided filters and the slot assignments in
 //! `simd/arm/looprestoration.rs`. The table `right_ext_mask_buf` is `RIGHT_EXT_MASK_BUF`.
 //!
-//! Stack buffers: the Wiener filters keep their rows of intermediate values in a local buffer, zeroed
-//! whole before use (`util::zeroed`); the self-guided kernels have none (their rows are the wrappers',
+//! Stack buffers: the Wiener filters keep their rows of intermediate values in a local buffer, zero-initialized
+//! (`[0; N]`); the self-guided kernels have none (their rows are the wrappers',
 //! zeroed whole there).
 //!
 //! # The Wiener filters
@@ -97,12 +97,10 @@
 
 use core::arch::aarch64::*;
 use core::ffi::{c_int, c_uint};
-use core::mem::MaybeUninit;
 use core::ptr::read_unaligned;
 
 use super::super::arm::looprestoration::LooprestorationParams;
 use super::looprestoration_tmpl::*;
-use super::util::zeroed;
 
 /// `right_ext_mask_buf` with the label `right_ext_mask` at offset 48: 48 bytes
 /// of 0x00, then 48 bytes of 0xff (shared by the Wiener and the box-sum
@@ -230,8 +228,8 @@ pub unsafe extern "C" fn dav1d_wiener_filter7_16bpc_neon(
 
     // sub_sp 384*2*6. Zero-initialized whole: which of the six rows a vertical pass loads depends on the
     // edge flags and the height, so that every loaded element was stored before is not obvious here.
-    let mut rows = MaybeUninit::<WienerRows<{ 384 * 6 }>>::uninit();
-    let sp = zeroed(&mut rows) as *mut i16;
+    let mut rows = WienerRows([0; 384 * 6]);
+    let sp = rows.0.as_mut_ptr();
 
     // x9  - t6
     // x10 - t5
@@ -931,8 +929,8 @@ pub unsafe extern "C" fn dav1d_wiener_filter5_16bpc_neon(
 
     // sub_sp 384*2*4. Zero-initialized whole: which of the four rows a vertical pass loads depends on the
     // edge flags and the height, so that every loaded element was stored before is not obvious here.
-    let mut rows = MaybeUninit::<WienerRows<{ 384 * 4 }>>::uninit();
-    let sp = zeroed(&mut rows) as *mut i16;
+    let mut rows = WienerRows([0; 384 * 4]);
+    let sp = rows.0.as_mut_ptr();
 
     // x11 - t4
     // x12 - t3

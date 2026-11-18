@@ -22,7 +22,7 @@
 //! are zero-initialized and, being passed to `ipred_z1_filter_edge` as
 //! `in`, have one element in front of them (`buf` four, for the z2 fill
 //! kernel of width 64); `top_out` (z1) and `left_out` (z3) are zeroed whole
-//! as well (`zeroed_scratch`), before anything is written to them. No
+//! as well (zero-initialized arrays), before anything is written to them. No
 //! kernel therefore loads an element of a wrapper's buffer that has no
 //! value, whatever it loads; what the kernels are known to load:
 //! - z1 `top_out`: the edge kernels or `memcpy` write `[0, max_base_x]`
@@ -56,9 +56,7 @@
 //! decoder's edge array has those bytes behind it inside the same scratch
 //! structure.
 use core::ffi::{c_int, c_void};
-use core::mem::MaybeUninit;
 
-use super::super::arm64::util::zeroed;
 use super::super::cpu::{dav1d_get_cpu_flags, DAV1D_ARM_CPU_FLAG_NEON};
 use crate::common::tables::dav1d_dr_intra_derivative;
 
@@ -202,18 +200,6 @@ fn get_upsample(wh: c_int, angle: c_int, is_sm: c_int) -> c_int {
     (angle < 40 && wh <= 16 >> is_sm) as c_int
 }
 
-/// Not in the original: writes zero to every byte of `buf` and returns the
-/// pointer to its first element (`util::zeroed`). For the wrappers'
-/// `top_out` and `left_out`, which C leaves uninitialized and whose kernels
-/// load whole blocks of pixels: zeroed whole, no load from the buffer can
-/// find an element without a value, whichever elements the kernels load.
-/// Five 64-byte stores for the 302 or 286 pixels at 8 bpc, ten or nine at
-/// 16 bpc.
-#[inline(always)]
-unsafe fn zeroed_scratch<T, const N: usize>(buf: &mut MaybeUninit<[T; N]>) -> *mut T {
-    zeroed(buf) as *mut T
-}
-
 /// The three wrappers of `src/arm/ipred.h` for one bit depth. `$pixel` is
 /// `pixel`; `$bd` is `HIGHBD_DECL_SUFFIX`/`HIGHBD_TAIL_SUFFIX` (nothing at
 /// 8 bpc, `bitdepth_max` at 16 bpc). The kernel names are those of the
@@ -237,9 +223,9 @@ macro_rules! z_wrappers {
             let enable_intra_edge_filter = angle >> 10;
             angle &= 511;
             let mut dx = dav1d_dr_intra_derivative[(angle >> 1) as usize] as c_int;
-            // Zeroed whole (uninitialized in the original): see `zeroed_scratch`.
-            let mut top_out_buf = MaybeUninit::<[$pixel; 64 + 64 + (64 + 15) * 2 + 16]>::uninit();
-            let top_out = zeroed_scratch(&mut top_out_buf);
+            // Zero-initialized (uninitialized in the original): the kernels load whole blocks of pixels.
+            let mut top_out_buf: [$pixel; 64 + 64 + (64 + 15) * 2 + 16] = [0; 64 + 64 + (64 + 15) * 2 + 16];
+            let top_out = top_out_buf.as_mut_ptr();
             let max_base_x;
             let upsample_above =
                 if enable_intra_edge_filter != 0 { get_upsample(width + height, 90 - angle, is_sm) } else { 0 };
@@ -393,9 +379,9 @@ macro_rules! z_wrappers {
             // One element in front: `ipred_z1_filter_edge` reads `flipped[-1]`.
             let mut flipped_buf: [$pixel; 1 + 64 + 64 + 16] = [0; 1 + 64 + 64 + 16];
             let flipped = flipped_buf.as_mut_ptr().add(1);
-            // Zeroed whole (uninitialized in the original): see `zeroed_scratch`.
-            let mut left_out_buf = MaybeUninit::<[$pixel; 64 + 64 + (64 + 15) * 2]>::uninit();
-            let left_out = zeroed_scratch(&mut left_out_buf);
+            // Zero-initialized (uninitialized in the original): the kernels load whole blocks of pixels.
+            let mut left_out_buf: [$pixel; 64 + 64 + (64 + 15) * 2] = [0; 64 + 64 + (64 + 15) * 2];
+            let left_out = left_out_buf.as_mut_ptr();
             let max_base_y;
             let upsample_left =
                 if enable_intra_edge_filter != 0 { get_upsample(width + height, angle - 180, is_sm) } else { 0 };

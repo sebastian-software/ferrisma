@@ -23,7 +23,7 @@
 //! One deviation, for memory safety: the row buffers (`sumsq*_buf`,
 //! `sum*_buf`, `A*_buf`, `B*_buf`) and the two `tmp` buffers of
 //! `sgr_finish_mix_neon`, which `ALIGN_STK_16` leaves uninitialized, are
-//! zeroed whole (`util::zeroed`) before any kernel gets them. The kernels
+//! zero-initialized arrays. The kernels
 //! work in blocks of 8 or 16 elements and load up to the block's end behind
 //! the range an earlier kernel has written; zeroed whole, no load can find
 //! an element without a value, whatever the kernels load. The `tmp` buffers
@@ -32,11 +32,9 @@
 //! once per pair of rows. All buffers are reached through raw pointers
 //! only.
 use core::ffi::{c_int, c_uint, c_void};
-use core::mem::MaybeUninit;
 use core::ptr::{null, null_mut};
 
 use super::super::arm64::looprestoration_common::{dav1d_sgr_box3_vert_neon, dav1d_sgr_box5_vert_neon};
-use super::super::arm64::util::zeroed;
 use super::super::cpu::{dav1d_get_cpu_flags, DAV1D_ARM_CPU_FLAG_NEON};
 
 // `enum LrEdgeFlags` (src/looprestoration.h).
@@ -290,10 +288,10 @@ macro_rules! sgr_wrappers {
             let s1 = (*params).sgr.s1 as c_int;
             let w1 = (*params).sgr.w1 as c_int;
             // Zeroed whole (uninitialized in the original): see the module documentation.
-            let mut sumsq_buf = MaybeUninit::<Align16<[i32; ARM_BUF_STRIDE * 3 + 16]>>::uninit();
-            let mut sum_buf = MaybeUninit::<Align16<[i16; ARM_BUF_STRIDE * 3 + 16]>>::uninit();
-            let sumsq_buf = zeroed(&mut sumsq_buf) as *mut i32;
-            let sum_buf = zeroed(&mut sum_buf) as *mut i16;
+            let mut sumsq_buf = Align16([0i32; ARM_BUF_STRIDE * 3 + 16]);
+            let mut sum_buf = Align16([0i16; ARM_BUF_STRIDE * 3 + 16]);
+            let sumsq_buf = sumsq_buf.0.as_mut_ptr();
+            let sum_buf = sum_buf.0.as_mut_ptr();
             let mut sumsq_ptrs = [null_mut::<i32>(); 3];
             let mut sumsq_rows = [null_mut::<i32>(); 3];
             let mut sum_ptrs = [null_mut::<i16>(); 3];
@@ -303,10 +301,10 @@ macro_rules! sgr_wrappers {
                 sum_rows[i] = sum_buf.add(i * ARM_BUF_STRIDE);
             }
 
-            let mut a_buf = MaybeUninit::<Align16<[i32; ARM_BUF_STRIDE * 3 + 16]>>::uninit();
-            let mut b_buf = MaybeUninit::<Align16<[i16; ARM_BUF_STRIDE * 3 + 16]>>::uninit();
-            let a_buf = zeroed(&mut a_buf) as *mut i32;
-            let b_buf = zeroed(&mut b_buf) as *mut i16;
+            let mut a_buf = Align16([0i32; ARM_BUF_STRIDE * 3 + 16]);
+            let mut b_buf = Align16([0i16; ARM_BUF_STRIDE * 3 + 16]);
+            let a_buf = a_buf.0.as_mut_ptr();
+            let b_buf = b_buf.0.as_mut_ptr();
             let mut a_ptrs = [null_mut::<i32>(); 3];
             let mut b_ptrs = [null_mut::<i16>(); 3];
             for i in 0..3 {
@@ -524,10 +522,10 @@ macro_rules! sgr_wrappers {
             let s0 = (*params).sgr.s0 as c_int;
             let w0 = (*params).sgr.w0 as c_int;
             // Zeroed whole (uninitialized in the original): see the module documentation.
-            let mut sumsq_buf = MaybeUninit::<Align16<[i32; ARM_BUF_STRIDE * 5 + 16]>>::uninit();
-            let mut sum_buf = MaybeUninit::<Align16<[i16; ARM_BUF_STRIDE * 5 + 16]>>::uninit();
-            let sumsq_buf = zeroed(&mut sumsq_buf) as *mut i32;
-            let sum_buf = zeroed(&mut sum_buf) as *mut i16;
+            let mut sumsq_buf = Align16([0i32; ARM_BUF_STRIDE * 5 + 16]);
+            let mut sum_buf = Align16([0i16; ARM_BUF_STRIDE * 5 + 16]);
+            let sumsq_buf = sumsq_buf.0.as_mut_ptr();
+            let sum_buf = sum_buf.0.as_mut_ptr();
             let mut sumsq_ptrs = [null_mut::<i32>(); 5];
             let mut sumsq_rows = [null_mut::<i32>(); 5];
             let mut sum_ptrs = [null_mut::<i16>(); 5];
@@ -537,10 +535,10 @@ macro_rules! sgr_wrappers {
                 sum_rows[i] = sum_buf.add(i * ARM_BUF_STRIDE);
             }
 
-            let mut a_buf = MaybeUninit::<Align16<[i32; ARM_BUF_STRIDE * 2 + 16]>>::uninit();
-            let mut b_buf = MaybeUninit::<Align16<[i16; ARM_BUF_STRIDE * 2 + 16]>>::uninit();
-            let a_buf = zeroed(&mut a_buf) as *mut i32;
-            let b_buf = zeroed(&mut b_buf) as *mut i16;
+            let mut a_buf = Align16([0i32; ARM_BUF_STRIDE * 2 + 16]);
+            let mut b_buf = Align16([0i16; ARM_BUF_STRIDE * 2 + 16]);
+            let a_buf = a_buf.0.as_mut_ptr();
+            let b_buf = b_buf.0.as_mut_ptr();
             let mut a_ptrs = [null_mut::<i32>(); 2];
             let mut b_ptrs = [null_mut::<i16>(); 2];
             for i in 0..2 {
@@ -763,10 +761,10 @@ macro_rules! sgr_wrappers {
             let w0 = (*params).sgr.w0 as c_int;
             let w1 = (*params).sgr.w1 as c_int;
             // Zeroed whole (uninitialized in the original): see the module documentation.
-            let mut sumsq5_buf = MaybeUninit::<Align16<[i32; ARM_BUF_STRIDE * 5 + 16]>>::uninit();
-            let mut sum5_buf = MaybeUninit::<Align16<[i16; ARM_BUF_STRIDE * 5 + 16]>>::uninit();
-            let sumsq5_buf = zeroed(&mut sumsq5_buf) as *mut i32;
-            let sum5_buf = zeroed(&mut sum5_buf) as *mut i16;
+            let mut sumsq5_buf = Align16([0i32; ARM_BUF_STRIDE * 5 + 16]);
+            let mut sum5_buf = Align16([0i16; ARM_BUF_STRIDE * 5 + 16]);
+            let sumsq5_buf = sumsq5_buf.0.as_mut_ptr();
+            let sum5_buf = sum5_buf.0.as_mut_ptr();
             let mut sumsq5_ptrs = [null_mut::<i32>(); 5];
             let mut sumsq5_rows = [null_mut::<i32>(); 5];
             let mut sum5_ptrs = [null_mut::<i16>(); 5];
@@ -775,10 +773,10 @@ macro_rules! sgr_wrappers {
                 sumsq5_rows[i] = sumsq5_buf.add(i * ARM_BUF_STRIDE);
                 sum5_rows[i] = sum5_buf.add(i * ARM_BUF_STRIDE);
             }
-            let mut sumsq3_buf = MaybeUninit::<Align16<[i32; ARM_BUF_STRIDE * 3 + 16]>>::uninit();
-            let mut sum3_buf = MaybeUninit::<Align16<[i16; ARM_BUF_STRIDE * 3 + 16]>>::uninit();
-            let sumsq3_buf = zeroed(&mut sumsq3_buf) as *mut i32;
-            let sum3_buf = zeroed(&mut sum3_buf) as *mut i16;
+            let mut sumsq3_buf = Align16([0i32; ARM_BUF_STRIDE * 3 + 16]);
+            let mut sum3_buf = Align16([0i16; ARM_BUF_STRIDE * 3 + 16]);
+            let sumsq3_buf = sumsq3_buf.0.as_mut_ptr();
+            let sum3_buf = sum3_buf.0.as_mut_ptr();
             let mut sumsq3_ptrs = [null_mut::<i32>(); 3];
             let mut sumsq3_rows = [null_mut::<i32>(); 3];
             let mut sum3_ptrs = [null_mut::<i16>(); 3];
@@ -788,20 +786,20 @@ macro_rules! sgr_wrappers {
                 sum3_rows[i] = sum3_buf.add(i * ARM_BUF_STRIDE);
             }
 
-            let mut a5_buf = MaybeUninit::<Align16<[i32; ARM_BUF_STRIDE * 2 + 16]>>::uninit();
-            let mut b5_buf = MaybeUninit::<Align16<[i16; ARM_BUF_STRIDE * 2 + 16]>>::uninit();
-            let a5_buf = zeroed(&mut a5_buf) as *mut i32;
-            let b5_buf = zeroed(&mut b5_buf) as *mut i16;
+            let mut a5_buf = Align16([0i32; ARM_BUF_STRIDE * 2 + 16]);
+            let mut b5_buf = Align16([0i16; ARM_BUF_STRIDE * 2 + 16]);
+            let a5_buf = a5_buf.0.as_mut_ptr();
+            let b5_buf = b5_buf.0.as_mut_ptr();
             let mut a5_ptrs = [null_mut::<i32>(); 2];
             let mut b5_ptrs = [null_mut::<i16>(); 2];
             for i in 0..2 {
                 a5_ptrs[i] = a5_buf.add(i * ARM_BUF_STRIDE);
                 b5_ptrs[i] = b5_buf.add(i * ARM_BUF_STRIDE);
             }
-            let mut a3_buf = MaybeUninit::<Align16<[i32; ARM_BUF_STRIDE * 4 + 16]>>::uninit();
-            let mut b3_buf = MaybeUninit::<Align16<[i16; ARM_BUF_STRIDE * 4 + 16]>>::uninit();
-            let a3_buf = zeroed(&mut a3_buf) as *mut i32;
-            let b3_buf = zeroed(&mut b3_buf) as *mut i16;
+            let mut a3_buf = Align16([0i32; ARM_BUF_STRIDE * 4 + 16]);
+            let mut b3_buf = Align16([0i16; ARM_BUF_STRIDE * 4 + 16]);
+            let a3_buf = a3_buf.0.as_mut_ptr();
+            let b3_buf = b3_buf.0.as_mut_ptr();
             let mut a3_ptrs = [null_mut::<i32>(); 4];
             let mut b3_ptrs = [null_mut::<i16>(); 4];
             for i in 0..4 {
@@ -810,10 +808,10 @@ macro_rules! sgr_wrappers {
             }
             // `tmp5` and `tmp3` of `sgr_finish_mix_neon` (two rows of `ARM_FILTER_OUT_STRIDE` each), which the
             // original declares there: here, so that they are zeroed once per call and not once per pair of rows.
-            let mut tmp5 = MaybeUninit::<Align16<[i16; 2 * ARM_FILTER_OUT_STRIDE]>>::uninit();
-            let mut tmp3 = MaybeUninit::<Align16<[i16; 2 * ARM_FILTER_OUT_STRIDE]>>::uninit();
-            let tmp5 = zeroed(&mut tmp5) as *mut i16;
-            let tmp3 = zeroed(&mut tmp3) as *mut i16;
+            let mut tmp5 = Align16([0i16; 2 * ARM_FILTER_OUT_STRIDE]);
+            let mut tmp3 = Align16([0i16; 2 * ARM_FILTER_OUT_STRIDE]);
+            let tmp5 = tmp5.0.as_mut_ptr();
+            let tmp3 = tmp3.0.as_mut_ptr();
             let mut src: *const $pixel = dst;
             let mut lpf_bottom = lpf.wrapping_offset(6 * pxstride(stride));
 
