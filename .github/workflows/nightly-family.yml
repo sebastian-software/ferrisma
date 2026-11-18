@@ -37,6 +37,7 @@ jobs:
     uses: ./.github/workflows/jxl-check.yml
     with:
       macos: true
+      tier: ${{ inputs.tier }}
   avif:
     permissions:
       contents: read
