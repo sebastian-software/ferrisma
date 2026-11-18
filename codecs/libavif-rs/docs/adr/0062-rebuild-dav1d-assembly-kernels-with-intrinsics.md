@@ -1743,6 +1743,149 @@ none, but seven inverse-transform entry points call `memset` (8 bpc
 above; the loop filter's `h4` call is the one recorded there. Not changed
 here; the per-call figures of those entries include the calls.
 
+**2026-11-18, intra prediction on AVX2, 8 and 16 bpc** (`ipred_avx2.asm`,
+5,362 lines, and `ipred16_avx2.asm`, used at 10 and 12 bit, 4,987 lines:
+the 22 entry points per file that `intra_pred_dsp_init_x86` assigns, the
+fourteen `intra_pred` modes, the four `cfl_pred` modes, the three `cfl_ac`
+layouts and `pal_pred`). The sixth x86 family, in
+`simd/x86_64/ipred_avx2.rs` and `ipred16_avx2.rs`; `simd/x86/ipred.rs`
+mirrors `intra_pred_dsp_init_x86` and assigns all 22 slots under the AVX2
+flag at both bit depths (on x86 the original assigns the assembly
+directly; the directional predictors prepare their edges themselves,
+there is no C wrapper as on ARM); the dispatch entries `ipred_8bpc_x86`
+and `ipred_16bpc_x86` call it from the two Linux profiles. The AVX2 block
+of the header assigns every slot its SSSE3 block assigns, so no lower
+level is left in scope ("Levels"). With this entry every slot the original
+gives an AVX2 kernel in the families the stills reach (CDEF, intra
+prediction, inverse transforms, loop filter, msac) has its rebuilt kernel
+on x86-64; loop restoration, motion compensation, film grain, palette
+index packing and `refmvs` are not called on the measured stills and stay
+C on x86-64.
+
+Method as for CDEF: a prelude per file (the register file and
+`SECTION_RODATA` up to the jump tables as one byte array with an offset
+per label, from the original's object file), thirteen parts translated by
+agents in private copies (8 bpc: the dc family with v, h, paeth and
+pal_pred; smooth; z1; z2; z3; filter with cfl; cfl_ac; 16 bpc: the same,
+with smooth and cfl_ac in one part), stubs running the port's C kernel
+until a part was written, each part gated with the original's checkasm
+(`ipred_8bpc`, `ipred_16bpc`) at the eleven seeds and seeds 1 to 100.
+No part depends on another; the joined modules have no fallback left and
+no `call` in an entry point.
+
+Deviations and their cost (the module documentation has the list, each
+section its own): (a) `tzcnt`, `lzcnt`, `popcnt`, `shrx`/`shlx`/`sarx`
+and `rorx` are Rust operations: the original selects these kernels on its
+AVX2 flag (AVX2, BMI1, BMI2; POPCNT is not tested), the rebuild enables no
+feature beyond AVX2, and `popcnt` (the edge filter strength of z1–z3)
+becomes a software count of about 12 instructions per use. (b) The jump
+tables are `match`es; indices outside the contract go to the last arm
+(dc/h/v/paeth/pal_pred at 8 bpc and smooth_v at 16 bpc:
+`unreachable_unchecked`, as the
+assembly's jump beyond its table is undefined). (c) Frames are locals
+zeroed whole or written whole before the first load; the z1, z2 and z3
+frames are larger than the assembly's, whose main loops load lanes from
+beyond the frame (below `rsp`, above the frame) and blend them away. (d)
+`core::hint::black_box` keeps a value opaque where the compiler rewrote
+the assembly's instruction pattern into a longer one: `stride*3` (dc
+family, v, 16 bpc smooth_v), `top` in 8 bpc paeth, the read-only base
+(smooth; the compiler otherwise folds the `pshufb` masks and expands each
+broadcast and shuffle), the `psrlw 8` count in 8 bpc smooth, the edge
+pointer, the shuffle masks and the x positions at the head of the z2
+loops (its loop strength reduction otherwise splits the assembly's `lea`
+chain into induction variables, runs out of registers and spills), `dst`
+in z3's loops; empty `black_box(())` barriers keep it from vectorizing
+z3's end loops and make it reload z2's frame slots where the assembly
+does. One store and load each, or nothing. (e) The 16 bpc z3 entry point
+jumps (a tail call) to one `#[target_feature(enable = "avx2")]` function
+per height, so that the small heights do not carry the 12 KiB column
+buffers of h32 and h64 in their frame (two 4 KiB stack probes and six
+callee-saved registers per call before). (f) Unaligned moves for caller
+memory.
+
+Reads beyond what the C kernels read, kept as the assembly makes them
+(derived from the code by the parts, not checked with guard pages; the
+values never reach the output): the edge array from `topleft[-191]` (z3
+at 64 rows) to `topleft[198]` (8 bpc z1 at 64 columns; 16 bpc `[191]`),
+and at 8 bpc smooth through the inter-intra edge (`edge + 32`) 32 bytes
+before the array; in the decoder these bytes are inside the task
+context's `scratch` union (test `the_edge_array_has_readable_slack_around_it`
+in `simd/x86/ipred.rs`), in the original's checkasm test outside its
+257-pixel stack array for the original and the port alike; `cfl_ac`
+loads 16 or 32 bytes of luma rows where C reads 8 or 16, inside the rows'
+stride. `tools/dav1d-kernel-bench.c` now has 64 pixels of zeros on either
+side of its edge array. Writes: exactly the block (`cfl_ac`: exactly
+`cw*ch` values).
+
+Positive controls on the joined state (one constant each, `fault-ipred.py`
+in the scratch area; the original's checkasm `ipred_8bpc`/`ipred_16bpc`
+against the joined module at the eleven seeds; the first two also through
+the per-kernel gate and the whole-image gate on the worktree): 8 bpc dc
+(`psrlw 3` as 2 in `.w4`; whole images 349 of 994 identical), paeth
+(`pb_1` as `pb_3`), pal_pred (`psrlw 4` as 3), smooth_v (`pshufd q1111` as
+`q1110`), z1 edge filter (`z_filter_s` one byte on) and main loop
+(`pb_1to32` one byte on), z2 main loop (`lea r5, [rsp+60]` as 59), z3 edge
+filter (`z_filter_k` one row back) and main loop (`pb_32` four bytes
+back), filter (`vpblendd 0x0f` as 0x0e), cfl_left (`0x8000` as 0x7000),
+cfl_ac 420 (`pb_2` as `pb_4`) and 444 (`q3333` as `q3232`); 16 bpc dc,
+dc_128 at 12 bit (`shr 11` as 12), paeth, pal_pred, smooth (`psrld 8` as 7
+in `SMOOTH_2D_END`; whole images 724 of 994), cfl_ac (`.dc`'s `sub 2` as
+1), z1 edge filter (`pw_3` as `pw_1`), z2 main loop (`z_base_inc+2` as
++4), z3 main loop (`psllw 9` as 8), filter (`mov r7d, 4` as 3), cfl
+(`0x6667` as 0x6567): each fails its group at every seed; a 12-bit-only
+z3 control (the pixel maximum of the h4 upsampling masked to 0x7ff) fails
+at 6 of 11, the seeds that reach that path at 12 bit. The z2, z3 (16 bpc)
+and smooth (16 bpc) controls were re-run after the instruction work below.
+Restored byte for byte, the gates pass again.
+
+Instructions per call against the assembly (`measure_dav1d_kernels.py
+--family ipred`, Callgrind, at least 2,000 calls per row; every slot over
+the block sizes, angles, flags, filters, alphas and paddings of the
+original's checkasm test; 499 rows per bit depth, all outputs identical):
+8 bpc 0.971 to 1.308 (median 1.16), 16 bpc 1.028 to 1.307 (median 1.18).
+One row per bit depth is above 1.3: z1 4x8 with the edge filter (1.308
+and 1.307), whose software population count adds about 12 instructions
+to a call of about 200. The first joined state had 22 rows above 1.3 at
+8 bpc (z1 one, z2 21 up to 1.404) and 43 at 16 bpc (z1 one, z2 8 up to
+1.377, z3 20 up to 1.505, smooth_v and smooth_h 14 up to 1.466); deviations
+(d) and (e) brought them down. The highest classes now: z2 up to 1.27 and
+1.28, z3 at 16 bpc up to 1.30, the smooth predictors and paeth up to 1.29
+at 8 bpc, the dc family up to 1.27 at 16 bpc. Causes counted by the parts:
+loop bookkeeping the compiler adds (`add`/`test`/`jg` for `sub`/`jg`, a
+second induction variable), frame zeroing, `tzcnt` and `popcnt` without
+BMI and POPCNT. Not analyzed further.
+
+| Check (x86-64 GNU Linux under Rosetta, Clang 19, eleven seeds) | Result |
+| --- | --- |
+| `check_dav1d_dsp.py --simd avx2` | 17 groups, 3,155 selections each; the four `ipred_8bpc` and four `ipred_16bpc` groups compare the assembly with the rebuilt kernels; pass |
+| `check_dav1d_dsp.py` (scalar) | the same counts; pass |
+| `check_dav1d_simd_original.py --level avx2` / `scalar` | 994 of 994 decodes identical each |
+| `run_dav1d_tests.py` | 1,711 of 1,711 |
+| `check_dav1d_abi.py`, `check_dav1d_api.py`, `check_dav1d_linkage.py` | 12,284 layout checks, 0 differences; 83 API comparisons; pass |
+| `enable_dav1d_dispatch.py --check` and its unit test | 20 entries, 60 units; pass |
+| unit tests (`cargo test --lib simd::`) | 16 of 16 (three new: the context layout, the selection under each mask at 8 and 16 bpc, the edge array's slack) |
+| `rustfmt --check` (`max_width = 120`) on `simd/x86`, `simd/x86_64`; no `asm!`; no `call` in an AVX2 ipred entry point | pass |
+
+ARM64 after the change (no file of the NEON kernels changed): the
+per-kernel gate at `neon` and scalar at the eleven seeds, whole images 994
+of 994 at both levels, 1,711 of 1,711, 20 unit tests, ABI 12,157 checks,
+API, linkage, the dispatch check and `cargo fmt --all --check` pass.
+
+Instructions per decode on x86-64 (Callgrind as before; stock dav1d at
+AVX2, the port after CDEF, the port now): 8-bit 4:2:0 1.01 G, 1.28 G,
+1.15 G (1.14 times stock); 8-bit 4:4:4 1.10, 1.42, 1.26 (1.14 times);
+10-bit 4:2:0 1.16, 1.48, 1.32 (1.14 times); 10-bit 4:4:4 1.29, 1.67, 1.46
+(1.13 times). By family (inclusive, as in the family table) the port is
+now at 0.99 to 1.05 times stock dav1d for CDEF, 1.22 to 1.30 for intra
+prediction, 0.99 to 1.06 for the inverse transforms, 1.12 to 1.23 for the
+loop filter and 1.13 for msac; the remainder is
+C code both libraries share (`decode_coefs` 394 M against 353 M at 8-bit
+4:2:0, the translated bit-field accessors, `dav1d_prepare_intra_edges`).
+Not measured: the lossless still, and any time. (The CDEF entry's
+instructions per call were measured on the joined module in a
+development copy, the same code before formatting, not on the committed
+tree itself.)
+
 ## Review when
 
 A family is completed on a target; the x86-64 AVX2 kernels arrive; the owner
@@ -1751,6 +1894,7 @@ engine's decoder choice changes.
 
 ## Amendment log
 
+- 2026-11-18 — intra prediction on AVX2, 8 and 16 bpc (validation above).
 - 2026-11-18 — CDEF on AVX2, 8 and 16 bpc; the instructions per decode by family on x86-64 (validation above).
 - 2026-11-17 — inverse transforms 16 bpc on AVX2 (validation above).
 - 2026-11-17 — inverse transforms 8 bpc on AVX2 (validation above).
