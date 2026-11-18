@@ -126,6 +126,8 @@ pub unsafe fn itx_dsp_init_x86_8bpc(c: *mut c_void, _bpc: c_int, all_simd: *mut 
         return;
     }
 
+    #[cfg(dav1d_itx_pilot)]
+    let before = c.itxfm_add;
     let t = &mut c.itxfm_add;
     // assign_itx_fn(, 4, 4, wht_wht, WHT_WHT, avx2);
     t[TX_4X4][WHT_WHT] = Some(dav1d_inv_txfm_add_wht_wht_4x4_8bpc_avx2);
@@ -308,6 +310,9 @@ pub unsafe fn itx_dsp_init_x86_8bpc(c: *mut c_void, _bpc: c_int, all_simd: *mut 
     // documentation): every slot now holds a rebuilt kernel.
     *all_simd = 1;
 
+    #[cfg(dav1d_itx_pilot)]
+    crate::simd::itx_pilot::install_8bpc(&mut c.itxfm_add, &before);
+
     // if (!(flags & DAV1D_X86_CPU_FLAG_AVX512ICL)) return; and the
     // avx512icl assignments: above the scope (module documentation).
 }
@@ -348,6 +353,8 @@ pub unsafe fn itx_dsp_init_x86_16bpc(c: *mut c_void, bpc: c_int, all_simd: *mut 
         return;
     }
 
+    #[cfg(dav1d_itx_pilot)]
+    let before = c.itxfm_add;
     let t = &mut c.itxfm_add;
     // assign_itx_fn(, 4, 4, wht_wht, WHT_WHT, avx2);
     t[TX_4X4][WHT_WHT] = Some(dav1d_inv_txfm_add_wht_wht_4x4_16bpc_avx2);
@@ -694,6 +701,9 @@ pub unsafe fn itx_dsp_init_x86_16bpc(c: *mut c_void, bpc: c_int, all_simd: *mut 
         // assign_itx_bpc_fn(, 32, 32, identity_identity, IDTX, 12, avx2);
         t[TX_32X32][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_32x32_12bpc_avx2);
     }
+
+    #[cfg(dav1d_itx_pilot)]
+    crate::simd::itx_pilot::install_16bpc(&mut c.itxfm_add, &before);
 
     // if (!(flags & DAV1D_X86_CPU_FLAG_AVX512ICL)) return; and the
     // avx512icl assignments: above the scope (module documentation).

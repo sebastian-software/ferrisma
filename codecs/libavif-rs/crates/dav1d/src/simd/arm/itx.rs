@@ -79,6 +79,8 @@ pub unsafe fn itx_dsp_init_arm_8bpc(c: *mut c_void, _bpc: c_int, all_simd: *mut 
 
     // assign_itx_fn( , 4, 4, wht_wht, WHT_WHT, neon) and, for 8 bpc,
     // assign_itx16_fn … assign_itx1_fn ( , 64, 64, neon) (src/arm/itx.h).
+    #[cfg(dav1d_itx_pilot)]
+    let before = c.itxfm_add;
     let t = &mut c.itxfm_add;
     t[TX_4X4][WHT_WHT] = Some(dav1d_inv_txfm_add_wht_wht_4x4_8bpc_neon);
     t[TX_4X4][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_4x4_8bpc_neon);
@@ -237,6 +239,9 @@ pub unsafe fn itx_dsp_init_arm_8bpc(c: *mut c_void, _bpc: c_int, all_simd: *mut 
     t[RTX_64X32][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_64x32_8bpc_neon);
     t[TX_64X64][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_64x64_8bpc_neon);
     *all_simd = 1;
+
+    #[cfg(dav1d_itx_pilot)]
+    crate::simd::itx_pilot::install_8bpc(&mut c.itxfm_add, &before);
 }
 
 /// `itxfm_fn` (src/itx.h) at 16 bpc: `pixel` is `uint16_t`, `coef`
@@ -266,12 +271,16 @@ pub unsafe fn itx_dsp_init_arm_16bpc(c: *mut c_void, bpc: c_int, all_simd: *mut 
         return;
     }
 
+    #[cfg(dav1d_itx_pilot)]
+    let before = c.itxfm_add;
     let t = &mut c.itxfm_add;
     // assign_itx_fn( , 4, 4, wht_wht, WHT_WHT, neon)
     t[TX_4X4][WHT_WHT] = Some(dav1d_inv_txfm_add_wht_wht_4x4_16bpc_neon);
 
     // if (BITDEPTH == 16 && bpc != 10) return;
     if bpc != 10 {
+        #[cfg(dav1d_itx_pilot)]
+        crate::simd::itx_pilot::install_16bpc(&mut c.itxfm_add, &before);
         return;
     }
 
@@ -432,6 +441,9 @@ pub unsafe fn itx_dsp_init_arm_16bpc(c: *mut c_void, bpc: c_int, all_simd: *mut 
     t[RTX_64X32][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_64x32_16bpc_neon);
     t[TX_64X64][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_64x64_16bpc_neon);
     *all_simd = 1;
+
+    #[cfg(dav1d_itx_pilot)]
+    crate::simd::itx_pilot::install_16bpc(&mut c.itxfm_add, &before);
 }
 
 #[cfg(test)]

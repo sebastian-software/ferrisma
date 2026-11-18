@@ -24,6 +24,11 @@ pub mod cpu;
 #[cfg(all(dav1d_cdef_pilot, any(target_arch = "aarch64", target_arch = "x86_64")))]
 pub mod cdef_pilot;
 
+// Experiment, not for main: the inverse transforms from the algorithm
+// (itx_pilot/mod.rs).
+#[cfg(all(dav1d_itx_pilot, any(target_arch = "aarch64", target_arch = "x86_64")))]
+pub mod itx_pilot;
+
 #[cfg(target_arch = "aarch64")]
 pub mod arm64 {
     pub mod cdef;
