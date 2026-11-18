@@ -36,7 +36,8 @@
 //!
 //! Single instructions in another form: a two-register `st1` with post-increment is two `vst1q` stores
 //! (compiled to one `stp` with post-index; `vst1q_s16_x2` compiled to `st1` and a separate `add`); the
-//! source and destination pointers advance through `wiener_post_inc` (see there); `ld1 {v4.d}[1], [x2]` is
+//! row loops address the source and destination by an element index (`i`) where the assembly post-increments
+//! `x3` and `x0`; `ld1 {v4.d}[1], [x2]` is
 //! a scalar load into lane 1 of a zero vector (the low half is not used).
 //!
 //! # The self-guided filter kernels
@@ -119,23 +120,6 @@ const RIGHT_EXT_MASK: usize = 48;
 /// an exported Wiener filter. The assembly's stack pointer is 16-byte aligned.
 #[repr(C, align(16))]
 struct WienerRows<const N: usize>([i16; N]);
-
-/// The post-increment of the source and destination pointers in `ld1 {v3.8h, v4.8h}, [x3], #32` and
-/// `st1 {..}, [x0], #32`: the pointer `n` elements on, computed on the address. At 16 bpc the source, the
-/// destination and the row pointers of a loop all advance by 32 bytes; with pointer arithmetic on all of
-/// them LLVM's loop strength reduction replaces them by one index register and computes every address
-/// anew in each iteration (about nine instructions more per 16 pixels in the 7-tap loops; the 256x64 unit
-/// measured 1.12 to 1.17 times the assembly instead of 1.04 to 1.08). With the two picture pointers
-/// advanced on their address, each pointer of the loop stays a register of its own with a post-indexed
-/// load or store, as in the assembly.
-///
-/// This exposes the provenance of the picture pointer and takes it up again
-/// (`core::ptr::with_exposed_provenance_mut`): defined behavior, the result may be used wherever `x` may,
-/// but not expressible under strict provenance. The pointer one past the last block is never dereferenced.
-#[inline(always)]
-fn wiener_post_inc<T>(x: *mut T, n: usize) -> *mut T {
-    core::ptr::with_exposed_provenance_mut(x.expose_provenance().wrapping_add(n * core::mem::size_of::<T>()))
-}
 
 /// The registers the Wiener filters keep across their `bl` calls.
 struct WienerRegs {
@@ -391,7 +375,7 @@ unsafe fn wiener_filter7_h_16bpc_neon(r: &mut WienerRegs) {
     // stp x3, x4, [sp, #-32]!; str x14, [sp, #16]
     let mut x3 = r.x3;
     let mut w4 = r.w4;
-    let mut x14 = r.x14;
+    let x14 = r.x14;
     let (v0, v29, v30, v31) = (r.v0, r.v29, r.v30, r.v31);
 
     // Set up the src pointers to include the left edge, for LR_HAVE_LEFT, left == NULL
@@ -439,6 +423,8 @@ unsafe fn wiener_filter7_h_16bpc_neon(r: &mut WienerRegs) {
     let mut v4 = vld1q_s16(x3 as *const i16); // ld1 {v4.8h}, [x3], #16
     x3 = x3.add(8);
 
+    // The element index of the 16-pixel block (`x3` and `x0` post-increment in the assembly).
+    let mut i = 0;
     loop {
         // tst w7, #2 // LR_HAVE_RIGHT; b.ne 4f
         // 3: // !LR_HAVE_RIGHT
@@ -456,7 +442,7 @@ unsafe fn wiener_filter7_h_16bpc_neon(r: &mut WienerRegs) {
             // buffer pointer.
             // movrel x6, right_ext_mask, -6; sub x6, x6, w4, uxtw #1
             let x6 = RIGHT_EXT_MASK_BUF.as_ptr().add(RIGHT_EXT_MASK - 6 - 2 * w4 as usize);
-            let h26 = read_unaligned(x3.offset(w17 as isize)); // ldr h26, [x3, w17, sxtw #1]
+            let h26 = read_unaligned(x3.add(i).offset(w17 as isize)); // ldr h26, [x3, w17, sxtw #1]
             let v26 = vreinterpretq_u8_u16(vdupq_n_u16(h26)); // dup v26.8h, v26.h[0]
             let v23_25 = vld1q_u8_x3(x6); // ld1 {v23.16b, v24.16b, v25.16b}, [x6]
 
@@ -524,9 +510,8 @@ unsafe fn wiener_filter7_h_16bpc_neon(r: &mut WienerRegs) {
 
         w4 -= 16; // subs w4, w4, #16
 
-        vst1q_s16(x14, v6); // st1 {v6.8h, v7.8h}, [x14], #32
-        vst1q_s16(x14.add(8), v7);
-        x14 = x14.wrapping_add(16);
+        vst1q_s16(x14.add(i), v6); // st1 {v6.8h, v7.8h}, [x14], #32
+        vst1q_s16(x14.add(i + 8), v7);
 
         if w4 <= 0 {
             break; // b.le 0f
@@ -534,8 +519,8 @@ unsafe fn wiener_filter7_h_16bpc_neon(r: &mut WienerRegs) {
         v2 = v4; // mov v2.16b, v4.16b
 
         // tst w7, #2 // LR_HAVE_RIGHT
-        let v3_4 = vld1q_s16_x2(x3 as *const i16); // ld1 {v3.8h, v4.8h}, [x3], #32
-        x3 = wiener_post_inc(x3.cast_mut(), 16).cast_const();
+        let v3_4 = vld1q_s16_x2(x3.add(i) as *const i16); // ld1 {v3.8h, v4.8h}, [x3], #32
+        i += 16;
         v3 = v3_4.0;
         v4 = v3_4.1;
         // b.ne 4b // If we don't need to pad, just keep filtering.
@@ -552,8 +537,8 @@ unsafe fn wiener_filter7_v_16bpc_neon(r: &mut WienerRegs) {
     // Backing up/restoring registers shifted, so that x9 gets the value
     // of x10, etc, afterwards.
     // stp x10, x11, [sp, #-64]!; stp x12, x13, [sp, #16]; stp x14, x14, [sp, #32]; stp x0, x4, [sp, #48]
-    let (mut x9, mut x10, mut x11, mut x12, mut x13, mut x14) = (r.x9, r.x10, r.x11, r.x12, r.x13, r.x14);
-    let mut x0 = r.x0;
+    let (x9, x10, x11, x12, x13, x14) = (r.x9, r.x10, r.x11, r.x12, r.x13, r.x14);
+    let x0 = r.x0;
     let mut w4 = r.w4;
     // The values the `ldp`s at the end leave in x9-x13 (x14 stays).
     r.x9 = x10;
@@ -562,20 +547,16 @@ unsafe fn wiener_filter7_v_16bpc_neon(r: &mut WienerRegs) {
     r.x12 = x13;
     r.x13 = x14;
     let (v0, v27, v28) = (r.v0, r.v27, r.v28);
+    // The element index of the 16-pixel block (`x3` and `x0` post-increment in the assembly).
+    let mut i = 0;
     loop {
         // 1:
-        let v16_17 = vld1q_s16_x2(x9); // ld1 {v16.8h, v17.8h}, [x9], #32
-        x9 = x9.wrapping_add(16);
-        let v18_19 = vld1q_s16_x2(x10); // ld1 {v18.8h, v19.8h}, [x10], #32
-        x10 = x10.wrapping_add(16);
-        let v20_21 = vld1q_s16_x2(x11); // ld1 {v20.8h, v21.8h}, [x11], #32
-        x11 = x11.wrapping_add(16);
-        let v22_23 = vld1q_s16_x2(x12); // ld1 {v22.8h, v23.8h}, [x12], #32
-        x12 = x12.wrapping_add(16);
-        let v24_25 = vld1q_s16_x2(x13); // ld1 {v24.8h, v25.8h}, [x13], #32
-        x13 = x13.wrapping_add(16);
-        let v6_7 = vld1q_s16_x2(x14); // ld1 {v6.8h, v7.8h}, [x14], #32
-        x14 = x14.wrapping_add(16);
+        let v16_17 = vld1q_s16_x2(x9.add(i)); // ld1 {v16.8h, v17.8h}, [x9], #32
+        let v18_19 = vld1q_s16_x2(x10.add(i)); // ld1 {v18.8h, v19.8h}, [x10], #32
+        let v20_21 = vld1q_s16_x2(x11.add(i)); // ld1 {v20.8h, v21.8h}, [x11], #32
+        let v22_23 = vld1q_s16_x2(x12.add(i)); // ld1 {v22.8h, v23.8h}, [x12], #32
+        let v24_25 = vld1q_s16_x2(x13.add(i)); // ld1 {v24.8h, v25.8h}, [x13], #32
+        let v6_7 = vld1q_s16_x2(x14.add(i)); // ld1 {v6.8h, v7.8h}, [x14], #32
         let (v16, v17) = (v16_17.0, v16_17.1);
         let (v18, v19) = (v18_19.0, v18_19.1);
         let (v20, v21) = (v20_21.0, v20_21.1);
@@ -622,9 +603,9 @@ unsafe fn wiener_filter7_v_16bpc_neon(r: &mut WienerRegs) {
         let v2 = vminq_u16(v2, v28); // umin v2.8h, v2.8h, v28.8h // bitdepth_max
         let v3 = vminq_u16(v3, v28); // umin v3.8h, v3.8h, v28.8h
         w4 -= 16; // subs w4, w4, #16
-        vst1q_u16(x0, v2); // st1 {v2.8h, v3.8h}, [x0], #32
-        vst1q_u16(x0.add(8), v3);
-        x0 = wiener_post_inc(x0, 16);
+        vst1q_u16(x0.add(i), v2); // st1 {v2.8h, v3.8h}, [x0], #32
+        vst1q_u16(x0.add(i + 8), v3);
+        i += 16;
         if w4 <= 0 {
             break; // b.gt 1b
         }
@@ -645,9 +626,8 @@ unsafe fn wiener_filter7_hv_16bpc_neon(r: &mut WienerRegs) {
     // of x10, etc, and x15==x9, afterwards.
     // stp x10, x11, [sp, #-80]!; stp x12, x13, [sp, #16]; stp x14, x15, [sp, #32]; stp x10, x0, [sp, #48]
     // stp x3, x4, [sp, #64]
-    let (mut x9, mut x10, mut x11, mut x12, mut x13, mut x14, mut x15) =
-        (r.x9, r.x10, r.x11, r.x12, r.x13, r.x14, r.x15);
-    let mut x0 = r.x0;
+    let (x9, x10, x11, x12, x13, x14, x15) = (r.x9, r.x10, r.x11, r.x12, r.x13, r.x14, r.x15);
+    let x0 = r.x0;
     let mut x3 = r.x3;
     let mut w4 = r.w4;
     // The values the `ldp`s at the end leave in x9-x15.
@@ -705,6 +685,8 @@ unsafe fn wiener_filter7_hv_16bpc_neon(r: &mut WienerRegs) {
     let mut v4 = vld1q_s16(x3 as *const i16); // ld1 {v4.8h}, [x3], #16
     x3 = x3.add(8);
 
+    // The element index of the 16-pixel block (`x3` and `x0` post-increment in the assembly).
+    let mut i = 0;
     loop {
         // tst w7, #2 // LR_HAVE_RIGHT; b.ne 4f
         // 3: // !LR_HAVE_RIGHT
@@ -722,7 +704,7 @@ unsafe fn wiener_filter7_hv_16bpc_neon(r: &mut WienerRegs) {
             // buffer pointer.
             // movrel x6, right_ext_mask, -6; sub x6, x6, w4, uxtw #1
             let x6 = RIGHT_EXT_MASK_BUF.as_ptr().add(RIGHT_EXT_MASK - 6 - 2 * w4 as usize);
-            let h26 = read_unaligned(x3.offset(w17 as isize)); // ldr h26, [x3, w17, sxtw #1]
+            let h26 = read_unaligned(x3.add(i).offset(w17 as isize)); // ldr h26, [x3, w17, sxtw #1]
             let v26 = vreinterpretq_u8_u16(vdupq_n_u16(h26)); // dup v26.8h, v26.h[0]
             let v23_25 = vld1q_u8_x3(x6); // ld1 {v23.16b, v24.16b, v25.16b}, [x6]
 
@@ -770,37 +752,31 @@ unsafe fn wiener_filter7_hv_16bpc_neon(r: &mut WienerRegs) {
         let v25 = vmlal_high_laneq_s16::<1>(v25, v20, v0); // smlal2 v25.4s, v20.8h, v0.h[1]
         let v25 = vmlal_high_laneq_s16::<0>(v25, v21, v0); // smlal2 v25.4s, v21.8h, v0.h[0]
 
-        let v16_17 = vld1q_s16_x2(x9); // ld1 {v16.8h, v17.8h}, [x9], #32
-        x9 = x9.wrapping_add(16);
+        let v16_17 = vld1q_s16_x2(x9.add(i)); // ld1 {v16.8h, v17.8h}, [x9], #32
 
         let v26 = vdupq_n_u16(0x7fff); // mvni v26.8h, #0x80, lsl #8 // 0x7fff = (1 << 15) - 1
         let v6 = vaddq_s32(v6, v30);
         let v7 = vaddq_s32(v7, v30);
         let v24 = vaddq_s32(v24, v30);
         let v25 = vaddq_s32(v25, v30);
-        let v18_19 = vld1q_s16_x2(x10); // ld1 {v18.8h, v19.8h}, [x10], #32
-        x10 = x10.wrapping_add(16);
+        let v18_19 = vld1q_s16_x2(x10.add(i)); // ld1 {v18.8h, v19.8h}, [x10], #32
         let v6 = vrshlq_s32(v6, v29); // srshl v6.4s, v6.4s, v29.4s
         let v7 = vrshlq_s32(v7, v29); // srshl v7.4s, v7.4s, v29.4s
         let v24 = vrshlq_s32(v24, v29); // srshl v24.4s, v24.4s, v29.4s
         let v25 = vrshlq_s32(v25, v29); // srshl v25.4s, v25.4s, v29.4s
-        let v20_21 = vld1q_s16_x2(x11); // ld1 {v20.8h, v21.8h}, [x11], #32
-        x11 = x11.wrapping_add(16);
+        let v20_21 = vld1q_s16_x2(x11.add(i)); // ld1 {v20.8h, v21.8h}, [x11], #32
         let v6 = vqmovun_s32(v6); // sqxtun v6.4h, v6.4s
         let v6 = vqmovun_high_s32(v6, v7); // sqxtun2 v6.8h, v7.4s
         let v7 = vqmovun_s32(v24); // sqxtun v7.4h, v24.4s
         let v7 = vqmovun_high_s32(v7, v25); // sqxtun2 v7.8h, v25.4s
-        let v22_23 = vld1q_s16_x2(x12); // ld1 {v22.8h, v23.8h}, [x12], #32
-        x12 = x12.wrapping_add(16);
+        let v22_23 = vld1q_s16_x2(x12.add(i)); // ld1 {v22.8h, v23.8h}, [x12], #32
         let v6 = vminq_u16(v6, v26);
         let v7 = vminq_u16(v7, v26);
-        let v24_25 = vld1q_s16_x2(x13); // ld1 {v24.8h, v25.8h}, [x13], #32
-        x13 = x13.wrapping_add(16);
+        let v24_25 = vld1q_s16_x2(x13.add(i)); // ld1 {v24.8h, v25.8h}, [x13], #32
         let v6 = vreinterpretq_s16_u16(vsubq_u16(v6, v31));
         let v7 = vreinterpretq_s16_u16(vsubq_u16(v7, v31));
 
-        let v8_9 = vld1q_s16_x2(x14); // ld1 {v8.8h, v9.8h}, [x14], #32
-        x14 = x14.wrapping_add(16);
+        let v8_9 = vld1q_s16_x2(x14.add(i)); // ld1 {v8.8h, v9.8h}, [x14], #32
         let (v16, v17) = (v16_17.0, v16_17.1);
         let (v18, v19) = (v18_19.0, v18_19.1);
         let (v20, v21) = (v20_21.0, v20_21.1);
@@ -844,16 +820,14 @@ unsafe fn wiener_filter7_hv_16bpc_neon(r: &mut WienerRegs) {
         let v18 = vqmovun_high_s32(v18, v5); // sqxtun2 v18.8h, v5.4s
         let v19 = vqmovun_s32(v26); // sqxtun v19.4h, v26.4s
         let v19 = vqmovun_high_s32(v19, v16); // sqxtun2 v19.8h, v16.4s
-        vst1q_s16(x15, v6); // st1 {v6.8h, v7.8h}, [x15], #32
-        vst1q_s16(x15.add(8), v7);
-        x15 = x15.wrapping_add(16);
+        vst1q_s16(x15.add(i), v6); // st1 {v6.8h, v7.8h}, [x15], #32
+        vst1q_s16(x15.add(i + 8), v7);
         let v18 = vminq_u16(v18, v28); // umin v18.8h, v18.8h, v28.8h // bitdepth_max
         let v19 = vminq_u16(v19, v28); // umin v19.8h, v19.8h, v28.8h
         w4 -= 16; // subs w4, w4, #16
 
-        vst1q_u16(x0, v18); // st1 {v18.8h, v19.8h}, [x0], #32
-        vst1q_u16(x0.add(8), v19);
-        x0 = wiener_post_inc(x0, 16);
+        vst1q_u16(x0.add(i), v18); // st1 {v18.8h, v19.8h}, [x0], #32
+        vst1q_u16(x0.add(i + 8), v19);
 
         if w4 <= 0 {
             break; // b.le 0f
@@ -861,8 +835,8 @@ unsafe fn wiener_filter7_hv_16bpc_neon(r: &mut WienerRegs) {
         v2 = v4; // mov v2.16b, v4.16b
 
         // tst w7, #2 // LR_HAVE_RIGHT
-        let v3_4 = vld1q_s16_x2(x3 as *const i16); // ld1 {v3.8h, v4.8h}, [x3], #32
-        x3 = wiener_post_inc(x3.cast_mut(), 16).cast_const();
+        let v3_4 = vld1q_s16_x2(x3.add(i) as *const i16); // ld1 {v3.8h, v4.8h}, [x3], #32
+        i += 16;
         v3 = v3_4.0;
         v4 = v3_4.1;
         // b.ne 4b // If we don't need to pad, just keep filtering.
@@ -1070,7 +1044,7 @@ unsafe fn wiener_filter5_h_16bpc_neon(r: &mut WienerRegs) {
     // stp x3, x4, [sp, #-32]!; str x14, [sp, #16]
     let mut x3 = r.x3;
     let mut w4 = r.w4;
-    let mut x14 = r.x14;
+    let x14 = r.x14;
     let (v0, v29, v30, v31) = (r.v0, r.v29, r.v30, r.v31);
 
     // Set up the src pointers to include the left edge, for LR_HAVE_LEFT, left == NULL
@@ -1118,6 +1092,8 @@ unsafe fn wiener_filter5_h_16bpc_neon(r: &mut WienerRegs) {
     let mut v4 = vld1q_s16(x3 as *const i16); // ld1 {v4.8h}, [x3], #16
     x3 = x3.add(8);
 
+    // The element index of the 16-pixel block (`x3` and `x0` post-increment in the assembly).
+    let mut i = 0;
     loop {
         // tst w7, #2 // LR_HAVE_RIGHT; b.ne 4f
         // 3: // !LR_HAVE_RIGHT
@@ -1135,7 +1111,7 @@ unsafe fn wiener_filter5_h_16bpc_neon(r: &mut WienerRegs) {
             // buffer pointer.
             // movrel x6, right_ext_mask, -4; sub x6, x6, w4, uxtw #1
             let x6 = RIGHT_EXT_MASK_BUF.as_ptr().add(RIGHT_EXT_MASK - 4 - 2 * w4 as usize);
-            let h26 = read_unaligned(x3.offset(w17 as isize)); // ldr h26, [x3, w17, sxtw #1]
+            let h26 = read_unaligned(x3.add(i).offset(w17 as isize)); // ldr h26, [x3, w17, sxtw #1]
             let v26 = vreinterpretq_u8_u16(vdupq_n_u16(h26)); // dup v26.8h, v26.h[0]
             let v23_25 = vld1q_u8_x3(x6); // ld1 {v23.16b, v24.16b, v25.16b}, [x6]
 
@@ -1192,9 +1168,8 @@ unsafe fn wiener_filter5_h_16bpc_neon(r: &mut WienerRegs) {
 
         w4 -= 16; // subs w4, w4, #16
 
-        vst1q_s16(x14, v6); // st1 {v6.8h, v7.8h}, [x14], #32
-        vst1q_s16(x14.add(8), v7);
-        x14 = x14.wrapping_add(16);
+        vst1q_s16(x14.add(i), v6); // st1 {v6.8h, v7.8h}, [x14], #32
+        vst1q_s16(x14.add(i + 8), v7);
 
         if w4 <= 0 {
             break; // b.le 0f
@@ -1202,8 +1177,8 @@ unsafe fn wiener_filter5_h_16bpc_neon(r: &mut WienerRegs) {
         v2 = v4; // mov v2.16b, v4.16b
 
         // tst w7, #2 // LR_HAVE_RIGHT
-        let v3_4 = vld1q_s16_x2(x3 as *const i16); // ld1 {v3.8h, v4.8h}, [x3], #32
-        x3 = wiener_post_inc(x3.cast_mut(), 16).cast_const();
+        let v3_4 = vld1q_s16_x2(x3.add(i) as *const i16); // ld1 {v3.8h, v4.8h}, [x3], #32
+        i += 16;
         v3 = v3_4.0;
         v4 = v3_4.1;
         // b.ne 4b // If we don't need to pad, just keep filtering.
@@ -1218,20 +1193,18 @@ unsafe fn wiener_filter5_h_16bpc_neon(r: &mut WienerRegs) {
 /// restores the row pointers, `x0` and `w4`).
 unsafe fn wiener_filter5_v_16bpc_neon(r: &mut WienerRegs) {
     // stp x11, x12, [sp, #-48]!; stp x13, x14, [sp, #16]; stp x0, x4, [sp, #32]
-    let (mut x11, mut x12, mut x13, mut x14) = (r.x11, r.x12, r.x13, r.x14);
-    let mut x0 = r.x0;
+    let (x11, x12, x13, x14) = (r.x11, r.x12, r.x13, r.x14);
+    let x0 = r.x0;
     let mut w4 = r.w4;
     let (v0, v27, v28) = (r.v0, r.v27, r.v28);
+    // The element index of the 16-pixel block (`x3` and `x0` post-increment in the assembly).
+    let mut i = 0;
     loop {
         // 1:
-        let v16_17 = vld1q_s16_x2(x11); // ld1 {v16.8h, v17.8h}, [x11], #32
-        x11 = x11.wrapping_add(16);
-        let v18_19 = vld1q_s16_x2(x12); // ld1 {v18.8h, v19.8h}, [x12], #32
-        x12 = x12.wrapping_add(16);
-        let v20_21 = vld1q_s16_x2(x13); // ld1 {v20.8h, v21.8h}, [x13], #32
-        x13 = x13.wrapping_add(16);
-        let v22_23 = vld1q_s16_x2(x14); // ld1 {v22.8h, v23.8h}, [x14], #32
-        x14 = x14.wrapping_add(16);
+        let v16_17 = vld1q_s16_x2(x11.add(i)); // ld1 {v16.8h, v17.8h}, [x11], #32
+        let v18_19 = vld1q_s16_x2(x12.add(i)); // ld1 {v18.8h, v19.8h}, [x12], #32
+        let v20_21 = vld1q_s16_x2(x13.add(i)); // ld1 {v20.8h, v21.8h}, [x13], #32
+        let v22_23 = vld1q_s16_x2(x14.add(i)); // ld1 {v22.8h, v23.8h}, [x14], #32
         let (v16, v17) = (v16_17.0, v16_17.1);
         let (v18, v19) = (v18_19.0, v18_19.1);
         let (v20, v21) = (v20_21.0, v20_21.1);
@@ -1269,9 +1242,9 @@ unsafe fn wiener_filter5_v_16bpc_neon(r: &mut WienerRegs) {
         let v3 = vminq_u16(v3, v28); // umin v3.8h, v3.8h, v28.8h
 
         w4 -= 16; // subs w4, w4, #16
-        vst1q_u16(x0, v2); // st1 {v2.8h, v3.8h}, [x0], #32
-        vst1q_u16(x0.add(8), v3);
-        x0 = wiener_post_inc(x0, 16);
+        vst1q_u16(x0.add(i), v2); // st1 {v2.8h, v3.8h}, [x0], #32
+        vst1q_u16(x0.add(i + 8), v3);
+        i += 16;
         if w4 <= 0 {
             break; // b.gt 1b
         }
@@ -1288,8 +1261,8 @@ unsafe fn wiener_filter5_hv_16bpc_neon(r: &mut WienerRegs) {
     // Backing up/restoring registers shifted, so that x11 gets the value
     // of x12, etc, and x15==x11, afterwards.
     // stp x12, x13, [sp, #-64]!; stp x14, x15, [sp, #16]; stp x12, x0, [sp, #32]; stp x3, x4, [sp, #48]
-    let (mut x11, mut x12, mut x13, mut x14, mut x15) = (r.x11, r.x12, r.x13, r.x14, r.x15);
-    let mut x0 = r.x0;
+    let (x11, x12, x13, x14, x15) = (r.x11, r.x12, r.x13, r.x14, r.x15);
+    let x0 = r.x0;
     let mut x3 = r.x3;
     let mut w4 = r.w4;
     // The values the `ldp`s at the end leave in x11-x15.
@@ -1345,6 +1318,8 @@ unsafe fn wiener_filter5_hv_16bpc_neon(r: &mut WienerRegs) {
     let mut v4 = vld1q_s16(x3 as *const i16); // ld1 {v4.8h}, [x3], #16
     x3 = x3.add(8);
 
+    // The element index of the 16-pixel block (`x3` and `x0` post-increment in the assembly).
+    let mut i = 0;
     loop {
         // tst w7, #2 // LR_HAVE_RIGHT; b.ne 4f
         // 3: // !LR_HAVE_RIGHT
@@ -1362,7 +1337,7 @@ unsafe fn wiener_filter5_hv_16bpc_neon(r: &mut WienerRegs) {
             // buffer pointer.
             // movrel x6, right_ext_mask, -4; sub x6, x6, w4, uxtw #1
             let x6 = RIGHT_EXT_MASK_BUF.as_ptr().add(RIGHT_EXT_MASK - 4 - 2 * w4 as usize);
-            let h26 = read_unaligned(x3.offset(w17 as isize)); // ldr h26, [x3, w17, sxtw #1]
+            let h26 = read_unaligned(x3.add(i).offset(w17 as isize)); // ldr h26, [x3, w17, sxtw #1]
             let v26 = vreinterpretq_u8_u16(vdupq_n_u16(h26)); // dup v26.8h, v26.h[0]
             let v23_25 = vld1q_u8_x3(x6); // ld1 {v23.16b, v24.16b, v25.16b}, [x6]
 
@@ -1399,27 +1374,23 @@ unsafe fn wiener_filter5_hv_16bpc_neon(r: &mut WienerRegs) {
         let v25 = vmlal_high_laneq_s16::<2>(v25, v18, v0); // smlal2 v25.4s, v18.8h, v0.h[2]
         let v25 = vmlal_high_laneq_s16::<1>(v25, v19, v0); // smlal2 v25.4s, v19.8h, v0.h[1]
 
-        let v16_17 = vld1q_s16_x2(x11); // ld1 {v16.8h, v17.8h}, [x11], #32
-        x11 = x11.wrapping_add(16);
+        let v16_17 = vld1q_s16_x2(x11.add(i)); // ld1 {v16.8h, v17.8h}, [x11], #32
         let v26 = vdupq_n_u16(0x7fff); // mvni v26.8h, #0x80, lsl #8 // 0x7fff = (1 << 15) - 1
         let v6 = vaddq_s32(v6, v30);
         let v7 = vaddq_s32(v7, v30);
         let v24 = vaddq_s32(v24, v30);
         let v25 = vaddq_s32(v25, v30);
-        let v18_19 = vld1q_s16_x2(x12); // ld1 {v18.8h, v19.8h}, [x12], #32
-        x12 = x12.wrapping_add(16);
+        let v18_19 = vld1q_s16_x2(x12.add(i)); // ld1 {v18.8h, v19.8h}, [x12], #32
         let v6 = vrshlq_s32(v6, v29); // srshl v6.4s, v6.4s, v29.4s
         let v7 = vrshlq_s32(v7, v29); // srshl v7.4s, v7.4s, v29.4s
         let v24 = vrshlq_s32(v24, v29); // srshl v24.4s, v24.4s, v29.4s
         let v25 = vrshlq_s32(v25, v29); // srshl v25.4s, v25.4s, v29.4s
-        let v20_21 = vld1q_s16_x2(x13); // ld1 {v20.8h, v21.8h}, [x13], #32
-        x13 = x13.wrapping_add(16);
+        let v20_21 = vld1q_s16_x2(x13.add(i)); // ld1 {v20.8h, v21.8h}, [x13], #32
         let v6 = vqmovun_s32(v6); // sqxtun v6.4h, v6.4s
         let v6 = vqmovun_high_s32(v6, v7); // sqxtun2 v6.8h, v7.4s
         let v7 = vqmovun_s32(v24); // sqxtun v7.4h, v24.4s
         let v7 = vqmovun_high_s32(v7, v25); // sqxtun2 v7.8h, v25.4s
-        let v22_23 = vld1q_s16_x2(x14); // ld1 {v22.8h, v23.8h}, [x14], #32
-        x14 = x14.wrapping_add(16);
+        let v22_23 = vld1q_s16_x2(x14.add(i)); // ld1 {v22.8h, v23.8h}, [x14], #32
         let v6 = vminq_u16(v6, v26);
         let v7 = vminq_u16(v7, v26);
         let v6 = vreinterpretq_s16_u16(vsubq_u16(v6, v31));
@@ -1457,17 +1428,15 @@ unsafe fn wiener_filter5_hv_16bpc_neon(r: &mut WienerRegs) {
         let v8 = vqmovun_high_s32(v8, v9); // sqxtun2 v8.8h, v9.4s
         let v9 = vqmovun_s32(v1); // sqxtun v9.4h, v1.4s
         let v9 = vqmovun_high_s32(v9, v5); // sqxtun2 v9.8h, v5.4s
-        vst1q_s16(x15, v6); // st1 {v6.8h, v7.8h}, [x15], #32
-        vst1q_s16(x15.add(8), v7);
-        x15 = x15.wrapping_add(16);
+        vst1q_s16(x15.add(i), v6); // st1 {v6.8h, v7.8h}, [x15], #32
+        vst1q_s16(x15.add(i + 8), v7);
         let v8 = vminq_u16(v8, v28); // umin v8.8h, v8.8h, v28.8h // bitdepth_max
         let v9 = vminq_u16(v9, v28); // umin v9.8h, v9.8h, v28.8h
 
         w4 -= 16; // subs w4, w4, #16
 
-        vst1q_u16(x0, v8); // st1 {v8.8h, v9.8h}, [x0], #32
-        vst1q_u16(x0.add(8), v9);
-        x0 = wiener_post_inc(x0, 16);
+        vst1q_u16(x0.add(i), v8); // st1 {v8.8h, v9.8h}, [x0], #32
+        vst1q_u16(x0.add(i + 8), v9);
 
         if w4 <= 0 {
             break; // b.le 0f
@@ -1475,8 +1444,8 @@ unsafe fn wiener_filter5_hv_16bpc_neon(r: &mut WienerRegs) {
         v2 = v4; // mov v2.16b, v4.16b
 
         // tst w7, #2 // LR_HAVE_RIGHT
-        let v3_4 = vld1q_s16_x2(x3 as *const i16); // ld1 {v3.8h, v4.8h}, [x3], #32
-        x3 = wiener_post_inc(x3.cast_mut(), 16).cast_const();
+        let v3_4 = vld1q_s16_x2(x3.add(i) as *const i16); // ld1 {v3.8h, v4.8h}, [x3], #32
+        i += 16;
         v3 = v3_4.0;
         v4 = v3_4.1;
         // b.ne 4b // If we don't need to pad, just keep filtering.
