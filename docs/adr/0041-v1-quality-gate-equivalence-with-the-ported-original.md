@@ -624,3 +624,19 @@ planned.
   from the algorithm, in three variants, all bit-identical, 7-20x smaller,
   at +1 to +5 % instructions per whole decode; the owner chose the
   `fearless_simd` variant (one body for NEON and AVX2) for the next pilot.
+- 2026-11-18 — Owner decision on the reference for kernels written from the
+  algorithm (the idiomatic rewrite of the entry above). On input the
+  format's specification allows, such a kernel stays bit-identical to the
+  original's SIMD at the same level, as section 4 requires, and the
+  existing gates check that. On input outside the specification, where the
+  original's SIMD and its own C disagree and the format defines no result,
+  the reference is the original's C code: the rewritten kernel matches the
+  C, not the overflow or saturation behavior of the original's assembly.
+  Found in the dav1d inverse-transform pilot (`v1/dav1d-itx-pilot`):
+  coefficients over the full int16 range, which no conformant stream
+  produces, made the original's 8 bpc SIMD and C differ in 11,025 (NEON) and
+  11,327 (AVX2) of 21,000 calls; the pilot matched the C in every call and
+  the original's SIMD wherever the input was conformant. A port ADR that
+  adopts a rewritten kernel names the input range on which SIMD identity is
+  gated and the test that compares against the C outside it. Memory safety
+  on any input is unaffected.
