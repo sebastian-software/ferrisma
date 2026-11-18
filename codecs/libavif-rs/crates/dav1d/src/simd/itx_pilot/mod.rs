@@ -15,11 +15,19 @@
 //! - this module: the DSP-table boundary (the only raw-pointer code) and the
 //!   switch.
 //!
-//! The numerics: the C computes in `int`; the vectors have 32-bit lanes and
-//! the same expressions, so every value is the C's (including the C's
-//! rearranged products, which keep 12-bit input free of overflow). Only the
-//! final addition to the pixels runs in 16-bit lanes, where that is exact
-//! (`blocks::Pixel`).
+//! The numerics: the C computes in `int`; the vectors compute the same
+//! expressions, so every value is the C's (including the C's rearranged
+//! products, which keep 12-bit input free of overflow). At 10 and 12 bits
+//! every lane is 32 bits wide. At 8 bits the passes with 8 lanes keep the
+//! values the C has clipped (and the inputs) in 16-bit lanes and widen to
+//! 32 bits only where the C forms a value beyond `int16_t` before it clips
+//! it: the products, the sums they multiply, the unclipped outputs of the
+//! ADST and the identities. The documentation of `transforms` derives the
+//! ranges that make this exact for every `int16_t` coefficient, conformant
+//! or not; the clips to `int16_t` are then the saturating 16-bit operations.
+//! The passes with 4 lanes (blocks 4 wide or tall) and the WHT stay on 32
+//! bits. The final addition to the pixels runs in 16-bit lanes, where that
+//! is exact (`blocks::Pixel`).
 //!
 //! So the pilot gives the C's pixels for every input. The original's
 //! assembly gives them where the intermediates stay within the ranges of a
@@ -202,9 +210,8 @@ unsafe extern "C" fn itx_8bpc<const W: usize, const H: usize, const SW: usize, c
     coeff: *mut i16,
     eob: c_int,
 ) {
-    let tx_type = const { blocks::kernel_type(SLOT) };
     let block = block::<_, _, W, H>(dst, stride, coeff, eob);
-    blocks::inverse_transform_add::<_, _, _, W, H, SW, SH>(level(), block, tx_type, Depth::eight());
+    blocks::inverse_transform_add::<_, _, _, W, H, SW, SH, SLOT>(level(), block, Depth::eight());
 }
 
 /// An `itxfm_fn` at 16 bpc.
@@ -215,9 +222,8 @@ unsafe extern "C" fn itx_16bpc<const W: usize, const H: usize, const SW: usize, 
     eob: c_int,
     bitdepth_max: c_int,
 ) {
-    let tx_type = const { blocks::kernel_type(SLOT) };
     let block = block::<_, _, W, H>(dst, stride, coeff, eob);
-    blocks::inverse_transform_add::<_, _, _, W, H, SW, SH>(level(), block, tx_type, Depth::high(bitdepth_max));
+    blocks::inverse_transform_add::<_, _, _, W, H, SW, SH, SLOT>(level(), block, Depth::high(bitdepth_max));
 }
 
 /// The WHT `itxfm_fn` at 8 bpc.

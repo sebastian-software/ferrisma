@@ -18,18 +18,22 @@
 //! - second pass: the values of columns `x0..x0 + L` at row `y` of `tmp`
 //!   are contiguous; the 1-D transform runs across the `h` vectors.
 //!
-//! `L` is 8 (`i32x8`), or 4 (`i32x4`) where the block is 4 wide or 4 tall.
+//! `L` is 8, or 4 where the block is 4 wide or 4 tall. The 8 lanes are
+//! `i16x8` at 8 bpc and `i32x8` above, the 4 lanes `i32x4` (`Coef`; the
+//! ranges that make 16 bits exact are in the documentation of
+//! `transforms`). Between the passes `tmp` holds the coefficient type:
+//! `int16_t` at 8 bpc, where the C clips the intermediate to its range.
 
 use fearless_simd::prelude::*;
 use fearless_simd::{i16x8, i32x4, i32x8, u16x8, u8x16};
 
-use super::transforms::{each, transform, wht4, Clip, Kind, Lanes};
+use super::transforms::{each, transform, tx1d, wht4, Int32, Kind, Lanes, Outputs, Tx1d};
 
 /// A pixel of the DSP table: `u8` at 8 bpc, `u16` above.
 pub trait Pixel: Copy + 'static {
     fn to_i32(self) -> i32;
     /// Stores `V::LEN` clipped values (`0..=bitdepth_max`) as pixels.
-    fn store<S: Simd, V: Lanes<S>>(values: V, pixels: &mut [Self]);
+    fn store<S: Simd, V: Int32<S>>(values: V, pixels: &mut [Self]);
 
     /// `iclip_pixel(dst + residual)` for `V::LEN` pixels, where `residual`
     /// is a second-pass output `(c + 8) >> 4`.
@@ -52,7 +56,7 @@ impl Pixel for u8 {
         self.into()
     }
     #[inline(always)]
-    fn store<S: Simd, V: Lanes<S>>(values: V, pixels: &mut [Self]) {
+    fn store<S: Simd, V: Int32<S>>(values: V, pixels: &mut [Self]) {
         values.store_u8(pixels);
     }
 
@@ -94,7 +98,7 @@ impl Pixel for u16 {
         self.into()
     }
     #[inline(always)]
-    fn store<S: Simd, V: Lanes<S>>(values: V, pixels: &mut [Self]) {
+    fn store<S: Simd, V: Int32<S>>(values: V, pixels: &mut [Self]) {
         values.store_u16(pixels);
     }
 
@@ -103,7 +107,7 @@ impl Pixel for u16 {
         if pixel_max <= 1023 {
             add_u16(simd, pixels, residual.to_i16x8(), pixel_max);
         } else {
-            add_to_pixels(simd, pixels, residual, pixel_max);
+            add_to_pixels(simd, pixels, residual.wide(), pixel_max);
         }
     }
 
@@ -145,9 +149,15 @@ fn add_u16<S: Simd>(simd: S, pixels: &mut [u16], residual: i16x8<S>, pixel_max: 
 }
 
 /// A coefficient of the DSP table (`coef`): `i16` at 8 bpc, `i32` above.
+/// Also the element of `tmp` between the passes.
 pub trait Coef: Copy + 'static {
     const ZERO: Self;
     fn to_i32(self) -> i32;
+
+    /// The lanes of the passes with 8 lanes.
+    type Lanes8<S: Simd>: Memory<S, Self>;
+    /// The lanes of the passes with 4 lanes (32 bits at every depth).
+    type Lanes4<S: Simd>: Memory<S, Self>;
 }
 
 impl Coef for i16 {
@@ -156,6 +166,8 @@ impl Coef for i16 {
     fn to_i32(self) -> i32 {
         self.into()
     }
+    type Lanes8<S: Simd> = i16x8<S>;
+    type Lanes4<S: Simd> = i32x4<S>;
 }
 
 impl Coef for i32 {
@@ -163,6 +175,63 @@ impl Coef for i32 {
     #[inline(always)]
     fn to_i32(self) -> i32 {
         self
+    }
+    type Lanes8<S: Simd> = i32x8<S>;
+    type Lanes4<S: Simd> = i32x4<S>;
+}
+
+/// Lanes loaded from and stored to coefficients or `tmp` (elements `C`).
+pub trait Memory<S: Simd, C>: Lanes<S> {
+    fn load_from(simd: S, values: &[C]) -> Self;
+    fn store_to(self, values: &mut [C]);
+}
+
+impl<S: Simd> Memory<S, i16> for i16x8<S> {
+    #[inline(always)]
+    fn load_from(simd: S, values: &[i16]) -> Self {
+        Self::from_slice(simd, values)
+    }
+    #[inline(always)]
+    fn store_to(self, values: &mut [i16]) {
+        self.store_slice(values);
+    }
+}
+
+impl<S: Simd> Memory<S, i32> for i32x8<S> {
+    #[inline(always)]
+    fn load_from(simd: S, values: &[i32]) -> Self {
+        Self::from_slice(simd, values)
+    }
+    #[inline(always)]
+    fn store_to(self, values: &mut [i32]) {
+        self.store_slice(values);
+    }
+}
+
+impl<S: Simd> Memory<S, i32> for i32x4<S> {
+    #[inline(always)]
+    fn load_from(simd: S, values: &[i32]) -> Self {
+        Self::from_slice(simd, values)
+    }
+    #[inline(always)]
+    fn store_to(self, values: &mut [i32]) {
+        self.store_slice(values);
+    }
+}
+
+/// The 4-lane passes at 8 bpc: `int16_t` coefficients and `tmp` in 32-bit
+/// lanes.
+impl<S: Simd> Memory<S, i16> for i32x4<S> {
+    #[inline(always)]
+    fn load_from(simd: S, values: &[i16]) -> Self {
+        let mut eight = [0; 8];
+        eight[..4].copy_from_slice(values);
+        i16x8::from_slice(simd, &eight).widen().0
+    }
+    /// The values are within `int16_t` (clipped to it between the passes).
+    #[inline(always)]
+    fn store_to(self, values: &mut [i16]) {
+        values.copy_from_slice(&self.narrow(self).as_slice()[..4]);
     }
 }
 
@@ -244,6 +313,12 @@ pub const fn kernel_type(slot: usize) -> usize {
     }
 }
 
+/// `is_rect2` of a block size: the coefficients are scaled by 181 / 256
+/// first.
+pub const fn is_rect2(w: usize, h: usize) -> bool {
+    w == 2 * h || h == 2 * w
+}
+
 /// The `shift` of each block size (the `inv_txfm_fn*` lines of itx_tmpl.c).
 pub const fn shift(w: usize, h: usize) -> u32 {
     match (w, h) {
@@ -291,7 +366,7 @@ pub fn coded_extent(tx_type: usize, w: usize, sh: usize, eob: usize, extent: &Sc
     }
 }
 
-/// `inv_txfm_add_c` for a `W`x`H` block of `tx_type` (`enum TxfmType`, not
+/// `inv_txfm_add_c` for a `W`x`H` block in DSP-table slot `SLOT` (not
 /// WHT); `SW`, `SH` are `min(W, 32)`, `min(H, 32)`.
 pub fn inverse_transform_add<
     S: Simd,
@@ -301,40 +376,33 @@ pub fn inverse_transform_add<
     const H: usize,
     const SW: usize,
     const SH: usize,
+    const SLOT: usize,
 >(
     simd: S,
     block: Block<'_, P, C, W, H>,
-    tx_type: usize,
     depth: Depth,
 ) {
+    let tx_type = const { kernel_type(SLOT) };
     let Block { mut rows, coeff, eob, extent } = block;
-    let pass = Pass { kinds: TX1D_TYPES[tx_type], rect2: W == 2 * H || H == 2 * W, shift: shift(W, H), depth };
-    // The whole block in one region compiled with the level's features.
-    simd.vectorize(
-        #[inline(always)]
-        || {
-            if tx_type == DCT_DCT && eob == 0 {
-                return dc_only(simd, &mut rows, coeff, pass);
-            }
-            // Where only the first 8 or 16 rows and columns of coefficients
-            // are coded, the passes get that bound as a constant, and the
-            // compiler drops the zero inputs from the transforms (as the C's
-            // tx64 variants and the assembly's eob paths do by hand). Not for
-            // the 64-point sizes: rare, and each bound is another copy of the
-            // passes.
-            let (coded_rows, coded_columns) = coded_extent(tx_type, W, SH, eob, extent);
-            let within = |bound: usize| {
-                W <= 32 && H <= 32 && coded_rows <= bound && coded_columns <= bound && (SW > bound || SH > bound)
-            };
-            if within(8) {
-                passes::<_, _, _, W, H, 8, 8>(simd, &mut rows, coeff, coded_rows, pass);
-            } else if within(16) {
-                passes::<_, _, _, W, H, 16, 16>(simd, &mut rows, coeff, coded_rows, pass);
-            } else {
-                passes::<_, _, _, W, H, SW, SH>(simd, &mut rows, coeff, coded_rows, pass);
-            }
-        },
-    )
+    let pass = Pass { kinds: TX1D_TYPES[tx_type], rect2: is_rect2(W, H), shift: shift(W, H), depth };
+    if tx_type == DCT_DCT && eob == 0 {
+        return dc_only(simd, &mut rows, coeff, pass);
+    }
+    // Where only the first 8 or 16 rows and columns of coefficients are
+    // coded, the passes get that bound as a constant, and the compiler drops
+    // the zero inputs from the transforms (as the C's tx64 variants and the
+    // assembly's eob paths do by hand). Not for the 64-point sizes: rare, and
+    // each bound is another copy of the passes.
+    let (coded_rows, coded_columns) = coded_extent(tx_type, W, SH, eob, extent);
+    let within =
+        |bound: usize| W <= 32 && H <= 32 && coded_rows <= bound && coded_columns <= bound && (SW > bound || SH > bound);
+    if within(8) {
+        passes::<_, _, _, W, H, 8, 8>(simd, &mut rows, coeff, coded_rows, pass);
+    } else if within(16) {
+        passes::<_, _, _, W, H, 16, 16>(simd, &mut rows, coeff, coded_rows, pass);
+    } else {
+        passes::<_, _, _, W, H, SW, SH>(simd, &mut rows, coeff, coded_rows, pass);
+    }
 }
 
 /// What the two passes of a block share.
@@ -358,88 +426,146 @@ fn passes<S: Simd, P: Pixel, C: Coef, const W: usize, const H: usize, const NX: 
     coded_rows: usize,
     pass: Pass,
 ) {
+    use tx1d::*;
     let sh = H.min(32);
-    let mut tmp = [[0; W]; NY];
-    if W.min(sh) == 4 {
-        first_pass::<_, i32x4<S>, _, W, NX>(simd, coeff, sh, coded_rows, pass, &mut tmp);
-    } else {
-        first_pass::<_, i32x8<S>, _, W, NX>(simd, coeff, sh, coded_rows, pass, &mut tmp);
+    let mut tmp = [[C::ZERO; W]; NY];
+    let tmp_rows = &mut tmp;
+    match pass.kinds[0] {
+        Kind::Dct => first_pass::<_, _, Dct, W, H, NX>(simd, coeff, coded_rows, pass.depth, tmp_rows),
+        Kind::Adst => first_pass::<_, _, Adst, W, H, NX>(simd, coeff, coded_rows, pass.depth, tmp_rows),
+        Kind::FlipAdst => first_pass::<_, _, FlipAdst, W, H, NX>(simd, coeff, coded_rows, pass.depth, tmp_rows),
+        Kind::Identity => first_pass::<_, _, Identity, W, H, NX>(simd, coeff, coded_rows, pass.depth, tmp_rows),
     }
-    if W == 4 {
-        second_pass::<_, i32x4<S>, _, W, H>(simd, &tmp[..NY.min(sh)], pass, rows);
-    } else {
-        second_pass::<_, i32x8<S>, _, W, H>(simd, &tmp[..NY.min(sh)], pass, rows);
+    let tmp = &tmp[..NY.min(sh)];
+    match pass.kinds[1] {
+        Kind::Dct => second_pass::<_, _, _, Dct, W, H>(simd, tmp, pass.depth, rows),
+        Kind::Adst => second_pass::<_, _, _, Adst, W, H>(simd, tmp, pass.depth, rows),
+        Kind::FlipAdst => second_pass::<_, _, _, FlipAdst, W, H>(simd, tmp, pass.depth, rows),
+        Kind::Identity => second_pass::<_, _, _, Identity, W, H>(simd, tmp, pass.depth, rows),
     }
 }
 
-/// The rows of the coefficient block: transformed, rounded, clipped and
-/// stored into `tmp` (row `y` at `tmp[y]`), the coefficients read set to 0.
-/// Rows from `coded_rows` up and columns from `NX` up hold no nonzero
-/// coefficient; their part of `tmp` stays 0, as in the C.
-#[inline(always)]
-fn first_pass<S: Simd, V: Lanes<S>, C: Coef, const W: usize, const NX: usize>(
+/// The rows of the coefficient block: transformed with `T`, rounded,
+/// clipped and stored into `tmp` (row `y` at `tmp[y]`), the coefficients
+/// read set to 0. Rows from `coded_rows` up and columns from `NX` up hold no
+/// nonzero coefficient; their part of `tmp` stays 0, as in the C.
+///
+/// One function, and one region with the level's features, per block size,
+/// bound and transform, shared by the kernels of the block size: inlined
+/// into each kernel, the passes made the library many times larger and its
+/// build very slow.
+#[inline(never)]
+fn first_pass<S: Simd, C: Coef, T: Tx1d, const W: usize, const H: usize, const NX: usize>(
     simd: S,
     coeff: &mut [C],
-    sh: usize,
     coded_rows: usize,
-    pass: Pass,
-    tmp: &mut [[i32; W]],
+    depth: Depth,
+    tmp: &mut [[C; W]],
 ) {
+    simd.vectorize(
+        #[inline(always)]
+        || {
+            if W.min(H) == 4 {
+                rows_pass::<_, C::Lanes4<S>, _, T, W, H, NX>(simd, coeff, coded_rows, depth, tmp);
+            } else {
+                rows_pass::<_, C::Lanes8<S>, _, T, W, H, NX>(simd, coeff, coded_rows, depth, tmp);
+            }
+        },
+    )
+}
+
+/// `first_pass` on lanes `V`.
+#[inline(always)]
+fn rows_pass<S: Simd, V: Memory<S, C>, C: Coef, T: Tx1d, const W: usize, const H: usize, const NX: usize>(
+    simd: S,
+    coeff: &mut [C],
+    coded_rows: usize,
+    depth: Depth,
+    tmp: &mut [[C; W]],
+) {
+    let sh = H.min(32);
     let lanes = V::LEN;
     let nx = NX.min(W.min(32));
-    let (row_min, row_max) = pass.depth.row_clip;
-    let row_clip = Clip { min: V::splat(simd, row_min), max: V::splat(simd, row_max) };
-    let (col_min, col_max) = pass.depth.col_clip;
-    let (shift, rnd) = (pass.shift, (1 << pass.shift) >> 1);
+    let row_clip = V::range(simd, depth.row_clip);
+    let col_clip = V::range(simd, depth.col_clip);
+    let shift = const { shift(W, H) };
+    let rnd = (1 << shift) >> 1;
     for y0 in (0..coded_rows).step_by(lanes) {
         // Input x of rows y0..y0 + L; from `nx` up zero.
-        let mut input = [V::splat(simd, 0); W];
+        let mut input = [V::splat(simd, Default::default()); W];
         for (x, c) in input[..nx].iter_mut().enumerate() {
             let column = &mut coeff[x * sh + y0..][..lanes];
-            *c = load(simd, column, C::to_i32);
+            *c = V::load_from(simd, column);
             column.fill(C::ZERO);
-            if pass.rect2 {
-                *c = (*c * 181 + 128) >> 8;
+            if is_rect2(W, H) {
+                *c = V::stored((c.wide() * 181 + 128) >> 8);
             }
         }
-        let out = transform(pass.kinds[0], input, row_clip);
-        let mut out = each(out, |v| ((v + rnd) >> shift).max(col_min).min(col_max));
+        // iclip((tmp[i] + rnd) >> shift, col_clip_min, col_clip_max)
+        let mut out = match transform(T::KIND, input, row_clip) {
+            Outputs::Clipped(out) => each(out, |v| v.round_shift(shift).clip_stored(col_clip)),
+            Outputs::Wide(out) => each(out, |v| V::clip((v + rnd) >> shift, col_clip)),
+        };
         for (x0, square) in out.chunks_exact_mut(lanes).enumerate() {
             V::transpose(square);
             for (y, row) in square.iter().enumerate() {
-                row.store_slice(&mut tmp[y0 + y][x0 * lanes..][..lanes]);
+                row.store_to(&mut tmp[y0 + y][x0 * lanes..][..lanes]);
             }
         }
     }
 }
 
-/// The columns of `tmp` (rows from `tmp.len()` up are zero) transformed and
-/// added to the pixels: `iclip_pixel(dst + ((c + 8) >> 4))`.
-#[inline(always)]
-fn second_pass<S: Simd, V: Lanes<S>, P: Pixel, const W: usize, const H: usize>(
+/// The columns of `tmp` (rows from `tmp.len()` up are zero) transformed
+/// with `T` and added to the pixels: `iclip_pixel(dst + ((c + 8) >> 4))`.
+/// Shared as `first_pass` is.
+#[inline(never)]
+fn second_pass<S: Simd, C: Coef, P: Pixel, T: Tx1d, const W: usize, const H: usize>(
     simd: S,
-    tmp: &[[i32; W]],
-    pass: Pass,
+    tmp: &[[C; W]],
+    depth: Depth,
+    rows: &mut [&mut [P]; H],
+) {
+    simd.vectorize(
+        #[inline(always)]
+        || {
+            if W == 4 {
+                columns_pass::<_, C::Lanes4<S>, _, _, T, W, H>(simd, tmp, depth, rows);
+            } else {
+                columns_pass::<_, C::Lanes8<S>, _, _, T, W, H>(simd, tmp, depth, rows);
+            }
+        },
+    )
+}
+
+/// `second_pass` on lanes `V`.
+#[inline(always)]
+fn columns_pass<S: Simd, V: Memory<S, C>, C: Coef, P: Pixel, T: Tx1d, const W: usize, const H: usize>(
+    simd: S,
+    tmp: &[[C; W]],
+    depth: Depth,
     rows: &mut [&mut [P]; H],
 ) {
     let lanes = V::LEN;
-    let (col_min, col_max) = pass.depth.col_clip;
-    let col_clip = Clip { min: V::splat(simd, col_min), max: V::splat(simd, col_max) };
+    let col_clip = V::range(simd, depth.col_clip);
     for x0 in (0..W).step_by(lanes) {
-        let mut input = [V::splat(simd, 0); H];
+        let mut input = [V::splat(simd, Default::default()); H];
         for (c, row) in input.iter_mut().zip(tmp) {
-            *c = V::from_slice(simd, &row[x0..][..lanes]);
+            *c = V::load_from(simd, &row[x0..][..lanes]);
         }
-        let out = transform(pass.kinds[1], input, col_clip);
-        for (row, c) in rows.iter_mut().zip(out) {
-            P::add(simd, &mut row[x0..][..lanes], (c + 8) >> 4, pass.depth.pixel_max);
+        // (c + 8) >> 4
+        let residual = match transform(T::KIND, input, col_clip) {
+            Outputs::Clipped(out) => each(out, |v| v.round_shift(4)),
+            Outputs::Wide(out) => each(out, |v| V::stored((v + 8) >> 4)),
+        };
+        for (row, r) in rows.iter_mut().zip(residual) {
+            P::add(simd, &mut row[x0..][..lanes], r, depth.pixel_max);
         }
     }
 }
 
 /// `V::LEN` values converted to `i32` lanes.
 #[inline(always)]
-fn load<S: Simd, V: Lanes<S>, T: Copy>(simd: S, values: &[T], to_i32: impl Fn(T) -> i32) -> V {
+fn load<S: Simd, V: Int32<S>, T: Copy>(simd: S, values: &[T], to_i32: impl Fn(T) -> i32) -> V {
     let mut v = V::splat(simd, 0);
     for (lane, &value) in v.as_mut_slice().iter_mut().zip(values) {
         *lane = to_i32(value);
@@ -449,7 +575,7 @@ fn load<S: Simd, V: Lanes<S>, T: Copy>(simd: S, values: &[T], to_i32: impl Fn(T)
 
 /// `dst = iclip_pixel(dst + residual)` for `V::LEN` pixels.
 #[inline(always)]
-fn add_to_pixels<S: Simd, V: Lanes<S>, P: Pixel>(simd: S, pixels: &mut [P], residual: V, pixel_max: i32) {
+fn add_to_pixels<S: Simd, V: Int32<S>, P: Pixel>(simd: S, pixels: &mut [P], residual: V, pixel_max: i32) {
     let sum = (load::<S, V, P>(simd, pixels, P::to_i32) + residual).max(0).min(pixel_max);
     P::store(sum, pixels);
 }
@@ -468,9 +594,14 @@ fn dc_only<S: Simd, P: Pixel, C: Coef, const H: usize>(simd: S, rows: &mut [&mut
     dc = (dc * 181 + 128) >> 8;
     dc = (dc + rnd) >> shift;
     dc = (dc * 181 + 128 + 2048) >> 12;
-    for row in rows.iter_mut() {
-        P::add_dc(simd, row, dc, pass.depth.pixel_max);
-    }
+    simd.vectorize(
+        #[inline(always)]
+        || {
+            for row in rows.iter_mut() {
+                P::add_dc(simd, row, dc, pass.depth.pixel_max);
+            }
+        },
+    )
 }
 
 /// `inv_txfm_add_wht_wht_4x4_c`: the lossless 4x4 Walsh-Hadamard transform,
