@@ -1592,6 +1592,157 @@ AVX2, the port before this entry, the port now): 10-bit 4:2:0 1.16 G,
 times). 8-bit unchanged (1.52 G and 2.14 G). Not measured: the lossless
 still, and any time.
 
+**2026-11-17/18, which family next on x86-64.** Instructions per decode by
+DSP family (Callgrind, the whole process of the original CLI linked to
+each library, one thread, the color item of four profiling stills; for
+each family the inclusive cost of every call from outside the family into
+it, which counts nested helpers once and not the frame-level C code both
+libraries share; the original's assembly has no symbol sizes, so its
+figures are the self cost of the addresses each family's symbols cover),
+port with msac, loop filter and inverse transforms rebuilt, against stock
+dav1d at AVX2:
+
+| Family | 8-bit 4:2:0 | 8-bit 4:4:4 | 10-bit 4:2:0 | 10-bit 4:4:4 |
+| --- | --- | --- | --- | --- |
+| CDEF (C in the port) | 247.8 M / 12.3 M | 745.3 M / 29.9 M | 287.2 M / 15.7 M | 991.9 M / 41.6 M |
+| intra prediction (C) | 142.6 M / 12.2 M | 184.0 M / 14.3 M | 181.9 M / 18.7 M | 245.0 M / 22.2 M |
+| msac | 430.3 M / 381.0 M | 439.5 M / 389.2 M | 422.8 M / 373.1 M | 431.5 M / 380.9 M |
+| inverse transforms | 58.5 M / 56.2 M | 98.5 M / 92.8 M | 66.6 M / 67.2 M | 95.2 M / 94.5 M |
+| loop filter | 49.2 M / 40.1 M | 64.2 M / 52.4 M | 67.6 M / 60.4 M | 97.9 M / 87.7 M |
+| whole decode | 1,515 M / 1,009 M | 2,138 M / 1,105 M | 1,752 M / 1,159 M | 2,623 M / 1,286 M |
+
+Loop restoration, motion compensation, film grain, palette index packing
+and `refmvs` are not called on these stills (no instruction in either
+library). CDEF carries the largest excess (C 20 to 25 times the
+assembly), intra prediction the next (8 to 13 times); both followed, in
+that order.
+
+**2026-11-18, CDEF on AVX2, 8 and 16 bpc** (`cdef_avx2.asm`: the
+filters `dav1d_cdef_filter_{8x8,4x8,4x4}_8bpc_avx2` and
+`dav1d_cdef_dir_8bpc_avx2`, 1,771 lines; `cdef16_avx2.asm`: the same at
+`_16bpc`, used at 10 and 12 bit, 877 lines). The fifth x86 family, in
+`simd/x86_64/cdef_avx2.rs` and `cdef16_avx2.rs`; `simd/x86/cdef.rs`
+mirrors `cdef_dsp_init_x86` and assigns the four slots under the AVX2
+flag at both bit depths (on x86 the original assigns the assembly
+directly: each kernel pads the block itself, there is no wrapper as on
+ARM); the dispatch entries `cdef_8bpc_x86` and `cdef_16bpc_x86` call it
+from the two Linux profiles. On an AVX2 machine the original's AVX2 block
+assigns every slot its SSE2 (8 bpc), SSSE3 and SSE4.1 blocks assign, so
+no lower level is left in scope ("Levels"). The module documentation has
+the correspondence with the assembly, the deviations and the reads.
+
+Method as for the inverse transforms: a prelude (the register file, the
+8 bpc `SECTION_RODATA` as one byte array with an offset per label, taken
+from the original's object file, because the assembly reads across its
+labels), then three parts translated by agents in private copies (the
+8 bpc fast path, `edges == 0xf`, with the sixteen tap loaders the
+assembly `call`s through a jump table; the 8 bpc border path and
+`cdef_dir` with its `.main`, which `cdef_dir_16bpc` jumps into; the
+16 bpc file), each gated with the original's checkasm (`cdef_8bpc`,
+`cdef_16bpc`) at the eleven seeds and seeds 1 to 100. Until a part was
+written its entry points ran the port's C kernel (the assembly equals C
+on the test's inputs), so every partial state was gated; those fallbacks
+are gone from the joined modules.
+
+Deviations and their cost (the module documentation has the list): (a)
+the fast path's jump table is resolved at compile time: the entry point
+selects one of eight bodies by the direction, in which each table index is
+a constant, so the loaders' code stands in place of the computed
+`call`/`ret` (with a run-time choice per tap the compiler carried pixels
+between taps through general-purpose registers and stack slots: 1.68,
+1.32, 1.67 times the assembly); larger code. (b) The 8 bpc fast path
+reads `left` at offsets -16 to +20, beyond the `h` rows of two pixels the
+caller passes; in the decoder they are `lr_bak[bit][pl]`, rows inside a
+stack array of 96 bytes, so the assembly reads before its start or behind
+its end for the first and the last plane, and the blends discard those
+bytes. The rebuild copies exactly the `h` rows into a zeroed local with
+16 bytes before and 32 behind them and runs the assembly's accesses on it
+(memory safety, as msac's deviation (a); about five instructions). (c) The
+frames are locals zeroed whole: the loaders' blends and the 16 bpc 4-pixel
+loads read frame bytes the assembly never writes (or bytes just past its
+frame) and discard them, and the 8 bpc border padding writes every
+element of `px` the filter reads only by a case analysis over the edge
+flags (10 to 14 stores per call at 8 bpc, 5, 7 and 13 at 16 bpc). (d)
+`lzcnt`, `tzcnt`, `rorx` are `leading_zeros`, `trailing_zeros`,
+`rotate_right` (no BMI; one instruction more each). (e) The shift counts
+and the 8x8 copy of `bot` that the assembly keeps in its frame are locals;
+unaligned moves for caller memory where the assembly uses `mova`.
+
+Reads beyond what the C kernel reads (rows -2..h+1, columns -2..w+1, each
+neighbor only with its edge flag), kept as the assembly makes them on the
+original's buffers (derived from the code, not checked with guard pages):
+the 8 bpc fast path reads block rows from column -2 (4x4: -4) to 17 and,
+at 4x4, the rows below from column -20 and the rows above up to column 29;
+the border paths read 16 bytes of a row (8 at w 4) with
+`CDEF_HAVE_RIGHT` and the rows above and below from column -8 to 15
+depending on the flags, the 16 bpc filters 8 or 16 pixels of each row;
+the picture rows are the width rounded up to 128 pixels and the CDEF line
+buffers have 32 bytes before and behind each row, in the original and the
+translation alike. Writes: exactly the block.
+
+Positive controls on the joined state (one constant each; the per-kernel
+gate at `avx2`, the eleven seeds; `fault-cdef.py` in the scratch area):
+8 bpc fast path, `pri_taps` (`tap_table+8+…`) two bytes on in
+`.pri_only`, fails `cdef_8bpc.cdef_filter` at every seed and the
+whole-image gate (460 of 994 identical); the fast path's `sec_taps`
+(`tap_table+12`) one byte on in `.sec_only` fails `cdef_filter` at every
+seed; the 8 bpc border path's `pri_taps` one byte on fails `cdef_filter`
+at every seed; `cdef_dir`'s final `psrld xm2, 10` as 9 (in `.main`, which
+`cdef_dir_16bpc` shares) fails `cdef_8bpc.cdef_dir` at every seed and
+`cdef_16bpc.cdef_dir` at 7; 16 bpc: the primary tap offset `[dirq+5]` as
+`+4` fails `cdef_16bpc.cdef_filter` at every seed and the whole-image gate
+(812 of 994), the secondary offset `[dirq+9]` as `+8` and the right
+padding of 8x8 (`[px+32*x+16]` as `+20`) each fail `cdef_filter` at
+every seed, and `dir_shift`'s 12-bit entry as 0x0800 fails
+`cdef_16bpc.cdef_dir` at 7 of 11 seeds, the seeds whose single direction
+test draws 12 bit. Weaker controls, recorded: one tap loader's `bot`
+offset (`.d7k1`, 4x4) failed at 4 seeds; `psrld 10` as 11 at 10 of 11 and
+`div_table+44` as `+40` at 10 of 11 (8 bpc `cdef_dir`): the test runs the
+direction search once per seed on one block, where a change can leave
+the result. Restored byte for byte, the per-kernel gate passes again.
+
+Instructions per call against the assembly (`measure_dav1d_kernels.py
+--family cdef`, Callgrind, 10,000 calls per row; the filters over the
+edge sets 0xf (the 8 bpc fast path), 0x0, 0x5, 0xa, the three strength
+kinds and the eight directions in turn; all outputs identical): 8 bpc
+`dir` 173.0 and 172.0 (0.994); 8x8 0.992 to 1.017, 4x8 1.023 to 1.061,
+4x4 1.018 (fast path) to 1.166 (border, edges 0x0: the frame's ten zero
+stores, `bsr`/`xor` for `lzcnt`, the compiler forwarding padded rows
+through general-purpose registers); 16 bpc `dir` 0.988, 8x8 1.043 to
+1.068, 4x8 1.039 to 1.080, 4x4 1.021 to 1.085. No row above 1.3.
+
+| Check (x86-64 GNU Linux under Rosetta, Clang 19, eleven seeds) | Result |
+| --- | --- |
+| `check_dav1d_dsp.py --simd avx2` | 17 groups, 3,155 selections each; the `cdef_8bpc` and `cdef_16bpc` groups compare the assembly with the rebuilt kernels; pass |
+| `check_dav1d_dsp.py` (scalar) | the same counts; pass |
+| `check_dav1d_simd_original.py --level avx2` / `scalar` | 994 of 994 decodes identical each |
+| `run_dav1d_tests.py` | 1,711 of 1,711 |
+| `check_dav1d_abi.py`, `check_dav1d_api.py`, `check_dav1d_linkage.py` | 12,284 layout checks, 0 differences; 83 API comparisons; pass |
+| `enable_dav1d_dispatch.py --check` and its unit test | 18 entries, 60 units; pass |
+| unit tests (`cargo test --lib simd::`) | 13 of 13 (two new: the CDEF context layout and the selection under each mask at 8 and 16 bpc) |
+| `rustfmt --check` (`max_width = 120`) on `simd/x86`, `simd/x86_64`; no `asm!` | pass |
+
+ARM64 after the change (no file of the NEON kernels changed): the
+per-kernel gate at `neon` and scalar at the eleven seeds, whole images 994
+of 994 at both levels, 1,711 of 1,711, 20 unit tests, ABI 12,157 checks,
+API, linkage, the dispatch check and `cargo fmt --all --check` pass.
+
+Instructions per decode on x86-64 (Callgrind as before; stock dav1d at
+AVX2, the port before this entry, the port now): 8-bit 4:2:0 1.01 G,
+1.52 G, 1.28 G (1.27 times stock); 8-bit 4:4:4 1.10, 2.14, 1.42 (1.29
+times); 10-bit 4:2:0 1.16, 1.75, 1.48 (1.28 times); 10-bit 4:4:4 1.29,
+2.62, 1.67 (1.30 times). Not measured: the lossless still, and any time.
+Intra prediction is now the largest family still in C (143 M to 245 M per
+decode against 12 M to 22 M): the next entry.
+
+Seen while checking the rebuilt kernels for calls (`objdump` of the x86-64
+library, every `call` inside an AVX2 entry point): the CDEF kernels have
+none, but seven inverse-transform entry points call `memset` (8 bpc
+`dct_dct` 32x16; 10-bit `dct_dct` 16x64, 32x32, 32x64, 64x16, 64x32 and
+64x64), contrary to "no `call` in an entry point" in the two entries
+above; the loop filter's `h4` call is the one recorded there. Not changed
+here; the per-call figures of those entries include the calls.
+
 ## Review when
 
 A family is completed on a target; the x86-64 AVX2 kernels arrive; the owner
@@ -1600,6 +1751,7 @@ engine's decoder choice changes.
 
 ## Amendment log
 
+- 2026-11-18 — CDEF on AVX2, 8 and 16 bpc; the instructions per decode by family on x86-64 (validation above).
 - 2026-11-17 — inverse transforms 16 bpc on AVX2 (validation above).
 - 2026-11-17 — inverse transforms 8 bpc on AVX2 (validation above).
 - 2026-11-17 — decisions on the first x86 kernels: msac's SSE2 16-symbol function and the gate level `sse2` removed (below AVX2 the port runs C there too), the volatile constant loads removed, the per-call 16-symbol choice and the module layout kept ("msac on x86-64", "Levels", validation above).
