@@ -158,6 +158,10 @@ pub trait Coef: Copy + 'static {
     type Lanes8<S: Simd>: Memory<S, Self>;
     /// The lanes of the passes with 4 lanes (32 bits at every depth).
     type Lanes4<S: Simd>: Memory<S, Self>;
+
+    /// `depth`, as a constant where the coefficient type fixes it (8 bpc),
+    /// so that the shared passes compile with the constant ranges.
+    fn depth(depth: Depth) -> Depth;
 }
 
 impl Coef for i16 {
@@ -168,6 +172,10 @@ impl Coef for i16 {
     }
     type Lanes8<S: Simd> = i16x8<S>;
     type Lanes4<S: Simd> = i32x4<S>;
+    #[inline(always)]
+    fn depth(_: Depth) -> Depth {
+        Depth::eight()
+    }
 }
 
 impl Coef for i32 {
@@ -178,6 +186,10 @@ impl Coef for i32 {
     }
     type Lanes8<S: Simd> = i32x8<S>;
     type Lanes4<S: Simd> = i32x4<S>;
+    #[inline(always)]
+    fn depth(depth: Depth) -> Depth {
+        depth
+    }
 }
 
 /// Lanes loaded from and stored to coefficients or `tmp` (elements `C`).
@@ -450,11 +462,13 @@ fn passes<S: Simd, P: Pixel, C: Coef, const W: usize, const H: usize, const NX: 
 /// read set to 0. Rows from `coded_rows` up and columns from `NX` up hold no
 /// nonzero coefficient; their part of `tmp` stays 0, as in the C.
 ///
-/// One function, and one region with the level's features, per block size,
-/// bound and transform, shared by the kernels of the block size: inlined
-/// into each kernel, the passes made the library many times larger and its
-/// build very slow.
-#[inline(never)]
+/// One region with the level's features per block size, bound and
+/// transform, shared by the kernels of the block size: inlined into each
+/// kernel, the passes made the library many times larger and its build very
+/// slow. On x86-64 the region is a function of its own (it carries the AVX2
+/// features), so it is shared as it is; on AArch64 the compiler inlines it,
+/// and this function is kept out of line instead.
+#[cfg_attr(target_arch = "aarch64", inline(never))]
 fn first_pass<S: Simd, C: Coef, T: Tx1d, const W: usize, const H: usize, const NX: usize>(
     simd: S,
     coeff: &mut [C],
@@ -465,6 +479,10 @@ fn first_pass<S: Simd, C: Coef, T: Tx1d, const W: usize, const H: usize, const N
     simd.vectorize(
         #[inline(always)]
         || {
+            // Inside the region: on x86-64 the region is a function of its
+            // own, and a constant computed outside it would reach it only as
+            // a value in memory.
+            let depth = C::depth(depth);
             if W.min(H) == 4 {
                 rows_pass::<_, C::Lanes4<S>, _, T, W, H, NX>(simd, coeff, coded_rows, depth, tmp);
             } else {
@@ -518,7 +536,7 @@ fn rows_pass<S: Simd, V: Memory<S, C>, C: Coef, T: Tx1d, const W: usize, const H
 /// The columns of `tmp` (rows from `tmp.len()` up are zero) transformed
 /// with `T` and added to the pixels: `iclip_pixel(dst + ((c + 8) >> 4))`.
 /// Shared as `first_pass` is.
-#[inline(never)]
+#[cfg_attr(target_arch = "aarch64", inline(never))]
 fn second_pass<S: Simd, C: Coef, P: Pixel, T: Tx1d, const W: usize, const H: usize>(
     simd: S,
     tmp: &[[C; W]],
@@ -528,6 +546,10 @@ fn second_pass<S: Simd, C: Coef, P: Pixel, T: Tx1d, const W: usize, const H: usi
     simd.vectorize(
         #[inline(always)]
         || {
+            // Inside the region: on x86-64 the region is a function of its
+            // own, and a constant computed outside it would reach it only as
+            // a value in memory.
+            let depth = C::depth(depth);
             if W == 4 {
                 columns_pass::<_, C::Lanes4<S>, _, _, T, W, H>(simd, tmp, depth, rows);
             } else {

@@ -1,8 +1,11 @@
 //! The pilot against the translated C kernels (`itx_tmpl.c`), slot by slot,
 //! on random blocks: every coefficient the C reads is drawn from the full
 //! range the decoder stores (`cf_max` of recon_tmpl.c), so the clipping
-//! steps are reached as well. A development check; the gate is checkasm
-//! against the original's assembly and the whole-image decodes.
+//! steps are reached as well. The gate is checkasm against the original's
+//! assembly and the whole-image decodes; but checkasm draws coefficients a
+//! conformant stream can have, so at 8 bpc these tests are the check that
+//! the 16-bit lanes saturate exactly where the C clips (a wrapping instead of
+//! a saturating addition passes checkasm and fails `pilot_matches_c_8bpc`).
 
 use super::*;
 
