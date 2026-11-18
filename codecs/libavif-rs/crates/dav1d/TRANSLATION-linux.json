@@ -378,7 +378,7 @@
         "raw-c-assignment-temporary": 1
       },
       "raw_sha256": "3195976dfdcacd1ff4f7e39e16fa6c761b84df50a86eae5a2dbf6ac82189f71c",
-      "rust_sha256": "e27c289b85b3035f5eda582344e056912e557a1586f69e747bd8ad7e6c0f10dd"
+      "rust_sha256": "82c9ed3c95604a06ce2e99cb25ff05d5a04eaa74c18048e4a48169d3c21691fa"
     },
     {
       "source": "upstream/dav1d/src/itx_tmpl.c",
@@ -536,7 +536,7 @@
         "raw-c-assignment-temporary": 1
       },
       "raw_sha256": "9b31e4980097b0299200e701bcdf718ef94745a013b2333cc4af81abadd20d18",
-      "rust_sha256": "31901c13e54177be4fa51785a095329a62e1d652e37e8f8f1ee19d4a84752fad"
+      "rust_sha256": "9ff6b6e5dfac7f894a9f97de0010cfc6dfac7b5bf7c2eb41a86af8a5fc936dca"
     },
     {
       "source": "upstream/dav1d/src/itx_tmpl.c",

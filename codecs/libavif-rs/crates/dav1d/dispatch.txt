@@ -4,7 +4,9 @@ cdef_16bpc_x86
 cdef_8bpc_arm
 cdef_8bpc_x86
 ipred_16bpc_arm
+ipred_16bpc_x86
 ipred_8bpc_arm
+ipred_8bpc_x86
 itx_16bpc_arm
 itx_16bpc_x86
 itx_8bpc_arm

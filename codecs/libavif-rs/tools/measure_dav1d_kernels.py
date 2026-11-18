@@ -61,12 +61,14 @@ rows at a time (instruction counts do not depend on the load). Results:
 copy) and `--output PATH` writes the JSON elsewhere; both for `ipred`, `lr`,
 `lpf`, `cdef` and the itx families only.
 
-On GNU Linux x86-64 (families `msac`, `lpf`, `cdef`, `itx`, `itx16` and
-`itx12`) the level is AVX2 (mask 0x2f; oracle
+On GNU Linux x86-64 (families `msac`, `lpf`, `cdef`, `ipred`, `itx`,
+`itx16` and `itx12`) the level is AVX2 (mask 0x2f; oracle
 `build/dav1d-dsp-release-avx2/libdav1d-dsp-asm.so`, made by
 `check_dav1d_dsp.py --simd avx2`) and the kernels are those of
-`src/x86/msac.h`, `src/x86/loopfilter.h`, `src/x86/cdef.h` (the slots hold
-the assembly itself, which pads the block; no wrapper) and
+`src/x86/msac.h`, `src/x86/loopfilter.h`, `src/x86/cdef.h` and
+`src/x86/ipred.h` (the slots hold the assembly itself, which pads the
+block or prepares the edge; no wrapper; `ipred` there with at least 2,000
+calls per row, as Callgrind's counts do not vary between runs) and
 `src/x86/itx.h`: the slots that
 `simd/x86/itx.rs` assigns at 8 bpc (`itx`), at 10 bits (`itx16`) and at 12
 bits (`itx12`, for which the x86 assembly has kernels of its own; x86-64
@@ -191,12 +193,12 @@ def main():
     parser.add_argument('--family', choices=['itx', 'itx16', 'itx12', 'msac', 'lpf', 'cdef', 'ipred', 'lr'],
                         default='itx')
     parser.add_argument('--bpc', type=int, choices=[8, 16], help='ipred, lr: only this bit depth')
-    parser.add_argument('--jobs', type=int, default=1, help='lr and the itx families: rows measured at a time')
+    parser.add_argument('--jobs', type=int, default=1, help='ipred, lr and the itx families: rows measured at a time')
     parser.add_argument('--angle', type=int, default=-1, help='ipred: one angle (0..90) for Z1 to Z3')
     parser.add_argument('--port', type=Path, help='ipred, lr, lpf, cdef, itx families: the port cdylib to measure')
     parser.add_argument('--output', type=Path, help='ipred, lr, lpf, cdef, itx families: where to write the JSON')
     args = parser.parse_args()
-    if X86 and args.family not in ('msac', 'lpf', 'cdef', 'itx', 'itx16', 'itx12'):
+    if X86 and args.family not in ('msac', 'lpf', 'cdef', 'ipred', 'itx', 'itx16', 'itx12'):
         raise SystemExit(f'--family {args.family} has no x86-64 kernels yet')
     if not X86 and args.family == 'itx12':
         raise SystemExit('--family itx12 is for x86-64: on AArch64 the original has no 12-bit kernels but WHT')
@@ -209,32 +211,45 @@ def main():
     rows = []
     if args.family == 'ipred':
         port = args.port or port
-        for bpc in ([args.bpc] if args.bpc else [8, 16]):
-            for kernel, path, slot, w, h, param in ipred_rows(bpc):
-                if args.only and args.only not in kernel:
-                    continue
-                iterations = max(250000, args.calls // (w * h))
-                per_call, checksums = {}, {}
-                for side, library in (('original', original), ('port', port)):
-                    command = [driver, library, '0x1', 'ipred', str(bpc), str(slot), str(w), str(h), hex(param),
-                               str(args.angle), str(iterations)]
-                    base, _ = instructions(command + ['baseline'])
-                    result = subprocess.run(['/usr/bin/time', '-l', *command, 'call'], capture_output=True, text=True,
-                                            check=True)
+
+        def measure_ipred(job):
+            kernel, path, slot, w, h, param = job
+            # Callgrind's counts on x86-64 have no run-to-run noise, so fewer calls suffice there.
+            iterations = max(2000 if X86 else 250000, args.calls // (w * h))
+            per_call, checksums = {}, {}
+            for side, library in (('original', original), ('port', port)):
+                command = [driver, library, MASK, 'ipred', str(bpc_of(kernel)), str(slot), str(w), str(h),
+                           hex(param), str(args.angle), str(iterations)]
+                base, _ = instructions(command + ['baseline'])
+                if X86:
+                    result = subprocess.run(['valgrind', '--tool=callgrind', '--callgrind-out-file=/dev/null',
+                                             *command, 'call'], capture_output=True, text=True, check=True)
+                    total = int(re.search(r'Collected : (\d+)', result.stderr).group(1))
+                else:
+                    result = subprocess.run(['/usr/bin/time', '-l', *command, 'call'], capture_output=True,
+                                            text=True, check=True)
                     total = int(re.search(r'(\d+)\s+instructions retired', result.stderr).group(1))
-                    calls = int(re.search(r'calls=(\d+)', result.stdout).group(1))
-                    per_call[side] = (total - base) / calls
-                    checksums[side] = re.search(r'checksum=(\w+)', result.stdout).group(1)
-                row = {'kernel': kernel, 'path': path, 'calls': calls,
-                       'original_instructions': round(per_call['original'], 1),
-                       'port_instructions': round(per_call['port'], 1),
-                       'ratio': round(per_call['port'] / per_call['original'], 3),
-                       'identical_output': checksums['original'] == checksums['port']}
+                calls = int(re.search(r'calls=(\d+)', result.stdout).group(1))
+                per_call[side] = (total - base) / calls
+                checksums[side] = re.search(r'checksum=(\w+)', result.stdout).group(1)
+            return {'kernel': kernel, 'path': path, 'calls': calls,
+                    'original_instructions': round(per_call['original'], 1),
+                    'port_instructions': round(per_call['port'], 1),
+                    'ratio': round(per_call['port'] / per_call['original'], 3),
+                    'identical_output': checksums['original'] == checksums['port']}
+
+        def bpc_of(kernel):
+            return int(kernel.split()[-1][:-3])
+
+        jobs = [job for bpc in ([args.bpc] if args.bpc else [8, 16]) for job in ipred_rows(bpc)
+                if not args.only or args.only in job[0]]
+        with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
+            for row in pool.map(measure_ipred, jobs):
                 rows.append(row)
                 print(f"{row['kernel']:52s} {row['path']:16s} {row['original_instructions']:9.1f} "
                       f"{row['port_instructions']:9.1f} {row['ratio']:6.3f} {row['identical_output']}", flush=True)
         (args.output or ROOT / 'build/dav1d-kernel-instructions-ipred.json').write_text(json.dumps(
-            {'pixels_per_kernel': args.calls, 'level': 'neon', 'original': str(original), 'port': str(port),
+            {'pixels_per_kernel': args.calls, 'level': LEVEL, 'original': str(original), 'port': str(port),
              'kernels': rows}, indent=2) + '\n')
         if not all(row['identical_output'] for row in rows):
             raise SystemExit('outputs differ')

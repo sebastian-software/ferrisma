@@ -1936,4 +1936,5 @@ pub unsafe extern "C" fn dav1d_intra_pred_dsp_init_16bpc(
                 core::ffi::c_int,
             ) -> (),
     ) as pal_pred_fn;
+    crate::simd::x86::ipred::intra_pred_dsp_init_x86_16bpc(c.cast()); // dav1d-dispatch
 }
