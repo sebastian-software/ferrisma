@@ -158,3 +158,72 @@ measured, a supported host changes, or fixture and live oracle results diverge.
   `libsharpyuv-core` stays at its own `rust-version`. The AVIF port's
   `x86_c2r/assemble.py` formats generated output with `rustup run stable
   rustfmt`; that is a generator, not a static stage, and is unchanged.
+- 2026-11-17 / 2026-11-18 — Owner decisions D1–D5 on three tiers with time
+  budgets, asked for on 2026-11-16 ("a golden pass in bounded time; deep
+  checks out of the way, regressions still reported"). This replaces the
+  two-level cadence above where it differs:
+
+  | Tier | When | Budget | Blocks |
+  |---|---|---|---|
+  | 1 Change | every branch merged to `main` | ≤ 15 min per job (D1) | the merge |
+  | 2 Nightly | daily on `main` (`nightly.yml`, `tier: nightly`) | ≤ 60 min per job, ≤ 3 h wall | a release |
+  | 3 Deep | Sunday and before every release candidate (`deep.yml`, `tier: deep`) | the hosted job limit | a release |
+
+  Rules: a check moves to a lower tier only with evidence that the tier above
+  keeps its code reachable or names the data property it adds; nothing is
+  deleted without that evidence and an owner decision. A job over its budget
+  is a defect of the tier: shard it, move it with evidence, or record why it
+  stays. Every tier selection fails closed (each listed test must exist and
+  report a result; the shards together must be the whole tier). A red
+  scheduled nightly or deep job opens or updates one issue per job with the
+  failing test names and the run link (D5,
+  `scripts/ci/report_failed_jobs.py`); the fix adds the smallest
+  reproducing case to tier 1 or 2. A release needs the last nightly and deep
+  runs green on the release commit ([publishing](../publishing.md)). The
+  local-first binding proof of ADR-0041 (D7) is unchanged.
+
+  Evidence for JXL: source-based region and branch coverage of
+  `libjxl-rs/src`, each of the 41 large-image tests in its own process
+  (local ARM64): none reaches code the rest of the suite misses, apart from
+  two settings-driven tests (3 and 17 branch outcomes). The large images add
+  data properties instead: 2×2 DC groups (2049×2049 is the smallest image
+  with them), photograph scale (4000×3000), lossless codestreams over
+  several 4 MiB chunks. The 2048×1536 parts add neither. Decisions: the
+  2048×1536 parts (D2), the 4000×3000 lossy parts and
+  `enc_public_photographs` run in the deep tier (`DEEP_TESTS` in
+  `tools/check.py`); the photographs test now compares four photographs
+  from libjxl's pinned test data (CC0, CC BY 4.0; provenance in
+  `tests/data/photographs/`) and fails if none is named (D3); the macOS
+  sanitized matrix runs in deep (D4), and, by owner acknowledgement of
+  2026-11-18, so do the macOS decoder and public-decoder audits (73 and
+  108 min; the Linux audits stay nightly). Thin shapes 2049×257, 257×2049,
+  4097×9 and 9×4097 join the nightly gates: one DC-group boundary per
+  direction, three DC groups in a row, and the first whole encode with a
+  side above 4096. By owner acknowledgement of 2026-11-18 the ARM
+  `simd_vardct_lanes8` test binary (11.5 min to compile at `rust-version`)
+  runs nightly on `ubuntu-24.04-arm` instead of per change, and fails if
+  missing.
+
+  Other families: the WebP and JPEG oracle jobs are dealt into partitions
+  of whole test targets (`tools/partition.py` per port, verified complete by
+  an `oracle-complete` job); the hosted macOS ARM64 dav1d job gains the NEON
+  per-kernel and whole-image gates against the original's assembly.
+
+  Measured (hosted): tier-1 JXL jobs 5.7–11.8 min (CI
+  [44230179272](https://github.com/sebastian-software/ferrisma/actions/runs/44230179272),
+  before 21 and 36 min). Nightly JXL
+  ([44239581174](https://github.com/sebastian-software/ferrisma/actions/runs/44239581174)):
+  test shards 24–51 min, audits 15–43 min, except the Linux public-decoder
+  audit at 53–78 min over three runs (its replay script alone takes 21–37
+  min; splitting it is open). Deep JXL
+  ([44239585109](https://github.com/sebastian-software/ferrisma/actions/runs/44239585109)):
+  at most 69.8 min per job. JPEG macOS oracle 30.0–35.7 min per shard
+  (before 107; [44195926506](https://github.com/sebastian-software/ferrisma/actions/runs/44195926506));
+  WebP at most 44.8 min per shard (before 163 Linux, 218 macOS;
+  [44195922283](https://github.com/sebastian-software/ferrisma/actions/runs/44195922283));
+  dav1d NEON 987/987 at `neon` and scalar
+  ([44171995555](https://github.com/sebastian-software/ferrisma/actions/runs/44171995555)).
+  Not met: the ≤ 3 h nightly wall time. Linux jobs finished within 1 h 49
+  min, but macOS jobs queued up to 3.5 h for runners shared with the
+  organization's other runs, so the JXL run took about 4 h and the WebP
+  family 5 h. A hosted deep run is pending until `deep.yml` is on `main`.
