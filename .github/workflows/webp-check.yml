@@ -64,12 +64,13 @@ jobs:
     # macOS, release-simd's three levels 66 min on Linux) and leave room for
     # a Linux runner 1.8 times slower (nightly 43840953408: 295 minutes for
     # the same job). More jobs at a time than the other families: at two, the
-    # shards would only queue. The longest partitions come first, macOS and
-    # Linux alternating, so that a queue for macOS runners does not hold the
-    # Linux partitions back.
+    # shards would only queue, and a job waiting for a macOS runner holds
+    # its slot (run 44195922283: Linux partitions queued for 125 to 200
+    # minutes behind macOS ones at four). The longest partitions come first,
+    # macOS and Linux alternating.
     strategy:
       fail-fast: false
-      max-parallel: 4
+      max-parallel: 8
       matrix:
         include:
         - {os: macos-latest, variant: asan-ubsan, shard: 1, of: 4}
@@ -83,9 +84,10 @@ jobs:
         - {os: macos-latest, variant: release, shard: 1, of: 2}
         - {os: ubuntu-latest, variant: asan-ubsan, shard: 2, of: 2}
         - {os: macos-latest, variant: release, shard: 2, of: 2}
-        - {os: ubuntu-latest, variant: release, shard: 1, of: 2}
+        - {os: ubuntu-latest, variant: release, shard: 1, of: 3}
         - {os: macos-latest, variant: release-simd, shard: 1, of: 2}
-        - {os: ubuntu-latest, variant: release, shard: 2, of: 2}
+        - {os: ubuntu-latest, variant: release, shard: 2, of: 3}
+        - {os: ubuntu-latest, variant: release, shard: 3, of: 3}
         - {os: macos-latest, variant: release-simd, shard: 2, of: 2}
         - {os: ubuntu-latest, variant: debug, shard: 1, of: 1}
         - {os: macos-latest, variant: debug, shard: 1, of: 1}
