@@ -18,7 +18,7 @@
 use core::ops::Neg;
 
 use fearless_simd::prelude::*;
-use fearless_simd::{i32x4, i32x8, i64x2, u16x16, u16x8};
+use fearless_simd::{i16x8, i32x4, i32x8, i64x2, u16x16, u16x8};
 
 /// A vector of `i32` lanes the transforms run on: `i32x4` (blocks 4 wide
 /// or 4 tall) or `i32x8`.
@@ -37,6 +37,10 @@ pub trait Lanes<S: Simd>: SimdInt<S, Element = i32> + Neg<Output = Self> {
 
     /// Stores the lanes (each in `0..=u8::MAX`) as `u8`s.
     fn store_u8(self, out: &mut [u8]);
+
+    /// The lanes (each in the range of `i16`) as the first lanes of an
+    /// `i16x8`.
+    fn to_i16x8(self) -> i16x8<S>;
 }
 
 impl<S: Simd> Lanes<S> for i32x4<S> {
@@ -65,6 +69,11 @@ impl<S: Simd> Lanes<S> for i32x4<S> {
     fn store_u8(self, out: &mut [u8]) {
         let narrowed: u16x8<S> = self.narrow(self).bitcast();
         out.copy_from_slice(&narrowed.narrow(narrowed).as_slice()[..4]);
+    }
+
+    #[inline(always)]
+    fn to_i16x8(self) -> i16x8<S> {
+        self.narrow(self)
     }
 }
 
@@ -101,6 +110,11 @@ impl<S: Simd> Lanes<S> for i32x8<S> {
     fn store_u8(self, out: &mut [u8]) {
         let narrowed: u16x16<S> = self.narrow(self).bitcast();
         out.copy_from_slice(&narrowed.narrow(narrowed).as_slice()[..8]);
+    }
+
+    #[inline(always)]
+    fn to_i16x8(self) -> i16x8<S> {
+        self.narrow(self).split().0
     }
 }
 

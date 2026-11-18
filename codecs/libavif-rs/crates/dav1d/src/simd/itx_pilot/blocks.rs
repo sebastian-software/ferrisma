@@ -21,7 +21,7 @@
 //! `L` is 8 (`i32x8`), or 4 (`i32x4`) where the block is 4 wide or 4 tall.
 
 use fearless_simd::prelude::*;
-use fearless_simd::{i32x4, i32x8};
+use fearless_simd::{i16x8, i32x4, i32x8, u16x8, u8x16};
 
 use super::transforms::{each, transform, wht4, Clip, Kind, Lanes};
 
@@ -30,7 +30,21 @@ pub trait Pixel: Copy + 'static {
     fn to_i32(self) -> i32;
     /// Stores `V::LEN` clipped values (`0..=bitdepth_max`) as pixels.
     fn store<S: Simd, V: Lanes<S>>(values: V, pixels: &mut [Self]);
+
+    /// `iclip_pixel(dst + residual)` for `V::LEN` pixels, where `residual`
+    /// is a second-pass output `(c + 8) >> 4`.
+    fn add<S: Simd, V: Lanes<S>>(simd: S, pixels: &mut [Self], residual: V, pixel_max: i32);
+
+    /// `iclip_pixel(dst + dc)` for a row, `dc` the DC-only value.
+    fn add_dc<S: Simd>(simd: S, row: &mut [Self], dc: i32, pixel_max: i32);
 }
+
+// Both run in 16-bit lanes up to 10 bits, which is exact there: the second
+// pass clips to the range of `int16_t` at 8 and 10 bits, and its largest
+// unclipped output (the 32-point identity, four times a clipped value) is
+// below 2^17, so `|residual|` is below 2^13; the DC-only value of a
+// coefficient within `cf_max` (recon_tmpl.c) is below 2^12. At 12 bits the
+// clip is 2^17 and the residual can reach 2^15: 32-bit lanes there.
 
 impl Pixel for u8 {
     #[inline(always)]
@@ -41,6 +55,37 @@ impl Pixel for u8 {
     fn store<S: Simd, V: Lanes<S>>(values: V, pixels: &mut [Self]) {
         values.store_u8(pixels);
     }
+
+    #[inline(always)]
+    fn add<S: Simd, V: Lanes<S>>(simd: S, pixels: &mut [Self], residual: V, _pixel_max: i32) {
+        add_u8(simd, pixels, residual.to_i16x8());
+    }
+
+    #[inline(always)]
+    fn add_dc<S: Simd>(simd: S, row: &mut [Self], dc: i32, _pixel_max: i32) {
+        let dc = i16x8::splat(simd, dc as i16);
+        match row.len() {
+            4 => add_u8(simd, &mut row[..4], dc),
+            8 => add_u8(simd, &mut row[..8], dc),
+            _ => {
+                for pixels in row.chunks_exact_mut(16) {
+                    let (low, high) = u8x16::from_slice(simd, pixels).widen();
+                    let clip = |wide: u16x8<S>| -> u16x8<S> { (wide.bitcast::<i16x8<S>>() + dc).max(0).min(255).bitcast() };
+                    clip(low).narrow(clip(high)).store_slice(pixels);
+                }
+            }
+        }
+    }
+}
+
+/// `iclip_pixel(dst + residual)` for up to 8 pixels of 8 bits.
+#[inline(always)]
+fn add_u8<S: Simd>(simd: S, pixels: &mut [u8], residual: i16x8<S>) {
+    let mut bytes = [0; 16];
+    bytes[..pixels.len()].copy_from_slice(pixels);
+    let (wide, _) = u8x16::from_slice(simd, &bytes).widen();
+    let sum: u16x8<S> = (wide.bitcast::<i16x8<S>>() + residual).max(0).min(255).bitcast();
+    pixels.copy_from_slice(&sum.narrow(sum).as_slice()[..pixels.len()]);
 }
 
 impl Pixel for u16 {
@@ -52,6 +97,51 @@ impl Pixel for u16 {
     fn store<S: Simd, V: Lanes<S>>(values: V, pixels: &mut [Self]) {
         values.store_u16(pixels);
     }
+
+    #[inline(always)]
+    fn add<S: Simd, V: Lanes<S>>(simd: S, pixels: &mut [Self], residual: V, pixel_max: i32) {
+        if pixel_max <= 1023 {
+            add_u16(simd, pixels, residual.to_i16x8(), pixel_max);
+        } else {
+            add_to_pixels(simd, pixels, residual, pixel_max);
+        }
+    }
+
+    #[inline(always)]
+    fn add_dc<S: Simd>(simd: S, row: &mut [Self], dc: i32, pixel_max: i32) {
+        if pixel_max > 1023 {
+            return add_dc_wide(simd, row, dc, pixel_max);
+        }
+        let dc = i16x8::splat(simd, dc as i16);
+        if row.len() == 4 {
+            add_u16(simd, &mut row[..4], dc, pixel_max);
+        } else {
+            for pixels in row.chunks_exact_mut(8) {
+                add_u16(simd, pixels, dc, pixel_max);
+            }
+        }
+    }
+}
+
+/// `iclip_pixel(dst + dc)` for a row, in 32-bit lanes.
+#[inline(always)]
+fn add_dc_wide<S: Simd, P: Pixel>(simd: S, row: &mut [P], dc: i32, pixel_max: i32) {
+    if row.len() == 4 {
+        add_to_pixels(simd, row, i32x4::splat(simd, dc), pixel_max);
+    } else {
+        for pixels in row.chunks_exact_mut(8) {
+            add_to_pixels(simd, pixels, i32x8::splat(simd, dc), pixel_max);
+        }
+    }
+}
+
+/// `iclip_pixel(dst + residual)` for up to 8 pixels of 10 bits.
+#[inline(always)]
+fn add_u16<S: Simd>(simd: S, pixels: &mut [u16], residual: i16x8<S>, pixel_max: i32) {
+    let mut values = [0; 8];
+    values[..pixels.len()].copy_from_slice(pixels);
+    let sum = (u16x8::from_slice(simd, &values).bitcast::<i16x8<S>>() + residual).max(0).min(pixel_max as i16);
+    pixels.copy_from_slice(&sum.bitcast::<u16x8<S>>().as_slice()[..pixels.len()]);
 }
 
 /// A coefficient of the DSP table (`coef`): `i16` at 8 bpc, `i32` above.
@@ -342,7 +432,7 @@ fn second_pass<S: Simd, V: Lanes<S>, P: Pixel, const W: usize, const H: usize>(
         }
         let out = transform(pass.kinds[1], input, col_clip);
         for (row, c) in rows.iter_mut().zip(out) {
-            add_to_pixels(simd, &mut row[x0..][..lanes], (c + 8) >> 4, pass.depth.pixel_max);
+            P::add(simd, &mut row[x0..][..lanes], (c + 8) >> 4, pass.depth.pixel_max);
         }
     }
 }
@@ -378,20 +468,8 @@ fn dc_only<S: Simd, P: Pixel, C: Coef, const H: usize>(simd: S, rows: &mut [&mut
     dc = (dc * 181 + 128) >> 8;
     dc = (dc + rnd) >> shift;
     dc = (dc * 181 + 128 + 2048) >> 12;
-    if rows[0].len() == 4 {
-        add_dc::<_, i32x4<S>, _>(simd, rows, dc, pass.depth.pixel_max);
-    } else {
-        add_dc::<_, i32x8<S>, _>(simd, rows, dc, pass.depth.pixel_max);
-    }
-}
-
-#[inline(always)]
-fn add_dc<S: Simd, V: Lanes<S>, P: Pixel>(simd: S, rows: &mut [&mut [P]], dc: i32, pixel_max: i32) {
-    let dc = V::splat(simd, dc);
     for row in rows.iter_mut() {
-        for pixels in row.chunks_exact_mut(V::LEN) {
-            add_to_pixels(simd, pixels, dc, pixel_max);
-        }
+        P::add_dc(simd, row, dc, pass.depth.pixel_max);
     }
 }
 

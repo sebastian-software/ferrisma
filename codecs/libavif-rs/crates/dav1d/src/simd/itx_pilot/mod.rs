@@ -17,7 +17,16 @@
 //!
 //! The numerics: the C computes in `int`; the vectors have 32-bit lanes and
 //! the same expressions, so every value is the C's (including the C's
-//! rearranged products, which keep 12-bit input free of overflow).
+//! rearranged products, which keep 12-bit input free of overflow). Only the
+//! final addition to the pixels runs in 16-bit lanes, where that is exact
+//! (`blocks::Pixel`).
+//!
+//! So the pilot gives the C's pixels for every input. The original's
+//! assembly gives them where the intermediates stay within the ranges of a
+//! conformant stream (itx_1d.c: SIMD may overflow beyond them); with
+//! coefficients over the whole `int16_t` range at 8 bpc about half of the
+//! calls differ between the original's C and its NEON or AVX2 kernels, and
+//! there the pilot follows the C, the shipped kernels the assembly.
 //!
 //! The switch: the module exists only when the crate is built with
 //! `--cfg dav1d_itx_pilot`, so a normal build is the shipped port,
