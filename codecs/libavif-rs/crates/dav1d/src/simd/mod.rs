@@ -20,6 +20,10 @@
 
 pub mod cpu;
 
+// Experiment, not for main: CDEF from the algorithm (cdef_pilot/mod.rs).
+#[cfg(all(dav1d_cdef_pilot, any(target_arch = "aarch64", target_arch = "x86_64")))]
+pub mod cdef_pilot;
+
 #[cfg(target_arch = "aarch64")]
 pub mod arm64 {
     pub mod cdef;

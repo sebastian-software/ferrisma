@@ -120,6 +120,9 @@ mod bpc8 {
         c.fb[0] = Some(cdef_filter_8x8_neon);
         c.fb[1] = Some(cdef_filter_4x8_neon);
         c.fb[2] = Some(cdef_filter_4x4_neon);
+
+        #[cfg(dav1d_cdef_pilot)]
+        crate::simd::cdef_pilot::install_8bpc(c);
     }
 }
 
@@ -144,6 +147,9 @@ mod bpc16 {
         c.fb[0] = Some(cdef_filter_8x8_neon);
         c.fb[1] = Some(cdef_filter_4x8_neon);
         c.fb[2] = Some(cdef_filter_4x4_neon);
+
+        #[cfg(dav1d_cdef_pilot)]
+        crate::simd::cdef_pilot::install_16bpc(c);
     }
 }
 

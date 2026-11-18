@@ -28,5 +28,11 @@ port-test-bridges = []
 libc = "0.2.191"
 c2rust-bitfields = "0.3.0"
 
+# Experiment only (simd/cdef_pilot, variant 2): compiled only with
+# `--cfg dav1d_cdef_pilot`. Apache-2.0 OR MIT, linebender, no dependencies
+# of its own.
+[target.'cfg(dav1d_cdef_pilot)'.dependencies]
+fearless_simd = "=1.2.0"
+
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(libavif_rs_asan)", "cfg(dav1d_portable)"] }
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(libavif_rs_asan)", "cfg(dav1d_portable)", "cfg(dav1d_cdef_pilot)"] }
