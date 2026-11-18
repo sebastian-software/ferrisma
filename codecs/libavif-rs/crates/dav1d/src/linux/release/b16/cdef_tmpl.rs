@@ -806,4 +806,5 @@ pub unsafe extern "C" fn dav1d_cdef_dsp_init_16bpc(c: *mut Dav1dCdefDSPContext) 
                 core::ffi::c_int,
             ) -> (),
     ) as cdef_fn;
+    crate::simd::x86::cdef::cdef_dsp_init_x86_16bpc(c.cast()); // dav1d-dispatch
 }

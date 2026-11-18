@@ -353,9 +353,12 @@ static int ipred(void *library, char **argv) {
     iterations = (iterations + set - 1) / set * set;
     const int bitdepth_max = bpc == 8 ? 255 : 1023;
     const ptrdiff_t bytes = bpc == 8 ? 1 : 2, stride = 64 * bytes;
-    /* 16 pixels behind the 257 of the edge array: Z1 at 64x64 with the intra edge filter loads up to 14 pixels
-     * past them (assembly and port alike; in the decoder they are inside the task context's scratch union). */
-    _Alignas(64) static uint16_t picture[64 * 64], edge[257 + 16], luma[64 * 64], pal[8];
+    /* 64 pixels before and behind the 257 of the edge array (zero; the kernels discard what they read there):
+     * Z1 at 64x64 with the intra edge filter loads up to 14 pixels past them on NEON; on x86-64 the AVX2 Z1 and
+     * Z3 load up to 70 bytes (8 bpc) or 63 pixels (16 bpc) past the end and 63 pixels before the start
+     * (assembly and port alike; in the decoder they are inside the task context's scratch union). */
+    _Alignas(64) static uint16_t picture[64 * 64], edge_buffer[64 + 257 + 64], luma[64 * 64], pal[8];
+    uint16_t *const edge = edge_buffer + 64;
     _Alignas(64) static int16_t ac[32 * 32];
     _Alignas(64) static uint8_t idx[32 * 64];
     uint32_t seed = 12345;
