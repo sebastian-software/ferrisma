@@ -18,7 +18,7 @@ use core::arch::x86_64::*;
 use core::ffi::{c_int, c_uint};
 
 use super::{
-    best_direction, opposite, DirBlock, Filtered, Padded, Params, Variant, ALT_WEIGHTS, DIAGONAL_WEIGHTS,
+    best_direction, DirBlock, Filtered, Padded, Params, Variant, ALT_WEIGHTS, DIAGONAL_WEIGHTS,
     LINE_WEIGHT,
 };
 
@@ -42,16 +42,30 @@ impl Variant for Avx2 {
 
 #[inline]
 #[target_feature(enable = "avx2")]
-fn load16(lanes: &[i16; 16]) -> __m256i {
-    // SAFETY: reads the 16 values of the array.
-    unsafe { _mm256_loadu_si256(lanes.as_ptr().cast()) }
+fn load8(lanes: &[i16; 8]) -> __m128i {
+    // SAFETY: reads the 8 values of the array.
+    unsafe { _mm_loadu_si128(lanes.as_ptr().cast()) }
 }
 
 #[inline]
 #[target_feature(enable = "avx2")]
-fn load8(lanes: &[i16; 8]) -> __m128i {
-    // SAFETY: reads the 8 values of the array.
-    unsafe { _mm_loadu_si128(lanes.as_ptr().cast()) }
+fn load4(lanes: &[i16; 4]) -> __m128i {
+    // SAFETY: reads the 4 values (8 bytes) of the array.
+    unsafe { _mm_loadl_epi64(lanes.as_ptr().cast()) }
+}
+
+/// The pixels of rows `y..y + 16 / W` at offset `(dy, dx)`: two rows of 8,
+/// or four rows of 4.
+#[inline]
+#[target_feature(enable = "avx2")]
+fn taps<const W: usize>(input: &Padded, y: usize, off: isize) -> __m256i {
+    let (low, high) = if W == 8 {
+        (load8(input.at::<8>(y, off)), load8(input.at::<8>(y + 1, off)))
+    } else {
+        let row = |r: usize| load4(input.at::<4>(y + r, off));
+        (_mm_unpacklo_epi64(row(0), row(1)), _mm_unpacklo_epi64(row(2), row(3)))
+    };
+    _mm256_inserti128_si256::<1>(_mm256_castsi128_si256(low), high)
 }
 
 #[inline]
@@ -92,19 +106,19 @@ impl Tap {
 /// `cdef_filter_block_c`, for the strengths that are not zero.
 #[target_feature(enable = "avx2")]
 fn filter<const W: usize, const H: usize, const PRI: bool, const SEC: bool>(input: &Padded, params: &Params) -> Filtered {
-    let load = |y: usize, off| load16(&input.lanes::<W, 16>(y, off));
+    let load = |y: usize, off| taps::<W>(input, y, off);
     let pri = Tap::new(params.pri_strength, params.pri_shift);
     let sec = Tap::new(params.sec_strength, params.sec_shift);
     let mut out = [[0; 8]; 8];
     for y in (0..H).step_by(16 / W) {
-        let px = load(y, (0, 0));
+        let px = load(y, 0);
         let mut sum = _mm256_setzero_si256();
         let (mut min, mut max) = (px, px);
         for k in 0..2 {
             if PRI {
                 let tap = _mm256_set1_epi16(params.pri_taps[k]);
                 let off = params.primary(k);
-                for off in [off, opposite(off)] {
+                for off in [off, -off] {
                     let p = load(y, off);
                     sum = _mm256_add_epi16(sum, _mm256_mullo_epi16(constrain(p, px, pri.strength, pri.shift), tap));
                     if SEC {
@@ -117,7 +131,7 @@ fn filter<const W: usize, const H: usize, const PRI: bool, const SEC: bool>(inpu
                 // "sec_tap starts at 2 and becomes 1"
                 let tap = _mm256_set1_epi16(2 - k as i16);
                 for off in params.secondary(k) {
-                    for off in [off, opposite(off)] {
+                    for off in [off, -off] {
                         let s = load(y, off);
                         sum = _mm256_add_epi16(sum, _mm256_mullo_epi16(constrain(s, px, sec.strength, sec.shift), tap));
                         if PRI {

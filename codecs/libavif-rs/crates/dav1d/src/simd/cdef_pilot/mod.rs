@@ -61,19 +61,25 @@ pub const HAVE_BOTTOM: u32 = 1 << 3;
 /// The C's fill value for pixels outside the frame (`fill` in cdef_tmpl.c).
 pub const PAD: i16 = i16::MIN;
 
-/// The two taps (row, column) of each direction, from the block's pixel
-/// outward: AV1 spec `Cdef_Directions`, dav1d's `dav1d_cdef_directions`
-/// (rows of 12 there).
-pub const DIRECTIONS: [[(isize, isize); 2]; 8] = [
-    [(-1, 1), (-2, 2)],
-    [(0, 1), (-1, 2)],
-    [(0, 1), (0, 2)],
-    [(0, 1), (1, 2)],
-    [(1, 1), (2, 2)],
-    [(1, 0), (2, 1)],
-    [(1, 0), (2, 0)],
-    [(1, 0), (2, -1)],
-];
+/// The row length of the padded block: the C's `tmp_stride`.
+pub const STRIDE: usize = 12;
+
+/// The two taps of each direction, from the block's pixel outward, as
+/// offsets in the padded block (`row * STRIDE + column`): AV1 spec
+/// `Cdef_Directions`, dav1d's `dav1d_cdef_directions`.
+pub const DIRECTIONS: [[isize; 2]; 8] = {
+    const S: isize = STRIDE as isize;
+    [
+        [-S + 1, -2 * S + 2],
+        [1, -S + 2],
+        [1, 2],
+        [1, S + 2],
+        [S + 1, 2 * S + 2],
+        [S, 2 * S + 1],
+        [S, 2 * S],
+        [S, 2 * S - 1],
+    ]
+};
 
 /// The weight of a squared partial sum of `n` pixels in the direction
 /// search, `840 / n` (AV1 spec `Div_Table`), per partial-sum index.
@@ -111,27 +117,33 @@ impl Pixel for u16 {
 }
 
 /// The block and two pixels around it, as the C `padding` builds `tmp`:
-/// `rows[y + 2][x + 2]` for block rows `-2..h+2` and columns `-2..w+2`,
-/// `PAD` where the frame has no pixel.
+/// block pixel `(x, y)` for rows `-2..h+2` and columns `-2..w+2` at
+/// `(y + 2) * STRIDE + x + 2`, `PAD` where the frame has no pixel.
 pub struct Padded {
-    pub rows: [[i16; 12]; 12],
+    pub px: [i16; STRIDE * 12],
 }
 
 impl Padded {
-    /// `N` values of block row `y` from block column `x` on.
+    /// Padded row `y` (block row `y - 2`).
     #[inline]
-    pub fn at<const N: usize>(&self, y: isize, x: isize) -> &[i16; N] {
-        let row = &self.rows[(y + 2) as usize];
-        row[(x + 2) as usize..][..N].try_into().unwrap()
+    fn row_mut(&mut self, y: usize) -> &mut [i16] {
+        &mut self.px[y * STRIDE..][..STRIDE]
     }
 
-    /// The pixels of rows `y..` at offset `(dy, dx)`, `W` per row, as one
-    /// array of `L` lanes (`L / W` rows).
+    /// `N` values from block row `y`, column 0, moved by the tap offset `off`.
     #[inline]
-    pub fn lanes<const W: usize, const L: usize>(&self, y: usize, (dy, dx): (isize, isize)) -> [i16; L] {
+    pub fn at<const N: usize>(&self, y: usize, off: isize) -> &[i16; N] {
+        let start = ((y + 2) * STRIDE + 2).wrapping_add_signed(off);
+        self.px[start..start + N].try_into().unwrap()
+    }
+
+    /// The pixels of rows `y..` moved by `off`, `W` per row, as one array of
+    /// `L` lanes (`L / W` rows).
+    #[inline]
+    pub fn lanes<const W: usize, const L: usize>(&self, y: usize, off: isize) -> [i16; L] {
         let mut lanes = [0; L];
         for (r, chunk) in lanes.chunks_exact_mut(W).enumerate() {
-            chunk.copy_from_slice(self.at::<W>((y + r) as isize + dy, dx));
+            chunk.copy_from_slice(self.at::<W>(y + r, off));
         }
         lanes
     }
@@ -164,23 +176,17 @@ impl Params {
         }
     }
 
-    /// The primary tap pair `k` (0 inner, 1 outer).
+    /// The primary tap offset `k` (0 inner, 1 outer).
     #[inline]
-    pub fn primary(&self, k: usize) -> (isize, isize) {
+    pub fn primary(&self, k: usize) -> isize {
         DIRECTIONS[self.dir][k]
     }
 
-    /// The two secondary tap pairs `k`: directions `dir + 2` and `dir - 2`.
+    /// The two secondary tap offsets `k`: directions `dir + 2` and `dir - 2`.
     #[inline]
-    pub fn secondary(&self, k: usize) -> [(isize, isize); 2] {
+    pub fn secondary(&self, k: usize) -> [isize; 2] {
         [DIRECTIONS[(self.dir + 2) & 7][k], DIRECTIONS[(self.dir + 6) & 7][k]]
     }
-}
-
-/// The negated offset: the tap on the other side of the pixel.
-#[inline]
-pub fn opposite((dy, dx): (isize, isize)) -> (isize, isize) {
-    (-dy, -dx)
 }
 
 /// The rounding of the C: `(sum - (sum < 0) + 8) >> 4`.
@@ -229,51 +235,57 @@ pub trait Variant {
 /// The original's contract of a `cdef_fn` (`cdef_apply_tmpl.c`): those
 /// pixels are readable; `stride` is in bytes.
 #[inline]
-unsafe fn read_neighborhood<P: Pixel>(
+unsafe fn read_neighborhood<P: Pixel, const W: usize, const H: usize>(
     dst: *const P,
     stride: isize,
     left: *const [P; 2],
     top: *const P,
     bottom: *const P,
-    w: usize,
-    h: usize,
     edges: u32,
 ) -> Padded {
-    let mut padded = Padded { rows: [[PAD; 12]; 12] };
+    let mut padded = Padded { px: [PAD; STRIDE * 12] };
     let stride = stride / core::mem::size_of::<P>() as isize;
-    // The padded columns that come from the frame: `x0..x1` (`-2..w+2` at
-    // full edges).
-    let x0 = if edges & HAVE_LEFT != 0 { 0 } else { 2 };
-    let x1 = w + if edges & HAVE_RIGHT != 0 { 4 } else { 2 };
-    let row = |base: *const P, y: isize, from: usize| {
-        // SAFETY: a row the contract makes readable, columns `from - 2..x1 - 2`.
-        unsafe { core::slice::from_raw_parts(base.offset(y * stride + from as isize - 2), x1 - from) }
-    };
-    let mut copy = |y: usize, from: usize, src: &[P]| {
-        for (d, s) in padded.rows[y][from..x1].iter_mut().zip(src) {
-            *d = s.to_i16();
+    let (have_left, have_right) = (edges & HAVE_LEFT != 0, edges & HAVE_RIGHT != 0);
+    // SAFETY (all `pixels` calls): a part of a row the contract makes readable.
+    let pixels = |row: *const P, from: isize, len: usize| unsafe { core::slice::from_raw_parts(row.offset(from), len) };
+    // Frame row `row` into padded row `y`: the block's columns, the two to
+    // the right with a right edge, and the two to the left if `with_left`;
+    // one contiguous run each.
+    let mut copy_row = |y: usize, row: *const P, with_left: bool| {
+        let out = padded.row_mut(y);
+        match (with_left, have_right) {
+            (true, true) => widen(&mut out[..W + 4], pixels(row, -2, W + 4)),
+            (true, false) => widen(&mut out[..W + 2], pixels(row, -2, W + 2)),
+            (false, true) => widen(&mut out[2..W + 4], pixels(row, 0, W + 2)),
+            (false, false) => widen(&mut out[2..W + 2], pixels(row, 0, W)),
         }
     };
     if edges & HAVE_TOP != 0 {
-        copy(0, x0, row(top, 0, x0));
-        copy(1, x0, row(top, 1, x0));
+        copy_row(0, top, have_left);
+        copy_row(1, top.offset(stride), have_left);
     }
-    for y in 0..h {
-        copy(y + 2, 2, row(dst, y as isize, 2));
+    for y in 0..H {
+        copy_row(y + 2, dst.offset(y as isize * stride), false);
     }
     if edges & HAVE_BOTTOM != 0 {
-        copy(h + 2, x0, row(bottom, 0, x0));
-        copy(h + 3, x0, row(bottom, 1, x0));
+        copy_row(H + 2, bottom, have_left);
+        copy_row(H + 3, bottom.offset(stride), have_left);
     }
-    if edges & HAVE_LEFT != 0 {
+    if have_left {
         // SAFETY: `left[0..h]` is readable with a left edge.
-        let left = unsafe { core::slice::from_raw_parts(left, h) };
-        for (row, pair) in padded.rows[2..h + 2].iter_mut().zip(left) {
-            row[0] = pair[0].to_i16();
-            row[1] = pair[1].to_i16();
+        let left = unsafe { core::slice::from_raw_parts(left, H) };
+        for (y, pair) in left.iter().enumerate() {
+            widen(&mut padded.row_mut(y + 2)[..2], pair);
         }
     }
     padded
+}
+
+#[inline]
+fn widen<P: Pixel>(out: &mut [i16], pixels: &[P]) {
+    for (d, s) in out.iter_mut().zip(pixels) {
+        *d = s.to_i16();
+    }
 }
 
 /// Writes rows `0..h`, columns `0..w` of the filtered block to `dst`.
@@ -306,7 +318,7 @@ unsafe extern "C" fn filter_8bpc<V: Variant, const W: usize, const H: usize>(
     damping: c_int,
     edges: c_uint,
 ) {
-    let input = read_neighborhood(dst, stride, left, top, bottom, W, H, edges);
+    let input = read_neighborhood::<_, W, H>(dst, stride, left, top, bottom, edges);
     let params = Params::new(pri_strength, sec_strength, dir, damping, 0);
     let output = V::filter::<W, H>(&input, &params);
     write_block(dst, stride, &output, W, H);
@@ -327,7 +339,7 @@ unsafe extern "C" fn filter_16bpc<V: Variant, const W: usize, const H: usize>(
     edges: c_uint,
     bitdepth_max: c_int,
 ) {
-    let input = read_neighborhood(dst, stride, left, top, bottom, W, H, edges);
+    let input = read_neighborhood::<_, W, H>(dst, stride, left, top, bottom, edges);
     let bitdepth_min_8 = (bitdepth_max as u32 + 1).ilog2() - 8;
     let params = Params::new(pri_strength, sec_strength, dir, damping, bitdepth_min_8);
     let output = V::filter::<W, H>(&input, &params);

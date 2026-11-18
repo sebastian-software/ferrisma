@@ -16,7 +16,7 @@ use core::arch::aarch64::*;
 use core::ffi::{c_int, c_uint};
 
 use super::{
-    best_direction, opposite, DirBlock, Filtered, Padded, Params, Variant, ALT_WEIGHTS, DIAGONAL_WEIGHTS,
+    best_direction, DirBlock, Filtered, Padded, Params, Variant, ALT_WEIGHTS, DIAGONAL_WEIGHTS,
     LINE_WEIGHT,
 };
 
@@ -43,6 +43,25 @@ impl Variant for Neon {
 fn load(lanes: &[i16; 8]) -> int16x8_t {
     // SAFETY: reads the 8 values of the array.
     unsafe { vld1q_s16(lanes.as_ptr()) }
+}
+
+#[inline]
+#[target_feature(enable = "neon")]
+fn load4(lanes: &[i16; 4]) -> int16x4_t {
+    // SAFETY: reads the 4 values of the array.
+    unsafe { vld1_s16(lanes.as_ptr()) }
+}
+
+/// The pixels of rows `y..y + 8 / W` at offset `(dy, dx)`: one row of 8, or
+/// two rows of 4.
+#[inline]
+#[target_feature(enable = "neon")]
+fn taps<const W: usize>(input: &Padded, y: usize, off: isize) -> int16x8_t {
+    if W == 8 {
+        load(input.at::<8>(y, off))
+    } else {
+        vcombine_s16(load4(input.at::<4>(y, off)), load4(input.at::<4>(y + 1, off)))
+    }
 }
 
 #[inline]
@@ -82,18 +101,18 @@ impl Tap {
 /// `cdef_filter_block_c`, for the strengths that are not zero.
 #[target_feature(enable = "neon")]
 fn filter<const W: usize, const H: usize, const PRI: bool, const SEC: bool>(input: &Padded, params: &Params) -> Filtered {
-    let load = |y: usize, off| load(&input.lanes::<W, 8>(y, off));
+    let load = |y: usize, off| taps::<W>(input, y, off);
     let pri = Tap::new(params.pri_strength, params.pri_shift);
     let sec = Tap::new(params.sec_strength, params.sec_shift);
     let mut out = [[0; 8]; 8];
     for y in (0..H).step_by(8 / W) {
-        let px = load(y, (0, 0));
+        let px = load(y, 0);
         let mut sum = vdupq_n_s16(0);
         let (mut min, mut max) = (vreinterpretq_u16_s16(px), px);
         for k in 0..2 {
             if PRI {
                 let off = params.primary(k);
-                for off in [off, opposite(off)] {
+                for off in [off, -off] {
                     let p = load(y, off);
                     sum = vmlaq_n_s16(sum, constrain(p, px, pri.strength, pri.right_shift), params.pri_taps[k]);
                     if SEC {
@@ -106,7 +125,7 @@ fn filter<const W: usize, const H: usize, const PRI: bool, const SEC: bool>(inpu
                 // "sec_tap starts at 2 and becomes 1"
                 let tap = 2 - k as i16;
                 for off in params.secondary(k) {
-                    for off in [off, opposite(off)] {
+                    for off in [off, -off] {
                         let s = load(y, off);
                         sum = vmlaq_n_s16(sum, constrain(s, px, sec.strength, sec.right_shift), tap);
                         if PRI {

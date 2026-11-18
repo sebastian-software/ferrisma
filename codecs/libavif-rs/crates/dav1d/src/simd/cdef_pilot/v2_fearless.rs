@@ -21,7 +21,7 @@ use fearless_simd::prelude::*;
 use fearless_simd::{i16x16, i16x8, i32x4, u16x16};
 
 use super::{
-    best_direction, opposite, DirBlock, Filtered, Padded, Params, Variant, ALT_WEIGHTS, DIAGONAL_WEIGHTS,
+    best_direction, DirBlock, Filtered, Padded, Params, Variant, ALT_WEIGHTS, DIAGONAL_WEIGHTS,
     LINE_WEIGHT,
 };
 
@@ -100,14 +100,14 @@ fn filter<S: Simd, const W: usize, const H: usize, const PRI: bool, const SEC: b
     let sec_strength = u16x16::splat(simd, params.sec_strength);
     let mut out = [[0; 8]; 8];
     for y in (0..H).step_by(16 / W) {
-        let px = load(y, (0, 0));
+        let px = load(y, 0);
         let mut sum = i16x16::splat(simd, 0);
         let (mut min, mut max) = (px, px);
         for k in 0..2 {
             if PRI {
                 let tap = i16x16::splat(simd, params.pri_taps[k]);
                 let off = params.primary(k);
-                for off in [off, opposite(off)] {
+                for off in [off, -off] {
                     let p = load(y, off);
                     sum = sum + constrain(p, px, pri_strength, params.pri_shift) * tap;
                     if SEC {
@@ -119,7 +119,7 @@ fn filter<S: Simd, const W: usize, const H: usize, const PRI: bool, const SEC: b
             if SEC {
                 let tap = i16x16::splat(simd, 2 - k as i16);
                 for off in params.secondary(k) {
-                    for off in [off, opposite(off)] {
+                    for off in [off, -off] {
                         let s = load(y, off);
                         sum = sum + constrain(s, px, sec_strength, params.sec_shift) * tap;
                         if PRI {
