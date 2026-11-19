@@ -497,12 +497,16 @@ pub fn transform<S: Simd, V: Lanes<S>, const N: usize>(
         (Kind::Adst | Kind::FlipAdst, 4) => fixed(&each(adst4(fixed(&c)), &round_wide)),
         (Kind::Adst | Kind::FlipAdst, 8) => fixed(&each(adst8(fixed(&c), range), &round_wide)),
         (Kind::Adst | Kind::FlipAdst, 16) => fixed(&each(adst16(fixed(&c), range), &round_wide)),
-        // inv_identity*_1d_c (no clipping, as in the C). The closures are
-        // inlined by attribute: one called out of line leaves the region's
-        // target features (on x86-64 the 16-lane one was).
-        (Kind::Identity, 4) => each(each(wide(c), identity4), &round_wide),
-        (Kind::Identity, 8) => each(each(wide(c), identity8), &round_wide),
-        (Kind::Identity, 16) => each(each(wide(c), identity16), &round_wide),
+        // inv_identity*_1d_c (no clipping, as in the C). Called through
+        // closures inlined by attribute: a function passed as `impl Fn` is
+        // called through a shim that may stay out of line, and out of line
+        // it leaves the region's target features (x86-64 IDTX 16x16 called
+        // AVX2 additions as functions). The 32-point identity is rounded per
+        // output: as an array, its 32 vectors of `i32x16` are 2 KiB, which
+        // the compiler copied with `memcpy`.
+        (Kind::Identity, 4) => each(each(wide(c), #[inline(always)] |v| identity4(v)), &round_wide),
+        (Kind::Identity, 8) => each(each(wide(c), #[inline(always)] |v| identity8(v)), &round_wide),
+        (Kind::Identity, 16) => each(each(wide(c), #[inline(always)] |v| identity16(v)), &round_wide),
         (Kind::Identity, 32) => each(c, #[inline(always)] |v| round_wide(v.wide() * 4)),
         _ => panic!("no {N}-point transform of this kind in AV1"),
     };

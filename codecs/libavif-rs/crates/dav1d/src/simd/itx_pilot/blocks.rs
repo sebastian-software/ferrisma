@@ -45,7 +45,8 @@
 //! Between the passes `tmp` holds the coefficient type: `int16_t` at 8 bpc,
 //! where the C clips the intermediate to its range.
 //!
-//! The 4x4, 4x8 and 8x4 blocks run both passes in one region (`passes`).
+//! On x86-64 the 4x4, 4x8 and 8x4 blocks run both passes in one region
+//! (`passes`).
 
 use fearless_simd::prelude::*;
 use fearless_simd::{i16x16, i16x8, i32x4, i32x8, u16x16, u16x8, u8x16};
@@ -510,11 +511,14 @@ struct Pass {
 /// Both passes, for a block whose coefficients outside the first `NX`
 /// columns and `NY` rows are zero.
 ///
-/// The 4x4, 4x8 and 8x4 blocks run both passes in one region, so that
-/// `tmp` stays in registers and no pass is a call of its own: for them the
-/// calls of two shared regions cost about as much as the transforms. The
-/// region is shared by the kernels of the block size (it takes the
-/// transforms as values).
+/// On x86-64 the 4x4, 4x8 and 8x4 blocks run both passes in one region,
+/// so that `tmp` stays in registers and no pass is a call of a region of
+/// its own (with the AVX2 features: not inlined): for these blocks the two
+/// calls cost about as much as the transforms (4x4 DCT_DCT 359 -> 300
+/// instructions). The region is shared by the kernels of the block size (it
+/// takes the transforms as values). On AArch64 the same single region cost
+/// 12% more instructions on these blocks than the two pass functions, so
+/// they keep those.
 #[inline(always)]
 fn passes<S: Level, P: Pixel, C: Coef, const W: usize, const H: usize, const NX: usize, const NY: usize>(
     simd: S,
