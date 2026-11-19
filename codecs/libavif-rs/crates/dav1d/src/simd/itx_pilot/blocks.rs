@@ -50,7 +50,7 @@
 use fearless_simd::prelude::*;
 use fearless_simd::{i16x16, i16x8, i32x4, i32x8, u16x16, u16x8, u8x16};
 
-use super::transforms::{each, transform, tx1d, wht4, Int32, Kind, Lanes, Outputs, Tx1d};
+use super::transforms::{transform, tx1d, wht4, Int32, Kind, Lanes, Tx1d};
 
 /// A SIMD level whose natural `i16` vector (`Simd::i16s`) holds the stored
 /// values of the 8 bpc passes: `i16x8` on NEON, `i16x16` on AVX2.
@@ -98,7 +98,9 @@ impl Pixel for u8 {
     #[inline(always)]
     fn add_dc<S: Simd>(simd: S, row: &mut [Self], dc: i32, _pixel_max: i32) {
         match row.len() {
-            4 | 8 => i16x8::splat(simd, dc as i16).add_u8(simd, row),
+            // Constant lengths: the copies of `add_u8` are then plain moves.
+            4 => i16x8::splat(simd, dc as i16).add_u8(simd, &mut row[..4]),
+            8 => i16x8::splat(simd, dc as i16).add_u8(simd, &mut row[..8]),
             _ => {
                 for pixels in row.chunks_exact_mut(16) {
                     i16x16::splat(simd, dc as i16).add_u8(simd, pixels);
@@ -133,7 +135,8 @@ impl Pixel for u16 {
             return add_dc_wide(simd, row, dc, pixel_max);
         }
         match row.len() {
-            4 | 8 => i16x8::splat(simd, dc as i16).add_u16(simd, row, pixel_max),
+            4 => i16x8::splat(simd, dc as i16).add_u16(simd, &mut row[..4], pixel_max),
+            8 => i16x8::splat(simd, dc as i16).add_u16(simd, &mut row[..8], pixel_max),
             _ => {
                 for pixels in row.chunks_exact_mut(16) {
                     i16x16::splat(simd, dc as i16).add_u16(simd, pixels, pixel_max);
@@ -173,7 +176,7 @@ impl<S: Simd> Residual<S> for i16x8<S> {
         bytes[..pixels.len()].copy_from_slice(pixels);
         let (wide, _) = u8x16::from_slice(simd, &bytes).widen();
         let sum: u16x8<S> = (wide.bitcast::<i16x8<S>>() + self).max(0).min(255).bitcast();
-        pixels.copy_from_slice(&sum.relaxed_narrow(sum).as_slice()[..pixels.len()]);
+        pixels.copy_from_slice(&sum.narrow(sum).as_slice()[..pixels.len()]);
     }
 
     #[inline(always)]
@@ -639,10 +642,15 @@ fn rows_pass<S: Simd, V: Memory<S, C>, C: Coef, T: Tx1d, const W: usize, const H
             }
         }
         // iclip((tmp[i] + rnd) >> shift, col_clip_min, col_clip_max)
-        let mut out = match transform(T::KIND, input, row_clip) {
-            Outputs::Clipped(out) => each(out, |v| v.round_shift(shift).clip_stored(col_clip)),
-            Outputs::Wide(out) => each(out, |v| V::clip((v + rnd) >> shift, col_clip)),
-        };
+        let mut out = transform(
+            T::KIND,
+            input,
+            row_clip,
+            #[inline(always)]
+            |v: V| v.round_shift(shift).clip_stored(col_clip),
+            #[inline(always)]
+            |v| V::clip((v + rnd) >> shift, col_clip),
+        );
         if W >= lanes {
             for (x0, square) in out.chunks_exact_mut(lanes).enumerate() {
                 V::transpose(square);
@@ -716,10 +724,15 @@ fn columns_pass<S: Simd, V: Memory<S, C>, C: Coef, P: Pixel, T: Tx1d, const W: u
             *c = V::load_from(simd, &row[x0..][..lanes]);
         }
         // (c + 8) >> 4
-        let residual = match transform(T::KIND, input, col_clip) {
-            Outputs::Clipped(out) => each(out, |v| v.round_shift(4)),
-            Outputs::Wide(out) => each(out, |v| V::stored((v + 8) >> 4)),
-        };
+        let residual = transform(
+            T::KIND,
+            input,
+            col_clip,
+            #[inline(always)]
+            |v: V| v.round_shift(4),
+            #[inline(always)]
+            |v| V::stored((v + 8) >> 4),
+        );
         for (row, r) in rows.iter_mut().zip(residual) {
             P::add(simd, &mut row[x0..][..lanes], r, depth.pixel_max);
         }

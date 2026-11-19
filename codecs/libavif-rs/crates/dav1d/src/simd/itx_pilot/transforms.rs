@@ -62,7 +62,7 @@
 //! 4. *Outputs.* The DCT's outputs are `CLIP`s: stored. The ADST's are
 //!    `CLIP`s, negated `CLIP`s (up to `+32768`) and `* 181` products; the
 //!    4-point ADST's and the identities' are not clipped at all (the 32-point
-//!    identity reaches `4 * 32767`): wide (`Outputs::Wide`).
+//!    identity reaches `4 * 32767`): wide (`round_wide` of `transform`).
 //! 5. *Between the passes* the C computes `iclip((v + rnd) >> shift,
 //!    col_clip_min, col_clip_max)`: stored. For a stored `v` the rounded
 //!    shift stays within `i16`; it is computed in `i16` as
@@ -467,50 +467,63 @@ pub mod tx1d {
     }
 }
 
-/// The outputs of a 1-D transform.
-pub enum Outputs<V, W, const N: usize> {
-    /// Each output is a `CLIP` (the DCT): stored.
-    Clipped([V; N]),
-    /// The C leaves outputs unclipped (ADST, identity): wide.
-    Wide([W; N]),
-}
-
-/// The `N`-point transform `kind` (`dav1d_tx1d_fns`); for `N` = 64 only the
-/// first 32 inputs are read.
+/// The `N`-point transform `kind` (`dav1d_tx1d_fns`), each output rounded
+/// by the pass: `round` for the outputs the C clips (the DCT's, stored),
+/// `round_wide` for those it leaves unclipped (the ADST's and the
+/// identities', wide). For `N` = 64 only the first 32 inputs are read.
+///
+/// The rounding is applied here, output by output, so that no array of wide
+/// outputs is formed: with 16 lanes such an array is 2 KiB, and the copies
+/// of it were calls of `memcpy`.
 #[inline(always)]
 pub fn transform<S: Simd, V: Lanes<S>, const N: usize>(
     kind: Kind,
     c: [V; N],
     range: Clip<V::Wide>,
-) -> Outputs<V, V::Wide, N> {
+    round: impl Fn(V) -> V,
+    round_wide: impl Fn(V::Wide) -> V,
+) -> [V; N] {
     // `[T; N]` as `[T; M]` where the match below has fixed N = M.
     #[inline(always)]
     fn fixed<T: Copy, const M: usize>(c: &[T]) -> [T; M] {
         c[..M].try_into().unwrap()
     }
-    // inv_flipadst*_1d_c: the ADST written from the last output up.
-    let flip = |mut out: [V::Wide; N]| {
-        if kind == Kind::FlipAdst {
-            out.reverse();
-        }
-        out
-    };
-    match (kind, N) {
-        (Kind::Dct, 4) => Outputs::Clipped(fixed(&dct4(fixed(&c), range))),
-        (Kind::Dct, 8) => Outputs::Clipped(fixed(&dct8(fixed(&c), range))),
-        (Kind::Dct, 16) => Outputs::Clipped(fixed(&dct16(fixed(&c), range))),
-        (Kind::Dct, 32) => Outputs::Clipped(fixed(&dct32(fixed(&c), range))),
-        (Kind::Dct, 64) => Outputs::Clipped(fixed(&dct64(fixed(&c), range))),
-        (Kind::Adst | Kind::FlipAdst, 4) => Outputs::Wide(flip(fixed(&adst4(fixed(&c))))),
-        (Kind::Adst | Kind::FlipAdst, 8) => Outputs::Wide(flip(fixed(&adst8(fixed(&c), range)))),
-        (Kind::Adst | Kind::FlipAdst, 16) => Outputs::Wide(flip(fixed(&adst16(fixed(&c), range)))),
-        // inv_identity*_1d_c (no clipping, as in the C).
-        (Kind::Identity, 4) => Outputs::Wide(each(wide(c), |v| v + ((v * 1697 + 2048) >> 12))),
-        (Kind::Identity, 8) => Outputs::Wide(each(wide(c), |v| v * 2)),
-        (Kind::Identity, 16) => Outputs::Wide(each(wide(c), |v| v * 2 + ((v * 1697 + 1024) >> 11))),
-        (Kind::Identity, 32) => Outputs::Wide(each(wide(c), |v| v * 4)),
+    let mut out = match (kind, N) {
+        (Kind::Dct, 4) => fixed(&each(dct4(fixed(&c), range), &round)),
+        (Kind::Dct, 8) => fixed(&each(dct8(fixed(&c), range), &round)),
+        (Kind::Dct, 16) => fixed(&each(dct16(fixed(&c), range), &round)),
+        (Kind::Dct, 32) => fixed(&each(dct32(fixed(&c), range), &round)),
+        (Kind::Dct, 64) => fixed(&each(dct64(fixed(&c), range), &round)),
+        (Kind::Adst | Kind::FlipAdst, 4) => fixed(&each(adst4(fixed(&c)), &round_wide)),
+        (Kind::Adst | Kind::FlipAdst, 8) => fixed(&each(adst8(fixed(&c), range), &round_wide)),
+        (Kind::Adst | Kind::FlipAdst, 16) => fixed(&each(adst16(fixed(&c), range), &round_wide)),
+        // inv_identity*_1d_c (no clipping, as in the C). The closures are
+        // inlined by attribute: one called out of line leaves the region's
+        // target features (on x86-64 the 16-lane one was).
+        (Kind::Identity, 4) => each(c, #[inline(always)] |v| round_wide(identity4(v.wide()))),
+        (Kind::Identity, 8) => each(c, #[inline(always)] |v| round_wide(v.wide() * 2)),
+        (Kind::Identity, 16) => each(c, #[inline(always)] |v| round_wide(identity16(v.wide()))),
+        (Kind::Identity, 32) => each(c, #[inline(always)] |v| round_wide(v.wide() * 4)),
         _ => panic!("no {N}-point transform of this kind in AV1"),
+    };
+    // inv_flipadst*_1d_c: the ADST written from the last output up (the
+    // rounding is per output, so it can come first).
+    if kind == Kind::FlipAdst {
+        out.reverse();
     }
+    out
+}
+
+/// The 4-point identity of `inv_identity4_1d_c`.
+#[inline(always)]
+fn identity4<S: Simd, W: Int32<S>>(v: W) -> W {
+    v + ((v * 1697 + 2048) >> 12)
+}
+
+/// The 16-point identity of `inv_identity16_1d_c`.
+#[inline(always)]
+fn identity16<S: Simd, W: Int32<S>>(v: W) -> W {
+    v * 2 + ((v * 1697 + 1024) >> 11)
 }
 
 // Arrays of vectors are built and changed with loops, not with
