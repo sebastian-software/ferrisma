@@ -654,6 +654,7 @@ mod tests {
             );
             crate::simd::edge_test::check(
                 |v| v as u8,
+                |_| true,
                 |is_port, mode, dst, stride, topleft, w, h, angle| unsafe {
                     let f = if is_port {
                         port.intra_pred[mode]
@@ -682,6 +683,7 @@ mod tests {
             for bitdepth_max in [1023, 4095] {
                 crate::simd::edge_test::check(
                     |v| (v & bitdepth_max) as u16,
+                    |_| true,
                     |is_port, mode, dst, stride, topleft, w, h, angle| unsafe {
                         let f = if is_port {
                             port.intra_pred[mode]

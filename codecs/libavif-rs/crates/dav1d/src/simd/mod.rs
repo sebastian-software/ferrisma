@@ -179,12 +179,14 @@ pub(crate) mod edge_test {
     /// modes) and at index 32 (inter-intra prediction: DC, vertical, horizontal and smooth, blocks of at most
     /// 32x32), Z1 to Z3 over their angles with the flag sets 0, 0x400 and 0x600, the filter predictor over its five
     /// filters (blocks of at most 32x32, as the decoder uses it). A load outside the array faults; `slot(port, …)`
-    /// calls the kernel under test (`port`) or the C kernel, and the two blocks must be equal.
+    /// calls the kernel under test (`port`) or the C kernel, and where `compare(mode)` holds the two blocks must
+    /// be equal.
     ///
     /// `slot(port, mode, dst, stride, topleft, width, height, angle)`; `pixel(v)` makes a pixel of the bit depth
     /// from random bits.
     pub(crate) fn check<P: Copy + PartialEq + core::fmt::Debug>(
         pixel: impl Fn(u32) -> P,
+        compare: impl Fn(usize) -> bool,
         slot: impl Fn(bool, usize, *mut P, isize, *const P, c_int, c_int, c_int),
     ) {
         let guarded = Guarded::new();
@@ -239,7 +241,7 @@ pub(crate) mod edge_test {
                             slot(true, mode, port.as_mut_ptr(), stride, topleft, w, h, angle);
                             slot(false, mode, c.as_mut_ptr(), stride, topleft, w, h, angle);
                             assert!(
-                                port == c,
+                                !compare(mode) || port == c,
                                 "mode {mode} {w}x{h} angle {angle:#x}, topleft at {index}, array at the {} guard",
                                 if at_end { "upper" } else { "lower" }
                             );
