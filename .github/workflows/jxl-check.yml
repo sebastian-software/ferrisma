@@ -1,18 +1,34 @@
 # Codec checks share the workspace and keep their original oracle tiers.
+# Two hosted tiers (ADR-0027, amendment 2026-11-17): `nightly` (tier 2, every
+# job within 60 minutes) runs every test except the deep tier's on Linux with
+# the ordinary and the sanitized oracle and, on the schedule or with `macos`,
+# on macOS with the ordinary oracle; `deep` (tier 3, weekly and before a
+# release candidate) runs the deep tier's tests on both and the whole suite
+# with the sanitized oracle on macOS. tools/check.py holds the tiers and the
+# shards (--plan), and the selection job fails unless the shards together ran
+# every test of the tier.
 name: 'JXL: Checks'
 'on':
   workflow_dispatch:
     inputs:
       macos:
-        description: Also run the hosted macOS jobs of the deep gate
+        description: Also run the hosted macOS jobs of the nightly tier (the deep tier always runs them)
         type: boolean
         default: false
+      tier:
+        description: 'The hosted tier: nightly or deep'
+        type: string
+        default: nightly
   workflow_call:
     inputs:
       macos:
-        description: Also run the hosted macOS jobs of the deep gate
+        description: Also run the hosted macOS jobs of the nightly tier (the deep tier always runs them)
         type: boolean
         default: false
+      tier:
+        description: 'The hosted tier: nightly or deep'
+        type: string
+        default: nightly
 permissions:
   contents: read
 concurrency:
@@ -25,8 +41,32 @@ defaults:
   run:
     shell: bash
 jobs:
+  plan:
+    name: 'JXL: Plan the ${{ inputs.tier }} tier'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      parity: ${{ steps.plan.outputs.parity }}
+      audit: ${{ steps.plan.outputs.audit }}
+      capture: ${{ steps.plan.outputs.capture }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - name: Choose the shards and audits of the tier
+      id: plan
+      env:
+        TIER: ${{ inputs.tier }}
+        MACOS: ${{ github.event_name == 'schedule' || inputs.macos }}
+      run: python3 tools/check.py --plan "$TIER" --macos "$MACOS" | tee -a "$GITHUB_OUTPUT"
+    defaults:
+      run:
+        working-directory: codecs/libjxl-rs
   static:
     name: 'JXL: Static checks (${{ matrix.os }})'
+    # The static stage belongs to the nightly tier (and runs per change in
+    # the codec job of ci.yml); the deep tier adds nothing to it.
+    if: inputs.tier != 'deep'
     strategy:
       fail-fast: false
       max-parallel: 2
@@ -53,45 +93,54 @@ jobs:
     defaults:
       run:
         working-directory: codecs/libjxl-rs
+  toolchain:
+    name: 'JXL: Tests at rust-version (ubuntu-24.04-arm, simd_vardct_lanes8)'
+    # The per-change rust-version part on ARM64 (ci.yml) leaves out the
+    # AArch64-only simd_vardct_lanes8 binary, which alone takes 11.5 minutes
+    # to compile at Rust 1.94 (CI run 44176391504); the nightly tier runs it
+    # there. cargo fails if the binary no longer exists.
+    if: inputs.tier != 'deep'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - uses: ./codecs/libjxl-rs/.github/actions/prepare
+      with:
+        msrv: true
+        oracle: false
+    - name: Test simd_vardct_lanes8 at the port's rust-version
+      run: |
+        msrv="$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)"
+        CARGO_TARGET_DIR="$GITHUB_WORKSPACE/target/rust-$msrv" \
+          cargo +"$msrv" test --locked --offline -p libjxl-rs --profile checked --test simd_vardct_lanes8
+    defaults:
+      run:
+        working-directory: codecs/libjxl-rs
   parity:
-    name: 'JXL: Tests (${{ matrix.os }}, ${{ matrix.oracle }} oracle, ${{ matrix.shard }}/${{ matrix.oracle == ''sanitized''
-      && 6 || (matrix.os == ''macos-latest'' && 3 || 4) }})'
+    name: 'JXL: Tests (${{ matrix.os }}, ${{ matrix.oracle }} oracle, ${{ matrix.tier }} ${{ matrix.shard }}/${{ matrix.shards
+      }})'
+    needs: plan
     strategy:
       fail-fast: false
-      max-parallel: 2
+      # The shards per runner and oracle are in tools/check.py (CI_PARITY):
+      # sized so that each nightly job stays within 60 minutes, with enough
+      # of them at once to keep the tier's wall time within three hours.
+      max-parallel: 12
       matrix:
-        os: ${{ fromJSON((github.event_name == 'schedule' || inputs.macos)
-          && '["ubuntu-latest", "macos-latest"]' || '["ubuntu-latest"]') }}
-        oracle: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || inputs.macos) && '["ordinary",
-          "sanitized"]' || '["ordinary"]') }}
-        # Partitions per job (tools/check.py deals the heaviest tests out
-        # first): six with the sanitized oracle, whose whole encodes of the
-        # gate sizes take several times as long; four with the ordinary
-        # oracle on Linux and three on macOS.
-        shard:
-        - 1
-        - 2
-        - 3
-        - 4
-        - 5
-        - 6
-        exclude:
-        - oracle: ordinary
-          shard: 5
-        - oracle: ordinary
-          shard: 6
-        - os: macos-latest
-          oracle: ordinary
-          shard: 4
+        include: ${{ fromJSON(needs.plan.outputs.parity) }}
     runs-on: ${{ matrix.os }}
     # A hung test otherwise holds the shard until GitHub's 360-minute job
-    # limit (issue #119). Hosted runners differ in speed by up to about two
-    # times (the same C++ oracle build took 100 to 220 seconds on
-    # 2026-11-16); the partitions are sized to finish well inside the limit
-    # on the slower ones.
-    timeout-minutes: 120
+    # limit (issue #119). The nightly budget is 60 minutes per job; the
+    # timeout is the hang guard above it, so that a slow runner still
+    # reports its time. Deep jobs may use the hosted limit.
+    timeout-minutes: ${{ inputs.tier == 'deep' && 330 || 90 }}
     env:
-      PARTITION: ${{ matrix.shard }}/${{ matrix.oracle == 'sanitized' && 6 || (matrix.os == 'macos-latest' && 3 || 4) }}
+      PARTITION: ${{ matrix.shard }}/${{ matrix.shards }}
+      SHARD: ${{ matrix.shard }}
+      TIER: ${{ matrix.tier }}
+      GROUP: ${{ matrix.group }}
       ORACLE_FLAGS: ${{ matrix.oracle == 'sanitized' && '--sanitizers' || '' }}
       ORACLE_GRAPH: ${{ matrix.oracle == 'sanitized' && 'oracle-asan' || 'oracle' }}
     steps:
@@ -126,6 +175,11 @@ jobs:
       run: find upstream/libjxl tools -name .git -prune -o -type f -exec touch -t 200001010000 {} +
     - name: Build the oracle
       run: python3 tools/check.py --stage oracle $ORACLE_FLAGS
+    - name: Initialize the pinned testdata for the photographs
+      # The deep tier compares photographs of upstream's pinned testdata
+      # (tests/data/photographs); check.py verifies them against their record.
+      if: matrix.tier == 'deep'
+      run: git -C upstream/libjxl submodule update --init --depth 1 testdata
     - name: Save the oracle build
       if: steps.restore.outputs.cache-hit != 'true' && (github.event_name == 'pull_request' || github.event_name
         == 'push')
@@ -153,38 +207,100 @@ jobs:
           status=0
           timer=()
           [ -x /usr/bin/time ] && timer=(/usr/bin/time -v -o "$RUNNER_TEMP/time.txt")
-          "${timer[@]}" python3 tools/check.py --stage test --partition "$PARTITION" $ORACLE_FLAGS || status=$?
+          "${timer[@]}" python3 tools/check.py --stage test --partition "$PARTITION" --tier "$TIER" \
+            --record "$RUNNER_TEMP/selection/$GROUP-$SHARD.json" --record-group "$GROUP" $ORACLE_FLAGS || status=$?
           kill "$sampler" || true
           echo "Peak memory in use: $(cat "$RUNNER_TEMP/peak-mib" 2>/dev/null) MiB of $(awk '/^MemTotal/ {print int($2/1024)}' /proc/meminfo) MiB"
           grep 'Maximum resident set size' "$RUNNER_TEMP/time.txt" 2>/dev/null || true
           exit "$status"
         fi
-        python3 tools/check.py --stage test --partition "$PARTITION" $ORACLE_FLAGS
+        python3 tools/check.py --stage test --partition "$PARTITION" --tier "$TIER" \
+          --record "$RUNNER_TEMP/selection/$GROUP-$SHARD.json" --record-group "$GROUP" $ORACLE_FLAGS
+    - name: Keep the selection record
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: jxl-selection-${{ matrix.group }}-${{ matrix.shard }}-of-${{ matrix.shards }}
+        path: ${{ runner.temp }}/selection
+        if-no-files-found: error
+        retention-days: 7
+    defaults:
+      run:
+        working-directory: codecs/libjxl-rs
+  selection:
+    name: 'JXL: Every test of the ${{ inputs.tier }} tier ran'
+    needs: parity
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        pattern: jxl-selection-*
+        path: ${{ runner.temp }}/selection
+        merge-multiple: true
+    - name: Require one record per planned shard and the whole tier in their union
+      env:
+        TIER: ${{ inputs.tier }}
+        MACOS: ${{ github.event_name == 'schedule' || inputs.macos }}
+      run: python3 tools/check.py --plan "$TIER" --macos "$MACOS" --verify-records "$RUNNER_TEMP/selection"
+    defaults:
+      run:
+        working-directory: codecs/libjxl-rs
+  capture:
+    name: 'JXL: Capture the audit requests (${{ matrix.os }}, ${{ matrix.oracle }} oracle)'
+    # The decoder and public-decoder audits replay request corpora that the
+    # parity tests capture with each original graph (default_cms::,
+    # decoder_public::). The captures run here, one job per graph, so that
+    # the audit jobs stay within the nightly budget: with both captures the
+    # public-decoder audit took 53 and 78 minutes and the decoder audit 42
+    # and 57 on ubuntu-latest (runs 44171290082 and 44230182686).
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.capture) }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ inputs.tier == 'deep' && 330 || 90 }}
+    env:
+      ORACLE_FLAGS: ${{ matrix.oracle == 'sanitized' && '--sanitizers' || '' }}
+      ORACLE_GRAPH: ${{ matrix.oracle == 'sanitized' && 'oracle-asan' || 'oracle' }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - uses: ./codecs/libjxl-rs/.github/actions/prepare
+    - name: Capture the default CMS and public decoder parity requests
+      run: |
+        python3 tools/check.py --stage test --filter "default_cms::" $ORACLE_FLAGS
+        python3 tools/check.py --stage test --filter "decoder_public::" $ORACLE_FLAGS
+    - name: Keep the captured corpora
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: jxl-audit-corpora-${{ matrix.os }}-${{ matrix.oracle }}
+        path: |
+          codecs/libjxl-rs/target/${{ env.ORACLE_GRAPH }}/default-cms-corpus
+          codecs/libjxl-rs/target/${{ env.ORACLE_GRAPH }}/decoder-public-corpus
+        if-no-files-found: error
+        retention-days: 7
     defaults:
       run:
         working-directory: codecs/libjxl-rs
   audit:
     name: 'JXL: Audit (${{ matrix.os }}, ${{ matrix.group }})'
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || inputs.macos
+    needs:
+    - plan
+    - capture
     strategy:
       fail-fast: false
-      max-parallel: 2
+      # The groups per tier are in tools/check.py (CI_AUDIT): the macOS
+      # decoder and public-decoder audits run in the deep tier.
+      max-parallel: 8
       matrix:
-        os: ${{ fromJSON((github.event_name == 'schedule' || inputs.macos) && '["ubuntu-latest", "macos-latest"]'
-          || '["ubuntu-latest"]') }}
-        group:
-        - decoder
-        - decoder-state
-        - public-decoder
-        - extra-channels
-        - geometry
-        - components
-        - brotli
-        - diagnostics
-        exclude:
-        - os: macos-latest
-          group: diagnostics
+        include: ${{ fromJSON(needs.plan.outputs.audit) }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ inputs.tier == 'deep' && 330 || 90 }}
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
@@ -196,11 +312,18 @@ jobs:
       run: |
         python3 tools/check.py --stage oracle
         python3 tools/check.py --stage oracle --sanitizers
-    - name: Capture the default CMS parity requests
-      if: matrix.group == 'decoder'
-      run: |
-        python3 tools/check.py --stage test --filter default_cms::
-        python3 tools/check.py --stage test --filter default_cms:: --sanitizers
+    - name: Restore the captured requests of the ordinary graph
+      if: matrix.group == 'decoder' || matrix.group == 'public-decoder'
+      uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: jxl-audit-corpora-${{ matrix.os }}-ordinary
+        path: codecs/libjxl-rs/target/oracle
+    - name: Restore the captured requests of the instrumented graph
+      if: matrix.group == 'decoder' || matrix.group == 'public-decoder'
+      uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: jxl-audit-corpora-${{ matrix.os }}-sanitized
+        path: codecs/libjxl-rs/target/oracle-asan
     - name: Audit the decoder numeric reference configurations
       if: matrix.group == 'decoder'
       run: |
@@ -320,11 +443,6 @@ jobs:
           codecs/libjxl-rs/target/jpeg-reconstruction-reference
         if-no-files-found: error
         retention-days: 7
-    - name: Capture the public decoder parity requests
-      if: matrix.group == 'public-decoder'
-      run: |
-        python3 tools/check.py --stage test --filter decoder_public::
-        python3 tools/check.py --stage test --filter decoder_public:: --sanitizers
     - name: Audit the public decoder against the original public C API
       if: matrix.group == 'public-decoder'
       run: python3 tools/decoder_public_reference.py --output target/decoder-public-acceptance
@@ -369,16 +487,28 @@ jobs:
     name: 'JXL: Checks passed'
     if: always()
     needs:
+    - plan
     - static
+    - toolchain
     - parity
+    - selection
+    - capture
     - audit
     runs-on: ubuntu-latest
     steps:
     - name: Require every gate job to pass
       env:
-        RESULTS: ${{ join(needs.*.result, ' ') }}
+        TIER: ${{ inputs.tier }}
+        STATIC: ${{ needs.static.result }} ${{ needs.toolchain.result }}
+        RESULTS: ${{ needs.plan.result }} ${{ needs.parity.result }} ${{ needs.selection.result }} ${{ needs.capture.result
+          }} ${{ needs.audit.result }}
       run: |
-        echo "Job results: $RESULTS"
+        echo "Tier: $TIER; static checks and rust-version tests: $STATIC; plan, tests, selection, captures, audits: $RESULTS"
+        case "$TIER" in
+          nightly) [ "$STATIC" = "success success" ] || exit 1 ;;
+          deep) [ "$STATIC" = "skipped skipped" ] || exit 1 ;;
+          *) exit 1 ;;
+        esac
         for result in $RESULTS; do [ "$result" = success ] || exit 1; done
   report:
     name: 'JXL: Report the nightly failure'

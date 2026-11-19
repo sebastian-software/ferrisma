@@ -37,6 +37,14 @@ for the scalar variant.
 builds for x86_64-apple-darwin, the oracle is tools/build_oracle.py's --arch
 x86_64 variant, and ROSETTA_ADVERTISE_AVX=1 lets Rosetta report AVX2.
 --msrv adds a build and test run with the toolchain named by rust-version.
+
+--partition K/N runs only the K-th of N disjoint shares of the test targets of
+every `cargo test` invocation (tools/partition.py), so that the hosted oracle jobs
+stay within the nightly tier's 60 minutes per job (engine ADR-0027, amendment
+2026-11-17); the N partitions together run every test once, and each writes a
+record under build/partitions/ that `tools/partition.py verify` checks for
+completeness. With --baseline, tools/oracle_baseline.py runs in the last
+partition only.
 """
 
 import argparse
@@ -50,6 +58,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import build_oracle  # noqa: E402
+import partition  # noqa: E402
 import units  # noqa: E402
 import verify_upstream  # noqa: E402
 
@@ -59,6 +68,25 @@ PROFILES = [[], ["--release"], ["--profile", "checked"]]
 # the release-simd variant is compared in (ADR 0008).
 SIMD_MODES = {"aarch64": ["neon"], "x86_64": ["avx2", "sse41", "sse2"]}
 SIMD_VARIABLES = ["LIBWEBP_SIMD_LEVEL"]
+# The slowest test targets of the hosted oracle jobs (nightly 44066960183,
+# 2026-11-17: macOS with the asan-ubsan oracle, then Linux), slowest first.
+# --partition deals them out before the other targets, so that no partition
+# gets several of them; the list only orders the deal, and a target that no
+# longer exists fails the stage (tools/partition.py).
+HEAVY_TARGETS = [
+    "test:wp13_tools",
+    "test:wp12_tools",
+    "test:wp16_animation",
+    "test:wp15_tools",
+    "test:wp7_decode",
+    "test:wp16_incremental",
+    "test:wp15_abi",
+    "test:wp15_anim_encode",
+    "test:wp12_decode",
+    "test:wp12_incremental",
+    "test:wp16_decode",
+    "test:wp14_tools",
+]
 
 
 def run(*args, env=None):
@@ -102,6 +130,7 @@ def check_static(msrv, arch=None):
     check_provenance()
     check_docs()
     target = build_oracle.cargo_target(arch)
+    run(sys.executable, "-I", ROOT / "tools/partition_test.py")
     run("cargo", "fmt", "-p", "libwebp-rs", "--", "--check")
     run("cargo", f"+{lint_toolchain()}", "clippy", *CARGO, *target, "--all-targets", "--all-features", "--", "-D",
         "warnings")
@@ -110,7 +139,7 @@ def check_static(msrv, arch=None):
             "--all-features")
 
 
-def check_tests(oracle_variants, baseline, msrv, no_simd=False, arch=None):
+def check_tests(oracle_variants, baseline, msrv, no_simd=False, arch=None, part=None):
     env = dict(os.environ)
     for name in SIMD_VARIABLES:
         env.pop(name, None)
@@ -121,6 +150,11 @@ def check_tests(oracle_variants, baseline, msrv, no_simd=False, arch=None):
     # tests the scalar translation (ADR 0008), and the default the SIMD build
     # at the level the host reports.
     runs = []
+    shard = None
+    if part is not None:
+        group = "+".join(oracle_variants) or "no-oracle"
+        group += ("-no-simd" if no_simd else "") + (f"-{arch}" if arch else "")
+        shard = partition.Partition(*part, HEAVY_TARGETS, ROOT, group)
     if oracle_variants:
         jobs = str(os.cpu_count() or 4)
         for variant in oracle_variants:
@@ -130,7 +164,7 @@ def check_tests(oracle_variants, baseline, msrv, no_simd=False, arch=None):
                                            arch=arch)
             run(sys.executable, ROOT / "tools/unit_dependencies.py", "--check", "--variant",
                 directory.name)
-            if baseline and not simd:
+            if baseline and not simd and (shard is None or shard.index == shard.count):
                 run(sys.executable, ROOT / "tools/oracle_baseline.py", "--variant", directory.name)
             variant_env = {**env, "LIBWEBP_ORACLE_DIR": str(directory)}
             if simd:
@@ -144,15 +178,31 @@ def check_tests(oracle_variants, baseline, msrv, no_simd=False, arch=None):
     else:
         env.pop("LIBWEBP_ORACLE_DIR", None)
         runs.append(("no oracle", ["--no-default-features"] if no_simd else [], env))
+    problems = []
     for description, features, run_env in runs:
         print(f"+ Gate run: {description}", flush=True)
         for profile in PROFILES:
-            run("cargo", "test", *CARGO, *target, *profile, *features, env=run_env)
+            if shard is None:
+                run("cargo", "test", *CARGO, *target, *profile, *features, env=run_env)
+            else:
+                label = f"{description}, {' '.join(profile) or 'dev profile'}"
+                problems += shard.test(label, [*CARGO, *target, *profile, *features], run_env)
+    if shard is not None:
+        shard.check_heavy()
+        if problems:
+            raise SystemExit("Partition failed:\n" + "\n".join(problems))
     if msrv:
         toolchain = f"+{rust_version()}"
         _, features, run_env = runs[0]
         run("cargo", toolchain, "build", *CARGO, *target, "--all-targets", *features)
         run("cargo", toolchain, "test", *CARGO, *target, *features, env=run_env)
+
+
+def partition_argument(value):
+    try:
+        return partition.parse(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(str(error)) from None
 
 
 def main():
@@ -170,11 +220,16 @@ def main():
                         help="check this architecture on an ARM64 Mac (Rosetta 2)")
     parser.add_argument("--msrv", action="store_true",
                         help="also build and test with the toolchain named by rust-version")
+    parser.add_argument("--partition", type=partition_argument, metavar="K/N",
+                        help="test stage: run only the K-th of N disjoint shares of the tests "
+                             "(tools/partition.py)")
     parser.add_argument("--no-simd", action="store_true",
                         help="test only the scalar translation without the SIMD modules "
                              "(--no-default-features, ADR 0008); with --oracle, only the "
                              "scalar variant")
     args = parser.parse_args()
+    if args.partition is not None and (args.msrv or args.stage != "test"):
+        parser.error("--partition applies to --stage test without --msrv")
     oracle_variants = []
     if args.oracle_variant:
         oracle_variants = [args.oracle_variant]
@@ -187,7 +242,7 @@ def main():
     else:
         check_provenance()
     if args.stage in ("all", "test"):
-        check_tests(oracle_variants, args.baseline, args.msrv, args.no_simd, args.arch)
+        check_tests(oracle_variants, args.baseline, args.msrv, args.no_simd, args.arch, args.partition)
     run("git", "diff", "--check")
     run("git", "diff", "--cached", "--check")
 

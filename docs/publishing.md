@@ -491,6 +491,14 @@ Run from a clean checkout of the release commit, with the pinned toolchain.
    [codec development](codecs.md), `cargo xtask codecs --stage pr` for each
    codec, and the consumer self-check:
    `cargo run --example consumer --features jpeg-read,webp-read,webp-write -- --self-check`.
+   Then require the hosted tiers on the same commit (engine ADR-0027,
+   amendment 2026-11-17): the last [nightly](../.github/workflows/nightly.yml)
+   and the last [deep](../.github/workflows/deep.yml) run of the release
+   commit passed. If the commit has none, dispatch both on it
+   (`gh workflow run nightly.yml --ref <commit's branch>` and
+   `gh workflow run deep.yml --ref <commit's branch>`) and wait for them. A
+   red job blocks the release until a change fixes it and both tiers pass on
+   the new commit.
 4. Generate and review the license bundles for every published feature set
    and target ([license audit](license-audit.md)); attach them to the release.
 5. Dry-run the chain exactly as above, without `--allow-dirty`, then

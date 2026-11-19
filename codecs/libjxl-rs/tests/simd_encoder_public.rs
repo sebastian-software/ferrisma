@@ -1465,6 +1465,38 @@ fn enc_public_streaming_gate_4000x3000_matches_the_original_target() {
     );
 }
 
+// The scalar gate's thin shapes on the SIMD path (ADR-0027, amendment
+// 2026-11-17): the gate's eight histories (seed 2) at 2049x257 and 257x2049
+// (one DC-group boundary in one direction) and 4097x9 and 9x4097 (three DC
+// groups in a row, a side above 2^12). Every encode must match
+// (assert_family); unlike the large gates, they do not also require each
+// SIMD call site of the lossy profile (assert_reached), which those reach.
+fn thin_streaming_gate(family: &str, (xsize, ysize): (usize, usize)) {
+    let _guard = lock();
+    let result = compare_family(family, &gate_histories(xsize, ysize, 2));
+    assert_family(family, &result);
+}
+
+#[test]
+fn enc_public_streaming_gate_2049x257_matches_the_original_target() {
+    thin_streaming_gate("streaming-gate-2049x257", (2049, 257));
+}
+
+#[test]
+fn enc_public_streaming_gate_257x2049_matches_the_original_target() {
+    thin_streaming_gate("streaming-gate-257x2049", (257, 2049));
+}
+
+#[test]
+fn enc_public_streaming_gate_4097x9_matches_the_original_target() {
+    thin_streaming_gate("streaming-gate-4097x9", (4097, 9));
+}
+
+#[test]
+fn enc_public_streaming_gate_9x4097_matches_the_original_target() {
+    thin_streaming_gate("streaming-gate-9x4097", (9, 4097));
+}
+
 // ---------------------------------------------------------------------------
 // Lossless effort 2 (`LosslessThunderConfig::encode_pixels`).
 
@@ -1690,7 +1722,9 @@ fn enc_public_lossless_effort2_matches_the_original_target() {
 // ---------------------------------------------------------------------------
 // Photographs (optional): `JXL_ENCODER_GATE_PHOTOS` names binary 8-bit RGB
 // PPM files, separated by `:`. Real images contain no NaN or infinite
-// sample, so every difference here is a finding.
+// sample, so every difference here is a finding. The deep tier sets it
+// (`tools/check.py --tier deep`, tests/data/photographs); once it is set, a
+// run that compares no photograph fails.
 
 /// A PPM's size and RGB samples.
 fn read_ppm(path: &str) -> (usize, usize, Vec<u8>) {
@@ -1843,7 +1877,12 @@ fn enc_public_photographs_match_the_original_target() {
     let _guard = lock();
     let mut lossy = Vec::new();
     let mut lossless = Vec::new();
-    for path in paths.split(':').filter(|p| !p.is_empty()) {
+    let paths: Vec<&str> = paths.split(':').filter(|p| !p.is_empty()).collect();
+    assert!(
+        !paths.is_empty(),
+        "JXL_ENCODER_GATE_PHOTOS is set but names no photograph"
+    );
+    for path in paths {
         let image = read_ppm(path);
         let (w, h) = (image.0, image.1);
         let mut rects = vec![(0, 0, w, h)];

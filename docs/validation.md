@@ -32,6 +32,15 @@ codec or release gates.
 
 The [central nightly](../.github/workflows/nightly.yml) and manually selected
 branch runs exercise deeper source, oracle, sanitizer and platform checks.
+Since 2026-11-17 the checks run in three tiers ([ADR-0027](adr/0027-tiered-validation-and-rust-test-orchestration.md)):
+pull requests (at most 15 minutes per job, blocks the merge), the nightly
+(daily, at most 60 minutes per job; long oracle stages run in disjoint
+partitions, checked for completeness), and the
+[deep tier](../.github/workflows/deep.yml) (Sunday and before every release
+candidate; only what the nightly does not run: JXL's photograph-scale gates
+and macOS sanitized matrix, the M1 fuzz campaign). The nightly and the deep
+tier block a release, not a merge; a scheduled run opens or updates one issue
+per failed job (`Nightly: <job> failed`, `Deep: <job> failed`).
 Exhaustive AOM original-consumer, recovery and translation workflows remain
 manual. Changes to oracle pins, goldens, unsafe ABI, SIMD or floating-point
 semantics require the relevant deep branch run or equivalent recorded native
