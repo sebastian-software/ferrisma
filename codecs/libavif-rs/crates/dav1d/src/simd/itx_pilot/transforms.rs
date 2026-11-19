@@ -500,9 +500,9 @@ pub fn transform<S: Simd, V: Lanes<S>, const N: usize>(
         // inv_identity*_1d_c (no clipping, as in the C). The closures are
         // inlined by attribute: one called out of line leaves the region's
         // target features (on x86-64 the 16-lane one was).
-        (Kind::Identity, 4) => each(c, #[inline(always)] |v| round_wide(identity4(v.wide()))),
-        (Kind::Identity, 8) => each(c, #[inline(always)] |v| round_wide(v.wide() * 2)),
-        (Kind::Identity, 16) => each(c, #[inline(always)] |v| round_wide(identity16(v.wide()))),
+        (Kind::Identity, 4) => each(each(wide(c), identity4), &round_wide),
+        (Kind::Identity, 8) => each(each(wide(c), identity8), &round_wide),
+        (Kind::Identity, 16) => each(each(wide(c), identity16), &round_wide),
         (Kind::Identity, 32) => each(c, #[inline(always)] |v| round_wide(v.wide() * 4)),
         _ => panic!("no {N}-point transform of this kind in AV1"),
     };
@@ -518,6 +518,12 @@ pub fn transform<S: Simd, V: Lanes<S>, const N: usize>(
 #[inline(always)]
 fn identity4<S: Simd, W: Int32<S>>(v: W) -> W {
     v + ((v * 1697 + 2048) >> 12)
+}
+
+/// The 8-point identity of `inv_identity8_1d_c`.
+#[inline(always)]
+fn identity8<S: Simd, W: Int32<S>>(v: W) -> W {
+    v * 2
 }
 
 /// The 16-point identity of `inv_identity16_1d_c`.

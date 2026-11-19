@@ -477,7 +477,7 @@ pub fn inverse_transform_add<
     let Block { mut rows, coeff, eob, extent } = block;
     let pass = Pass { kinds: TX1D_TYPES[tx_type], rect2: is_rect2(W, H), shift: shift(W, H), depth };
     if tx_type == DCT_DCT && eob == 0 {
-        return dc_only(simd, &mut rows, coeff, pass);
+        return dc_only::<_, _, _, W, H>(simd, &mut rows, coeff, pass);
     }
     // Where only the first 8 or 16 rows and columns of coefficients are
     // coded, the passes get that bound as a constant, and the compiler drops
@@ -526,7 +526,7 @@ fn passes<S: Level, P: Pixel, C: Coef, const W: usize, const H: usize, const NX:
     use tx1d::*;
     let sh = H.min(32);
     let mut tmp = [[C::ZERO; W]; NY];
-    if const { W * H <= 32 } {
+    if const { W * H <= 32 && cfg!(target_arch = "x86_64") } {
         simd.vectorize(
             #[inline(always)]
             || {
@@ -759,7 +759,12 @@ fn add_to_pixels<S: Simd, V: Int32<S>, P: Pixel>(simd: S, pixels: &mut [P], resi
 /// The C's path for a DCT_DCT block with only the DC coefficient
 /// (`eob < has_dconly`): one value added to every pixel, unclipped.
 #[inline(always)]
-fn dc_only<S: Simd, P: Pixel, C: Coef, const H: usize>(simd: S, rows: &mut [&mut [P]; H], coeff: &mut [C], pass: Pass) {
+fn dc_only<S: Simd, P: Pixel, C: Coef, const W: usize, const H: usize>(
+    simd: S,
+    rows: &mut [&mut [P]; H],
+    coeff: &mut [C],
+    pass: Pass,
+) {
     let shift = pass.shift;
     let rnd = (1 << shift) >> 1;
     let mut dc = coeff[0].to_i32();
@@ -770,11 +775,14 @@ fn dc_only<S: Simd, P: Pixel, C: Coef, const H: usize>(simd: S, rows: &mut [&mut
     dc = (dc * 181 + 128) >> 8;
     dc = (dc + rnd) >> shift;
     dc = (dc * 181 + 128 + 2048) >> 12;
+    // One region per block size, with the width as a constant and the value
+    // moved in (not read through a reference on each row).
+    let pixel_max = pass.depth.pixel_max;
     simd.vectorize(
         #[inline(always)]
-        || {
+        move || {
             for row in rows.iter_mut() {
-                P::add_dc(simd, row, dc, pass.depth.pixel_max);
+                P::add_dc(simd, &mut row[..W], dc, pixel_max);
             }
         },
     )
