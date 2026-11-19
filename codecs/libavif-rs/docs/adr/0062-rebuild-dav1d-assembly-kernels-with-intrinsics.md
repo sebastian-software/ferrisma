@@ -175,6 +175,33 @@ form of this paragraph rebuilt msac's SSE2 16-symbol function and gated it
 at a level of its own, `sse2`, with mask 0x1 in both gate tools; the
 function and the level were removed the same day, validation below.)
 
+**Plain Rust, no codegen steering** (amended 2026-11-18; owner principle
+of 2026-11-18). No kernel contains code that outwits the compiler or
+Rust's rules to mimic the original's assembly: no
+`core::hint::black_box` on a value, an address or as a barrier; no
+hand-written zeroing in place of a zero-initialized array; no
+`#[inline(never)]` and no function split whose reason is the stack frame
+or the instruction count; no `unreachable_unchecked` or
+`NonZero*::new_unchecked`; no exposed provenance; no compile-time
+resolution of a jump table for the instruction count; and no load
+outside the memory the caller's pointer belongs to (a kernel that loads
+around the intra edge runs on a local copy of the pixels the C kernel
+reads, `crate::simd::copy_edge`). Straight, idiomatic Rust comes first;
+a result that executes more instructions is accepted as long as the
+gates show identical output, and one trick is not replaced by another.
+Withdrawn with this: the rule "no `call` in an entry point" of the
+validation tables below (the compiler may call `memset` or keep a helper
+out of line), and the instruction-count reasons given for the deviations
+that this amendment removes (they stay in the historical entries as
+what was decided then). The instructions per call against the assembly
+(`measure_dav1d_kernels.py`, the "within 1.3x" of the intra prediction
+entries) are a measurement the validation reports, not a target that
+justifies such code. The assembly-shaped structure of the kernels
+("Kernels" above: register files, label functions, `SECTION_RODATA` byte
+arrays, emulated frames and the wrapping pointer steps that come with
+them) is not changed by this amendment; whether it stays is a separate
+decision.
+
 **Gate (engine ADR-0041, ADR-0044 D2).**
 
 1. *Oracle.* `tools/build_dav1d.py --asm` builds the original from the same
@@ -1886,6 +1913,98 @@ instructions per call were measured on the joined module in a
 development copy, the same code before formatting, not on the committed
 tree itself.)
 
+**2026-11-18/19, the compiler tricks removed** (owner principle of
+2026-11-18, decision paragraph "Plain Rust, no codegen steering" above;
+branch `v1/dav1d-no-tricks` from `b5f4f931`). Removed: the 27
+`core::hint::black_box` sites of the AVX2 intra prediction (deviation (d)
+of that entry) and `zeroed_frame` of the AVX2 inverse transforms; the 34
+calls of the hand-written zeroing helpers (`util::zeroed` on both
+architectures, `zeroed_scratch`; `simd/x86_64/util.rs` is gone), now
+zero-initialized arrays; 64 `#[inline(never)]` (ARM64 intra prediction 37,
+ARM64 16 bpc inverse transforms 10, the Wiener row functions 12, the AVX2
+16 bpc z3 per-height functions 5, which are one entry point again,
+deviation (e)); the eight bodies of the AVX2 CDEF fast path (deviation
+(a) of the CDEF entry: the tap table is a `match` on the run-time index);
+the 36 `unreachable_unchecked` jump-table defaults (`unreachable!()`) and
+the four `NonZeroU32::new_unchecked` (plain `trailing_zeros` /
+`leading_zeros`); `wiener_post_inc` with its exposed provenance (the 16
+bpc Wiener row loops index their rows, 24 wrapping pointer steps fewer).
+Kept: the `#[inline(never)]` of `get_filter_strength` in
+`simd/arm/ipred.rs`, which mirrors the C original's `NOINLINE`.
+
+The reads behind or before the caller's edge array (the NEON Z1 edge
+filter, the AVX2 z1 and z3 at both bit depths, the 8 bpc AVX2 smooth and
+smooth_h from 16 columns on an inter-intra edge) now go to a
+zero-initialized local copy of the pixels the C kernel reads
+(`crate::simd::copy_edge`); the translated `Dav1dTaskContext` is
+unchanged. The layout tests `the_edge_array_has_readable_slack_*` are
+replaced by `the_kernels_read_only_the_edge_array` (both architectures):
+every intra prediction slot at 8, 10 and 12 bit and every block size, Z1
+to Z3 over 15 angles with the flags 0, 0x400 and 0x600, the 257-pixel
+array placed directly after and directly before a page without access
+(`topleft` at 128, and at 32 for the inter-intra modes up to 32x32); a
+load outside the array faults. Each block is compared with the C
+kernel's: on ARM64 for every slot, on x86-64 for z1, z3, smooth and
+smooth_h (the AVX2 z2, untouched apart from its hints and equal to the
+assembly at the gate, differs from C at 4x4, angle 147 with the edge
+filter, `max_width` = `max_height` = 4; not investigated). Positive
+control: with the NEON copy taken out the test dies with SIGBUS.
+
+| Check | ARM64 (M1 Pro) | x86-64 (Rosetta container, Clang 19) |
+| --- | --- | --- |
+| `check_dav1d_dsp.py --simd neon\|avx2` and scalar, eleven seeds | 17 groups, 3,155 selections each, pass | the same, pass |
+| `check_dav1d_simd_original.py` at the SIMD level and `scalar` | 994 of 994 (six stills) and 987 of 987 each | 994 of 994 and 987 of 987 each |
+| `run_dav1d_tests.py` | 1,711 of 1,711 | 1,711 of 1,711 |
+| ABI, API, linkage | 12,157 layout checks, 0 differences; 83; pass | 12,284, 0 differences; 83; pass |
+| `enable_dav1d_dispatch.py --check` and its unit test | 20 entries, 60 units; pass | the same |
+| unit tests (`cargo test --lib simd::`) | 20 of 20 | 15 of 15 |
+| `cargo fmt --all --check`; `rustfmt --check` (`max_width = 120`); no `asm!` | pass | — |
+
+Instructions per call against the assembly, before and after
+(`measure_dav1d_kernels.py`, the same rows; all outputs identical): the
+per-row ratio after/before has a median of 1.00 in every family but
+intra prediction and loop restoration; the changes are the cost of the
+straight code. x86-64 (Callgrind): intra prediction 1,036 rows, median
+1.05, 513 rows above 1.05, 130 above 1.2, the largest 8 bpc smooth 64x64
+2,612 to 5,742 (2.20; the read-only base and the `psrlw 8` count no
+longer hidden, and the edge copy from 16 columns) and 16 bpc z3 4x4
+122 to 240 (1.97; the edge copy and the joined height paths); against
+the assembly 0.99 to 2.39, median 1.22 (before 0.97 to 1.31, median
+1.16), 289 rows above 1.3 (before 2). Inverse transforms: median 1.00;
+the frames of 32x64, 64x32 and 64x64 (8 bpc) and 16x64, 32x32, 32x64,
+64x32, 64x64 (10 bit) are now a `memset` call, whose `rep stosb`
+Callgrind counts per byte: 1.32 to 1.74 (16x64 10 bit 3,957 to 6,876);
+12 bit at most 1.23. CDEF: 4x8 and 4x4 fast path 1.27 and 1.26 (the
+run-time tap table), the rest within 1.14. msac: 1.00 to 1.03 (the zero
+case of `trailing_zeros`/`leading_zeros`). ARM64 (instructions
+retired): intra prediction 1,036 rows, median 1.01, 39 rows above 1.2,
+the largest the 64-wide 16 bpc DC, V and dc_top/left rows (16 bpc
+`dc_128` 64x64 198 to 362, 1.83: the 64-column store loop inlined, so
+the compiler forms the second half's addresses with adds), Z1 at 16 bpc
+up to 1.34 (the edge copy); loop restoration median 1.04, at most 1.19
+(self-guided 16x16, the row buffers are now a `bzero` call), 16 bpc
+Wiener up to 1.15 (indexed rows); inverse transforms 16 bpc median 1.00,
+the DC-only paths of the 32- and 64-point sizes up to 1.22 (the split
+coefficient paths inlined). No ratio is a target (decision above).
+
+Instructions per decode (the color items of four profiling stills, one
+thread, whole process; original with assembly / port before / port
+after): ARM64 8-bit 4:2:0 0.990 / 1.111 / 1.112 G, 8-bit 4:4:4 1.115 /
+1.258 / 1.259, 10-bit 4:2:0 1.156 / 1.288 / 1.292, 10-bit 4:4:4 1.345 /
+1.476 / 1.478 (+0.1 to +0.3 %). x86-64 (Callgrind) 8-bit 4:2:0 1.009 / 1.152 / 1.164 G, 8-bit 4:4:4 1.105 / 1.257 /
+1.273, 10-bit 4:2:0 1.159 / 1.323 / 1.338, 10-bit 4:4:4 1.286 / 1.458 /
+1.482 (+1.0 to +1.6 %). Not measured: any time.
+
+What remains of the inventory (not in this amendment's scope): the
+assembly-shaped structure (register files, label functions,
+`SECTION_RODATA` byte arrays, emulated frames, the flags arithmetic and
+the hand-shaped source forms of the NEON kernels); about 1,914 `wrapping_*`
+calls, most of them pointer steps of that structure (ARM64 intra
+prediction 992, AVX2 intra prediction 450, the rest below 80 per file);
+the 16 bpc z3 frames' lazy `write_bytes` zeroing and the two-stride
+64-column store functions of the NEON 16 bpc DC/V paths (ordinary code,
+kept).
+
 ## Review when
 
 A family is completed on a target; the x86-64 AVX2 kernels arrive; the owner
@@ -1894,6 +2013,7 @@ engine's decoder choice changes.
 
 ## Amendment log
 
+- 2026-11-19 — plain Rust, no codegen steering (owner principle of 2026-11-18): the compiler tricks removed, the edge reads kept inside the caller's array, the rule "no  in an entry point" withdrawn and the per-call ratio a measurement, not a target (decision paragraph and validation above).
 - 2026-11-18 — intra prediction on AVX2, 8 and 16 bpc (validation above).
 - 2026-11-18 — CDEF on AVX2, 8 and 16 bpc; the instructions per decode by family on x86-64 (validation above).
 - 2026-11-17 — inverse transforms 16 bpc on AVX2 (validation above).
