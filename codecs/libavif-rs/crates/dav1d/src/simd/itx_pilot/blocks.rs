@@ -18,16 +18,45 @@
 //! - second pass: the values of columns `x0..x0 + L` at row `y` of `tmp`
 //!   are contiguous; the 1-D transform runs across the `h` vectors.
 //!
-//! `L` is 8, or 4 where the block is 4 wide or 4 tall. The 8 lanes are
-//! `i16x8` at 8 bpc and `i32x8` above, the 4 lanes `i32x4` (`Coef`; the
-//! ranges that make 16 bits exact are in the documentation of
-//! `transforms`). Between the passes `tmp` holds the coefficient type:
-//! `int16_t` at 8 bpc, where the C clips the intermediate to its range.
+//! # The lanes
+//!
+//! A pass's vectors are as wide as the level's natural vector, as far as the
+//! pass has independent rows or columns to fill them (`Coef`):
+//!
+//! - at 8 bpc the stored values are `i16` lanes of the level's own width,
+//!   `Simd::i16s`: 8 on NEON, 16 on AVX2 (`Level`). A pass with 16 or more
+//!   rows (first pass: the rows that can hold a nonzero coefficient) or
+//!   columns (second pass) takes 16 lanes on AVX2, one register; a pass
+//!   with 8 takes `i16x8`. The wide values of those lanes are `i32x16`, two
+//!   AVX2 registers, as `i32x8` is two NEON registers.
+//! - above 8 bpc the stored values need 32 bits: `i32x8` (one AVX2
+//!   register, two NEON registers).
+//! - a pass over 4 rows or columns, and every pass of a block 4 wide (its
+//!   transpose is 4x4), takes `i32x4`: `fearless_simd` has no 4-lane `i16`
+//!   vector.
+//!
+//! The transposes work on squares of `L`x`L` values. With 16 lanes, the
+//! 16x16 transpose is four 8x8 ones (`transforms::transpose_i16x16`); the
+//! first pass of an 8-wide block with 16 rows fills the left half of the
+//! square, the right half is zero and drops out, and the low 8 lanes of each
+//! row are stored. So NEON runs the code of the 8-lane layout unchanged,
+//! and AVX2 the same code with 16 lanes, from one source.
+//!
+//! Between the passes `tmp` holds the coefficient type: `int16_t` at 8 bpc,
+//! where the C clips the intermediate to its range.
+//!
+//! The 4x4, 4x8 and 8x4 blocks run both passes in one region (`passes`).
 
 use fearless_simd::prelude::*;
-use fearless_simd::{i16x8, i32x4, i32x8, u16x8, u8x16};
+use fearless_simd::{i16x16, i16x8, i32x4, i32x8, u16x16, u16x8, u8x16};
 
 use super::transforms::{each, transform, tx1d, wht4, Int32, Kind, Lanes, Outputs, Tx1d};
+
+/// A SIMD level whose natural `i16` vector (`Simd::i16s`) holds the stored
+/// values of the 8 bpc passes: `i16x8` on NEON, `i16x16` on AVX2.
+pub trait Level: Simd<i16s: Memory<Self, i16>> {}
+
+impl<S: Simd<i16s: Memory<S, i16>>> Level for S {}
 
 /// A pixel of the DSP table: `u8` at 8 bpc, `u16` above.
 pub trait Pixel: Copy + 'static {
@@ -49,6 +78,7 @@ pub trait Pixel: Copy + 'static {
 // below 2^17, so `|residual|` is below 2^13; the DC-only value of a
 // coefficient within `cf_max` (recon_tmpl.c) is below 2^12. At 12 bits the
 // clip is 2^17 and the residual can reach 2^15: 32-bit lanes there.
+// The DC-only path takes 16 pixels at a time in rows of 16 and more.
 
 impl Pixel for u8 {
     #[inline(always)]
@@ -62,34 +92,20 @@ impl Pixel for u8 {
 
     #[inline(always)]
     fn add<S: Simd, V: Lanes<S>>(simd: S, pixels: &mut [Self], residual: V, _pixel_max: i32) {
-        add_u8(simd, pixels, residual.to_i16x8());
+        residual.residual().add_u8(simd, pixels);
     }
 
     #[inline(always)]
     fn add_dc<S: Simd>(simd: S, row: &mut [Self], dc: i32, _pixel_max: i32) {
-        let dc = i16x8::splat(simd, dc as i16);
         match row.len() {
-            4 => add_u8(simd, &mut row[..4], dc),
-            8 => add_u8(simd, &mut row[..8], dc),
+            4 | 8 => i16x8::splat(simd, dc as i16).add_u8(simd, row),
             _ => {
                 for pixels in row.chunks_exact_mut(16) {
-                    let (low, high) = u8x16::from_slice(simd, pixels).widen();
-                    let clip = |wide: u16x8<S>| -> u16x8<S> { (wide.bitcast::<i16x8<S>>() + dc).max(0).min(255).bitcast() };
-                    clip(low).narrow(clip(high)).store_slice(pixels);
+                    i16x16::splat(simd, dc as i16).add_u8(simd, pixels);
                 }
             }
         }
     }
-}
-
-/// `iclip_pixel(dst + residual)` for up to 8 pixels of 8 bits.
-#[inline(always)]
-fn add_u8<S: Simd>(simd: S, pixels: &mut [u8], residual: i16x8<S>) {
-    let mut bytes = [0; 16];
-    bytes[..pixels.len()].copy_from_slice(pixels);
-    let (wide, _) = u8x16::from_slice(simd, &bytes).widen();
-    let sum: u16x8<S> = (wide.bitcast::<i16x8<S>>() + residual).max(0).min(255).bitcast();
-    pixels.copy_from_slice(&sum.narrow(sum).as_slice()[..pixels.len()]);
 }
 
 impl Pixel for u16 {
@@ -105,7 +121,7 @@ impl Pixel for u16 {
     #[inline(always)]
     fn add<S: Simd, V: Lanes<S>>(simd: S, pixels: &mut [Self], residual: V, pixel_max: i32) {
         if pixel_max <= 1023 {
-            add_u16(simd, pixels, residual.to_i16x8(), pixel_max);
+            residual.residual().add_u16(simd, pixels, pixel_max);
         } else {
             add_to_pixels(simd, pixels, residual.wide(), pixel_max);
         }
@@ -116,12 +132,12 @@ impl Pixel for u16 {
         if pixel_max > 1023 {
             return add_dc_wide(simd, row, dc, pixel_max);
         }
-        let dc = i16x8::splat(simd, dc as i16);
-        if row.len() == 4 {
-            add_u16(simd, &mut row[..4], dc, pixel_max);
-        } else {
-            for pixels in row.chunks_exact_mut(8) {
-                add_u16(simd, pixels, dc, pixel_max);
+        match row.len() {
+            4 | 8 => i16x8::splat(simd, dc as i16).add_u16(simd, row, pixel_max),
+            _ => {
+                for pixels in row.chunks_exact_mut(16) {
+                    i16x16::splat(simd, dc as i16).add_u16(simd, pixels, pixel_max);
+                }
             }
         }
     }
@@ -139,13 +155,51 @@ fn add_dc_wide<S: Simd, P: Pixel>(simd: S, row: &mut [P], dc: i32, pixel_max: i3
     }
 }
 
-/// `iclip_pixel(dst + residual)` for up to 8 pixels of 10 bits.
-#[inline(always)]
-fn add_u16<S: Simd>(simd: S, pixels: &mut [u16], residual: i16x8<S>, pixel_max: i32) {
-    let mut values = [0; 8];
-    values[..pixels.len()].copy_from_slice(pixels);
-    let sum = (u16x8::from_slice(simd, &values).bitcast::<i16x8<S>>() + residual).max(0).min(pixel_max as i16);
-    pixels.copy_from_slice(&sum.bitcast::<u16x8<S>>().as_slice()[..pixels.len()]);
+/// A residual in `i16` lanes, added to the pixels where 16 bits are exact
+/// (8 and 10 bits, see above).
+pub trait Residual<S: Simd>: SimdInt<S, Element = i16> {
+    /// `iclip_pixel(dst + self)` for the `pixels.len()` (at most `LEN`)
+    /// pixels of 8 bits.
+    fn add_u8(self, simd: S, pixels: &mut [u8]);
+
+    /// The same for pixels of 10 bits.
+    fn add_u16(self, simd: S, pixels: &mut [u16], pixel_max: i32);
+}
+
+impl<S: Simd> Residual<S> for i16x8<S> {
+    #[inline(always)]
+    fn add_u8(self, simd: S, pixels: &mut [u8]) {
+        let mut bytes = [0; 16];
+        bytes[..pixels.len()].copy_from_slice(pixels);
+        let (wide, _) = u8x16::from_slice(simd, &bytes).widen();
+        let sum: u16x8<S> = (wide.bitcast::<i16x8<S>>() + self).max(0).min(255).bitcast();
+        pixels.copy_from_slice(&sum.relaxed_narrow(sum).as_slice()[..pixels.len()]);
+    }
+
+    #[inline(always)]
+    fn add_u16(self, simd: S, pixels: &mut [u16], pixel_max: i32) {
+        let mut values = [0; 8];
+        values[..pixels.len()].copy_from_slice(pixels);
+        let sum = (u16x8::from_slice(simd, &values).bitcast::<i16x8<S>>() + self).max(0).min(pixel_max as i16);
+        pixels.copy_from_slice(&sum.bitcast::<u16x8<S>>().as_slice()[..pixels.len()]);
+    }
+}
+
+/// 16 pixels at a time.
+impl<S: Simd> Residual<S> for i16x16<S> {
+    #[inline(always)]
+    fn add_u8(self, simd: S, pixels: &mut [u8]) {
+        let (low, high) = u8x16::from_slice(simd, pixels).widen();
+        let sum: u16x16<S> = (low.combine(high).bitcast::<i16x16<S>>() + self).max(0).min(255).bitcast();
+        let (low, high) = sum.split();
+        low.relaxed_narrow(high).store_slice(pixels);
+    }
+
+    #[inline(always)]
+    fn add_u16(self, simd: S, pixels: &mut [u16], pixel_max: i32) {
+        let sum = (u16x16::from_slice(simd, pixels).bitcast::<i16x16<S>>() + self).max(0).min(pixel_max as i16);
+        sum.bitcast::<u16x16<S>>().store_slice(pixels);
+    }
 }
 
 /// A coefficient of the DSP table (`coef`): `i16` at 8 bpc, `i32` above.
@@ -154,9 +208,12 @@ pub trait Coef: Copy + 'static {
     const ZERO: Self;
     fn to_i32(self) -> i32;
 
-    /// The lanes of the passes with 8 lanes.
+    /// The lanes of the passes with 16 rows or columns and more: the level's
+    /// natural width (module documentation).
+    type Native<S: Level>: Memory<S, Self>;
+    /// The lanes of the passes with 8.
     type Lanes8<S: Simd>: Memory<S, Self>;
-    /// The lanes of the passes with 4 lanes (32 bits at every depth).
+    /// The lanes of the passes with 4 (32 bits at every depth).
     type Lanes4<S: Simd>: Memory<S, Self>;
 
     /// `depth`, as a constant where the coefficient type fixes it (8 bpc),
@@ -170,6 +227,7 @@ impl Coef for i16 {
     fn to_i32(self) -> i32 {
         self.into()
     }
+    type Native<S: Level> = S::i16s;
     type Lanes8<S: Simd> = i16x8<S>;
     type Lanes4<S: Simd> = i32x4<S>;
     #[inline(always)]
@@ -184,6 +242,7 @@ impl Coef for i32 {
     fn to_i32(self) -> i32 {
         self
     }
+    type Native<S: Level> = i32x8<S>;
     type Lanes8<S: Simd> = i32x8<S>;
     type Lanes4<S: Simd> = i32x4<S>;
     #[inline(always)]
@@ -195,6 +254,8 @@ impl Coef for i32 {
 /// Lanes loaded from and stored to coefficients or `tmp` (elements `C`).
 pub trait Memory<S: Simd, C>: Lanes<S> {
     fn load_from(simd: S, values: &[C]) -> Self;
+    /// Stores the first `values.len()` lanes: all, or (16 lanes, an 8-wide
+    /// block's transpose) the low 8.
     fn store_to(self, values: &mut [C]);
 }
 
@@ -206,6 +267,21 @@ impl<S: Simd> Memory<S, i16> for i16x8<S> {
     #[inline(always)]
     fn store_to(self, values: &mut [i16]) {
         self.store_slice(values);
+    }
+}
+
+impl<S: Simd> Memory<S, i16> for i16x16<S> {
+    #[inline(always)]
+    fn load_from(simd: S, values: &[i16]) -> Self {
+        Self::from_slice(simd, values)
+    }
+    #[inline(always)]
+    fn store_to(self, values: &mut [i16]) {
+        if values.len() == 8 {
+            self.split().0.store_slice(values);
+        } else {
+            self.store_slice(values);
+        }
     }
 }
 
@@ -243,7 +319,7 @@ impl<S: Simd> Memory<S, i16> for i32x4<S> {
     /// The values are within `int16_t` (clipped to it between the passes).
     #[inline(always)]
     fn store_to(self, values: &mut [i16]) {
-        values.copy_from_slice(&self.narrow(self).as_slice()[..4]);
+        values.copy_from_slice(&self.relaxed_narrow(self).as_slice()[..4]);
     }
 }
 
@@ -381,7 +457,7 @@ pub fn coded_extent(tx_type: usize, w: usize, sh: usize, eob: usize, extent: &Sc
 /// `inv_txfm_add_c` for a `W`x`H` block in DSP-table slot `SLOT` (not
 /// WHT); `SW`, `SH` are `min(W, 32)`, `min(H, 32)`.
 pub fn inverse_transform_add<
-    S: Simd,
+    S: Level,
     P: Pixel,
     C: Coef,
     const W: usize,
@@ -430,8 +506,14 @@ struct Pass {
 
 /// Both passes, for a block whose coefficients outside the first `NX`
 /// columns and `NY` rows are zero.
+///
+/// The 4x4, 4x8 and 8x4 blocks run both passes in one region, so that
+/// `tmp` stays in registers and no pass is a call of its own: for them the
+/// calls of two shared regions cost about as much as the transforms. The
+/// region is shared by the kernels of the block size (it takes the
+/// transforms as values).
 #[inline(always)]
-fn passes<S: Simd, P: Pixel, C: Coef, const W: usize, const H: usize, const NX: usize, const NY: usize>(
+fn passes<S: Level, P: Pixel, C: Coef, const W: usize, const H: usize, const NX: usize, const NY: usize>(
     simd: S,
     rows: &mut [&mut [P]; H],
     coeff: &mut [C],
@@ -441,12 +523,33 @@ fn passes<S: Simd, P: Pixel, C: Coef, const W: usize, const H: usize, const NX: 
     use tx1d::*;
     let sh = H.min(32);
     let mut tmp = [[C::ZERO; W]; NY];
+    if const { W * H <= 32 } {
+        simd.vectorize(
+            #[inline(always)]
+            || {
+                let depth = C::depth(pass.depth);
+                match pass.kinds[0] {
+                    Kind::Dct => first_pass_lanes::<_, _, Dct, W, H, NX, NY>(simd, coeff, coded_rows, depth, &mut tmp),
+                    Kind::Adst => first_pass_lanes::<_, _, Adst, W, H, NX, NY>(simd, coeff, coded_rows, depth, &mut tmp),
+                    Kind::FlipAdst => first_pass_lanes::<_, _, FlipAdst, W, H, NX, NY>(simd, coeff, coded_rows, depth, &mut tmp),
+                    Kind::Identity => first_pass_lanes::<_, _, Identity, W, H, NX, NY>(simd, coeff, coded_rows, depth, &mut tmp),
+                }
+                match pass.kinds[1] {
+                    Kind::Dct => second_pass_lanes::<_, _, _, Dct, W, H>(simd, &tmp, depth, rows),
+                    Kind::Adst => second_pass_lanes::<_, _, _, Adst, W, H>(simd, &tmp, depth, rows),
+                    Kind::FlipAdst => second_pass_lanes::<_, _, _, FlipAdst, W, H>(simd, &tmp, depth, rows),
+                    Kind::Identity => second_pass_lanes::<_, _, _, Identity, W, H>(simd, &tmp, depth, rows),
+                }
+            },
+        );
+        return;
+    }
     let tmp_rows = &mut tmp;
     match pass.kinds[0] {
-        Kind::Dct => first_pass::<_, _, Dct, W, H, NX>(simd, coeff, coded_rows, pass.depth, tmp_rows),
-        Kind::Adst => first_pass::<_, _, Adst, W, H, NX>(simd, coeff, coded_rows, pass.depth, tmp_rows),
-        Kind::FlipAdst => first_pass::<_, _, FlipAdst, W, H, NX>(simd, coeff, coded_rows, pass.depth, tmp_rows),
-        Kind::Identity => first_pass::<_, _, Identity, W, H, NX>(simd, coeff, coded_rows, pass.depth, tmp_rows),
+        Kind::Dct => first_pass::<_, _, Dct, W, H, NX, NY>(simd, coeff, coded_rows, pass.depth, tmp_rows),
+        Kind::Adst => first_pass::<_, _, Adst, W, H, NX, NY>(simd, coeff, coded_rows, pass.depth, tmp_rows),
+        Kind::FlipAdst => first_pass::<_, _, FlipAdst, W, H, NX, NY>(simd, coeff, coded_rows, pass.depth, tmp_rows),
+        Kind::Identity => first_pass::<_, _, Identity, W, H, NX, NY>(simd, coeff, coded_rows, pass.depth, tmp_rows),
     }
     let tmp = &tmp[..NY.min(sh)];
     match pass.kinds[1] {
@@ -467,9 +570,10 @@ fn passes<S: Simd, P: Pixel, C: Coef, const W: usize, const H: usize, const NX: 
 /// kernel, the passes made the library many times larger and its build very
 /// slow. On x86-64 the region is a function of its own (it carries the AVX2
 /// features), so it is shared as it is; on AArch64 the compiler inlines it,
-/// and this function is kept out of line instead.
+/// and this function is kept out of line instead (for code size and build
+/// time only).
 #[cfg_attr(target_arch = "aarch64", inline(never))]
-fn first_pass<S: Simd, C: Coef, T: Tx1d, const W: usize, const H: usize, const NX: usize>(
+fn first_pass<S: Level, C: Coef, T: Tx1d, const W: usize, const H: usize, const NX: usize, const NY: usize>(
     simd: S,
     coeff: &mut [C],
     coded_rows: usize,
@@ -482,14 +586,29 @@ fn first_pass<S: Simd, C: Coef, T: Tx1d, const W: usize, const H: usize, const N
             // Inside the region: on x86-64 the region is a function of its
             // own, and a constant computed outside it would reach it only as
             // a value in memory.
-            let depth = C::depth(depth);
-            if W.min(H) == 4 {
-                rows_pass::<_, C::Lanes4<S>, _, T, W, H, NX>(simd, coeff, coded_rows, depth, tmp);
-            } else {
-                rows_pass::<_, C::Lanes8<S>, _, T, W, H, NX>(simd, coeff, coded_rows, depth, tmp);
-            }
+            first_pass_lanes::<_, _, T, W, H, NX, NY>(simd, coeff, coded_rows, C::depth(depth), tmp);
         },
     )
+}
+
+/// `first_pass` on the lanes of its block (module documentation): 4 where
+/// the block is 4 wide or tall, the natural width where `NY` (the rows that
+/// can be nonzero) fills it, else 8.
+#[inline(always)]
+fn first_pass_lanes<S: Level, C: Coef, T: Tx1d, const W: usize, const H: usize, const NX: usize, const NY: usize>(
+    simd: S,
+    coeff: &mut [C],
+    coded_rows: usize,
+    depth: Depth,
+    tmp: &mut [[C; W]],
+) {
+    if W.min(H) == 4 {
+        rows_pass::<_, C::Lanes4<S>, _, T, W, H, NX>(simd, coeff, coded_rows, depth, tmp);
+    } else if NY.min(H) >= C::Native::<S>::LEN {
+        rows_pass::<_, C::Native<S>, _, T, W, H, NX>(simd, coeff, coded_rows, depth, tmp);
+    } else {
+        rows_pass::<_, C::Lanes8<S>, _, T, W, H, NX>(simd, coeff, coded_rows, depth, tmp);
+    }
 }
 
 /// `first_pass` on lanes `V`.
@@ -524,10 +643,21 @@ fn rows_pass<S: Simd, V: Memory<S, C>, C: Coef, T: Tx1d, const W: usize, const H
             Outputs::Clipped(out) => each(out, |v| v.round_shift(shift).clip_stored(col_clip)),
             Outputs::Wide(out) => each(out, |v| V::clip((v + rnd) >> shift, col_clip)),
         };
-        for (x0, square) in out.chunks_exact_mut(lanes).enumerate() {
+        if W >= lanes {
+            for (x0, square) in out.chunks_exact_mut(lanes).enumerate() {
+                V::transpose(square);
+                for (y, row) in square.iter().enumerate() {
+                    row.store_to(&mut tmp[y0 + y][x0 * lanes..][..lanes]);
+                }
+            }
+        } else {
+            // 16 lanes, 8 columns: the left half of a square of zeros.
+            let mut square = [V::splat(simd, Default::default()); 16];
+            let square = &mut square[..lanes];
+            square[..W].copy_from_slice(&out);
             V::transpose(square);
             for (y, row) in square.iter().enumerate() {
-                row.store_to(&mut tmp[y0 + y][x0 * lanes..][..lanes]);
+                row.store_to(&mut tmp[y0 + y]);
             }
         }
     }
@@ -537,7 +667,7 @@ fn rows_pass<S: Simd, V: Memory<S, C>, C: Coef, T: Tx1d, const W: usize, const H
 /// with `T` and added to the pixels: `iclip_pixel(dst + ((c + 8) >> 4))`.
 /// Shared as `first_pass` is.
 #[cfg_attr(target_arch = "aarch64", inline(never))]
-fn second_pass<S: Simd, C: Coef, P: Pixel, T: Tx1d, const W: usize, const H: usize>(
+fn second_pass<S: Level, C: Coef, P: Pixel, T: Tx1d, const W: usize, const H: usize>(
     simd: S,
     tmp: &[[C; W]],
     depth: Depth,
@@ -546,17 +676,28 @@ fn second_pass<S: Simd, C: Coef, P: Pixel, T: Tx1d, const W: usize, const H: usi
     simd.vectorize(
         #[inline(always)]
         || {
-            // Inside the region: on x86-64 the region is a function of its
-            // own, and a constant computed outside it would reach it only as
-            // a value in memory.
-            let depth = C::depth(depth);
-            if W == 4 {
-                columns_pass::<_, C::Lanes4<S>, _, _, T, W, H>(simd, tmp, depth, rows);
-            } else {
-                columns_pass::<_, C::Lanes8<S>, _, _, T, W, H>(simd, tmp, depth, rows);
-            }
+            // Inside the region (as in `first_pass`).
+            second_pass_lanes::<_, _, _, T, W, H>(simd, tmp, C::depth(depth), rows);
         },
     )
+}
+
+/// `second_pass` on the lanes of its block: 4 where the block is 4 wide,
+/// the natural width where its `W` columns fill it, else 8.
+#[inline(always)]
+fn second_pass_lanes<S: Level, C: Coef, P: Pixel, T: Tx1d, const W: usize, const H: usize>(
+    simd: S,
+    tmp: &[[C; W]],
+    depth: Depth,
+    rows: &mut [&mut [P]; H],
+) {
+    if W == 4 {
+        columns_pass::<_, C::Lanes4<S>, _, _, T, W, H>(simd, tmp, depth, rows);
+    } else if W >= C::Native::<S>::LEN {
+        columns_pass::<_, C::Native<S>, _, _, T, W, H>(simd, tmp, depth, rows);
+    } else {
+        columns_pass::<_, C::Lanes8<S>, _, _, T, W, H>(simd, tmp, depth, rows);
+    }
 }
 
 /// `second_pass` on lanes `V`.
@@ -639,7 +780,7 @@ pub fn wht_add<S: Simd, P: Pixel, C: Coef>(simd: S, rows: &mut [&mut [P]; 4], co
             }
             coeff[..16].fill(C::ZERO);
             let mut tmp = wht4(input);
-            i32x4::transpose(&mut tmp);
+            Lanes::transpose(&mut tmp);
             for (row, c) in rows.iter_mut().zip(wht4(tmp)) {
                 add_to_pixels(simd, row, c, pixel_max);
             }

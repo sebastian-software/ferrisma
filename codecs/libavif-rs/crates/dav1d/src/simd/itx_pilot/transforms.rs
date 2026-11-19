@@ -90,18 +90,13 @@
 use core::ops::Neg;
 
 use fearless_simd::prelude::*;
-use fearless_simd::{i16x8, i32x4, i32x8, i64x2, u16x16, u16x8};
+use fearless_simd::{i16x16, i16x8, i32x16, i32x4, i32x8, i64x2, u16x16, u16x8};
+
+use super::blocks::Residual;
 
 /// 32-bit lanes: the wide values of the transforms, and the lanes of the
 /// paths that stay on 32 bits.
 pub trait Int32<S: Simd>: SimdInt<S, Element = i32> + Neg<Output = Self> {
-    /// Transposes the square block `block` (`Self::LEN` vectors).
-    fn transpose_i32(block: &mut [Self]);
-
-    /// The lanes (each in the range of `i16`) as the first lanes of an
-    /// `i16x8`.
-    fn narrow_i16x8(self) -> i16x8<S>;
-
     /// Stores the lanes (each in `0..=u16::MAX`) as `u16`s.
     fn store_u16(self, out: &mut [u16]);
 
@@ -113,6 +108,9 @@ pub trait Int32<S: Simd>: SimdInt<S, Element = i32> + Neg<Output = Self> {
 pub trait Lanes<S: Simd>: SimdInt<S> {
     /// The 32-bit lanes of the same values.
     type Wide: Int32<S>;
+
+    /// The `i16` lanes that carry these values to the pixels.
+    type Residual: Residual<S>;
 
     /// The clipping range of a pass, as wide vectors.
     fn range(simd: S, bounds: (i32, i32)) -> Clip<Self::Wide>;
@@ -141,9 +139,8 @@ pub trait Lanes<S: Simd>: SimdInt<S> {
     /// Transposes the square block `block` (`Self::LEN` vectors).
     fn transpose(block: &mut [Self]);
 
-    /// The lanes (each in the range of `i16`) as the first lanes of an
-    /// `i16x8`.
-    fn to_i16x8(self) -> i16x8<S>;
+    /// The lanes (each in the range of `i16`) as `i16` lanes, in order.
+    fn residual(self) -> Self::Residual;
 }
 
 /// The bounds of the C's `CLIP` (`min`, `max` of an `itx_1d_fn`).
@@ -155,9 +152,10 @@ pub struct Clip<W> {
 
 /// The `Lanes` of a vector of `i32`: stored and wide are the same lanes.
 macro_rules! int32_lanes {
-    ($t:ident) => {
+    ($t:ident, $transpose:ident, |$v:ident| $residual:expr) => {
         impl<S: Simd> Lanes<S> for $t<S> {
             type Wide = Self;
+            type Residual = i16x8<S>;
 
             #[inline(always)]
             fn range(simd: S, (min, max): (i32, i32)) -> Clip<Self> {
@@ -201,131 +199,193 @@ macro_rules! int32_lanes {
 
             #[inline(always)]
             fn transpose(block: &mut [Self]) {
-                Self::transpose_i32(block);
+                $transpose(block);
             }
 
+            /// The first lanes of an `i16x8` (the values are within `i16`).
             #[inline(always)]
-            fn to_i16x8(self) -> i16x8<S> {
-                self.narrow_i16x8()
+            fn residual(self) -> i16x8<S> {
+                let $v = self;
+                $residual
             }
         }
     };
 }
 
-int32_lanes!(i32x4);
-int32_lanes!(i32x8);
+int32_lanes!(i32x4, transpose_i32x4, |v| v.relaxed_narrow(v));
+int32_lanes!(i32x8, transpose_i32x8, |v| v.relaxed_narrow(v).split().0);
 
-/// 16-bit lanes for 8 bpc (module documentation), with `i32x8` as the wide
-/// lanes.
-impl<S: Simd> Lanes<S> for i16x8<S> {
-    type Wide = i32x8<S>;
+/// 16-bit lanes for 8 bpc (module documentation): 8 of them (`i16x8`, the
+/// natural width of NEON) or 16 (`i16x16`, of AVX2), with 32-bit lanes of
+/// the same count as the wide lanes.
+macro_rules! int16_lanes {
+    ($t:ident, $wide:ident, $transpose:ident) => {
+        impl<S: Simd> Lanes<S> for $t<S> {
+            type Wide = $wide<S>;
+            type Residual = Self;
 
-    /// The C clips to the range of `int16_t` at 8 bpc, the only depth that
-    /// uses these lanes (`int16_t` coefficients, `blocks::Coef`); every clip
-    /// below relies on it.
-    #[inline(always)]
-    fn range(simd: S, (min, max): (i32, i32)) -> Clip<i32x8<S>> {
-        debug_assert!(min == i16::MIN.into() && max == i16::MAX.into(), "16-bit lanes: the C clips to int16_t only at 8 bpc");
-        Clip { min: i32x8::splat(simd, min), max: i32x8::splat(simd, max) }
-    }
+            /// The C clips to the range of `int16_t` at 8 bpc, the only depth
+            /// that uses these lanes (`int16_t` coefficients, `blocks::Coef`);
+            /// every clip below relies on it.
+            #[inline(always)]
+            fn range(simd: S, (min, max): (i32, i32)) -> Clip<$wide<S>> {
+                debug_assert!(min == i16::MIN.into() && max == i16::MAX.into(), "16-bit lanes: the C clips to int16_t only at 8 bpc");
+                Clip { min: $wide::splat(simd, min), max: $wide::splat(simd, max) }
+            }
 
-    #[inline(always)]
-    fn wide(self) -> i32x8<S> {
-        let (low, high) = self.widen();
-        low.combine(high)
-    }
+            #[inline(always)]
+            fn wide(self) -> $wide<S> {
+                let (low, high) = self.widen();
+                low.combine(high)
+            }
 
-    /// Saturation to `i16` is the clip to `INT16_MIN..=INT16_MAX`.
-    #[inline(always)]
-    fn clip(x: i32x8<S>, _range: Clip<i32x8<S>>) -> Self {
-        let (low, high) = x.split();
-        low.saturating_narrow(high)
-    }
+            /// Saturation to `i16` is the clip to `INT16_MIN..=INT16_MAX`.
+            #[inline(always)]
+            fn clip(x: $wide<S>, _range: Clip<$wide<S>>) -> Self {
+                let (low, high) = x.split();
+                low.saturating_narrow(high)
+            }
 
-    #[inline(always)]
-    fn stored(x: i32x8<S>) -> Self {
-        let (low, high) = x.split();
-        low.saturating_narrow(high)
-    }
+            #[inline(always)]
+            fn stored(x: $wide<S>) -> Self {
+                let (low, high) = x.split();
+                low.saturating_narrow(high)
+            }
 
-    /// `a + b` of two `int16_t` values clipped to their range.
-    #[inline(always)]
-    fn clip_add(self, other: Self, _range: Clip<i32x8<S>>) -> Self {
-        self.saturating_add(other)
-    }
+            /// `a + b` of two `int16_t` values clipped to their range.
+            #[inline(always)]
+            fn clip_add(self, other: Self, _range: Clip<$wide<S>>) -> Self {
+                self.saturating_add(other)
+            }
 
-    #[inline(always)]
-    fn clip_sub(self, other: Self, _range: Clip<i32x8<S>>) -> Self {
-        self.saturating_sub(other)
-    }
+            #[inline(always)]
+            fn clip_sub(self, other: Self, _range: Clip<$wide<S>>) -> Self {
+                self.saturating_sub(other)
+            }
 
-    /// Every `i16` is within `INT16_MIN..=INT16_MAX`.
-    #[inline(always)]
-    fn clip_stored(self, _range: Clip<i32x8<S>>) -> Self {
-        self
-    }
+            /// Every `i16` is within `INT16_MIN..=INT16_MAX`.
+            #[inline(always)]
+            fn clip_stored(self, _range: Clip<$wide<S>>) -> Self {
+                self
+            }
 
-    /// `(v >> s) + bit s - 1 of v`, which is `(v + (1 << (s - 1))) >> s`
-    /// without the overflow of the addition.
-    #[inline(always)]
-    fn round_shift(self, shift: u32) -> Self {
-        if shift == 0 {
-            return self;
+            /// `(v >> s) + bit s - 1 of v`, which is `(v + (1 << (s - 1))) >> s`
+            /// without the overflow of the addition.
+            #[inline(always)]
+            fn round_shift(self, shift: u32) -> Self {
+                if shift == 0 {
+                    return self;
+                }
+                (self >> shift) + ((self >> (shift - 1)) & 1)
+            }
+
+            #[inline(always)]
+            fn transpose(block: &mut [Self]) {
+                $transpose(block);
+            }
+
+            #[inline(always)]
+            fn residual(self) -> Self {
+                self
+            }
         }
-        (self >> shift) + ((self >> (shift - 1)) & 1)
-    }
+    };
+}
 
-    /// As four 2x2 blocks of 32-bit pairs, then two of 64-bit quadruples.
-    #[inline(always)]
-    fn transpose(block: &mut [Self]) {
-        let [r0, r1, r2, r3, r4, r5, r6, r7]: [Self; 8] = (&*block).try_into().unwrap();
-        // [r0_0 r1_0 r0_1 r1_1 r0_2 r1_2 r0_3 r1_3], ...
-        let pairs = |a: Self, b: Self| (a.zip_low(b).bitcast::<i32x4<S>>(), a.zip_high(b).bitcast::<i32x4<S>>());
-        let (a0, a1) = pairs(r0, r1);
-        let (a2, a3) = pairs(r2, r3);
-        let (a4, a5) = pairs(r4, r5);
-        let (a6, a7) = pairs(r6, r7);
-        // [r0_0 r1_0 r2_0 r3_0 r0_1 r1_1 r2_1 r3_1], ...
-        let quads = |a: i32x4<S>, b: i32x4<S>| (a.zip_low(b).bitcast::<i64x2<S>>(), a.zip_high(b).bitcast::<i64x2<S>>());
-        let (b0, b1) = quads(a0, a2);
-        let (b2, b3) = quads(a1, a3);
-        let (b4, b5) = quads(a4, a6);
-        let (b6, b7) = quads(a5, a7);
-        // Column x: the quadruple of rows 0..4 and of rows 4..8.
-        for (x, (low, high)) in [(b0, b4), (b1, b5), (b2, b6), (b3, b7)].into_iter().enumerate() {
-            block[2 * x] = low.zip_low(high).bitcast();
-            block[2 * x + 1] = low.zip_high(high).bitcast();
+int16_lanes!(i16x8, i32x8, transpose_i16x8);
+int16_lanes!(i16x16, i32x16, transpose_i16x16);
+
+// The transposes. Each is written with the library's lane-ordered
+// interleaves; the wider ones as quadrants of the narrower ones. They are
+// functions, not closures: a closure called out of line would not carry the
+// target features of the `vectorize` region (x86-64).
+
+/// 4x4 lanes of `i32`.
+#[inline(always)]
+fn transpose_i32x4<S: Simd>(block: &mut [i32x4<S>]) {
+    let [a, b, c, d]: &mut [i32x4<S>; 4] = block.try_into().unwrap();
+    // [a0 b0 a1 b1], [a2 b2 a3 b3], [c0 d0 c1 d1], [c2 d2 c3 d3]
+    let (ab0, ab2) = (a.zip_low(*b), a.zip_high(*b));
+    let (cd0, cd2) = (c.zip_low(*d), c.zip_high(*d));
+    // Pairs of lanes as one 64-bit lane: [a0 b0 c0 d0], [a1 b1 c1 d1], ...
+    let pairs = |v: i32x4<S>| v.bitcast::<i64x2<S>>();
+    let lanes = |v: i64x2<S>| v.bitcast::<i32x4<S>>();
+    *a = lanes(pairs(ab0).zip_low(pairs(cd0)));
+    *b = lanes(pairs(ab0).zip_high(pairs(cd0)));
+    *c = lanes(pairs(ab2).zip_low(pairs(cd2)));
+    *d = lanes(pairs(ab2).zip_high(pairs(cd2)));
+}
+
+/// The `i`-th 4- or 8-lane block of `N` vectors, as an array to transpose:
+/// vectors `first..first + N`, each split into halves, `high` picks one.
+macro_rules! quadrant {
+    ($block:expr, $first:expr, $high:expr, $n:literal) => {{
+        let mut q = [$block[$first].split().0; $n];
+        for (i, v) in q.iter_mut().enumerate() {
+            let (low_lanes, high_lanes) = $block[$first + i].split();
+            *v = if $high { high_lanes } else { low_lanes };
         }
-    }
+        q
+    }};
+}
 
-    #[inline(always)]
-    fn to_i16x8(self) -> i16x8<S> {
-        self
+/// 8x8 lanes of `i32`: each 4x4 quadrant transposed, the two off the
+/// diagonal exchanged.
+#[inline(always)]
+fn transpose_i32x8<S: Simd>(block: &mut [i32x8<S>]) {
+    let mut q = [quadrant!(block, 0, false, 4), quadrant!(block, 4, false, 4), quadrant!(block, 0, true, 4), quadrant!(block, 4, true, 4)];
+    for quadrant in &mut q {
+        transpose_i32x4(quadrant);
+    }
+    let [rows0_lanes0, rows4_lanes0, rows0_lanes4, rows4_lanes4] = q;
+    for i in 0..4 {
+        block[i] = rows0_lanes0[i].combine(rows4_lanes0[i]);
+        block[i + 4] = rows0_lanes4[i].combine(rows4_lanes4[i]);
     }
 }
 
+/// 8x8 lanes of `i16`: as four 2x2 blocks of 32-bit pairs, then two of
+/// 64-bit quadruples.
+#[inline(always)]
+fn transpose_i16x8<S: Simd>(block: &mut [i16x8<S>]) {
+    let [r0, r1, r2, r3, r4, r5, r6, r7]: [i16x8<S>; 8] = (&*block).try_into().unwrap();
+    // [r0_0 r1_0 r0_1 r1_1 r0_2 r1_2 r0_3 r1_3], ...
+    let pairs = |a: i16x8<S>, b: i16x8<S>| (a.zip_low(b).bitcast::<i32x4<S>>(), a.zip_high(b).bitcast::<i32x4<S>>());
+    let (a0, a1) = pairs(r0, r1);
+    let (a2, a3) = pairs(r2, r3);
+    let (a4, a5) = pairs(r4, r5);
+    let (a6, a7) = pairs(r6, r7);
+    // [r0_0 r1_0 r2_0 r3_0 r0_1 r1_1 r2_1 r3_1], ...
+    let quads = |a: i32x4<S>, b: i32x4<S>| (a.zip_low(b).bitcast::<i64x2<S>>(), a.zip_high(b).bitcast::<i64x2<S>>());
+    let (b0, b1) = quads(a0, a2);
+    let (b2, b3) = quads(a1, a3);
+    let (b4, b5) = quads(a4, a6);
+    let (b6, b7) = quads(a5, a7);
+    // Column x: the quadruple of rows 0..4 and of rows 4..8.
+    for (x, (low, high)) in [(b0, b4), (b1, b5), (b2, b6), (b3, b7)].into_iter().enumerate() {
+        block[2 * x] = low.zip_low(high).bitcast();
+        block[2 * x + 1] = low.zip_high(high).bitcast();
+    }
+}
+
+/// 16x16 lanes of `i16`: each 8x8 quadrant transposed (`transpose_i16x8`),
+/// the two off the diagonal exchanged. Where a quadrant's vectors are zero
+/// (the padded square of an 8-wide block, `blocks::rows_pass`), the compiler
+/// drops its transpose.
+#[inline(always)]
+fn transpose_i16x16<S: Simd>(block: &mut [i16x16<S>]) {
+    let mut q = [quadrant!(block, 0, false, 8), quadrant!(block, 8, false, 8), quadrant!(block, 0, true, 8), quadrant!(block, 8, true, 8)];
+    for quadrant in &mut q {
+        transpose_i16x8(quadrant);
+    }
+    let [rows0_lanes0, rows8_lanes0, rows0_lanes8, rows8_lanes8] = q;
+    for i in 0..8 {
+        block[i] = rows0_lanes0[i].combine(rows8_lanes0[i]);
+        block[i + 8] = rows0_lanes8[i].combine(rows8_lanes8[i]);
+    }
+}
 
 impl<S: Simd> Int32<S> for i32x4<S> {
-    #[inline(always)]
-    fn transpose_i32(block: &mut [Self]) {
-        let [a, b, c, d]: &mut [Self; 4] = block.try_into().unwrap();
-        // [a0 b0 a1 b1], [a2 b2 a3 b3], [c0 d0 c1 d1], [c2 d2 c3 d3]
-        let (ab0, ab2) = (a.zip_low(*b), a.zip_high(*b));
-        let (cd0, cd2) = (c.zip_low(*d), c.zip_high(*d));
-        // Pairs of lanes as one 64-bit lane: [a0 b0 c0 d0], [a1 b1 c1 d1], ...
-        let pairs = |v: Self| v.bitcast::<i64x2<S>>();
-        let lanes = |v: i64x2<S>| v.bitcast::<Self>();
-        *a = lanes(pairs(ab0).zip_low(pairs(cd0)));
-        *b = lanes(pairs(ab0).zip_high(pairs(cd0)));
-        *c = lanes(pairs(ab2).zip_low(pairs(cd2)));
-        *d = lanes(pairs(ab2).zip_high(pairs(cd2)));
-    }
-
-    #[inline(always)]
-    fn narrow_i16x8(self) -> i16x8<S> {
-        self.narrow(self)
-    }
-
     #[inline(always)]
     fn store_u16(self, out: &mut [u16]) {
         let narrowed: u16x8<S> = self.narrow(self).bitcast();
@@ -340,36 +400,6 @@ impl<S: Simd> Int32<S> for i32x4<S> {
 }
 
 impl<S: Simd> Int32<S> for i32x8<S> {
-    /// As four 4x4 blocks: each quadrant transposed, the two off the
-    /// diagonal exchanged.
-    #[inline(always)]
-    fn transpose_i32(block: &mut [Self]) {
-        // A function, not a closure: a closure called out of line would not
-        // carry the target features of the `vectorize` region.
-        #[inline(always)]
-        fn quadrant<S: Simd>(block: &[i32x8<S>], first: usize, high: bool) -> [i32x4<S>; 4] {
-            // Vectors `first..first + 4`, lanes 0..4 or (`high`) 4..8, transposed.
-            let mut q = [block[first].split().0; 4];
-            for (i, v) in q.iter_mut().enumerate() {
-                let (low_lanes, high_lanes) = block[first + i].split();
-                *v = if high { high_lanes } else { low_lanes };
-            }
-            i32x4::transpose_i32(&mut q);
-            q
-        }
-        let (rows0_lanes0, rows4_lanes0) = (quadrant(block, 0, false), quadrant(block, 4, false));
-        let (rows0_lanes4, rows4_lanes4) = (quadrant(block, 0, true), quadrant(block, 4, true));
-        for i in 0..4 {
-            block[i] = rows0_lanes0[i].combine(rows4_lanes0[i]);
-            block[i + 4] = rows0_lanes4[i].combine(rows4_lanes4[i]);
-        }
-    }
-
-    #[inline(always)]
-    fn narrow_i16x8(self) -> i16x8<S> {
-        self.narrow(self).split().0
-    }
-
     #[inline(always)]
     fn store_u16(self, out: &mut [u16]) {
         let narrowed: u16x16<S> = self.narrow(self).bitcast();
@@ -380,6 +410,23 @@ impl<S: Simd> Int32<S> for i32x8<S> {
     fn store_u8(self, out: &mut [u8]) {
         let narrowed: u16x16<S> = self.narrow(self).bitcast();
         out.copy_from_slice(&narrowed.narrow(narrowed).as_slice()[..8]);
+    }
+}
+
+/// The wide lanes of `i16x16`; stored to pixels only as two halves.
+impl<S: Simd> Int32<S> for i32x16<S> {
+    #[inline(always)]
+    fn store_u16(self, out: &mut [u16]) {
+        let (low, high) = self.split();
+        low.store_u16(&mut out[..8]);
+        high.store_u16(&mut out[8..]);
+    }
+
+    #[inline(always)]
+    fn store_u8(self, out: &mut [u8]) {
+        let (low, high) = self.split();
+        low.store_u8(&mut out[..8]);
+        high.store_u8(&mut out[8..]);
     }
 }
 
