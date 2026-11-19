@@ -507,7 +507,7 @@ pub fn transform<S: Simd, V: Lanes<S>, const N: usize>(
         (Kind::Identity, 4) => each(each(wide(c), #[inline(always)] |v| identity4(v)), &round_wide),
         (Kind::Identity, 8) => each(each(wide(c), #[inline(always)] |v| identity8(v)), &round_wide),
         (Kind::Identity, 16) => each(each(wide(c), #[inline(always)] |v| identity16(v)), &round_wide),
-        (Kind::Identity, 32) => each(c, #[inline(always)] |v| round_wide(v.wide() * 4)),
+        (Kind::Identity, 32) => each(each(wide(c), #[inline(always)] |v| identity32(v)), &round_wide),
         _ => panic!("no {N}-point transform of this kind in AV1"),
     };
     // inv_flipadst*_1d_c: the ADST written from the last output up (the
@@ -528,6 +528,12 @@ fn identity4<S: Simd, W: Int32<S>>(v: W) -> W {
 #[inline(always)]
 fn identity8<S: Simd, W: Int32<S>>(v: W) -> W {
     v * 2
+}
+
+/// The 32-point identity of `inv_identity32_1d_c`.
+#[inline(always)]
+fn identity32<S: Simd, W: Int32<S>>(v: W) -> W {
+    v * 4
 }
 
 /// The 16-point identity of `inv_identity16_1d_c`.
