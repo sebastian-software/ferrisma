@@ -472,9 +472,9 @@ pub mod tx1d {
 /// `round_wide` for those it leaves unclipped (the ADST's and the
 /// identities', wide). For `N` = 64 only the first 32 inputs are read.
 ///
-/// The rounding is applied here, output by output, so that no array of wide
-/// outputs is formed: with 16 lanes such an array is 2 KiB, and the copies
-/// of it were calls of `memcpy`.
+/// The rounding is applied here, so that the wide outputs are not returned
+/// (an enum of them, 2 KiB for 32 outputs of `i32x16`, was moved with
+/// `memcpy`).
 #[inline(always)]
 pub fn transform<S: Simd, V: Lanes<S>, const N: usize>(
     kind: Kind,
@@ -501,9 +501,10 @@ pub fn transform<S: Simd, V: Lanes<S>, const N: usize>(
         // closures inlined by attribute: a function passed as `impl Fn` is
         // called through a shim that may stay out of line, and out of line
         // it leaves the region's target features (x86-64 IDTX 16x16 called
-        // AVX2 additions as functions). The 32-point identity is rounded per
-        // output: as an array, its 32 vectors of `i32x16` are 2 KiB, which
-        // the compiler copied with `memcpy`.
+        // AVX2 additions as functions). Rounding the 32-point identity
+        // output by output, with no wide array, cut x86-64 8 bpc IDTX 32x32
+        // by a quarter but cost ARM64 10 bpc IDTX 32xN up to 44%: kept as an
+        // array like the others.
         (Kind::Identity, 4) => each(each(wide(c), #[inline(always)] |v| identity4(v)), &round_wide),
         (Kind::Identity, 8) => each(each(wide(c), #[inline(always)] |v| identity8(v)), &round_wide),
         (Kind::Identity, 16) => each(each(wide(c), #[inline(always)] |v| identity16(v)), &round_wide),
