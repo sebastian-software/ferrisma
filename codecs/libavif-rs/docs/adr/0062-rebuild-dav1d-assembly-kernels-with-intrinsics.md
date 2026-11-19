@@ -2013,7 +2013,7 @@ engine's decoder choice changes.
 
 ## Amendment log
 
-- 2026-11-19 — plain Rust, no codegen steering (owner principle of 2026-11-18): the compiler tricks removed, the edge reads kept inside the caller's array, the rule "no  in an entry point" withdrawn and the per-call ratio a measurement, not a target (decision paragraph and validation above).
+- 2026-11-19 — plain Rust, no codegen steering (owner principle of 2026-11-18): the compiler tricks removed, the edge reads kept inside the caller's array, the rule "no `call` in an entry point" withdrawn and the per-call ratio a measurement, not a target (decision paragraph and validation above).
 - 2026-11-18 — intra prediction on AVX2, 8 and 16 bpc (validation above).
 - 2026-11-18 — CDEF on AVX2, 8 and 16 bpc; the instructions per decode by family on x86-64 (validation above).
 - 2026-11-17 — inverse transforms 16 bpc on AVX2 (validation above).
