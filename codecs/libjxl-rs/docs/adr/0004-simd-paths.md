@@ -2094,6 +2094,11 @@ O1 excludes no word on either target.
 **Condition (e), speed on x86-64 hardware (2026-11-20).** One run of the
 benchmark workflow on hosted x86-64 runners (run 44759716301) is recorded in
 [the x86-64 encode three-column record](../../../../docs/benchmarks/v1.0-jxl-encode-three-column-x86-64-2026-11-20.md).
+The hosted nightly run 44759505385 (Linux x86-64 hardware, at `1f6baba4`,
+the O1-only gate before the exception) passed every encoder SIMD binary
+except `simd_encoder_aq`: there 25 of 286 requests differed (Rosetta 2: 46),
+all with NaN or infinity input; whether all 25 lie inside the named class
+needs a hosted run at the exception's commit.
 <!-- end encoder aq -->
 <!-- encoder selection -->
 ## Encoder selection (2026-11-15, branch `v1/jxl-enc-select`)
