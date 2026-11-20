@@ -211,27 +211,8 @@ extern "C-unwind" {
         w: core::ffi::c_int,
         h: core::ffi::c_int,
     );
-    fn aom_get_var_sse_sum_16x16_dual_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse16x16: *mut uint32_t,
-        tot_sse: *mut core::ffi::c_uint,
-        tot_sum: *mut core::ffi::c_int,
-        var16x16: *mut uint32_t,
-    );
-    fn aom_get_var_sse_sum_8x8_quad_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse8x8: *mut uint32_t,
-        sum8x8: *mut core::ffi::c_int,
-        tot_sse: *mut core::ffi::c_uint,
-        tot_sum: *mut core::ffi::c_int,
-        var8x8: *mut uint32_t,
-    );
+    static mut aom_get_var_sse_sum_16x16_dual: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t, *mut core::ffi::c_uint, *mut core::ffi::c_int, *mut uint32_t) -> ()>;
+    static mut aom_get_var_sse_sum_8x8_quad: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t, *mut core::ffi::c_int, *mut core::ffi::c_uint, *mut core::ffi::c_int, *mut uint32_t) -> ()>;
     fn av1_block_yrd(
         x: *mut MACROBLOCK,
         this_rdc: *mut RD_STATS,
@@ -9903,7 +9884,7 @@ unsafe extern "C-unwind" fn block_variance(
     while row < h {
         let mut col: core::ffi::c_int = 0 as core::ffi::c_int;
         while col < w {
-            aom_get_var_sse_sum_8x8_quad_c(
+            aom_get_var_sse_sum_8x8_quad.expect("non-null function pointer")(
                 src.offset((src_stride * row) as isize).offset(col as isize),
                 src_stride,
                 ref_0.offset((ref_stride * row) as isize).offset(col as isize),
@@ -9964,7 +9945,7 @@ unsafe extern "C-unwind" fn block_variance_16x16_dual(
     while row < h {
         let mut col: core::ffi::c_int = 0 as core::ffi::c_int;
         while col < w {
-            aom_get_var_sse_sum_16x16_dual_c(
+            aom_get_var_sse_sum_16x16_dual.expect("non-null function pointer")(
                 src.offset((src_stride * row) as isize).offset(col as isize),
                 src_stride,
                 ref_0.offset((ref_stride * row) as isize).offset(col as isize),

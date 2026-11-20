@@ -797,3 +797,35 @@ mod x86_lowbd {
         }
     }
 }
+
+// av1_quantize_test.cc qfps_sse4_1: BitExactCheck and EobVerify for
+// av1_highbd_quantize_fp_sse4_1 (counts 16, 64, 256, 1024).
+#[cfg(target_arch = "x86_64")]
+mod sse4_1 {
+    use super::*;
+    use aom::simd::av1__encoder__x86__av1_highbd_quantize_sse4::av1_highbd_quantize_fp_sse4_1;
+
+    const AV1_QUANTIZE_COUNTS: [usize; 4] = [16, 64, 256, 1024];
+
+    #[test]
+    fn av1_quantize_bit_exact_check() {
+        if !std::arch::is_x86_feature_detected!("sse4.1") {
+            return;
+        }
+        for count in AV1_QUANTIZE_COUNTS {
+            av1_quantize_test::run_quantize_test(av1_highbd_quantize_fp_sse4_1,
+                                                 av1_highbd_quantize_fp_c, count);
+        }
+    }
+
+    #[test]
+    fn av1_quantize_eob_verify() {
+        if !std::arch::is_x86_feature_detected!("sse4.1") {
+            return;
+        }
+        for count in AV1_QUANTIZE_COUNTS {
+            av1_quantize_test::run_eob_test(av1_highbd_quantize_fp_sse4_1,
+                                            av1_highbd_quantize_fp_c, count);
+        }
+    }
+}

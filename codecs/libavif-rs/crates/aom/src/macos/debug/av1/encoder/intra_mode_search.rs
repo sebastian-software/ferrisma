@@ -16,12 +16,7 @@ extern "C-unwind" {
     static av1_ss_size_lookup: [[[BLOCK_SIZE; 2]; 2]; 22];
     fn av1_left_block_mode(left_mi: *const MB_MODE_INFO) -> PREDICTION_MODE;
     fn av1_above_block_mode(above_mi: *const MB_MODE_INFO) -> PREDICTION_MODE;
-    fn av1_nn_predict_c(
-        input_nodes: *const core::ffi::c_float,
-        nn_config: *const NN_CONFIG,
-        reduce_prec: core::ffi::c_int,
-        output: *mut core::ffi::c_float,
-    );
+    static mut av1_nn_predict: Option<unsafe extern "C-unwind" fn(*const core::ffi::c_float, *const NN_CONFIG, core::ffi::c_int, *mut core::ffi::c_float) -> ()>;
     fn av1_predict_intra_block_facade(
         cm: *const AV1_COMMON,
         xd: *mut MACROBLOCKD,
@@ -10063,7 +10058,7 @@ unsafe extern "C-unwind" fn prune_intra_mode_with_hog(
     ];
     collect_hog_data(x, bsize, sb_size, plane, hist.as_mut_ptr());
     let mut scores: [core::ffi::c_float; 8] = [0.0f32, 0., 0., 0., 0., 0., 0., 0.];
-    av1_nn_predict_c(
+    av1_nn_predict.expect("non-null function pointer")(
         hist.as_mut_ptr(),
         &raw const av1_intra_hog_model_nnconfig,
         1 as core::ffi::c_int,

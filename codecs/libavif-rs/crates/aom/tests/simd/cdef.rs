@@ -1,5 +1,5 @@
-// Supplementary transcription of upstream/aom/test/cdef_test.cc for the Neon
-// and AVX2 instantiations: CDEFBlockTest, CDEFBlockHighbdTest,
+// Supplementary transcription of upstream/aom/test/cdef_test.cc for the Neon,
+// SSE4_1 and AVX2 instantiations: CDEFBlockTest, CDEFBlockHighbdTest,
 // CDEFFindDirTest, CDEFFindDirDualTest, CDEFCopyRect8to16Test, and
 // CDEFCopyRect16to16Test.
 // Seeds, loop bounds, block sizes, boundaries, strengths, damping, bit depths,
@@ -250,7 +250,7 @@ fn test_finddir_dual(finddir: FindDirDualFunc, ref_finddir: FindDirDualFunc) -> 
 
 /// CDEFCopyRect8to16Test::test_copy_rect_8_to_16(); returns the number of
 /// compared rectangles. `test_func` / `ref_func` are GET_PARAM(0) / (1), which
-/// the Neon and AVX2 instantiations bind to the C and SIMD functions
+/// the Neon, SSE4_1 and AVX2 instantiations bind to the C and SIMD functions
 /// respectively.
 fn test_copy_rect_8_to_16(test_func: CopyRect8To16, ref_func: CopyRect8To16) -> u64 {
     let mut rnd = ACMRandom::with_seed(ACMRandom::deterministic_seed());
@@ -543,5 +543,120 @@ mod avx2 {
         assert!(std::arch::is_x86_feature_detected!("avx2"), "AVX2 instantiation needs an AVX2 CPU");
         test_copy_rect_16_to_16(cdef_copy_rect8_16bit_to_16bit_c,
                                 cdef_copy_rect8_16bit_to_16bit_avx2);
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+mod sse4_1 {
+    use super::*;
+    use aom::simd::av1__common__x86__cdef_block_sse4::*;
+
+    // kCdefFilterFuncSse4_1
+    const K_CDEF_FILTER_FUNC_SSE4_1: CdefFilterBlockFunctions =
+        [cdef_filter_8_0_sse4_1, cdef_filter_8_1_sse4_1, cdef_filter_8_2_sse4_1, cdef_filter_8_3_sse4_1];
+
+    // kCdefFilterHighbdFuncSse4_1
+    const K_CDEF_FILTER_HIGHBD_FUNC_SSE4_1: CdefFilterBlockFunctions = [
+        cdef_filter_16_0_sse4_1, cdef_filter_16_1_sse4_1, cdef_filter_16_2_sse4_1,
+        cdef_filter_16_3_sse4_1,
+    ];
+
+    /// cdef_find_dir_dual_sse4_1 calls cdef_find_dir through its RTCD pointer,
+    /// which the original test main sets up with av1_rtcd(). This stores what
+    /// av1_rtcd() selects for that one pointer on this CPU (the AVX2 kernel
+    /// when the CPU has AVX2, else the SSE4.1 one), without running the whole
+    /// setup, which would also replace the `_c` round shift that
+    /// scalar_round_shift_reference() keeps for the transform tests.
+    fn rtcd_cdef_find_dir() {
+        use aom::simd::av1__common__x86__cdef_block_avx2::cdef_find_dir_avx2;
+        let f: FindDirFunc = if std::arch::is_x86_feature_detected!("avx2") {
+            cdef_find_dir_avx2
+        } else {
+            cdef_find_dir_sse4_1
+        };
+        // SAFETY: a plain store into the RTCD pointer; the value is the same
+        // in every test that stores it.
+        unsafe { aom::av1__common__av1_rtcd::cdef_find_dir = Some(f) };
+    }
+
+    #[test]
+    fn cdef_block_4x4() {
+        assert!(std::arch::is_x86_feature_detected!("sse4.1"), "SSE4_1 instantiation needs an SSE4.1 CPU");
+        block_test(K_CDEF_FILTER_FUNC_SSE4_1, K_CDEF_FILTER_FUNC_C, BLOCK_4X4, &[8]);
+    }
+
+    #[test]
+    fn cdef_block_4x8() {
+        assert!(std::arch::is_x86_feature_detected!("sse4.1"), "SSE4_1 instantiation needs an SSE4.1 CPU");
+        block_test(K_CDEF_FILTER_FUNC_SSE4_1, K_CDEF_FILTER_FUNC_C, BLOCK_4X8, &[8]);
+    }
+
+    #[test]
+    fn cdef_block_8x4() {
+        assert!(std::arch::is_x86_feature_detected!("sse4.1"), "SSE4_1 instantiation needs an SSE4.1 CPU");
+        block_test(K_CDEF_FILTER_FUNC_SSE4_1, K_CDEF_FILTER_FUNC_C, BLOCK_8X4, &[8]);
+    }
+
+    #[test]
+    fn cdef_block_8x8() {
+        assert!(std::arch::is_x86_feature_detected!("sse4.1"), "SSE4_1 instantiation needs an SSE4.1 CPU");
+        block_test(K_CDEF_FILTER_FUNC_SSE4_1, K_CDEF_FILTER_FUNC_C, BLOCK_8X8, &[8]);
+    }
+
+    #[test]
+    fn cdef_block_highbd_4x4() {
+        assert!(std::arch::is_x86_feature_detected!("sse4.1"), "SSE4_1 instantiation needs an SSE4.1 CPU");
+        block_test(K_CDEF_FILTER_HIGHBD_FUNC_SSE4_1, K_CDEF_FILTER_HIGHBD_FUNC_C, BLOCK_4X4,
+                   &[10, 12]);
+    }
+
+    #[test]
+    fn cdef_block_highbd_4x8() {
+        assert!(std::arch::is_x86_feature_detected!("sse4.1"), "SSE4_1 instantiation needs an SSE4.1 CPU");
+        block_test(K_CDEF_FILTER_HIGHBD_FUNC_SSE4_1, K_CDEF_FILTER_HIGHBD_FUNC_C, BLOCK_4X8,
+                   &[10, 12]);
+    }
+
+    #[test]
+    fn cdef_block_highbd_8x4() {
+        assert!(std::arch::is_x86_feature_detected!("sse4.1"), "SSE4_1 instantiation needs an SSE4.1 CPU");
+        block_test(K_CDEF_FILTER_HIGHBD_FUNC_SSE4_1, K_CDEF_FILTER_HIGHBD_FUNC_C, BLOCK_8X4,
+                   &[10, 12]);
+    }
+
+    #[test]
+    fn cdef_block_highbd_8x8() {
+        assert!(std::arch::is_x86_feature_detected!("sse4.1"), "SSE4_1 instantiation needs an SSE4.1 CPU");
+        block_test(K_CDEF_FILTER_HIGHBD_FUNC_SSE4_1, K_CDEF_FILTER_HIGHBD_FUNC_C, BLOCK_8X8,
+                   &[10, 12]);
+    }
+
+    #[test]
+    fn cdef_find_dir() {
+        assert!(std::arch::is_x86_feature_detected!("sse4.1"), "SSE4_1 instantiation needs an SSE4.1 CPU");
+        let n = test_finddir(cdef_find_dir_sse4_1, cdef_find_dir_c);
+        eprintln!("cdef_find_dir: {n} comparisons");
+    }
+
+    #[test]
+    fn cdef_find_dir_dual() {
+        assert!(std::arch::is_x86_feature_detected!("sse4.1"), "SSE4_1 instantiation needs an SSE4.1 CPU");
+        rtcd_cdef_find_dir();
+        let n = test_finddir_dual(cdef_find_dir_dual_sse4_1, cdef_find_dir_dual_c);
+        eprintln!("cdef_find_dir_dual: {n} comparisons");
+    }
+
+    #[test]
+    fn cdef_copy_rect8_8bit_to_16bit() {
+        assert!(std::arch::is_x86_feature_detected!("sse4.1"), "SSE4_1 instantiation needs an SSE4.1 CPU");
+        test_copy_rect_8_to_16(cdef_copy_rect8_8bit_to_16bit_c,
+                               cdef_copy_rect8_8bit_to_16bit_sse4_1);
+    }
+
+    #[test]
+    fn cdef_copy_rect8_16bit_to_16bit() {
+        assert!(std::arch::is_x86_feature_detected!("sse4.1"), "SSE4_1 instantiation needs an SSE4.1 CPU");
+        test_copy_rect_16_to_16(cdef_copy_rect8_16bit_to_16bit_c,
+                                cdef_copy_rect8_16bit_to_16bit_sse4_1);
     }
 }

@@ -112,7 +112,7 @@ export default function HowAPortIsMade() {
             The scalar translation cannot simply be reused for speed: on NEON and AVX2 a
             multiply-add is fused into one rounding, minimum and maximum follow each
             instruction's rule for NaN, and sums depend on the number of lanes. So the port
-            translates Highway itself. Each of the 63 operations its kernels use is mapped to the
+            translates Highway itself. Each of the 67 operations its kernels use is mapped to the
             instruction Highway picks on that target, for example <code>vfmaq_f32</code> on NEON
             and <code>_mm256_fmadd_ps</code> on AVX2 for a multiply-add. A kernel is then written
             once, as in libjxl, and runs on either. All 37 Highway kernels the decoder uses are
@@ -125,8 +125,9 @@ export default function HowAPortIsMade() {
         {/* ADR 0004, Oracle variants; docs/quality-gate.md, libjxl-rs recorded results */}
         <p>
           libjxl is built once more for each target, as NEON only and as AVX2 only, and the
-          port's fast path is compared with the build of the same level. On AArch64 the 63
-          operations were checked on 85,085 requests with no finite word different, and whole
+          port's fast path is compared with the build of the same level. On AArch64 the
+          layer's operations (63 at the time) were checked on November 13, 2026 on 85,085
+          requests each with no finite word different, and whole
           decodes through the public
           decoder matched word for word on all 352 inputs, in float, 8-bit and 16-bit output. On
           x86-64 the AVX2 path matched in 704 decodes of the same 352 files, run under Rosetta 2

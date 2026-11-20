@@ -35,90 +35,18 @@ extern "C-unwind" {
         h: core::ffi::c_int,
     );
     fn aom_get_mb_ss_c(_: *const int16_t) -> core::ffi::c_uint;
-    fn aom_highbd_10_mse16x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        recon_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_10_mse16x8_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        recon_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_10_mse8x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        recon_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_10_mse8x8_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        recon_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_12_mse16x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        recon_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_12_mse16x8_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        recon_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_12_mse8x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        recon_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_12_mse8x8_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        recon_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_8_mse16x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        recon_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_8_mse16x8_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        recon_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_8_mse8x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        recon_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_8_mse8x8_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        recon_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
+    static mut aom_highbd_10_mse16x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_highbd_10_mse16x8: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_highbd_10_mse8x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_highbd_10_mse8x8: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_highbd_12_mse16x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_highbd_12_mse16x8: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_highbd_12_mse8x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_highbd_12_mse8x8: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_highbd_8_mse16x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_highbd_8_mse16x8: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_highbd_8_mse8x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_highbd_8_mse8x8: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
     fn aom_highbd_convolve_copy_c(
         src: *const uint16_t,
         src_stride: ptrdiff_t,
@@ -127,34 +55,10 @@ extern "C-unwind" {
         w: core::ffi::c_int,
         h: core::ffi::c_int,
     );
-    fn aom_mse16x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        recon_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_mse16x8_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        recon_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_mse8x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        recon_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_mse8x8_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        recon_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
+    static mut aom_mse16x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_mse16x8: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_mse8x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_mse8x8: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
     fn aom_extend_frame_borders_c(
         ybf: *mut yv12_buffer_config,
         num_planes: core::ffi::c_int,
@@ -6687,52 +6591,16 @@ pub unsafe extern "C-unwind" fn av1_end_first_pass(mut cpi: *mut AV1_COMP) {
 unsafe extern "C-unwind" fn get_block_variance_fn(mut bsize: BLOCK_SIZE) -> aom_variance_fn_t {
     match bsize as core::ffi::c_int {
         3 => {
-            return Some(
-                aom_mse8x8_c
-                    as unsafe extern "C-unwind" fn(
-                        *const uint8_t,
-                        core::ffi::c_int,
-                        *const uint8_t,
-                        core::ffi::c_int,
-                        *mut core::ffi::c_uint,
-                    ) -> core::ffi::c_uint,
-            );
+            return aom_mse8x8;
         }
         5 => {
-            return Some(
-                aom_mse16x8_c
-                    as unsafe extern "C-unwind" fn(
-                        *const uint8_t,
-                        core::ffi::c_int,
-                        *const uint8_t,
-                        core::ffi::c_int,
-                        *mut core::ffi::c_uint,
-                    ) -> core::ffi::c_uint,
-            );
+            return aom_mse16x8;
         }
         4 => {
-            return Some(
-                aom_mse8x16_c
-                    as unsafe extern "C-unwind" fn(
-                        *const uint8_t,
-                        core::ffi::c_int,
-                        *const uint8_t,
-                        core::ffi::c_int,
-                        *mut core::ffi::c_uint,
-                    ) -> core::ffi::c_uint,
-            );
+            return aom_mse8x16;
         }
         _ => {
-            return Some(
-                aom_mse16x16_c
-                    as unsafe extern "C-unwind" fn(
-                        *const uint8_t,
-                        core::ffi::c_int,
-                        *const uint8_t,
-                        core::ffi::c_int,
-                        *mut core::ffi::c_uint,
-                    ) -> core::ffi::c_uint,
-            );
+            return aom_mse16x16;
         }
     };
 }
@@ -6757,156 +6625,48 @@ unsafe extern "C-unwind" fn highbd_get_block_variance_fn(
         10 => {
             match bsize as core::ffi::c_int {
                 3 => {
-                    return Some(
-                        aom_highbd_10_mse8x8_c
-                            as unsafe extern "C-unwind" fn(
-                                *const uint8_t,
-                                core::ffi::c_int,
-                                *const uint8_t,
-                                core::ffi::c_int,
-                                *mut core::ffi::c_uint,
-                            ) -> core::ffi::c_uint,
-                    );
+                    return aom_highbd_10_mse8x8;
                 }
                 5 => {
-                    return Some(
-                        aom_highbd_10_mse16x8_c
-                            as unsafe extern "C-unwind" fn(
-                                *const uint8_t,
-                                core::ffi::c_int,
-                                *const uint8_t,
-                                core::ffi::c_int,
-                                *mut core::ffi::c_uint,
-                            ) -> core::ffi::c_uint,
-                    );
+                    return aom_highbd_10_mse16x8;
                 }
                 4 => {
-                    return Some(
-                        aom_highbd_10_mse8x16_c
-                            as unsafe extern "C-unwind" fn(
-                                *const uint8_t,
-                                core::ffi::c_int,
-                                *const uint8_t,
-                                core::ffi::c_int,
-                                *mut core::ffi::c_uint,
-                            ) -> core::ffi::c_uint,
-                    );
+                    return aom_highbd_10_mse8x16;
                 }
                 _ => {
-                    return Some(
-                        aom_highbd_10_mse16x16_c
-                            as unsafe extern "C-unwind" fn(
-                                *const uint8_t,
-                                core::ffi::c_int,
-                                *const uint8_t,
-                                core::ffi::c_int,
-                                *mut core::ffi::c_uint,
-                            ) -> core::ffi::c_uint,
-                    );
+                    return aom_highbd_10_mse16x16;
                 }
             }
         }
         12 => {
             match bsize as core::ffi::c_int {
                 3 => {
-                    return Some(
-                        aom_highbd_12_mse8x8_c
-                            as unsafe extern "C-unwind" fn(
-                                *const uint8_t,
-                                core::ffi::c_int,
-                                *const uint8_t,
-                                core::ffi::c_int,
-                                *mut core::ffi::c_uint,
-                            ) -> core::ffi::c_uint,
-                    );
+                    return aom_highbd_12_mse8x8;
                 }
                 5 => {
-                    return Some(
-                        aom_highbd_12_mse16x8_c
-                            as unsafe extern "C-unwind" fn(
-                                *const uint8_t,
-                                core::ffi::c_int,
-                                *const uint8_t,
-                                core::ffi::c_int,
-                                *mut core::ffi::c_uint,
-                            ) -> core::ffi::c_uint,
-                    );
+                    return aom_highbd_12_mse16x8;
                 }
                 4 => {
-                    return Some(
-                        aom_highbd_12_mse8x16_c
-                            as unsafe extern "C-unwind" fn(
-                                *const uint8_t,
-                                core::ffi::c_int,
-                                *const uint8_t,
-                                core::ffi::c_int,
-                                *mut core::ffi::c_uint,
-                            ) -> core::ffi::c_uint,
-                    );
+                    return aom_highbd_12_mse8x16;
                 }
                 _ => {
-                    return Some(
-                        aom_highbd_12_mse16x16_c
-                            as unsafe extern "C-unwind" fn(
-                                *const uint8_t,
-                                core::ffi::c_int,
-                                *const uint8_t,
-                                core::ffi::c_int,
-                                *mut core::ffi::c_uint,
-                            ) -> core::ffi::c_uint,
-                    );
+                    return aom_highbd_12_mse16x16;
                 }
             }
         }
         _ => {
             match bsize as core::ffi::c_int {
                 3 => {
-                    return Some(
-                        aom_highbd_8_mse8x8_c
-                            as unsafe extern "C-unwind" fn(
-                                *const uint8_t,
-                                core::ffi::c_int,
-                                *const uint8_t,
-                                core::ffi::c_int,
-                                *mut core::ffi::c_uint,
-                            ) -> core::ffi::c_uint,
-                    );
+                    return aom_highbd_8_mse8x8;
                 }
                 5 => {
-                    return Some(
-                        aom_highbd_8_mse16x8_c
-                            as unsafe extern "C-unwind" fn(
-                                *const uint8_t,
-                                core::ffi::c_int,
-                                *const uint8_t,
-                                core::ffi::c_int,
-                                *mut core::ffi::c_uint,
-                            ) -> core::ffi::c_uint,
-                    );
+                    return aom_highbd_8_mse16x8;
                 }
                 4 => {
-                    return Some(
-                        aom_highbd_8_mse8x16_c
-                            as unsafe extern "C-unwind" fn(
-                                *const uint8_t,
-                                core::ffi::c_int,
-                                *const uint8_t,
-                                core::ffi::c_int,
-                                *mut core::ffi::c_uint,
-                            ) -> core::ffi::c_uint,
-                    );
+                    return aom_highbd_8_mse8x16;
                 }
                 _ => {
-                    return Some(
-                        aom_highbd_8_mse16x16_c
-                            as unsafe extern "C-unwind" fn(
-                                *const uint8_t,
-                                core::ffi::c_int,
-                                *const uint8_t,
-                                core::ffi::c_int,
-                                *mut core::ffi::c_uint,
-                            ) -> core::ffi::c_uint,
-                    );
+                    return aom_highbd_8_mse16x16;
                 }
             }
         }

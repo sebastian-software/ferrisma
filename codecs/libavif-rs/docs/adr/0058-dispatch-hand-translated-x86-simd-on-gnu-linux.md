@@ -295,3 +295,66 @@ and the four profiles once more with `RUSTFLAGS=-Zallow-features=`. The dispatch
 rewrite of `enable_aom_dispatch.py` leaves string, byte-string and char
 literals and comments alone (the Linux debug profile keeps the C text of
 `assert` as byte strings).
+
+## Amendment: CNN, NN, Hadamard and the SSE3 family (2026-11-20)
+
+The x86 counterparts of the 2026-11-20 Neon families (ADR 0056 amendment of
+that date) are printed by `tools/x86_c2r` and dispatched through
+`enable_aom_dispatch.py --linux`:
+`av1_cnn_convolve_no_maxpool_padding_valid` (AVX2), the Hadamard kernels
+(`avg_intrin_sse2.c` SSE2 and `avg_intrin_avx2.c` AVX2, with
+`bitdepth_conversion_sse2.h`/`_avx2.h`), and `av1_nn_predict` (SSE3 and
+AVX2, `ml_sse3.c` and `ml_avx2.c`) with `av1_nn_fast_softmax_16` (SSE3).
+
+The SSE3 family was disabled in the dispatch headers, although the
+original's x86 build selects `av1_nn_predict_sse3` and
+`av1_nn_fast_softmax_16_sse3` on every CPU from SSE3 up, so the port's
+`sse4.1` level ran `_c` where the original runs SSE3. `tools/transpile_aom.py`
+no longer disables SSE3, `rtcd/x86_64.pl` withdraws every unported SSE3
+specialization like those of the other families, and
+`enable_aom_dispatch.py` accepts `_sse3` (`HAS_SSE3`). The regenerated Linux
+headers change only by the two SSE3 functions. The x86 overlay dispatches
+371 RTCD functions.
+
+The printer learned float struct fields and zero values, `float` literals
+typed `f32` (C rounds them to single precision and keeps the arithmetic in
+single precision), a pointer `+=` used as an operand, an opt-in
+`keep_lines` that keeps line numbers through multi-line `DECLARE_ALIGNED`,
+and the return types of `_mm256_extractf128_ps` and
+`_mm256_permute2f128_ps`. `assemble.py --check` reproduces all 58 files.
+
+## Amendment: the SSE4.1 level and the variance family (2026-11-20)
+
+Below AVX2 the original's x86 build runs SSE4.1 kernels the port had left on
+`_c`: `av1_highbd_quantize_fp` (`av1_highbd_quantize_sse4.c`, printed) and the
+CDEF kernels `cdef_filter_{8,16}_{0..3}`, `cdef_find_dir`,
+`cdef_find_dir_dual` and `cdef_copy_rect8_{8,16}bit_to_16bit`.
+`cdef_block_sse4.rs` is the `_sse4_1` instantiation of the
+`cdef_block_simd.h` template (hand translation, as `cdef_block_avx2.rs`);
+without `__AVX2__` its v256 comes from `v256_intrinsics_v128.h`, translated
+for the functions the template calls. The shared v64/v128 helpers now carry
+`sse4.1` instead of `avx2`: both headers test only `__SSSE3__` and
+`__SSE4_1__`, so the translated branches are those of either flag.
+
+The variance family follows the Neon one (ADR 0056, same date):
+`variance_sse2.c`, `variance_avx2.c`, `highbd_variance_avx2.c` and
+`highbd_variance_sse4.c` are printed (generating macros expanded with `cpp`)
+and dispatched, 49 functions in 67 variants. The high-bitdepth SSE2
+variances and MSEs call the NASM `aom_highbd_calc{8x8,16x16}var_sse2` and
+stay on `_c` (ADR-0044 D2); a kernel harness shows `_c` equal to the
+original's NASM-backed SSE2 for them. The x86 overlay dispatches 420 RTCD
+functions through 542 kernel assignments; `assemble.py --check` reproduces
+all 60 files. Under Rosetta (real AVX2) `--test simd` passes 264 tests,
+`check_aom_simd_original.py` reports `avx2`, `sse4.1` and `scalar` 82 of 82
+each, and the kernel harness (variance family and CDEF, 60 inputs) finds the
+port equal to the original at all three levels.
+
+## Amendment: owner decisions of 2026-11-20 (prec_reduce, #122)
+
+ADR 0056's amendment of the same date applies on x86-64 unchanged: words of
+`av1_nn_output_prec_reduce` whose scaled value lies outside `int` (C
+undefined behavior; the GCC original yields `INT_MIN`, the translation
+saturates) are not compared with the original, only the absence of a crash
+or memory error is required, and every other word stays bit-exact. #122 is
+closed: decision D4's gate replaces libaom's own SIMD-against-C tests.
+

@@ -158,7 +158,9 @@ export const ErrorBoundary = ArdoErrorBoundary;
 export default function Root() {
   const path = useArdoPath();
   const config = useArdoConfig();
-  const canonical = config.siteUrl ? new URL(path || "/", config.siteUrl).href : undefined;
+  // Pages are served as folders, so the canonical spelling ends with a slash.
+  const page = path.endsWith("/") ? path : `${path}/`;
+  const canonical = config.siteUrl ? new URL(page, config.siteUrl).href : undefined;
   // Pages on the homepage's layout: no documentation sidebar, no MDX wrapper.
   const home = [
     "",
@@ -169,7 +171,9 @@ export default function Root() {
     "/how-a-port-is-made/",
   ].includes(path);
   return (
-    <MonoPage className={home ? "fx-site" : "mono-docs fx-docs"}>
+    <MonoPage
+      className={home ? "fx-site" : `mono-docs fx-docs${path === "/404" ? " fx-not-found" : ""}`}
+    >
       {home && canonical && <link rel="canonical" href={canonical} />}
       <MarkDefs />
       <ArdoRoot

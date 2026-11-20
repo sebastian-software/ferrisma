@@ -3,7 +3,7 @@
 # file to the original cmake/rtcd.pl after aom_dsp_rtcd_defs.pl,
 # aom_scale_rtcd.pl, or av1_rtcd_defs.pl. It withdraws every SSE2, SSE4.1 and
 # AVX2 specialization that the port does not implement (SSSE3 too since
-# 2026-11-14, ADR 0058 amendment), so the generated
+# 2026-11-14, SSE3 since 2026-11-20, ADR 0058 amendments), so the generated
 # dispatch header names only existing functions. Every listed
 # `<name>_<extension>` must be bit-exact with `<name>_c` for the same
 # arguments. Variants implemented only in NASM files are never listed.
@@ -101,6 +101,10 @@ my %ported_x86 = map { $_ => 1 } qw/
   aom_dc_top_predictor_8x4_sse2
   aom_get_blk_sse_sum_avx2
   aom_get_blk_sse_sum_sse2
+  aom_get_var_sse_sum_16x16_dual_avx2
+  aom_get_var_sse_sum_16x16_dual_sse2
+  aom_get_var_sse_sum_8x8_quad_avx2
+  aom_get_var_sse_sum_8x8_quad_sse2
   aom_h_predictor_16x32_sse2
   aom_h_predictor_16x4_sse2
   aom_h_predictor_16x64_sse2
@@ -117,6 +121,38 @@ my %ported_x86 = map { $_ => 1 } qw/
   aom_h_predictor_8x16_sse2
   aom_h_predictor_8x32_sse2
   aom_h_predictor_8x4_sse2
+  aom_hadamard_16x16_avx2
+  aom_hadamard_16x16_sse2
+  aom_hadamard_32x32_avx2
+  aom_hadamard_32x32_sse2
+  aom_hadamard_4x4_sse2
+  aom_hadamard_8x8_sse2
+  aom_hadamard_lp_16x16_avx2
+  aom_hadamard_lp_16x16_sse2
+  aom_hadamard_lp_8x8_dual_avx2
+  aom_hadamard_lp_8x8_dual_sse2
+  aom_hadamard_lp_8x8_sse2
+  aom_highbd_10_mse16x16_avx2
+  aom_highbd_10_variance128x128_avx2
+  aom_highbd_10_variance128x64_avx2
+  aom_highbd_10_variance16x16_avx2
+  aom_highbd_10_variance16x32_avx2
+  aom_highbd_10_variance16x64_avx2
+  aom_highbd_10_variance16x8_avx2
+  aom_highbd_10_variance32x16_avx2
+  aom_highbd_10_variance32x32_avx2
+  aom_highbd_10_variance32x64_avx2
+  aom_highbd_10_variance32x8_avx2
+  aom_highbd_10_variance4x4_sse4_1
+  aom_highbd_10_variance64x128_avx2
+  aom_highbd_10_variance64x16_avx2
+  aom_highbd_10_variance64x32_avx2
+  aom_highbd_10_variance64x64_avx2
+  aom_highbd_10_variance8x16_avx2
+  aom_highbd_10_variance8x32_avx2
+  aom_highbd_10_variance8x8_avx2
+  aom_highbd_12_variance4x4_sse4_1
+  aom_highbd_8_variance4x4_sse4_1
   aom_highbd_dc_128_predictor_16x16_sse2
   aom_highbd_dc_128_predictor_16x32_sse2
   aom_highbd_dc_128_predictor_16x8_sse2
@@ -163,6 +199,9 @@ my %ported_x86 = map { $_ => 1 } qw/
   aom_highbd_h_predictor_8x16_sse2
   aom_highbd_h_predictor_8x4_sse2
   aom_highbd_h_predictor_8x8_sse2
+  aom_highbd_hadamard_16x16_avx2
+  aom_highbd_hadamard_32x32_avx2
+  aom_highbd_hadamard_8x8_avx2
   aom_highbd_lpf_horizontal_14_dual_avx2
   aom_highbd_lpf_horizontal_14_dual_sse2
   aom_highbd_lpf_horizontal_14_sse2
@@ -228,6 +267,11 @@ my %ported_x86 = map { $_ => 1 } qw/
   aom_lpf_vertical_8_dual_sse2
   aom_lpf_vertical_8_quad_sse2
   aom_lpf_vertical_8_sse2
+  aom_mse16x16_avx2
+  aom_mse16x16_sse2
+  aom_mse16x8_sse2
+  aom_mse8x16_sse2
+  aom_mse8x8_sse2
   aom_mse_16xh_16bit_avx2
   aom_mse_16xh_16bit_sse2
   aom_mse_wxh_16bit_avx2
@@ -358,10 +402,48 @@ my %ported_x86 = map { $_ => 1 } qw/
   aom_var_2d_u16_sse2
   aom_var_2d_u8_avx2
   aom_var_2d_u8_sse2
+  aom_variance128x128_avx2
+  aom_variance128x128_sse2
+  aom_variance128x64_avx2
+  aom_variance128x64_sse2
+  aom_variance16x16_avx2
+  aom_variance16x16_sse2
+  aom_variance16x32_avx2
+  aom_variance16x32_sse2
+  aom_variance16x4_avx2
+  aom_variance16x4_sse2
+  aom_variance16x64_avx2
+  aom_variance16x64_sse2
+  aom_variance16x8_avx2
+  aom_variance16x8_sse2
+  aom_variance32x16_avx2
+  aom_variance32x16_sse2
+  aom_variance32x32_avx2
+  aom_variance32x32_sse2
+  aom_variance32x64_avx2
+  aom_variance32x64_sse2
+  aom_variance32x8_avx2
+  aom_variance32x8_sse2
+  aom_variance4x16_sse2
+  aom_variance4x4_sse2
+  aom_variance4x8_sse2
+  aom_variance64x128_avx2
+  aom_variance64x128_sse2
+  aom_variance64x16_avx2
+  aom_variance64x16_sse2
+  aom_variance64x32_avx2
+  aom_variance64x32_sse2
+  aom_variance64x64_avx2
+  aom_variance64x64_sse2
+  aom_variance8x16_sse2
+  aom_variance8x32_sse2
+  aom_variance8x4_sse2
+  aom_variance8x8_sse2
   av1_apply_selfguided_restoration_avx2
   av1_apply_selfguided_restoration_sse4_1
   av1_block_error_avx2
   av1_block_error_lp_avx2
+  av1_cnn_convolve_no_maxpool_padding_valid_avx2
   av1_dr_prediction_z1_avx2
   av1_dr_prediction_z1_sse4_1
   av1_dr_prediction_z2_avx2
@@ -407,6 +489,7 @@ my %ported_x86 = map { $_ => 1 } qw/
   av1_highbd_inv_txfm_add_avx2
   av1_highbd_inv_txfm_add_sse4_1
   av1_highbd_quantize_fp_avx2
+  av1_highbd_quantize_fp_sse4_1
   av1_highbd_upsample_intra_edge_sse4_1
   av1_highbd_wiener_convolve_add_src_avx2
   av1_highbd_wiener_convolve_add_src_ssse3
@@ -415,6 +498,9 @@ my %ported_x86 = map { $_ => 1 } qw/
   av1_inv_txfm_add_ssse3
   av1_lowbd_fwd_txfm_avx2
   av1_lowbd_fwd_txfm_sse4_1
+  av1_nn_fast_softmax_16_sse3
+  av1_nn_predict_avx2
+  av1_nn_predict_sse3
   av1_quantize_fp_32x32_avx2
   av1_quantize_fp_64x64_avx2
   av1_quantize_fp_avx2
@@ -430,17 +516,29 @@ my %ported_x86 = map { $_ => 1 } qw/
   av1_wiener_convolve_add_src_avx2
   av1_wiener_convolve_add_src_sse2
   cdef_copy_rect8_16bit_to_16bit_avx2
+  cdef_copy_rect8_16bit_to_16bit_sse4_1
   cdef_copy_rect8_8bit_to_16bit_avx2
+  cdef_copy_rect8_8bit_to_16bit_sse4_1
   cdef_filter_16_0_avx2
+  cdef_filter_16_0_sse4_1
   cdef_filter_16_1_avx2
+  cdef_filter_16_1_sse4_1
   cdef_filter_16_2_avx2
+  cdef_filter_16_2_sse4_1
   cdef_filter_16_3_avx2
+  cdef_filter_16_3_sse4_1
   cdef_filter_8_0_avx2
+  cdef_filter_8_0_sse4_1
   cdef_filter_8_1_avx2
+  cdef_filter_8_1_sse4_1
   cdef_filter_8_2_avx2
+  cdef_filter_8_2_sse4_1
   cdef_filter_8_3_avx2
+  cdef_filter_8_3_sse4_1
   cdef_find_dir_avx2
   cdef_find_dir_dual_avx2
+  cdef_find_dir_dual_sse4_1
+  cdef_find_dir_sse4_1
   cfl_get_luma_subsampling_420_hbd_avx2
   cfl_get_luma_subsampling_420_hbd_ssse3
   cfl_get_luma_subsampling_420_lbd_avx2
@@ -461,7 +559,7 @@ my %ported_x86 = map { $_ => 1 } qw/
   cfl_get_subtract_average_fn_sse2
 /;
 foreach my $fn (keys %ALL_FUNCS) {
-  foreach my $ext (qw/sse2 ssse3 sse4_1 avx2/) {
+  foreach my $ext (qw/sse2 sse3 ssse3 sse4_1 avx2/) {
     undef ${"${fn}_${ext}"} unless $ported_x86{"${fn}_${ext}"};
   }
 }

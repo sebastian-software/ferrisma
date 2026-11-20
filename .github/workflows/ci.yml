@@ -200,6 +200,13 @@ jobs:
           python3 -I tools/stable_rust.py --check
           python3 -I tools/enable_aom_dispatch.py --check
           python3 -I tools/enable_aom_dispatch.py --linux --check
+          # The x86 kernels change only through the printer (port ADR 0058,
+          # 0059; owner decision O8): reproduce every printed file.
+          python3 -m venv "$RUNNER_TEMP/x86-c2r"
+          "$RUNNER_TEMP/x86-c2r/bin/pip" install -q pycparser==3.12
+          rustup toolchain install 1.98.1 --profile minimal --component rustfmt
+          CLANG_INCLUDE="$(ls -d /usr/lib/llvm-*/lib/clang/*/include | sort -V | tail -1)" \
+            X86_C2R_RUSTFMT_TOOLCHAIN=1.98.1 "$RUNNER_TEMP/x86-c2r/bin/python" tools/x86_c2r/assemble.py --check
           python3 -I tools/enable_dav1d_dispatch.py --check
           python3 tools/generate_licenses.py --check
           python3 -m unittest discover -s tests/ports -p '*_test.py'

@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
 
+# A deployment in progress on `main` is never cancelled; pull requests are.
 concurrency:
   group: homepage-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -39,9 +40,45 @@ jobs:
       - run: pnpm test
       - run: pnpm typecheck
       - run: pnpm build
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      # The Pages artifact is also the review artifact of a pull request. Hidden
+      # files are included for `.well-known/`, which every page links to.
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          name: ferrisma-homepage
           path: homepage/build/client
-          if-no-files-found: error
+          include-hidden-files: true
           retention-days: 14
+
+  # Publishes the build to GitHub Pages (ferrisma.dev) from `main` only: on a
+  # push, or on a manual run started from `main`. Pull requests and runs from
+  # other branches stop after the build. Only this job may write to Pages.
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      # The site is built for the domain root (base `/`, root-absolute asset
+      # URLs). A CNAME file is ignored by Actions deployments: the custom
+      # domain must be set in the repository's Pages settings, or the site
+      # would land under /ferrisma/ with every asset URL broken.
+      - name: Require the custom domain at the root
+        env:
+          PAGES_BASE_URL: ${{ steps.pages.outputs.base_url }}
+        run: |
+          if [ "$PAGES_BASE_URL" != "https://ferrisma.dev" ] && [ "$PAGES_BASE_URL" != "http://ferrisma.dev" ]; then
+            echo "::error::GitHub Pages serves this repository at '$PAGES_BASE_URL', not at the root of ferrisma.dev. Set the custom domain in Settings > Pages."
+            exit 1
+          fi
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

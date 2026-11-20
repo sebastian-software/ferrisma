@@ -8,6 +8,8 @@
 mod acm_random;
 #[path = "simd/cdef.rs"]
 mod cdef;
+#[path = "simd/cnn.rs"]
+mod cnn;
 #[path = "simd/highbd_inv_txfm.rs"]
 mod highbd_inv_txfm;
 #[path = "simd/lowbd_inv_txfm.rs"]
@@ -28,12 +30,18 @@ mod fwht4x4;
 mod sum_squares;
 #[path = "simd/sse_sum.rs"]
 mod sse_sum;
+#[path = "simd/hadamard.rs"]
+mod hadamard;
+#[path = "simd/nn_predict.rs"]
+mod nn_predict;
 #[path = "simd/horver_correlation.rs"]
 mod horver_correlation;
 #[path = "simd/encodetxb.rs"]
 mod encodetxb;
 #[path = "simd/mse_16bit.rs"]
 mod mse_16bit;
+#[path = "simd/variance.rs"]
+mod variance;
 #[path = "simd/blk_sse_sum.rs"]
 mod blk_sse_sum;
 #[path = "simd/round_shift_array.rs"]

@@ -1140,160 +1140,28 @@ extern "C-unwind" {
         ref_stride: core::ffi::c_int,
         sse: *mut uint32_t,
     ) -> uint32_t;
-    fn aom_highbd_10_variance128x128_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_10_variance128x64_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_10_variance16x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_10_variance16x32_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_10_variance16x4_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_10_variance16x64_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_10_variance16x8_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_10_variance32x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_10_variance32x32_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_10_variance32x64_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_10_variance32x8_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_10_variance4x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_10_variance4x4_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_10_variance4x8_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_10_variance64x128_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_10_variance64x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_10_variance64x32_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_10_variance64x64_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_10_variance8x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_10_variance8x32_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_10_variance8x4_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_10_variance8x8_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
+    static mut aom_highbd_10_variance128x128: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_10_variance128x64: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_10_variance16x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_10_variance16x32: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_10_variance16x4: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_10_variance16x64: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_10_variance16x8: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_10_variance32x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_10_variance32x32: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_10_variance32x64: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_10_variance32x8: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_10_variance4x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_10_variance4x4: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_10_variance4x8: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_10_variance64x128: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_10_variance64x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_10_variance64x32: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_10_variance64x64: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_10_variance8x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_10_variance8x32: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_10_variance8x4: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_10_variance8x8: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
     fn aom_highbd_12_masked_sub_pixel_variance128x128_c(
         src: *const uint8_t,
         src_stride: core::ffi::c_int,
@@ -2350,160 +2218,28 @@ extern "C-unwind" {
         ref_stride: core::ffi::c_int,
         sse: *mut uint32_t,
     ) -> uint32_t;
-    fn aom_highbd_12_variance128x128_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_12_variance128x64_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_12_variance16x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_12_variance16x32_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_12_variance16x4_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_12_variance16x64_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_12_variance16x8_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_12_variance32x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_12_variance32x32_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_12_variance32x64_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_12_variance32x8_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_12_variance4x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_12_variance4x4_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_12_variance4x8_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_12_variance64x128_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_12_variance64x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_12_variance64x32_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_12_variance64x64_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_12_variance8x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_12_variance8x32_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_12_variance8x4_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_12_variance8x8_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
+    static mut aom_highbd_12_variance128x128: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_12_variance128x64: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_12_variance16x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_12_variance16x32: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_12_variance16x4: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_12_variance16x64: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_12_variance16x8: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_12_variance32x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_12_variance32x32: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_12_variance32x64: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_12_variance32x8: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_12_variance4x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_12_variance4x4: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_12_variance4x8: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_12_variance64x128: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_12_variance64x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_12_variance64x32: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_12_variance64x64: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_12_variance8x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_12_variance8x32: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_12_variance8x4: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_12_variance8x8: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
     fn aom_highbd_8_masked_sub_pixel_variance128x128_c(
         src: *const uint8_t,
         src_stride: core::ffi::c_int,
@@ -3560,160 +3296,28 @@ extern "C-unwind" {
         ref_stride: core::ffi::c_int,
         sse: *mut uint32_t,
     ) -> uint32_t;
-    fn aom_highbd_8_variance128x128_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_8_variance128x64_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_8_variance16x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_8_variance16x32_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_8_variance16x4_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_8_variance16x64_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_8_variance16x8_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_8_variance32x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_8_variance32x32_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_8_variance32x64_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_8_variance32x8_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_8_variance4x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_8_variance4x4_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_8_variance4x8_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_8_variance64x128_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_8_variance64x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_8_variance64x32_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_8_variance64x64_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_8_variance8x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_8_variance8x32_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_8_variance8x4_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
-    fn aom_highbd_8_variance8x8_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut uint32_t,
-    ) -> core::ffi::c_uint;
+    static mut aom_highbd_8_variance128x128: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_8_variance128x64: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_8_variance16x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_8_variance16x32: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_8_variance16x4: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_8_variance16x64: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_8_variance16x8: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_8_variance32x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_8_variance32x32: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_8_variance32x64: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_8_variance32x8: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_8_variance4x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_8_variance4x4: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_8_variance4x8: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_8_variance64x128: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_8_variance64x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_8_variance64x32: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_8_variance64x64: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_8_variance8x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_8_variance8x32: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_8_variance8x4: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
+    static mut aom_highbd_8_variance8x8: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut uint32_t) -> core::ffi::c_uint>;
     fn aom_highbd_masked_sad128x128_c(
         src8: *const uint8_t,
         src_stride: core::ffi::c_int,
@@ -6982,160 +6586,28 @@ extern "C-unwind" {
         ref_stride: core::ffi::c_int,
         sse: *mut uint32_t,
     ) -> uint32_t;
-    fn aom_variance128x128_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_variance128x64_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_variance16x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_variance16x32_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_variance16x4_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_variance16x64_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_variance16x8_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_variance32x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_variance32x32_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_variance32x64_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_variance32x8_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_variance4x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_variance4x4_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_variance4x8_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_variance64x128_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_variance64x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_variance64x32_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_variance64x64_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_variance8x16_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_variance8x32_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_variance8x4_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
-    fn aom_variance8x8_c(
-        src_ptr: *const uint8_t,
-        source_stride: core::ffi::c_int,
-        ref_ptr: *const uint8_t,
-        ref_stride: core::ffi::c_int,
-        sse: *mut core::ffi::c_uint,
-    ) -> core::ffi::c_uint;
+    static mut aom_variance128x128: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_variance128x64: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_variance16x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_variance16x32: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_variance16x4: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_variance16x64: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_variance16x8: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_variance32x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_variance32x32: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_variance32x64: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_variance32x8: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_variance4x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_variance4x4: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_variance4x8: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_variance64x128: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_variance64x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_variance64x32: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_variance64x64: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_variance8x16: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_variance8x32: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_variance8x4: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
+    static mut aom_variance8x8: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, *mut core::ffi::c_uint) -> core::ffi::c_uint>;
     fn aom_dsp_rtcd();
     fn aom_codec_pkt_list_add(
         _: *mut aom_codec_pkt_list,
@@ -21824,16 +21296,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_64X16 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_8_variance64x16_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_64X16 as core::ffi::c_int as usize].vf = aom_highbd_8_variance64x16 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_64X16 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_8_sub_pixel_variance64x16_c
                         as unsafe extern "C-unwind" fn(
@@ -21898,16 +21361,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_16X64 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_8_variance16x64_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_16X64 as core::ffi::c_int as usize].vf = aom_highbd_8_variance16x64 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_16X64 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_8_sub_pixel_variance16x64_c
                         as unsafe extern "C-unwind" fn(
@@ -21972,16 +21426,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_32X8 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_8_variance32x8_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_32X8 as core::ffi::c_int as usize].vf = aom_highbd_8_variance32x8 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_32X8 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_8_sub_pixel_variance32x8_c
                         as unsafe extern "C-unwind" fn(
@@ -22046,16 +21491,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_8X32 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_8_variance8x32_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_8X32 as core::ffi::c_int as usize].vf = aom_highbd_8_variance8x32 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_8X32 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_8_sub_pixel_variance8x32_c
                         as unsafe extern "C-unwind" fn(
@@ -22111,16 +21547,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_fn_t;
                 (*ppi).fn_ptr[BLOCK_16X4 as core::ffi::c_int as usize].sdaf = None;
-                (*ppi).fn_ptr[BLOCK_16X4 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_8_variance16x4_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_16X4 as core::ffi::c_int as usize].vf = aom_highbd_8_variance16x4 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_16X4 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_8_sub_pixel_variance16x4_c
                         as unsafe extern "C-unwind" fn(
@@ -22176,16 +21603,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_fn_t;
                 (*ppi).fn_ptr[BLOCK_4X16 as core::ffi::c_int as usize].sdaf = None;
-                (*ppi).fn_ptr[BLOCK_4X16 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_8_variance4x16_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_4X16 as core::ffi::c_int as usize].vf = aom_highbd_8_variance4x16 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_4X16 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_8_sub_pixel_variance4x16_c
                         as unsafe extern "C-unwind" fn(
@@ -22250,16 +21668,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_32X16 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_8_variance32x16_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_32X16 as core::ffi::c_int as usize].vf = aom_highbd_8_variance32x16 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_32X16 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_8_sub_pixel_variance32x16_c
                         as unsafe extern "C-unwind" fn(
@@ -22324,16 +21733,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_16X32 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_8_variance16x32_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_16X32 as core::ffi::c_int as usize].vf = aom_highbd_8_variance16x32 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_16X32 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_8_sub_pixel_variance16x32_c
                         as unsafe extern "C-unwind" fn(
@@ -22398,16 +21798,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_64X32 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_8_variance64x32_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_64X32 as core::ffi::c_int as usize].vf = aom_highbd_8_variance64x32 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_64X32 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_8_sub_pixel_variance64x32_c
                         as unsafe extern "C-unwind" fn(
@@ -22472,16 +21863,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_32X64 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_8_variance32x64_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_32X64 as core::ffi::c_int as usize].vf = aom_highbd_8_variance32x64 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_32X64 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_8_sub_pixel_variance32x64_c
                         as unsafe extern "C-unwind" fn(
@@ -22546,16 +21928,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_32X32 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_8_variance32x32_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_32X32 as core::ffi::c_int as usize].vf = aom_highbd_8_variance32x32 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_32X32 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_8_sub_pixel_variance32x32_c
                         as unsafe extern "C-unwind" fn(
@@ -22620,16 +21993,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_64X64 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_8_variance64x64_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_64X64 as core::ffi::c_int as usize].vf = aom_highbd_8_variance64x64 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_64X64 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_8_sub_pixel_variance64x64_c
                         as unsafe extern "C-unwind" fn(
@@ -22694,16 +22058,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_16X16 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_8_variance16x16_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_16X16 as core::ffi::c_int as usize].vf = aom_highbd_8_variance16x16 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_16X16 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_8_sub_pixel_variance16x16_c
                         as unsafe extern "C-unwind" fn(
@@ -22768,16 +22123,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_16X8 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_8_variance16x8_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_16X8 as core::ffi::c_int as usize].vf = aom_highbd_8_variance16x8 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_16X8 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_8_sub_pixel_variance16x8_c
                         as unsafe extern "C-unwind" fn(
@@ -22842,16 +22188,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_8X16 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_8_variance8x16_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_8X16 as core::ffi::c_int as usize].vf = aom_highbd_8_variance8x16 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_8X16 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_8_sub_pixel_variance8x16_c
                         as unsafe extern "C-unwind" fn(
@@ -22916,16 +22253,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_8X8 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_8_variance8x8_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_8X8 as core::ffi::c_int as usize].vf = aom_highbd_8_variance8x8 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_8X8 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_8_sub_pixel_variance8x8_c
                         as unsafe extern "C-unwind" fn(
@@ -22981,16 +22309,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_fn_t;
                 (*ppi).fn_ptr[BLOCK_8X4 as core::ffi::c_int as usize].sdaf = None;
-                (*ppi).fn_ptr[BLOCK_8X4 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_8_variance8x4_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_8X4 as core::ffi::c_int as usize].vf = aom_highbd_8_variance8x4 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_8X4 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_8_sub_pixel_variance8x4_c
                         as unsafe extern "C-unwind" fn(
@@ -23046,16 +22365,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_fn_t;
                 (*ppi).fn_ptr[BLOCK_4X8 as core::ffi::c_int as usize].sdaf = None;
-                (*ppi).fn_ptr[BLOCK_4X8 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_8_variance4x8_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_4X8 as core::ffi::c_int as usize].vf = aom_highbd_8_variance4x8 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_4X8 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_8_sub_pixel_variance4x8_c
                         as unsafe extern "C-unwind" fn(
@@ -23111,16 +22421,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_fn_t;
                 (*ppi).fn_ptr[BLOCK_4X4 as core::ffi::c_int as usize].sdaf = None;
-                (*ppi).fn_ptr[BLOCK_4X4 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_8_variance4x4_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_4X4 as core::ffi::c_int as usize].vf = aom_highbd_8_variance4x4 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_4X4 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_8_sub_pixel_variance4x4_c
                         as unsafe extern "C-unwind" fn(
@@ -23185,16 +22486,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_128X128 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_8_variance128x128_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_128X128 as core::ffi::c_int as usize].vf = aom_highbd_8_variance128x128 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_128X128 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_8_sub_pixel_variance128x128_c
                         as unsafe extern "C-unwind" fn(
@@ -23259,16 +22551,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_128X64 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_8_variance128x64_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_128X64 as core::ffi::c_int as usize].vf = aom_highbd_8_variance128x64 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_128X64 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_8_sub_pixel_variance128x64_c
                         as unsafe extern "C-unwind" fn(
@@ -23333,16 +22616,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_64X128 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_8_variance64x128_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_64X128 as core::ffi::c_int as usize].vf = aom_highbd_8_variance64x128 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_64X128 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_8_sub_pixel_variance64x128_c
                         as unsafe extern "C-unwind" fn(
@@ -25014,16 +24288,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_64X16 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_10_variance64x16_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_64X16 as core::ffi::c_int as usize].vf = aom_highbd_10_variance64x16 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_64X16 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_10_sub_pixel_variance64x16_c
                         as unsafe extern "C-unwind" fn(
@@ -25088,16 +24353,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_16X64 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_10_variance16x64_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_16X64 as core::ffi::c_int as usize].vf = aom_highbd_10_variance16x64 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_16X64 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_10_sub_pixel_variance16x64_c
                         as unsafe extern "C-unwind" fn(
@@ -25162,16 +24418,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_32X8 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_10_variance32x8_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_32X8 as core::ffi::c_int as usize].vf = aom_highbd_10_variance32x8 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_32X8 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_10_sub_pixel_variance32x8_c
                         as unsafe extern "C-unwind" fn(
@@ -25236,16 +24483,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_8X32 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_10_variance8x32_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_8X32 as core::ffi::c_int as usize].vf = aom_highbd_10_variance8x32 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_8X32 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_10_sub_pixel_variance8x32_c
                         as unsafe extern "C-unwind" fn(
@@ -25301,16 +24539,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_fn_t;
                 (*ppi).fn_ptr[BLOCK_16X4 as core::ffi::c_int as usize].sdaf = None;
-                (*ppi).fn_ptr[BLOCK_16X4 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_10_variance16x4_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_16X4 as core::ffi::c_int as usize].vf = aom_highbd_10_variance16x4 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_16X4 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_10_sub_pixel_variance16x4_c
                         as unsafe extern "C-unwind" fn(
@@ -25366,16 +24595,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_fn_t;
                 (*ppi).fn_ptr[BLOCK_4X16 as core::ffi::c_int as usize].sdaf = None;
-                (*ppi).fn_ptr[BLOCK_4X16 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_10_variance4x16_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_4X16 as core::ffi::c_int as usize].vf = aom_highbd_10_variance4x16 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_4X16 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_10_sub_pixel_variance4x16_c
                         as unsafe extern "C-unwind" fn(
@@ -25440,16 +24660,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_32X16 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_10_variance32x16_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_32X16 as core::ffi::c_int as usize].vf = aom_highbd_10_variance32x16 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_32X16 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_10_sub_pixel_variance32x16_c
                         as unsafe extern "C-unwind" fn(
@@ -25514,16 +24725,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_16X32 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_10_variance16x32_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_16X32 as core::ffi::c_int as usize].vf = aom_highbd_10_variance16x32 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_16X32 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_10_sub_pixel_variance16x32_c
                         as unsafe extern "C-unwind" fn(
@@ -25588,16 +24790,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_64X32 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_10_variance64x32_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_64X32 as core::ffi::c_int as usize].vf = aom_highbd_10_variance64x32 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_64X32 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_10_sub_pixel_variance64x32_c
                         as unsafe extern "C-unwind" fn(
@@ -25662,16 +24855,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_32X64 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_10_variance32x64_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_32X64 as core::ffi::c_int as usize].vf = aom_highbd_10_variance32x64 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_32X64 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_10_sub_pixel_variance32x64_c
                         as unsafe extern "C-unwind" fn(
@@ -25736,16 +24920,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_32X32 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_10_variance32x32_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_32X32 as core::ffi::c_int as usize].vf = aom_highbd_10_variance32x32 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_32X32 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_10_sub_pixel_variance32x32_c
                         as unsafe extern "C-unwind" fn(
@@ -25810,16 +24985,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_64X64 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_10_variance64x64_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_64X64 as core::ffi::c_int as usize].vf = aom_highbd_10_variance64x64 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_64X64 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_10_sub_pixel_variance64x64_c
                         as unsafe extern "C-unwind" fn(
@@ -25884,16 +25050,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_16X16 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_10_variance16x16_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_16X16 as core::ffi::c_int as usize].vf = aom_highbd_10_variance16x16 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_16X16 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_10_sub_pixel_variance16x16_c
                         as unsafe extern "C-unwind" fn(
@@ -25958,16 +25115,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_16X8 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_10_variance16x8_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_16X8 as core::ffi::c_int as usize].vf = aom_highbd_10_variance16x8 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_16X8 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_10_sub_pixel_variance16x8_c
                         as unsafe extern "C-unwind" fn(
@@ -26032,16 +25180,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_8X16 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_10_variance8x16_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_8X16 as core::ffi::c_int as usize].vf = aom_highbd_10_variance8x16 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_8X16 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_10_sub_pixel_variance8x16_c
                         as unsafe extern "C-unwind" fn(
@@ -26106,16 +25245,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_8X8 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_10_variance8x8_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_8X8 as core::ffi::c_int as usize].vf = aom_highbd_10_variance8x8 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_8X8 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_10_sub_pixel_variance8x8_c
                         as unsafe extern "C-unwind" fn(
@@ -26171,16 +25301,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_fn_t;
                 (*ppi).fn_ptr[BLOCK_8X4 as core::ffi::c_int as usize].sdaf = None;
-                (*ppi).fn_ptr[BLOCK_8X4 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_10_variance8x4_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_8X4 as core::ffi::c_int as usize].vf = aom_highbd_10_variance8x4 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_8X4 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_10_sub_pixel_variance8x4_c
                         as unsafe extern "C-unwind" fn(
@@ -26236,16 +25357,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_fn_t;
                 (*ppi).fn_ptr[BLOCK_4X8 as core::ffi::c_int as usize].sdaf = None;
-                (*ppi).fn_ptr[BLOCK_4X8 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_10_variance4x8_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_4X8 as core::ffi::c_int as usize].vf = aom_highbd_10_variance4x8 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_4X8 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_10_sub_pixel_variance4x8_c
                         as unsafe extern "C-unwind" fn(
@@ -26301,16 +25413,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_fn_t;
                 (*ppi).fn_ptr[BLOCK_4X4 as core::ffi::c_int as usize].sdaf = None;
-                (*ppi).fn_ptr[BLOCK_4X4 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_10_variance4x4_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_4X4 as core::ffi::c_int as usize].vf = aom_highbd_10_variance4x4 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_4X4 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_10_sub_pixel_variance4x4_c
                         as unsafe extern "C-unwind" fn(
@@ -26375,16 +25478,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_128X128 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_10_variance128x128_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_128X128 as core::ffi::c_int as usize].vf = aom_highbd_10_variance128x128 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_128X128 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_10_sub_pixel_variance128x128_c
                         as unsafe extern "C-unwind" fn(
@@ -26449,16 +25543,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_128X64 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_10_variance128x64_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_128X64 as core::ffi::c_int as usize].vf = aom_highbd_10_variance128x64 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_128X64 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_10_sub_pixel_variance128x64_c
                         as unsafe extern "C-unwind" fn(
@@ -26523,16 +25608,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_64X128 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_10_variance64x128_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_64X128 as core::ffi::c_int as usize].vf = aom_highbd_10_variance64x128 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_64X128 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_10_sub_pixel_variance64x128_c
                         as unsafe extern "C-unwind" fn(
@@ -28204,16 +27280,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_64X16 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_12_variance64x16_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_64X16 as core::ffi::c_int as usize].vf = aom_highbd_12_variance64x16 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_64X16 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_12_sub_pixel_variance64x16_c
                         as unsafe extern "C-unwind" fn(
@@ -28278,16 +27345,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_16X64 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_12_variance16x64_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_16X64 as core::ffi::c_int as usize].vf = aom_highbd_12_variance16x64 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_16X64 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_12_sub_pixel_variance16x64_c
                         as unsafe extern "C-unwind" fn(
@@ -28352,16 +27410,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_32X8 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_12_variance32x8_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_32X8 as core::ffi::c_int as usize].vf = aom_highbd_12_variance32x8 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_32X8 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_12_sub_pixel_variance32x8_c
                         as unsafe extern "C-unwind" fn(
@@ -28426,16 +27475,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_8X32 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_12_variance8x32_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_8X32 as core::ffi::c_int as usize].vf = aom_highbd_12_variance8x32 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_8X32 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_12_sub_pixel_variance8x32_c
                         as unsafe extern "C-unwind" fn(
@@ -28491,16 +27531,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_fn_t;
                 (*ppi).fn_ptr[BLOCK_16X4 as core::ffi::c_int as usize].sdaf = None;
-                (*ppi).fn_ptr[BLOCK_16X4 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_12_variance16x4_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_16X4 as core::ffi::c_int as usize].vf = aom_highbd_12_variance16x4 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_16X4 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_12_sub_pixel_variance16x4_c
                         as unsafe extern "C-unwind" fn(
@@ -28556,16 +27587,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_fn_t;
                 (*ppi).fn_ptr[BLOCK_4X16 as core::ffi::c_int as usize].sdaf = None;
-                (*ppi).fn_ptr[BLOCK_4X16 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_12_variance4x16_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_4X16 as core::ffi::c_int as usize].vf = aom_highbd_12_variance4x16 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_4X16 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_12_sub_pixel_variance4x16_c
                         as unsafe extern "C-unwind" fn(
@@ -28630,16 +27652,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_32X16 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_12_variance32x16_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_32X16 as core::ffi::c_int as usize].vf = aom_highbd_12_variance32x16 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_32X16 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_12_sub_pixel_variance32x16_c
                         as unsafe extern "C-unwind" fn(
@@ -28704,16 +27717,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_16X32 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_12_variance16x32_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_16X32 as core::ffi::c_int as usize].vf = aom_highbd_12_variance16x32 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_16X32 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_12_sub_pixel_variance16x32_c
                         as unsafe extern "C-unwind" fn(
@@ -28778,16 +27782,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_64X32 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_12_variance64x32_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_64X32 as core::ffi::c_int as usize].vf = aom_highbd_12_variance64x32 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_64X32 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_12_sub_pixel_variance64x32_c
                         as unsafe extern "C-unwind" fn(
@@ -28852,16 +27847,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_32X64 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_12_variance32x64_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_32X64 as core::ffi::c_int as usize].vf = aom_highbd_12_variance32x64 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_32X64 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_12_sub_pixel_variance32x64_c
                         as unsafe extern "C-unwind" fn(
@@ -28926,16 +27912,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_32X32 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_12_variance32x32_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_32X32 as core::ffi::c_int as usize].vf = aom_highbd_12_variance32x32 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_32X32 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_12_sub_pixel_variance32x32_c
                         as unsafe extern "C-unwind" fn(
@@ -29000,16 +27977,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_64X64 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_12_variance64x64_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_64X64 as core::ffi::c_int as usize].vf = aom_highbd_12_variance64x64 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_64X64 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_12_sub_pixel_variance64x64_c
                         as unsafe extern "C-unwind" fn(
@@ -29074,16 +28042,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_16X16 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_12_variance16x16_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_16X16 as core::ffi::c_int as usize].vf = aom_highbd_12_variance16x16 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_16X16 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_12_sub_pixel_variance16x16_c
                         as unsafe extern "C-unwind" fn(
@@ -29148,16 +28107,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_16X8 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_12_variance16x8_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_16X8 as core::ffi::c_int as usize].vf = aom_highbd_12_variance16x8 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_16X8 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_12_sub_pixel_variance16x8_c
                         as unsafe extern "C-unwind" fn(
@@ -29222,16 +28172,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_8X16 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_12_variance8x16_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_8X16 as core::ffi::c_int as usize].vf = aom_highbd_12_variance8x16 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_8X16 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_12_sub_pixel_variance8x16_c
                         as unsafe extern "C-unwind" fn(
@@ -29296,16 +28237,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_8X8 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_12_variance8x8_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_8X8 as core::ffi::c_int as usize].vf = aom_highbd_12_variance8x8 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_8X8 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_12_sub_pixel_variance8x8_c
                         as unsafe extern "C-unwind" fn(
@@ -29361,16 +28293,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_fn_t;
                 (*ppi).fn_ptr[BLOCK_8X4 as core::ffi::c_int as usize].sdaf = None;
-                (*ppi).fn_ptr[BLOCK_8X4 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_12_variance8x4_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_8X4 as core::ffi::c_int as usize].vf = aom_highbd_12_variance8x4 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_8X4 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_12_sub_pixel_variance8x4_c
                         as unsafe extern "C-unwind" fn(
@@ -29426,16 +28349,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_fn_t;
                 (*ppi).fn_ptr[BLOCK_4X8 as core::ffi::c_int as usize].sdaf = None;
-                (*ppi).fn_ptr[BLOCK_4X8 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_12_variance4x8_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_4X8 as core::ffi::c_int as usize].vf = aom_highbd_12_variance4x8 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_4X8 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_12_sub_pixel_variance4x8_c
                         as unsafe extern "C-unwind" fn(
@@ -29491,16 +28405,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_fn_t;
                 (*ppi).fn_ptr[BLOCK_4X4 as core::ffi::c_int as usize].sdaf = None;
-                (*ppi).fn_ptr[BLOCK_4X4 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_12_variance4x4_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_4X4 as core::ffi::c_int as usize].vf = aom_highbd_12_variance4x4 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_4X4 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_12_sub_pixel_variance4x4_c
                         as unsafe extern "C-unwind" fn(
@@ -29565,16 +28470,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_128X128 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_12_variance128x128_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_128X128 as core::ffi::c_int as usize].vf = aom_highbd_12_variance128x128 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_128X128 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_12_sub_pixel_variance128x128_c
                         as unsafe extern "C-unwind" fn(
@@ -29639,16 +28535,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_128X64 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_12_variance128x64_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_128X64 as core::ffi::c_int as usize].vf = aom_highbd_12_variance128x64 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_128X64 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_12_sub_pixel_variance128x64_c
                         as unsafe extern "C-unwind" fn(
@@ -29713,16 +28600,7 @@ unsafe extern "C-unwind" fn highbd_set_var_fns(ppi: *mut AV1_PRIMARY) {
                             *const uint8_t,
                         ) -> core::ffi::c_uint,
                 ) as aom_sad_avg_fn_t;
-                (*ppi).fn_ptr[BLOCK_64X128 as core::ffi::c_int as usize].vf = Some(
-                    aom_highbd_12_variance64x128_c
-                        as unsafe extern "C-unwind" fn(
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *const uint8_t,
-                            core::ffi::c_int,
-                            *mut uint32_t,
-                        ) -> core::ffi::c_uint,
-                ) as aom_variance_fn_t;
+                (*ppi).fn_ptr[BLOCK_64X128 as core::ffi::c_int as usize].vf = aom_highbd_12_variance64x128 as aom_variance_fn_t;
                 (*ppi).fn_ptr[BLOCK_64X128 as core::ffi::c_int as usize].svf = Some(
                     aom_highbd_12_sub_pixel_variance64x128_c
                         as unsafe extern "C-unwind" fn(
@@ -35136,16 +34014,7 @@ match crate::jump::value_scope((((*ppi).error.jmp).as_mut_ptr()).cast(), || {
             ) -> core::ffi::c_uint,
     ) as aom_sad_fn_t;
     (*ppi).fn_ptr[BLOCK_4X16 as core::ffi::c_int as usize].sdaf = None;
-    (*ppi).fn_ptr[BLOCK_4X16 as core::ffi::c_int as usize].vf = Some(
-        aom_variance4x16_c
-            as unsafe extern "C-unwind" fn(
-                *const uint8_t,
-                core::ffi::c_int,
-                *const uint8_t,
-                core::ffi::c_int,
-                *mut core::ffi::c_uint,
-            ) -> core::ffi::c_uint,
-    ) as aom_variance_fn_t;
+    (*ppi).fn_ptr[BLOCK_4X16 as core::ffi::c_int as usize].vf = aom_variance4x16 as aom_variance_fn_t;
     (*ppi).fn_ptr[BLOCK_4X16 as core::ffi::c_int as usize].svf = Some(
         aom_sub_pixel_variance4x16_c
             as unsafe extern "C-unwind" fn(
@@ -35201,16 +34070,7 @@ match crate::jump::value_scope((((*ppi).error.jmp).as_mut_ptr()).cast(), || {
             ) -> core::ffi::c_uint,
     ) as aom_sad_fn_t;
     (*ppi).fn_ptr[BLOCK_16X4 as core::ffi::c_int as usize].sdaf = None;
-    (*ppi).fn_ptr[BLOCK_16X4 as core::ffi::c_int as usize].vf = Some(
-        aom_variance16x4_c
-            as unsafe extern "C-unwind" fn(
-                *const uint8_t,
-                core::ffi::c_int,
-                *const uint8_t,
-                core::ffi::c_int,
-                *mut core::ffi::c_uint,
-            ) -> core::ffi::c_uint,
-    ) as aom_variance_fn_t;
+    (*ppi).fn_ptr[BLOCK_16X4 as core::ffi::c_int as usize].vf = aom_variance16x4 as aom_variance_fn_t;
     (*ppi).fn_ptr[BLOCK_16X4 as core::ffi::c_int as usize].svf = Some(
         aom_sub_pixel_variance16x4_c
             as unsafe extern "C-unwind" fn(
@@ -35275,16 +34135,7 @@ match crate::jump::value_scope((((*ppi).error.jmp).as_mut_ptr()).cast(), || {
                 *const uint8_t,
             ) -> core::ffi::c_uint,
     ) as aom_sad_avg_fn_t;
-    (*ppi).fn_ptr[BLOCK_8X32 as core::ffi::c_int as usize].vf = Some(
-        aom_variance8x32_c
-            as unsafe extern "C-unwind" fn(
-                *const uint8_t,
-                core::ffi::c_int,
-                *const uint8_t,
-                core::ffi::c_int,
-                *mut core::ffi::c_uint,
-            ) -> core::ffi::c_uint,
-    ) as aom_variance_fn_t;
+    (*ppi).fn_ptr[BLOCK_8X32 as core::ffi::c_int as usize].vf = aom_variance8x32 as aom_variance_fn_t;
     (*ppi).fn_ptr[BLOCK_8X32 as core::ffi::c_int as usize].svf = Some(
         aom_sub_pixel_variance8x32_c
             as unsafe extern "C-unwind" fn(
@@ -35349,16 +34200,7 @@ match crate::jump::value_scope((((*ppi).error.jmp).as_mut_ptr()).cast(), || {
                 *const uint8_t,
             ) -> core::ffi::c_uint,
     ) as aom_sad_avg_fn_t;
-    (*ppi).fn_ptr[BLOCK_32X8 as core::ffi::c_int as usize].vf = Some(
-        aom_variance32x8_c
-            as unsafe extern "C-unwind" fn(
-                *const uint8_t,
-                core::ffi::c_int,
-                *const uint8_t,
-                core::ffi::c_int,
-                *mut core::ffi::c_uint,
-            ) -> core::ffi::c_uint,
-    ) as aom_variance_fn_t;
+    (*ppi).fn_ptr[BLOCK_32X8 as core::ffi::c_int as usize].vf = aom_variance32x8 as aom_variance_fn_t;
     (*ppi).fn_ptr[BLOCK_32X8 as core::ffi::c_int as usize].svf = Some(
         aom_sub_pixel_variance32x8_c
             as unsafe extern "C-unwind" fn(
@@ -35423,16 +34265,7 @@ match crate::jump::value_scope((((*ppi).error.jmp).as_mut_ptr()).cast(), || {
                 *const uint8_t,
             ) -> core::ffi::c_uint,
     ) as aom_sad_avg_fn_t;
-    (*ppi).fn_ptr[BLOCK_16X64 as core::ffi::c_int as usize].vf = Some(
-        aom_variance16x64_c
-            as unsafe extern "C-unwind" fn(
-                *const uint8_t,
-                core::ffi::c_int,
-                *const uint8_t,
-                core::ffi::c_int,
-                *mut core::ffi::c_uint,
-            ) -> core::ffi::c_uint,
-    ) as aom_variance_fn_t;
+    (*ppi).fn_ptr[BLOCK_16X64 as core::ffi::c_int as usize].vf = aom_variance16x64 as aom_variance_fn_t;
     (*ppi).fn_ptr[BLOCK_16X64 as core::ffi::c_int as usize].svf = Some(
         aom_sub_pixel_variance16x64_c
             as unsafe extern "C-unwind" fn(
@@ -35497,16 +34330,7 @@ match crate::jump::value_scope((((*ppi).error.jmp).as_mut_ptr()).cast(), || {
                 *const uint8_t,
             ) -> core::ffi::c_uint,
     ) as aom_sad_avg_fn_t;
-    (*ppi).fn_ptr[BLOCK_64X16 as core::ffi::c_int as usize].vf = Some(
-        aom_variance64x16_c
-            as unsafe extern "C-unwind" fn(
-                *const uint8_t,
-                core::ffi::c_int,
-                *const uint8_t,
-                core::ffi::c_int,
-                *mut core::ffi::c_uint,
-            ) -> core::ffi::c_uint,
-    ) as aom_variance_fn_t;
+    (*ppi).fn_ptr[BLOCK_64X16 as core::ffi::c_int as usize].vf = aom_variance64x16 as aom_variance_fn_t;
     (*ppi).fn_ptr[BLOCK_64X16 as core::ffi::c_int as usize].svf = Some(
         aom_sub_pixel_variance64x16_c
             as unsafe extern "C-unwind" fn(
@@ -35571,16 +34395,7 @@ match crate::jump::value_scope((((*ppi).error.jmp).as_mut_ptr()).cast(), || {
                 *const uint8_t,
             ) -> core::ffi::c_uint,
     ) as aom_sad_avg_fn_t;
-    (*ppi).fn_ptr[BLOCK_128X128 as core::ffi::c_int as usize].vf = Some(
-        aom_variance128x128_c
-            as unsafe extern "C-unwind" fn(
-                *const uint8_t,
-                core::ffi::c_int,
-                *const uint8_t,
-                core::ffi::c_int,
-                *mut core::ffi::c_uint,
-            ) -> core::ffi::c_uint,
-    ) as aom_variance_fn_t;
+    (*ppi).fn_ptr[BLOCK_128X128 as core::ffi::c_int as usize].vf = aom_variance128x128 as aom_variance_fn_t;
     (*ppi).fn_ptr[BLOCK_128X128 as core::ffi::c_int as usize].svf = Some(
         aom_sub_pixel_variance128x128_c
             as unsafe extern "C-unwind" fn(
@@ -35645,16 +34460,7 @@ match crate::jump::value_scope((((*ppi).error.jmp).as_mut_ptr()).cast(), || {
                 *const uint8_t,
             ) -> core::ffi::c_uint,
     ) as aom_sad_avg_fn_t;
-    (*ppi).fn_ptr[BLOCK_128X64 as core::ffi::c_int as usize].vf = Some(
-        aom_variance128x64_c
-            as unsafe extern "C-unwind" fn(
-                *const uint8_t,
-                core::ffi::c_int,
-                *const uint8_t,
-                core::ffi::c_int,
-                *mut core::ffi::c_uint,
-            ) -> core::ffi::c_uint,
-    ) as aom_variance_fn_t;
+    (*ppi).fn_ptr[BLOCK_128X64 as core::ffi::c_int as usize].vf = aom_variance128x64 as aom_variance_fn_t;
     (*ppi).fn_ptr[BLOCK_128X64 as core::ffi::c_int as usize].svf = Some(
         aom_sub_pixel_variance128x64_c
             as unsafe extern "C-unwind" fn(
@@ -35719,16 +34525,7 @@ match crate::jump::value_scope((((*ppi).error.jmp).as_mut_ptr()).cast(), || {
                 *const uint8_t,
             ) -> core::ffi::c_uint,
     ) as aom_sad_avg_fn_t;
-    (*ppi).fn_ptr[BLOCK_64X128 as core::ffi::c_int as usize].vf = Some(
-        aom_variance64x128_c
-            as unsafe extern "C-unwind" fn(
-                *const uint8_t,
-                core::ffi::c_int,
-                *const uint8_t,
-                core::ffi::c_int,
-                *mut core::ffi::c_uint,
-            ) -> core::ffi::c_uint,
-    ) as aom_variance_fn_t;
+    (*ppi).fn_ptr[BLOCK_64X128 as core::ffi::c_int as usize].vf = aom_variance64x128 as aom_variance_fn_t;
     (*ppi).fn_ptr[BLOCK_64X128 as core::ffi::c_int as usize].svf = Some(
         aom_sub_pixel_variance64x128_c
             as unsafe extern "C-unwind" fn(
@@ -35793,16 +34590,7 @@ match crate::jump::value_scope((((*ppi).error.jmp).as_mut_ptr()).cast(), || {
                 *const uint8_t,
             ) -> core::ffi::c_uint,
     ) as aom_sad_avg_fn_t;
-    (*ppi).fn_ptr[BLOCK_32X16 as core::ffi::c_int as usize].vf = Some(
-        aom_variance32x16_c
-            as unsafe extern "C-unwind" fn(
-                *const uint8_t,
-                core::ffi::c_int,
-                *const uint8_t,
-                core::ffi::c_int,
-                *mut core::ffi::c_uint,
-            ) -> core::ffi::c_uint,
-    ) as aom_variance_fn_t;
+    (*ppi).fn_ptr[BLOCK_32X16 as core::ffi::c_int as usize].vf = aom_variance32x16 as aom_variance_fn_t;
     (*ppi).fn_ptr[BLOCK_32X16 as core::ffi::c_int as usize].svf = Some(
         aom_sub_pixel_variance32x16_c
             as unsafe extern "C-unwind" fn(
@@ -35867,16 +34655,7 @@ match crate::jump::value_scope((((*ppi).error.jmp).as_mut_ptr()).cast(), || {
                 *const uint8_t,
             ) -> core::ffi::c_uint,
     ) as aom_sad_avg_fn_t;
-    (*ppi).fn_ptr[BLOCK_16X32 as core::ffi::c_int as usize].vf = Some(
-        aom_variance16x32_c
-            as unsafe extern "C-unwind" fn(
-                *const uint8_t,
-                core::ffi::c_int,
-                *const uint8_t,
-                core::ffi::c_int,
-                *mut core::ffi::c_uint,
-            ) -> core::ffi::c_uint,
-    ) as aom_variance_fn_t;
+    (*ppi).fn_ptr[BLOCK_16X32 as core::ffi::c_int as usize].vf = aom_variance16x32 as aom_variance_fn_t;
     (*ppi).fn_ptr[BLOCK_16X32 as core::ffi::c_int as usize].svf = Some(
         aom_sub_pixel_variance16x32_c
             as unsafe extern "C-unwind" fn(
@@ -35941,16 +34720,7 @@ match crate::jump::value_scope((((*ppi).error.jmp).as_mut_ptr()).cast(), || {
                 *const uint8_t,
             ) -> core::ffi::c_uint,
     ) as aom_sad_avg_fn_t;
-    (*ppi).fn_ptr[BLOCK_64X32 as core::ffi::c_int as usize].vf = Some(
-        aom_variance64x32_c
-            as unsafe extern "C-unwind" fn(
-                *const uint8_t,
-                core::ffi::c_int,
-                *const uint8_t,
-                core::ffi::c_int,
-                *mut core::ffi::c_uint,
-            ) -> core::ffi::c_uint,
-    ) as aom_variance_fn_t;
+    (*ppi).fn_ptr[BLOCK_64X32 as core::ffi::c_int as usize].vf = aom_variance64x32 as aom_variance_fn_t;
     (*ppi).fn_ptr[BLOCK_64X32 as core::ffi::c_int as usize].svf = Some(
         aom_sub_pixel_variance64x32_c
             as unsafe extern "C-unwind" fn(
@@ -36015,16 +34785,7 @@ match crate::jump::value_scope((((*ppi).error.jmp).as_mut_ptr()).cast(), || {
                 *const uint8_t,
             ) -> core::ffi::c_uint,
     ) as aom_sad_avg_fn_t;
-    (*ppi).fn_ptr[BLOCK_32X64 as core::ffi::c_int as usize].vf = Some(
-        aom_variance32x64_c
-            as unsafe extern "C-unwind" fn(
-                *const uint8_t,
-                core::ffi::c_int,
-                *const uint8_t,
-                core::ffi::c_int,
-                *mut core::ffi::c_uint,
-            ) -> core::ffi::c_uint,
-    ) as aom_variance_fn_t;
+    (*ppi).fn_ptr[BLOCK_32X64 as core::ffi::c_int as usize].vf = aom_variance32x64 as aom_variance_fn_t;
     (*ppi).fn_ptr[BLOCK_32X64 as core::ffi::c_int as usize].svf = Some(
         aom_sub_pixel_variance32x64_c
             as unsafe extern "C-unwind" fn(
@@ -36089,16 +34850,7 @@ match crate::jump::value_scope((((*ppi).error.jmp).as_mut_ptr()).cast(), || {
                 *const uint8_t,
             ) -> core::ffi::c_uint,
     ) as aom_sad_avg_fn_t;
-    (*ppi).fn_ptr[BLOCK_32X32 as core::ffi::c_int as usize].vf = Some(
-        aom_variance32x32_c
-            as unsafe extern "C-unwind" fn(
-                *const uint8_t,
-                core::ffi::c_int,
-                *const uint8_t,
-                core::ffi::c_int,
-                *mut core::ffi::c_uint,
-            ) -> core::ffi::c_uint,
-    ) as aom_variance_fn_t;
+    (*ppi).fn_ptr[BLOCK_32X32 as core::ffi::c_int as usize].vf = aom_variance32x32 as aom_variance_fn_t;
     (*ppi).fn_ptr[BLOCK_32X32 as core::ffi::c_int as usize].svf = Some(
         aom_sub_pixel_variance32x32_c
             as unsafe extern "C-unwind" fn(
@@ -36163,16 +34915,7 @@ match crate::jump::value_scope((((*ppi).error.jmp).as_mut_ptr()).cast(), || {
                 *const uint8_t,
             ) -> core::ffi::c_uint,
     ) as aom_sad_avg_fn_t;
-    (*ppi).fn_ptr[BLOCK_64X64 as core::ffi::c_int as usize].vf = Some(
-        aom_variance64x64_c
-            as unsafe extern "C-unwind" fn(
-                *const uint8_t,
-                core::ffi::c_int,
-                *const uint8_t,
-                core::ffi::c_int,
-                *mut core::ffi::c_uint,
-            ) -> core::ffi::c_uint,
-    ) as aom_variance_fn_t;
+    (*ppi).fn_ptr[BLOCK_64X64 as core::ffi::c_int as usize].vf = aom_variance64x64 as aom_variance_fn_t;
     (*ppi).fn_ptr[BLOCK_64X64 as core::ffi::c_int as usize].svf = Some(
         aom_sub_pixel_variance64x64_c
             as unsafe extern "C-unwind" fn(
@@ -36237,16 +34980,7 @@ match crate::jump::value_scope((((*ppi).error.jmp).as_mut_ptr()).cast(), || {
                 *const uint8_t,
             ) -> core::ffi::c_uint,
     ) as aom_sad_avg_fn_t;
-    (*ppi).fn_ptr[BLOCK_16X16 as core::ffi::c_int as usize].vf = Some(
-        aom_variance16x16_c
-            as unsafe extern "C-unwind" fn(
-                *const uint8_t,
-                core::ffi::c_int,
-                *const uint8_t,
-                core::ffi::c_int,
-                *mut core::ffi::c_uint,
-            ) -> core::ffi::c_uint,
-    ) as aom_variance_fn_t;
+    (*ppi).fn_ptr[BLOCK_16X16 as core::ffi::c_int as usize].vf = aom_variance16x16 as aom_variance_fn_t;
     (*ppi).fn_ptr[BLOCK_16X16 as core::ffi::c_int as usize].svf = Some(
         aom_sub_pixel_variance16x16_c
             as unsafe extern "C-unwind" fn(
@@ -36311,16 +35045,7 @@ match crate::jump::value_scope((((*ppi).error.jmp).as_mut_ptr()).cast(), || {
                 *const uint8_t,
             ) -> core::ffi::c_uint,
     ) as aom_sad_avg_fn_t;
-    (*ppi).fn_ptr[BLOCK_16X8 as core::ffi::c_int as usize].vf = Some(
-        aom_variance16x8_c
-            as unsafe extern "C-unwind" fn(
-                *const uint8_t,
-                core::ffi::c_int,
-                *const uint8_t,
-                core::ffi::c_int,
-                *mut core::ffi::c_uint,
-            ) -> core::ffi::c_uint,
-    ) as aom_variance_fn_t;
+    (*ppi).fn_ptr[BLOCK_16X8 as core::ffi::c_int as usize].vf = aom_variance16x8 as aom_variance_fn_t;
     (*ppi).fn_ptr[BLOCK_16X8 as core::ffi::c_int as usize].svf = Some(
         aom_sub_pixel_variance16x8_c
             as unsafe extern "C-unwind" fn(
@@ -36385,16 +35110,7 @@ match crate::jump::value_scope((((*ppi).error.jmp).as_mut_ptr()).cast(), || {
                 *const uint8_t,
             ) -> core::ffi::c_uint,
     ) as aom_sad_avg_fn_t;
-    (*ppi).fn_ptr[BLOCK_8X16 as core::ffi::c_int as usize].vf = Some(
-        aom_variance8x16_c
-            as unsafe extern "C-unwind" fn(
-                *const uint8_t,
-                core::ffi::c_int,
-                *const uint8_t,
-                core::ffi::c_int,
-                *mut core::ffi::c_uint,
-            ) -> core::ffi::c_uint,
-    ) as aom_variance_fn_t;
+    (*ppi).fn_ptr[BLOCK_8X16 as core::ffi::c_int as usize].vf = aom_variance8x16 as aom_variance_fn_t;
     (*ppi).fn_ptr[BLOCK_8X16 as core::ffi::c_int as usize].svf = Some(
         aom_sub_pixel_variance8x16_c
             as unsafe extern "C-unwind" fn(
@@ -36459,16 +35175,7 @@ match crate::jump::value_scope((((*ppi).error.jmp).as_mut_ptr()).cast(), || {
                 *const uint8_t,
             ) -> core::ffi::c_uint,
     ) as aom_sad_avg_fn_t;
-    (*ppi).fn_ptr[BLOCK_8X8 as core::ffi::c_int as usize].vf = Some(
-        aom_variance8x8_c
-            as unsafe extern "C-unwind" fn(
-                *const uint8_t,
-                core::ffi::c_int,
-                *const uint8_t,
-                core::ffi::c_int,
-                *mut core::ffi::c_uint,
-            ) -> core::ffi::c_uint,
-    ) as aom_variance_fn_t;
+    (*ppi).fn_ptr[BLOCK_8X8 as core::ffi::c_int as usize].vf = aom_variance8x8 as aom_variance_fn_t;
     (*ppi).fn_ptr[BLOCK_8X8 as core::ffi::c_int as usize].svf = Some(
         aom_sub_pixel_variance8x8_c
             as unsafe extern "C-unwind" fn(
@@ -36524,16 +35231,7 @@ match crate::jump::value_scope((((*ppi).error.jmp).as_mut_ptr()).cast(), || {
             ) -> core::ffi::c_uint,
     ) as aom_sad_fn_t;
     (*ppi).fn_ptr[BLOCK_8X4 as core::ffi::c_int as usize].sdaf = None;
-    (*ppi).fn_ptr[BLOCK_8X4 as core::ffi::c_int as usize].vf = Some(
-        aom_variance8x4_c
-            as unsafe extern "C-unwind" fn(
-                *const uint8_t,
-                core::ffi::c_int,
-                *const uint8_t,
-                core::ffi::c_int,
-                *mut core::ffi::c_uint,
-            ) -> core::ffi::c_uint,
-    ) as aom_variance_fn_t;
+    (*ppi).fn_ptr[BLOCK_8X4 as core::ffi::c_int as usize].vf = aom_variance8x4 as aom_variance_fn_t;
     (*ppi).fn_ptr[BLOCK_8X4 as core::ffi::c_int as usize].svf = Some(
         aom_sub_pixel_variance8x4_c
             as unsafe extern "C-unwind" fn(
@@ -36589,16 +35287,7 @@ match crate::jump::value_scope((((*ppi).error.jmp).as_mut_ptr()).cast(), || {
             ) -> core::ffi::c_uint,
     ) as aom_sad_fn_t;
     (*ppi).fn_ptr[BLOCK_4X8 as core::ffi::c_int as usize].sdaf = None;
-    (*ppi).fn_ptr[BLOCK_4X8 as core::ffi::c_int as usize].vf = Some(
-        aom_variance4x8_c
-            as unsafe extern "C-unwind" fn(
-                *const uint8_t,
-                core::ffi::c_int,
-                *const uint8_t,
-                core::ffi::c_int,
-                *mut core::ffi::c_uint,
-            ) -> core::ffi::c_uint,
-    ) as aom_variance_fn_t;
+    (*ppi).fn_ptr[BLOCK_4X8 as core::ffi::c_int as usize].vf = aom_variance4x8 as aom_variance_fn_t;
     (*ppi).fn_ptr[BLOCK_4X8 as core::ffi::c_int as usize].svf = Some(
         aom_sub_pixel_variance4x8_c
             as unsafe extern "C-unwind" fn(
@@ -36654,16 +35343,7 @@ match crate::jump::value_scope((((*ppi).error.jmp).as_mut_ptr()).cast(), || {
             ) -> core::ffi::c_uint,
     ) as aom_sad_fn_t;
     (*ppi).fn_ptr[BLOCK_4X4 as core::ffi::c_int as usize].sdaf = None;
-    (*ppi).fn_ptr[BLOCK_4X4 as core::ffi::c_int as usize].vf = Some(
-        aom_variance4x4_c
-            as unsafe extern "C-unwind" fn(
-                *const uint8_t,
-                core::ffi::c_int,
-                *const uint8_t,
-                core::ffi::c_int,
-                *mut core::ffi::c_uint,
-            ) -> core::ffi::c_uint,
-    ) as aom_variance_fn_t;
+    (*ppi).fn_ptr[BLOCK_4X4 as core::ffi::c_int as usize].vf = aom_variance4x4 as aom_variance_fn_t;
     (*ppi).fn_ptr[BLOCK_4X4 as core::ffi::c_int as usize].svf = Some(
         aom_sub_pixel_variance4x4_c
             as unsafe extern "C-unwind" fn(

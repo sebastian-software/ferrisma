@@ -5,8 +5,8 @@
 The project is named **Ferrisma**, with `https://ferrisma.dev` as its canonical
 website. [ADR-0038](adr/0038-ferrisma-project-name.md) records the rename and the
 published `0.0.0` placeholder packages; the engine's release gates still apply.
-The domain does not serve this project's site yet: on 2026-11-13 it answered
-with a GitHub Pages page that is not ours
+The domain has served this project's homepage since 2026-11-20. Before that,
+on 2026-11-13, it answered with a GitHub Pages page that was not ours
 ([#251](https://github.com/sebastian-software/ferrisma/issues/251)).
 
 ## Core separation

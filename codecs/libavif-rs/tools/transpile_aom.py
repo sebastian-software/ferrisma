@@ -32,12 +32,13 @@ CRATE = ROOT / 'crates/aom'
 RTCD_DISPATCH = {
     'macos': dict(arch='arm64', overlay='crates/aom/rtcd/arm64.pl',
                   disable=['arm_crc32', 'neon_dotprod', 'neon_i8mm', 'sve', 'sve2']),
-    # ADR 0058: SSE2, SSSE3, SSE4.1 and AVX2 kernels; every other family disabled
-    # (SSSE3 since 2026-11-14, ADR 0058 amendment).
+    # ADR 0058: SSE2, SSE3, SSSE3, SSE4.1 and AVX2 kernels; every other family
+    # disabled (SSSE3 since 2026-11-14, SSE3 since 2026-11-20, ADR 0058
+    # amendments).
     'linux': dict(arch='x86_64', overlay='crates/aom/rtcd/x86_64.pl',
-                  disable=['mmx', 'sse', 'sse3', 'sse4_2', 'avx', 'avx512']),
+                  disable=['mmx', 'sse', 'sse4_2', 'avx', 'avx512']),
 }
-SIMD_SUFFIX = {'macos': r'neon', 'linux': r'(?:sse2|ssse3|sse4_1|avx2)'}
+SIMD_SUFFIX = {'macos': r'neon', 'linux': r'(?:sse2|sse3|ssse3|sse4_1|avx2)'}
 
 # The generic configuration sets AOM_ARCH_X86_64 to 0, so aom_ports/x86.h
 # lowers cpuid() through its 32-bit form, which moves EBX through EDI and

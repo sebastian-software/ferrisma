@@ -24,6 +24,14 @@ pub mod types {
 pub mod aom_dsp__arm__blk_sse_sum_neon;
 
 #[cfg(target_arch = "aarch64")]
+#[path = "aom_dsp/arm/hadamard_neon.rs"]
+pub mod aom_dsp__arm__hadamard_neon;
+
+#[cfg(target_arch = "aarch64")]
+#[path = "aom_dsp/arm/highbd_hadamard_neon.rs"]
+pub mod aom_dsp__arm__highbd_hadamard_neon;
+
+#[cfg(target_arch = "aarch64")]
 #[path = "aom_dsp/arm/highbd_intrapred_neon.rs"]
 pub mod aom_dsp__arm__highbd_intrapred_neon;
 
@@ -140,6 +148,10 @@ pub mod av1__encoder__arm__av1_fwd_txfm2d_neon;
 pub mod av1__encoder__arm__av1_highbd_quantize_neon;
 
 #[cfg(target_arch = "aarch64")]
+#[path = "av1/encoder/arm/cnn_neon.rs"]
+pub mod av1__encoder__arm__cnn_neon;
+
+#[cfg(target_arch = "aarch64")]
 #[path = "av1/encoder/arm/encodetxb_neon.rs"]
 pub mod av1__encoder__arm__encodetxb_neon;
 
@@ -154,6 +166,10 @@ pub mod av1__encoder__arm__highbd_rdopt_neon;
 #[cfg(target_arch = "aarch64")]
 #[path = "av1/encoder/arm/hybrid_fwd_txfm_neon.rs"]
 pub mod av1__encoder__arm__hybrid_fwd_txfm_neon;
+
+#[cfg(target_arch = "aarch64")]
+#[path = "av1/encoder/arm/ml_neon.rs"]
+pub mod av1__encoder__arm__ml_neon;
 
 #[cfg(target_arch = "aarch64")]
 #[path = "av1/encoder/arm/quantize_neon.rs"]
@@ -176,12 +192,32 @@ pub mod av1__encoder__arm__txfm_neon;
 pub mod aom_dsp__simd__v128_intrinsics_x86;
 
 #[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/simd/v256_intrinsics_v128.rs"]
+pub mod aom_dsp__simd__v256_intrinsics_v128;
+
+#[cfg(target_arch = "x86_64")]
 #[path = "aom_dsp/simd/v256_intrinsics_x86.rs"]
 pub mod aom_dsp__simd__v256_intrinsics_x86;
 
 #[cfg(target_arch = "x86_64")]
 #[path = "aom_dsp/simd/v64_intrinsics_x86.rs"]
 pub mod aom_dsp__simd__v64_intrinsics_x86;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/avg_intrin_avx2.rs"]
+pub mod aom_dsp__x86__avg_intrin_avx2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/avg_intrin_sse2.rs"]
+pub mod aom_dsp__x86__avg_intrin_sse2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/bitdepth_conversion_avx2.rs"]
+pub mod aom_dsp__x86__bitdepth_conversion_avx2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/bitdepth_conversion_sse2.rs"]
+pub mod aom_dsp__x86__bitdepth_conversion_sse2;
 
 #[cfg(target_arch = "x86_64")]
 #[path = "aom_dsp/x86/blk_sse_sum_avx2.rs"]
@@ -230,6 +266,10 @@ pub mod aom_dsp__x86__highbd_variance_avx2;
 #[cfg(target_arch = "x86_64")]
 #[path = "aom_dsp/x86/highbd_variance_sse2.rs"]
 pub mod aom_dsp__x86__highbd_variance_sse2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/highbd_variance_sse4.rs"]
+pub mod aom_dsp__x86__highbd_variance_sse4;
 
 #[cfg(target_arch = "x86_64")]
 #[path = "aom_dsp/x86/intrapred_avx2.rs"]
@@ -356,6 +396,10 @@ pub mod av1__common__x86__av1_txfm_sse4;
 pub mod av1__common__x86__cdef_block_avx2;
 
 #[cfg(target_arch = "x86_64")]
+#[path = "av1/common/x86/cdef_block_sse4.rs"]
+pub mod av1__common__x86__cdef_block_sse4;
+
+#[cfg(target_arch = "x86_64")]
 #[path = "av1/common/x86/cfl_avx2.rs"]
 pub mod av1__common__x86__cfl_avx2;
 
@@ -432,6 +476,10 @@ pub mod av1__encoder__x86__av1_fwd_txfm_sse2;
 pub mod av1__encoder__x86__av1_highbd_quantize_avx2;
 
 #[cfg(target_arch = "x86_64")]
+#[path = "av1/encoder/x86/av1_highbd_quantize_sse4.rs"]
+pub mod av1__encoder__x86__av1_highbd_quantize_sse4;
+
+#[cfg(target_arch = "x86_64")]
 #[path = "av1/encoder/x86/av1_quantize_avx2.rs"]
 pub mod av1__encoder__x86__av1_quantize_avx2;
 
@@ -442,6 +490,10 @@ pub mod av1__encoder__x86__av1_quantize_sse2;
 #[cfg(target_arch = "x86_64")]
 #[path = "av1/encoder/x86/av1_txfm1d_sse4.rs"]
 pub mod av1__encoder__x86__av1_txfm1d_sse4;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "av1/encoder/x86/cnn_avx2.rs"]
+pub mod av1__encoder__x86__cnn_avx2;
 
 #[cfg(target_arch = "x86_64")]
 #[path = "av1/encoder/x86/encodetxb_avx2.rs"]
@@ -470,6 +522,14 @@ pub mod av1__encoder__x86__highbd_fwd_txfm_avx2;
 #[cfg(target_arch = "x86_64")]
 #[path = "av1/encoder/x86/highbd_fwd_txfm_sse4.rs"]
 pub mod av1__encoder__x86__highbd_fwd_txfm_sse4;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "av1/encoder/x86/ml_avx2.rs"]
+pub mod av1__encoder__x86__ml_avx2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "av1/encoder/x86/ml_sse3.rs"]
+pub mod av1__encoder__x86__ml_sse3;
 
 #[cfg(target_arch = "x86_64")]
 #[path = "av1/encoder/x86/model_rd_sse2.rs"]

@@ -1,0 +1,39 @@
+{
+ "aligned_externs": [],
+ "comment_start": 12,
+ "consts": {
+  "NN_MAX_NODES_PER_LAYER": "i32"
+ },
+ "cpp": {
+  "headers": [],
+  "macros": "^$"
+ },
+ "extern_c": [],
+ "feature": "avx2",
+ "macros": {},
+ "output": "ml_avx2.rs",
+ "prelude": "preludes/prelude_ml.h",
+ "public": [],
+ "public_all": false,
+ "replace": [
+  [
+   "if (is_clip_required) bias_val = AOMMAX(bias_val, 0);",
+   "if (is_clip_required) bias_val = bias_val > 0 ? bias_val : 0;"
+  ]
+ ],
+ "rtcd": [
+  "av1_nn_predict_avx2"
+ ],
+ "skip": [],
+ "source": "upstream/aom/av1/encoder/x86/ml_avx2.c",
+ "structs": {
+  "NN_CONFIG": {
+   "bias": "[*const f32; 11]",
+   "num_hidden_layers": "i32",
+   "num_hidden_nodes": "[i32; 10]",
+   "num_inputs": "i32",
+   "num_outputs": "i32",
+   "weights": "[*const f32; 11]"
+  }
+ }
+}

@@ -86,7 +86,8 @@ Each kernel file needs:
 The original test executables are built with the generic configuration and
 do not compile their Neon instantiations. Running them against Rust needs a
 test build with an Arm configuration and a complete set of the kernels each
-test file references; that remains open.
+test file references; that remains open. (Closed 2026-11-20, #122: see the
+amendment "owner decisions of 2026-11-20".)
 
 ## Consequences
 
@@ -444,8 +445,83 @@ and `44191d50…`): `neon` 82 of 82 after each kernel, and on the final tree
   the frozen translation" keep running on the translated C path; SIMD stays
   ported only on the still-image path.
 
+## Amendment: CNN, NN and Hadamard kernels (2026-11-20)
+
+A sampled profile of the port's macOS ARM64 encoder (dog 1512x2016, speeds
+6 and 7, 8 and 10 bit, one thread) measured which `_c` functions with an
+original Neon variant the still-image encoder still runs. Three families of
+the #123 table above are dispatched now, each matching the original's Neon
+build rather than `_c` (ADR-0041 D4):
+
+| Kernel | Self time on `_c` (speed 6) | Evidence |
+| --- | --- | --- |
+| `av1_cnn_convolve_no_maxpool_padding_valid` (`cnn_neon.c`) | 10 to 12% | `tests/simd/cnn.rs` (CNNConvolveTest, tolerance); kernel outputs bit-identical to the original Neon `libaom.a` on 64 inputs x 5 layers |
+| `aom_hadamard_*`, `aom_hadamard_lp_*`, `aom_highbd_hadamard_*` (`hadamard_neon.c`, `highbd_hadamard_neon.c`) | 1 to 2.4% | `tests/simd/hadamard.rs` (sorted, as the original test); outputs bit-identical, in coefficient order, to the original Neon `libaom.a` on 200 inputs |
+| `av1_nn_predict` (`ml_neon.c`) | 0.3 to 1.2% | `tests/simd/nn_predict.rs` (tolerance); outputs bit-identical to the original Neon `libaom.a` except where `av1_nn_output_prec_reduce` converts an out-of-range float to `int` (C undefined behavior; only for inputs scaled far beyond the encoder's) |
+
+The statement in the #123 table that the Hadamard kernels are off the
+still-image path was wrong: the profile shows `aom_hadamard_8x8_c`,
+`_16x16_c` and the high-bitdepth ones running at speeds 6 and 7.
+`tools/enable_aom_dispatch.py` now copies the C records a new RTCD
+declaration names (`CNN_LAYER_CONFIG` and the types of its fields) into the
+RTCD unit, as C2Rust gives every unit its own copy, and `--check` verifies
+those copies on macOS too. With the three families the arm64 overlay
+dispatches 525 RTCD functions; `check_aom_simd_original.py` reports `neon`
+82 of 82 and `scalar` 82 of 82 identical to the original.
+
+Still on `_c` with an original Neon variant on the still-image path: the
+8-bit and high-bitdepth variance kernels (`aom_variance*`,
+`aom_highbd_{8,10,12}_variance*`, 0.3 to 1.5% at speed 6) and
+`aom_quantize_b_helper` (libaom calls only `_c`, see above).
+
+## Amendment: the variance family (2026-11-20)
+
+The variance kernels named as still on `_c` above are dispatched now, every
+function the original's Neon build dispatches (106): the 22 block variances
+`aom_variance{W}x{H}`, the 66 `aom_highbd_{8,10,12}_variance{W}x{H}`, the
+block MSEs `aom_mse{8x8,8x16,16x8,16x16}` and the 12
+`aom_highbd_{8,10,12}_mse*`, and `aom_get_var_sse_sum_8x8_quad` and
+`_16x16_dual` (`variance_neon.c`, `highbd_variance_neon.c`, hand translations
+whose function-generating macros become `macro_rules!`). `tests/simd/variance.rs`
+transcribes variance_test.cc (AvxVarianceTest, AvxMseTest, GetSseSum8x8QuadTest,
+GetSseSum16x16DualTest, AvxHBDVarianceTest, AvxHBDMseTest); a kernel harness
+against the original's `libaom.a` (60 inputs, all 106 functions) finds the
+Neon port equal to the original Neon build and the scalar port equal to the
+generic build. `variance.c`'s sub-pixel macros call `aom_variance##W##x##H##_c`
+explicitly; `enable_aom_dispatch.py` now counts such token-pasted `_c` calls
+as explicit and leaves them direct. The arm64 overlay dispatches 631 RTCD
+functions; `check_aom_simd_original.py` reports `neon` 82 of 82 and `scalar`
+82 of 82 identical to the original.
+
+## Amendment: owner decisions of 2026-11-20 (prec_reduce, #122)
+
+- **`av1_nn_output_prec_reduce` with out-of-range words.** The reduction
+  computes `(int)(x * 512 + 0.5) / 512`; where the scaled value lies outside
+  `int`, C's conversion is undefined behavior, and the builds disagree
+  (Clang's AArch64 original wraps, GCC's x86-64 original yields `INT_MIN`,
+  the translation saturates). The owner applies the O1 rule (engine
+  ADR-0041): such words are not compared with the original, and only the
+  absence of a crash or memory error is required. The rule is limited to
+  those words; every other output of `av1_nn_predict` and of the encoder
+  stays bit-exact. The kernel evidence of the CNN/NN/Hadamard amendment above
+  already excludes exactly these 73 (AArch64) and 44 (x86-64) words;
+  `tests/simd/nn_predict.rs` (`prec_reduce_out_of_range_does_not_crash`)
+  states the reason and checks that the reduction and every dispatched
+  `av1_nn_predict` survive such inputs.
+- **#122 closed.** The original's own SIMD-against-C tests are not built for
+  the port: decision D4's gate (`tools/check_aom_simd_original.py`, the
+  port's SIMD level against the original's SIMD build at the same level)
+  replaces them, together with the supplementary transcriptions in
+  `tests/simd`, which keep each original test's cases and tolerances.
+
 ## Amendment log
 
 - 2026-11-15 — Owner decisions on #203 (non-contracting reference for both
   targets) and O2 (video code kept, SIMD only on the still-image path).
   Earlier amendments are the dated sections above.
+- 2026-11-20 — CNN, NN and Hadamard kernels dispatched to Neon (measured
+  still-image profile; #123 table corrected for Hadamard).
+- 2026-11-20 — Variance family (block variance, MSE, SSE/sum) dispatched to
+  Neon, 631 RTCD functions.
+- 2026-11-20 — Owner decisions: prec_reduce out-of-range words under O1; #122 closed
+  (the D4 gate replaces libaom's SIMD-against-C tests).
