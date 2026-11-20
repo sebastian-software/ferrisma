@@ -16,9 +16,24 @@
 //! its x86 headers and assembly in one directory (`src/x86/`); here
 //! `x86/<family>.rs` is the header `src/x86/<family>.h` and
 //! `x86_64/<file>.rs` rebuilds `src/x86/<file>.asm` in its x86-64 form.
+//!
+//! Two families are not rebuilt from the assembly but written from the
+//! algorithm on the portable vector types of `fearless_simd` (ADR 0062,
+//! "Kernels written from the algorithm"): CDEF (`cdef_tmpl.c`) and the
+//! inverse transforms (`itx_tmpl.c`, `itx_1d.c`), one implementation for
+//! NEON and AVX2, in the crate `libavif-dav1d-kernels`. `cdef/` and `itx/`
+//! hold their installation and tests; the init mirrors `arm/<family>.rs`
+//! and `x86/<family>.rs` install them in the slots where the original
+//! assigns its assembly.
 #![allow(clippy::all)]
 
 pub mod cpu;
+
+#[cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
+pub mod cdef;
+
+#[cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
+pub mod itx;
 
 /// Not in the original: copies the pixels `topleft[from..=to]` of an intra prediction edge into `buf`, at the
 /// same offsets from `buf[at]`, and returns the copy's `topleft`. `buf` is zero-initialized by the caller.
@@ -47,12 +62,8 @@ pub(crate) unsafe fn copy_edge<P: Copy, const N: usize>(
 
 #[cfg(target_arch = "aarch64")]
 pub mod arm64 {
-    pub mod cdef;
-    pub mod cdef16;
     pub mod ipred;
     pub mod ipred16;
-    pub mod itx;
-    pub mod itx16;
     pub mod loopfilter;
     pub mod loopfilter16;
     pub mod looprestoration;
@@ -75,12 +86,8 @@ pub mod arm {
 
 #[cfg(target_arch = "x86_64")]
 pub mod x86_64 {
-    pub mod cdef16_avx2;
-    pub mod cdef_avx2;
     pub mod ipred16_avx2;
     pub mod ipred_avx2;
-    pub mod itx16_avx2;
-    pub mod itx_avx2;
     pub mod loopfilter16_avx2;
     pub mod loopfilter_avx2;
     pub mod msac;

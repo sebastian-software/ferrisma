@@ -112,19 +112,43 @@ TYPES = ['DCT_DCT', 'ADST_DCT', 'DCT_ADST', 'ADST_ADST', 'FLIPADST_DCT', 'DCT_FL
          'H_FLIPADST', 'WHT_WHT']
 
 
+# The original's kernel name of each `enum TxfmType` slot (its first transform is the one on the rows).
+KERNEL_NAMES = {'DCT_DCT': 'dct_dct', 'ADST_DCT': 'dct_adst', 'DCT_ADST': 'adst_dct', 'ADST_ADST': 'adst_adst',
+                'FLIPADST_DCT': 'dct_flipadst', 'DCT_FLIPADST': 'flipadst_dct',
+                'FLIPADST_FLIPADST': 'flipadst_flipadst', 'ADST_FLIPADST': 'flipadst_adst',
+                'FLIPADST_ADST': 'adst_flipadst', 'IDTX': 'identity_identity', 'V_DCT': 'identity_dct',
+                'H_DCT': 'dct_identity', 'V_ADST': 'identity_adst', 'H_ADST': 'adst_identity',
+                'V_FLIPADST': 'identity_flipadst', 'H_FLIPADST': 'flipadst_identity', 'WHT_WHT': 'wht_wht'}
+
+
 def rebuilt_kernels(bpc=8):
     """(name, size, tx index, type index) of every slot the init mirror assigns at BPC.
 
-    The mirror is simd/arm/itx.rs (8 and 16 bpc) or, on x86-64, simd/x86/itx.rs, whose kernels carry the bit
-    depth they are for (8, 10 or 12; WHT is `_16bpc` and assigned at 10 and at 12 bits)."""
-    text = (ROOT / f'crates/dav1d/src/simd/{"x86" if X86 else "arm"}/itx.rs').read_text()
-    suffix = r'(?:%dbpc|16bpc)_avx2' % bpc if X86 and bpc != 8 else r'%dbpc_%s' % (bpc, LEVEL)
+    The mirror is simd/arm/itx.rs (8 and 16 bpc) or, on x86-64, simd/x86/itx.rs: its `assign_wht` and
+    `assign(t, <size>, <slots>)` calls follow the original's `assign_itx*_fn` statements, the slot lists are in
+    crates/dav1d-kernels/src/itx/mod.rs. Each row is named after the original's kernel for that slot, with the bit depth it is for
+    (8, 10 or 12 on x86-64, 8 or 16 on AArch64; WHT is `_16bpc` and assigned at 10 and at 12 bits)."""
+    simd = ROOT / 'crates/dav1d/src/simd'
+    text = (simd / f'{"x86" if X86 else "arm"}/itx.rs').read_text()
+    slot_lists = {name: re.findall(r'\b[A-Z_]+\b', body) for name, body in
+                  re.findall(r'pub const (ITX\d+|IDENTITY): &\[usize\] = &\[(.*?)\];',
+                             (ROOT / 'crates/dav1d-kernels/src/itx/mod.rs').read_text(), re.S)}
+    arch = 'x86' if X86 else 'arm'
+    body = text.split(f'pub unsafe fn itx_dsp_init_{arch}_{8 if bpc == 8 else 16}bpc')[1].split('\n}\n')[0]
+    if X86 and bpc != 8:
+        head, rest = body.split('if bpc == 10 {')
+        ten, twelve = rest.split('} else {')
+        body = head + (ten if bpc == 10 else twelve)
+    level = 'avx2' if X86 else 'neon'
     out = []
-    for size, txtype, name in re.findall(r't\[R?TX_(\w+)\]\[(\w+)\] = Some\((dav1d_inv_txfm_add_\w+_' + suffix + r')\)',
-                                         text):
+    for call in re.findall(r'k\.assign_wht\(t\)|k\.assign\(t, R?TX_(\w+), (\w+)\)', body.replace('k.assign_wht(t)', 'k.assign(t, TX_4X4, WHT)')):
+        size, slots = call
         size = size.lower()
-        if (name, size, SIZES.index(size), TYPES.index(txtype)) not in out:
-            out.append((name, size, SIZES.index(size), TYPES.index(txtype)))
+        for txtype in (['WHT_WHT'] if slots == 'WHT' else slot_lists[slots]):
+            depth = 16 if txtype == 'WHT_WHT' and bpc != 8 else bpc
+            name = f'dav1d_inv_txfm_add_{KERNEL_NAMES[txtype]}_{size}_{depth}bpc_{level}'
+            if (name, size, SIZES.index(size), TYPES.index(txtype)) not in out:
+                out.append((name, size, SIZES.index(size), TYPES.index(txtype)))
     return out
 
 

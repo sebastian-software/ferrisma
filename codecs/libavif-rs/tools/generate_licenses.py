@@ -6,6 +6,10 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+# Crates whose code is derived from a component recorded for another crate and
+# that carry the same license material (libavif-rs ADR 0062: dav1d's kernels
+# written from the algorithm).
+DERIVED_CRATES = {"crates/dav1d": ["crates/dav1d-kernels"]}
 
 
 def main():
@@ -20,14 +24,17 @@ def main():
                   f"Revision: `{record['revision']}`", f"Primary license: {record['license']}", "",
                   "The original license, patent grant, and author notices are retained verbatim:", ""]
         outputs = {}
+        crates = [crate, *(ROOT / derived for derived in DERIVED_CRATES.get(record["crate"], []))]
         for name in record["license_files"]:
             content = (ROOT / record["source_root"] / name).read_bytes()
             digest = hashlib.sha256(content).hexdigest()
             if digest != record["files"][name]:
                 raise SystemExit(f"Upstream license differs: {name}")
-            outputs[crate / "LICENSES" / name] = content
+            for target in crates:
+                outputs[target / "LICENSES" / name] = content
             notice.append(f"- `LICENSES/{name}` — SHA-256 `{digest}`")
-        outputs[crate / "NOTICE.md"] = ("\n".join(notice) + "\n").encode()
+        for target in crates:
+            outputs[target / "NOTICE.md"] = ("\n".join(notice) + "\n").encode()
         for target, content in outputs.items():
             if args.check:
                 if not target.exists() or target.read_bytes() != content:

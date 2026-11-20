@@ -190,6 +190,7 @@ Workspace packages in the `cli` graph and their declared terms:
 | `libavif-rs` | BSD-2-Clause AND BSD-3-Clause | 2 | `LICENSE` (libavif, with its third-party sections) |
 | `libavif-aom` | BSD-2-Clause AND BSD-3-Clause AND MIT | 11 | `LICENSES/` (libaom `LICENSE`, `PATENTS`, `AUTHORS`, fastfeat, vector) |
 | `libavif-dav1d` | BSD-2-Clause | 5 | `LICENSES/` (`COPYING`, `doc/PATENTS`) |
+| `libavif-dav1d-kernels` (since 2026-11-20; CDEF and inverse transforms of dav1d on `fearless_simd`, Apache-2.0 OR MIT) | BSD-2-Clause | not yet in a generated bundle | `LICENSES/` (`COPYING`, `doc/PATENTS`, as `libavif-dav1d`) |
 | `libavif-sharpyuv` | BSD-3-Clause | 7 | `LICENSES/` (libwebp `COPYING`, `PATENTS`, `AUTHORS`) |
 | `ferrisma-jxl-decoder` (`jpeg-xl-own-read`, in `cli` since 2026-11-12) | MIT OR Apache-2.0 | 2 | Project-owned |
 | `ferrisma-jxl-encoder` (`jpeg-xl-write`, in `cli` since 2026-11-12) | MIT OR Apache-2.0 | 2 | Project-owned |
