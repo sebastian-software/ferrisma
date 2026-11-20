@@ -83,7 +83,7 @@ DWEBP_SCALAR=$BUILD_SCALAR/dwebp
 python3 -I "$ROOT/scripts/bench/ci-perf/cpu_features.py" "$OUT/cpu-features.json"
 
 # 2. The port: the repository release profile, no RUSTFLAGS.
-(cd "$ROOT" && cargo build --release --locked -p libwebp-rs --example cli_bench)
+(cd "$ROOT" && cargo build --release --locked -p ferrisma-libwebp --example cli_bench)
 PORT=${CARGO_TARGET_DIR:-$ROOT/target}/release/examples/cli_bench
 [[ "$PORT" = /* ]] || PORT=$ROOT/$PORT
 
@@ -140,8 +140,8 @@ record = {
                  "-ffp-contract=off and SIMD off, or release-simd with oracle flags).",
     },
     "port": {
-        "package": "libwebp-rs", "example": "cli_bench", "binary": port,
-        "cargo": "cargo build --release --locked -p libwebp-rs --example cli_bench",
+        "package": "ferrisma-libwebp", "example": "cli_bench", "binary": port,
+        "cargo": "cargo build --release --locked -p ferrisma-libwebp --example cli_bench",
         "features": "default (simd: runtime-dispatched SSE2/SSE4.1/AVX2/NEON)",
         "rustc": run("rustc", "-vV").splitlines(),
     },

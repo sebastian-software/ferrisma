@@ -158,8 +158,8 @@ jobs:
       - run: cargo fetch --locked
       # Selecting these consumers together also checks that AVIF input and the
       # libavif encoder link in the same binary without duplicate dav1d symbols.
-      - run: cargo test -p ferrisma -p ferrisma-avif-read -p ferrisma-avif-write -p ferrisma-jxl-decoder -p ferrisma-jxl-encoder -p ferrisma-libavif --all-targets --all-features --locked
-      - run: cargo clippy -p ferrisma -p ferrisma-avif-read -p ferrisma-avif-write -p ferrisma-jxl-decoder -p ferrisma-jxl-encoder -p ferrisma-libavif --all-targets --all-features --no-deps --locked -- -D warnings
+      - run: cargo test -p ferrisma -p ferrisma-avif-read -p ferrisma-avif-write -p ferrisma-jxl-decoder -p ferrisma-jxl-encoder -p ferrisma-avif-adapter --all-targets --all-features --locked
+      - run: cargo clippy -p ferrisma -p ferrisma-avif-read -p ferrisma-avif-write -p ferrisma-jxl-decoder -p ferrisma-jxl-encoder -p ferrisma-avif-adapter --all-targets --all-features --no-deps --locked -- -D warnings
       - name: Verify concurrent SharpYUV cold initialization on ARM64
         run: |
           cargo test -p libavif-sharpyuv --test cross_port_cold_threads --profile checked --locked
@@ -302,13 +302,13 @@ jobs:
             # Every target `cargo test` builds by default, but that binary.
             tests=()
             while read -r name; do tests+=(--test "$name"); done < <(cargo metadata --no-deps --format-version 1 \
-              | python3 -c 'import json, sys; [print(t["name"]) for p in json.load(sys.stdin)["packages"] if p["name"] == "libjxl-rs" for t in p["targets"] if t["kind"] == ["test"] and t["name"] != "simd_vardct_lanes8"]')
+              | python3 -c 'import json, sys; [print(t["name"]) for p in json.load(sys.stdin)["packages"] if p["name"] == "ferrisma-libjxl" for t in p["targets"] if t["kind"] == ["test"] and t["name"] != "simd_vardct_lanes8"]')
             [ "${#tests[@]}" -gt 100 ] || { echo "too few test targets: ${#tests[@]}"; exit 1; }
-            cargo +"$toolchain" build --locked --offline -p libjxl-rs --profile checked --examples
-            cargo +"$toolchain" test --locked --offline -p libjxl-rs --profile checked --lib "${tests[@]}"
-            cargo +"$toolchain" test --locked --offline -p libjxl-rs --profile checked --doc
+            cargo +"$toolchain" build --locked --offline -p ferrisma-libjxl --profile checked --examples
+            cargo +"$toolchain" test --locked --offline -p ferrisma-libjxl --profile checked --lib "${tests[@]}"
+            cargo +"$toolchain" test --locked --offline -p ferrisma-libjxl --profile checked --doc
           else
-            cargo +"$toolchain" test --locked --offline -p libjxl-rs --profile checked
+            cargo +"$toolchain" test --locked --offline -p ferrisma-libjxl --profile checked
           fi
   checks-passed:
     name: Checks passed

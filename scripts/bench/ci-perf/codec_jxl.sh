@@ -175,7 +175,7 @@ CJXL_SCALAR=$WORK/build-scalar/tools/cjxl
 DJXL_SCALAR=$WORK/build-scalar/tools/djxl
 
 # 2. The port side: the repository release profile, no RUSTFLAGS.
-(cd "$ROOT" && cargo build --release --locked -p libjxl-rs --example encode_lossy --example encode_lossless)
+(cd "$ROOT" && cargo build --release --locked -p ferrisma-libjxl --example encode_lossy --example encode_lossless)
 (cd "$ROOT" && cargo build --release --locked -p ferrisma-jxl-decoder --example jxl_decode_compare)
 TARGET=${CARGO_TARGET_DIR:-$ROOT/target}
 [[ "$TARGET" = /* ]] || TARGET=$ROOT/$TARGET
@@ -271,8 +271,8 @@ record = {
                  "encoder checks.",
     },
     "port": {
-        "encoder": {"package": "libjxl-rs", "example": "encode_lossy", "binary": port_enc,
-                    "cargo": "cargo build --release --locked -p libjxl-rs --example encode_lossy"},
+        "encoder": {"package": "ferrisma-libjxl", "example": "encode_lossy", "binary": port_enc,
+                    "cargo": "cargo build --release --locked -p ferrisma-libjxl --example encode_lossy"},
         "decoder": {"package": "ferrisma-jxl-decoder", "example": "jxl_decode_compare",
                     "binary": port_dec,
                     "cargo": "cargo build --release --locked -p ferrisma-jxl-decoder "

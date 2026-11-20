@@ -61,9 +61,9 @@ dependencies = [
  "ferrisma-jxl-decoder",
  "ferrisma-jxl-encoder",
  "ferrisma-kernels",
- "libjpeg-turbo-rs",
- "libjxl-rs",
- "libwebp-rs",
+ "ferrisma-libjpeg-turbo",
+ "ferrisma-libjxl",
+ "ferrisma-libwebp",
  "moxcms",
 ]
 
@@ -71,14 +71,14 @@ dependencies = [
 name = "ferrisma-avif-read"
 version = "0.0.0"
 dependencies = [
- "libavif-rs",
+ "ferrisma-libavif",
 ]
 
 [[package]]
 name = "ferrisma-avif-write"
 version = "0.0.0"
 dependencies = [
- "libavif-rs",
+ "ferrisma-libavif",
 ]
 
 [[package]]
@@ -94,19 +94,44 @@ dependencies = [
 name = "ferrisma-jxl-decoder"
 version = "0.1.0"
 dependencies = [
- "libjxl-rs",
+ "ferrisma-libjxl",
 ]
 
 [[package]]
 name = "ferrisma-jxl-encoder"
 version = "0.1.0"
 dependencies = [
- "libjxl-rs",
+ "ferrisma-libjxl",
 ]
 
 [[package]]
 name = "ferrisma-kernels"
 version = "0.1.0"
+
+[[package]]
+name = "ferrisma-libavif"
+version = "0.1.0"
+dependencies = [
+ "libavif-aom",
+ "libavif-dav1d",
+ "libavif-sharpyuv",
+ "libc",
+]
+
+[[package]]
+name = "ferrisma-libjpeg-turbo"
+version = "0.1.0"
+
+[[package]]
+name = "ferrisma-libjxl"
+version = "0.1.0"
+
+[[package]]
+name = "ferrisma-libwebp"
+version = "0.1.0"
+dependencies = [
+ "libsharpyuv-core",
+]
 
 [[package]]
 name = "find-msvc-tools"
@@ -152,16 +177,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "libavif-rs"
-version = "0.1.0"
-dependencies = [
- "libavif-aom",
- "libavif-dav1d",
- "libavif-sharpyuv",
- "libc",
-]
-
-[[package]]
 name = "libavif-sharpyuv"
 version = "0.1.0"
 dependencies = [
@@ -186,23 +201,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "libjpeg-turbo-rs"
-version = "0.1.0"
-
-[[package]]
-name = "libjxl-rs"
-version = "0.1.0"
-
-[[package]]
 name = "libsharpyuv-core"
 version = "0.1.0"
-
-[[package]]
-name = "libwebp-rs"
-version = "0.1.0"
-dependencies = [
- "libsharpyuv-core",
-]
 
 [[package]]
 name = "moxcms"

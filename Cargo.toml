@@ -37,7 +37,7 @@ overflow-checks = true
 # The generated C2Rust packages express C wrapping arithmetic through ordinary
 # Rust operators. Preserve their established numeric contract only in these
 # packages; the engine and the other ports keep overflow checks (ADR-0026).
-[profile.dev.package.libavif-rs]
+[profile.dev.package.ferrisma-libavif]
 overflow-checks = false
 [profile.dev.package.libavif-aom]
 overflow-checks = false
@@ -45,7 +45,7 @@ overflow-checks = false
 overflow-checks = false
 [profile.dev.package.libavif-sharpyuv]
 overflow-checks = false
-[profile.checked.package.libavif-rs]
+[profile.checked.package.ferrisma-libavif]
 overflow-checks = false
 [profile.checked.package.libavif-aom]
 overflow-checks = false
@@ -54,7 +54,7 @@ overflow-checks = false
 [profile.checked.package.libavif-sharpyuv]
 overflow-checks = false
 
-[profile.release.package.ferrisma-libavif]
+[profile.release.package.ferrisma-avif-adapter]
 debug = "line-tables-only"
 
 [package]
@@ -93,9 +93,9 @@ features = ["jpeg-read", "webp-read", "webp-write", "jpeg-xl-read", "icc"]
 
 [features]
 default = []
-jpeg-read = ["dep:libjpeg-turbo-rs"]
-webp-read = ["dep:libwebp-rs"]
-webp-write = ["dep:libwebp-rs"]
+jpeg-read = ["dep:ferrisma-libjpeg-turbo"]
+webp-read = ["dep:ferrisma-libwebp"]
+webp-write = ["dep:ferrisma-libwebp"]
 # The JPEG XL reader: the workspace libjxl-rs port, the only one (ADR-0032).
 # Until 2026-11-15 this name selected jxl-oxide and the port was
 # `jpeg-xl-own-read` (working decision 2026-11-15, delegated, revisable by
@@ -105,7 +105,7 @@ jpeg-xl-read = ["dep:ferrisma-jxl-decoder"]
 # admitted profiles (ADR-0039): lossless through the port's safe fixed-profile
 # entry point, lossy through the `ferrisma-jxl-encoder` safe bridge. Part of
 # `cli`; distributing a binary still requires the license review (#66).
-jpeg-xl-write = ["dep:libjxl-rs", "dep:ferrisma-jxl-encoder"]
+jpeg-xl-write = ["dep:ferrisma-libjxl", "dep:ferrisma-jxl-encoder"]
 avif-read = ["dep:ferrisma-avif-read"]
 # The AVIF writer: the workspace libavif/AOM port, the only one (ADR-0037).
 # Until 2026-11-15 this name selected rav1e and the port was `avif-write`
@@ -126,11 +126,11 @@ ferrisma-avif-read = { path = "crates/ferrisma-avif-read", version = "=0.0.0", o
 ferrisma-avif-write = { path = "crates/ferrisma-avif-write", version = "=0.0.0", optional = true }
 moxcms = { version = "0.9.1", optional = true, features = ["extended_range"] }
 # The workspace decoder exposes safe RGB scanlines; SIMD stays inside its codec boundary.
-libjpeg-turbo-rs = { path = "codecs/libjpeg-turbo-rs", version = "0.1.0", optional = true }
-libwebp-rs = { path = "codecs/libwebp-rs", version = "0.1.0", optional = true }
+ferrisma-libjpeg-turbo = { path = "codecs/libjpeg-turbo-rs", version = "0.1.0", optional = true }
+ferrisma-libwebp = { path = "codecs/libwebp-rs", version = "0.1.0", optional = true }
 ferrisma-jxl-decoder = { path = "crates/ferrisma-jxl-decoder", version = "=0.1.0", optional = true }
 # Safe fixed-profile encoder entry point of the workspace port (ADR-0039).
-libjxl-rs = { path = "codecs/libjxl-rs", version = "0.1.0", optional = true }
+ferrisma-libjxl = { path = "codecs/libjxl-rs", version = "0.1.0", optional = true }
 # Safe bridge to the port's public (raw-pointer) encoder API for lossy output.
 ferrisma-jxl-encoder = { path = "crates/ferrisma-jxl-encoder", version = "=0.1.0", optional = true }
 

@@ -65,7 +65,7 @@ def main():
                if "avif_obj.dir" in entry["command"]]
     manifest = {unit["source"]: unit for unit in json.loads((ROOT / "TRANSLATION.json").read_text())["units"]}
     features = [feature for feature in args.features.split(",") if feature]
-    rust_package, rust_root, rust_profile = 'libavif-rs', ROOT, 'release'
+    rust_package, rust_root, rust_profile = 'ferrisma-libavif', ROOT, 'release'
     profile = "-".join(feature for feature in ["mini", "extended-pixi", "avm"] if feature in features)
     if profile:
         manifest.update({unit["source"]: unit for unit in json.loads((ROOT / "translations" / f"{profile}.json").read_text())["units"]})

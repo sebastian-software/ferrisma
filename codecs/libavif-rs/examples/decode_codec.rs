@@ -3,7 +3,7 @@
 //! `scripts/bench/ci-perf/codec_avif.sh` writes, call for call.
 //!
 //! ```sh
-//! cargo run --release -p libavif-rs --example decode_codec -- aom|dav1d THREADS input.avif output.ppm
+//! cargo run --release -p ferrisma-libavif --example decode_codec -- aom|dav1d THREADS input.avif output.ppm
 //! ```
 //!
 //! The benchmark uses it for the `port-dav1d` column: the port's dav1d,

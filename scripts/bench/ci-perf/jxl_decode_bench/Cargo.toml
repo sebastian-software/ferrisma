@@ -10,7 +10,7 @@ edition = "2024"
 publish = false
 
 [dependencies]
-libjxl-rs = { path = "../../../../codecs/libjxl-rs" }
+ferrisma-libjxl = { path = "../../../../codecs/libjxl-rs" }
 
 [profile.release]
 panic = "unwind"

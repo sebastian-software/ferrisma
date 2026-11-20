@@ -1,5 +1,5 @@
 [package]
-name = "libavif-rs"
+name = "ferrisma-libavif"
 version = "0.1.0"
 edition = "2021"
 # C-variadic definitions and core::ffi::VaList are stable since 1.99 (port ADR 0060).

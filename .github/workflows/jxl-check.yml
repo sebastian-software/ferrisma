@@ -114,7 +114,7 @@ jobs:
       run: |
         msrv="$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)"
         CARGO_TARGET_DIR="$GITHUB_WORKSPACE/target/rust-$msrv" \
-          cargo +"$msrv" test --locked --offline -p libjxl-rs --profile checked --test simd_vardct_lanes8
+          cargo +"$msrv" test --locked --offline -p ferrisma-libjxl --profile checked --test simd_vardct_lanes8
     defaults:
       run:
         working-directory: codecs/libjxl-rs

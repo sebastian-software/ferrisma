@@ -105,12 +105,12 @@ jobs:
         run: |
           printf 'Clippy canary: latest stable is %s; the static stages pin %s (tools/lint-toolchain).\nThis job reports and does not gate.\n' "$(rustc +stable --version)" "$(cat tools/lint-toolchain)" | tee -a "$GITHUB_STEP_SUMMARY"
       # The commands of each port's tools/check.py static stage, at stable.
-      - run: cargo +stable clippy -p libjpeg-turbo-rs --locked --offline --all-targets --all-features -- -D warnings
-      - run: cargo +stable clippy -p libjpeg-turbo-rs --locked --offline --all-targets --no-default-features --features oracle -- -D warnings
+      - run: cargo +stable clippy -p ferrisma-libjpeg-turbo --locked --offline --all-targets --all-features -- -D warnings
+      - run: cargo +stable clippy -p ferrisma-libjpeg-turbo --locked --offline --all-targets --no-default-features --features oracle -- -D warnings
         if: ${{ !cancelled() }}
-      - run: cargo +stable clippy -p libwebp-rs --locked --offline --all-targets --all-features -- -D warnings
+      - run: cargo +stable clippy -p ferrisma-libwebp --locked --offline --all-targets --all-features -- -D warnings
         if: ${{ !cancelled() }}
-      - run: cargo +stable clippy -p libjxl-rs --locked --offline --all-targets --all-features -- -D warnings
+      - run: cargo +stable clippy -p ferrisma-libjxl --locked --offline --all-targets --all-features -- -D warnings
         if: ${{ !cancelled() }}
       - if: ${{ failure() }}
         run: |

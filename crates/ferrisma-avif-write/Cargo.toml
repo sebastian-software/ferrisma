@@ -12,4 +12,4 @@ include = ["/Cargo.toml", "/README.md", "/LICENSE-MIT", "/LICENSE-APACHE", "/src
 publish = false
 
 [dependencies]
-libavif-rs = { path = "../../codecs/libavif-rs", version = "0.1.0" }
+ferrisma-libavif = { path = "../../codecs/libavif-rs", version = "0.1.0" }

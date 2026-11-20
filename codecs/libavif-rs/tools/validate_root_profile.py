@@ -266,7 +266,7 @@ def main():
         variant=record['variant'], tier=args.tier, complete_original_root_suite=args.tier == 'full',
         **({'sanitizer_parity': sanitizer_record} if sanitizer_record else {}),
         all_features_acceptance_claimed=False, production_target_admission_claimed=False,
-        **({'production_package': dict(package='libavif-rs', rust_profile=production['rust_profile'],
+        **({'production_package': dict(package='ferrisma-libavif', rust_profile=production['rust_profile'],
                                        debug_assertions=production['debug_assertions'],
                                        compiled_profile=production['root_profile'],
                                        committed_profile_manifest_reproduced=committed(manifest),

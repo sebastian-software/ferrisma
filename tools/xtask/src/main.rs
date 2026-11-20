@@ -341,7 +341,7 @@ fn codecs(args: &[String]) -> Result<()> {
                     "--offline",
                     "--release",
                     "-p",
-                    "libavif-rs",
+                    "ferrisma-libavif",
                     "-p",
                     "libavif-aom",
                     "-p",
@@ -425,9 +425,9 @@ fn codecs(args: &[String]) -> Result<()> {
         return Ok(());
     }
     let package = match codec.as_str() {
-        "jpeg" => "libjpeg-turbo-rs",
-        "webp" => "libwebp-rs",
-        _ => "libjxl-rs",
+        "jpeg" => "ferrisma-libjpeg-turbo",
+        "webp" => "ferrisma-libwebp",
+        _ => "ferrisma-libjxl",
     };
     if !tests_only {
         run(

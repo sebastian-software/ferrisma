@@ -68,41 +68,49 @@ dependencies = [
  "ferrisma-jxl-decoder",
  "ferrisma-jxl-encoder",
  "ferrisma-kernels",
+ "ferrisma-libjpeg-turbo",
+ "ferrisma-libjxl",
+ "ferrisma-libwebp",
  "jxl-oxide",
- "libjpeg-turbo-rs",
- "libjxl-rs",
- "libwebp-rs",
  "moxcms",
+]
+
+[[package]]
+name = "ferrisma-avif-adapter"
+version = "0.0.0"
+dependencies = [
+ "ferrisma",
+ "ferrisma-libavif",
 ]
 
 [[package]]
 name = "ferrisma-avif-read"
 version = "0.0.0"
 dependencies = [
- "libavif-rs",
+ "ferrisma-libavif",
 ]
 
 [[package]]
 name = "ferrisma-avif-write"
 version = "0.0.0"
 dependencies = [
- "libavif-rs",
+ "ferrisma-libavif",
 ]
 
 [[package]]
 name = "ferrisma-jxl-decoder"
 version = "0.1.0"
 dependencies = [
+ "ferrisma-libjxl",
  "jxl-oxide",
- "libjxl-rs",
 ]
 
 [[package]]
 name = "ferrisma-jxl-encoder"
 version = "0.1.0"
 dependencies = [
+ "ferrisma-libjxl",
  "jxl-oxide",
- "libjxl-rs",
 ]
 
 [[package]]
@@ -111,10 +119,27 @@ version = "0.1.0"
 
 [[package]]
 name = "ferrisma-libavif"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
- "ferrisma",
- "libavif-rs",
+ "libavif-aom",
+ "libavif-dav1d",
+ "libavif-sharpyuv",
+ "libc",
+]
+
+[[package]]
+name = "ferrisma-libjpeg-turbo"
+version = "0.1.0"
+
+[[package]]
+name = "ferrisma-libjxl"
+version = "0.1.0"
+
+[[package]]
+name = "ferrisma-libwebp"
+version = "0.1.0"
+dependencies = [
+ "libsharpyuv-core",
 ]
 
 [[package]]
@@ -314,22 +339,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "libavif-rs"
-version = "0.1.0"
-dependencies = [
- "libavif-aom",
- "libavif-dav1d",
- "libavif-sharpyuv",
- "libc",
-]
-
-[[package]]
 name = "libavif-sharpyuv"
 version = "0.1.0"
 dependencies = [
+ "ferrisma-libwebp",
  "libc",
  "libsharpyuv-core",
- "libwebp-rs",
 ]
 
 [[package]]
@@ -339,23 +354,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "65cd87c9a6d60536580b316ad985726104730a5151c99845f2490428ef91240a"
 
 [[package]]
-name = "libjpeg-turbo-rs"
-version = "0.1.0"
-
-[[package]]
-name = "libjxl-rs"
-version = "0.1.0"
-
-[[package]]
 name = "libsharpyuv-core"
 version = "0.1.0"
-
-[[package]]
-name = "libwebp-rs"
-version = "0.1.0"
-dependencies = [
- "libsharpyuv-core",
-]
 
 [[package]]
 name = "moxcms"

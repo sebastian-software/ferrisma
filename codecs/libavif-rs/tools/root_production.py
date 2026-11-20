@@ -101,7 +101,7 @@ def record_build(target_dir, rust_profile, features, command, manifest, target):
     artifacts = {name: dict(path=str(output / name), sha256=digest(output / name))
                  for name in ['libavif.a', 'libavif.rlib', 'libavif' + suffix]}
     compiled = dependency_sources(output / 'libavif.d')
-    return dict(package='libavif-rs', target=target, rust_profile=rust_profile,
+    return dict(package='ferrisma-libavif', target=target, rust_profile=rust_profile,
                 debug_assertions=rust_profile == 'debug', features=list(features), variant=variant,
                 command=[str(value) for value in command], artifacts=artifacts, compiled_sources=compiled,
                 root_profile=dict(manifest=str(Path(manifest).resolve().relative_to(ROOT)),
@@ -114,7 +114,7 @@ def verify_build(proof, manifest, target):
     """Recheck a recorded production build against current files and the profile."""
     from check_root_profile import validate_profile
     record = validate_profile(Path(manifest).resolve(), target)
-    if (proof.get('package') != 'libavif-rs' or proof.get('target') != target
+    if (proof.get('package') != 'ferrisma-libavif' or proof.get('target') != target
             or proof['root_profile']['manifest_sha256'] != digest(manifest) or proof['variant'] != record['variant']):
         raise SystemExit('The production build proof differs from the current native profile')
     for item in proof['artifacts'].values():
