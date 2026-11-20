@@ -56,9 +56,10 @@ function Ports() {
         <p>
           Ferrisma translates each of them into Rust at a pinned version, keeping what the
           original decided instead of deciding it again. The reason is what Rust adds: memory
-          safety the compiler checks, with <code>unsafe</code> confined to small, argued
-          boundaries; one toolchain for the whole build; and no C compiler on the machine that
-          builds your application.
+          safety the compiler checks, with <code>unsafe</code> code to be confined to small,
+          argued boundaries (the JPEG XL and AVIF ports still carry much of their originals'); one
+          toolchain for the whole build; and no C compiler on the machine that builds your
+          application.
         </p>
       </MonoPassage>
       <MonoWide>
@@ -69,9 +70,10 @@ function Ports() {
           No assembly is a rule, not a hope. Where an original's fastest kernels exist only as
           assembly, the port runs the translated scalar code until they are rebuilt with Rust
           intrinsics and proven against the original; the JPEG port has done this for its x86-64
-          kernels. The last inline assembly, in the JPEG XL port's Brotli decoder, has been
-          replaced by plain integer operations, and a check on every change fails if any
-          returns.
+          kernels. The inline assembly that the translations still carried, in the AVIF port's
+          CPU queries and in the JPEG XL port's Brotli decoder, color management and
+          half-precision conversions, has been replaced by Rust; none is left, and a check on
+          every change fails if any returns.
         </p>
       </MonoPassage>
       <p className="fx-section-link">
@@ -97,7 +99,7 @@ function Gate() {
         note={{
           term: "Bit-identical",
           children:
-            "The same bytes, the same integers, the same floating-point words, down to the sign of a zero. The only exemption is the payload of a NaN.",
+            "The same bytes, the same integers, the same floating-point words, down to the sign of a zero. A NaN must meet a NaN; only its payload may differ. Inputs that themselves hold NaN or infinity follow a separate recorded rule.",
         }}
       >
         <p>
@@ -219,8 +221,9 @@ function Speed() {
         Across all {SPEED_SUMMARY.cells} measurements on {SPEED_SUMMARY.machines} machines the
         ports take {SPEED_SUMMARY.min} to {SPEED_SUMMARY.max} times as long as the originals' SIMD
         builds on one thread; {SPEED_SUMMARY.countAtOrBelow} of them are at or below{" "}
-        {SPEED_SUMMARY.atOrBelow}. The slowest are WebP's lossy encoder on x86-64 (1.42 to 1.63)
-        and JPEG XL's lossless decode on Linux ARM64 (1.41 to 1.48). JPEG decoding is level with
+        {SPEED_SUMMARY.atOrBelow}. The cells above 1.4 are WebP's lossy encoder on x86-64 (1.42
+        to 1.63), JPEG XL's lossless decode on Linux ARM64 (1.41 to 1.48), and one cell each of
+        JPEG XL's lossy encoder, WebP's lossy decode and AVIF's decode (1.42 to 1.46). JPEG decoding is level with
         libjpeg-turbo (0.91 to 1.06), and JPEG XL's lossy encoder, now on its SIMD paths, takes
         0.99 to 1.42 times as long as libjxl's.
       </p>

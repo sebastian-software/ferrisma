@@ -12,12 +12,20 @@ From `homepage/`, run `pnpm install --frozen-lockfile`, then `pnpm dev`.
 `pnpm build` synchronize the guide pages from the root
 Markdown documentation before checking or building. The generated routes must
 not be edited by hand. The site uses the root base path `/` and the canonical
-URL `https://ferrisma.dev`. `public/CNAME` carries the custom domain into the
-static build; hosting and DNS must serve that domain at the root. `pnpm preview`
-serves the built site at `/`.
+URL `https://ferrisma.dev`. Pages end with a slash (`trailingSlash: true`), the
+spelling GitHub Pages serves a folder's `index.html` under; `path()` in
+`app/ferrisma.ts` writes internal links the same way. `pnpm preview` serves the
+built site at `/`.
 
 The Homepage workflow checks types, tests the link translation, builds every
-route, and retains the static site as a CI artifact. It does not deploy the site.
+route, and uploads the static site as a GitHub Pages artifact on every run. A
+push to `main`, or a manual run started from `main`, then deploys it to GitHub
+Pages; pull requests and other branches stop after the build. Only the deploy
+job holds `pages: write` and `id-token: write`, in the `github-pages`
+environment. An Actions deployment ignores `public/CNAME`: the custom domain
+`ferrisma.dev` must be set in the repository's Pages settings, and the deploy job
+fails before publishing if Pages does not serve the repository at that domain's
+root.
 
 The site describes an experimental project. Keep codec-port capabilities
 separate from the engine's implemented adapters, and source performance claims
