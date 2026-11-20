@@ -129,3 +129,7 @@ fuzz campaign or codec conformance result.
   the owner in sebastian-software/ferramenta#161. What ferrisma.dev serves
   after the domain is verified (the homepage deployed, or the records
   removed until then) is not decided.
+- 2026-11-20 — ferrisma.dev serves the project homepage. The workflow
+  `.github/workflows/homepage.yml` deploys `main` to GitHub Pages (first deploy:
+  run 44766313732 at 95c94fb8), with the custom domain set in the repository's
+  Pages settings and HTTPS enforced. This settles the 2026-11-15 question of #251.

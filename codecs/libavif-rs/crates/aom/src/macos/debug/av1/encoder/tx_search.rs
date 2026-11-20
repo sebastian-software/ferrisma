@@ -56,12 +56,7 @@ extern "C-unwind" {
         input_nodes: *const core::ffi::c_float,
         output: *mut core::ffi::c_float,
     );
-    fn av1_nn_predict_c(
-        input_nodes: *const core::ffi::c_float,
-        nn_config: *const NN_CONFIG,
-        reduce_prec: core::ffi::c_int,
-        output: *mut core::ffi::c_float,
-    );
+    static mut av1_nn_predict: Option<unsafe extern "C-unwind" fn(*const core::ffi::c_float, *const NN_CONFIG, core::ffi::c_int, *mut core::ffi::c_float) -> ()>;
     fn cfl_store_tx(
         xd: *mut MACROBLOCKD,
         row: core::ffi::c_int,
@@ -21622,13 +21617,13 @@ unsafe extern "C-unwind" fn prune_tx_2D(
             .as_mut_ptr()
             .offset((vfeatures_num - 1 as core::ffi::c_int) as isize),
     );
-    av1_nn_predict_c(
+    av1_nn_predict.expect("non-null function pointer")(
         hfeatures.as_mut_ptr(),
         nn_config_hor,
         1 as core::ffi::c_int,
         hscores.as_mut_ptr(),
     );
-    av1_nn_predict_c(
+    av1_nn_predict.expect("non-null function pointer")(
         vfeatures.as_mut_ptr(),
         nn_config_ver,
         1 as core::ffi::c_int,
@@ -21972,7 +21967,7 @@ unsafe extern "C-unwind" fn ml_predict_tx_split(
     ];
     get_mean_dev_features(diff, diff_stride, bw, bh, features.as_mut_ptr());
     let mut score: core::ffi::c_float = 0.0f32;
-    av1_nn_predict_c(
+    av1_nn_predict.expect("non-null function pointer")(
         features.as_mut_ptr(),
         nn_config,
         1 as core::ffi::c_int,
@@ -24027,7 +24022,7 @@ unsafe extern "C-unwind" fn ml_predict_intra_tx_depth_prune(
         i += 1;
     }
     let mut score: core::ffi::c_float = 0.;
-    av1_nn_predict_c(
+    av1_nn_predict.expect("non-null function pointer")(
         features.as_mut_ptr(),
         nn_config,
         1 as core::ffi::c_int,

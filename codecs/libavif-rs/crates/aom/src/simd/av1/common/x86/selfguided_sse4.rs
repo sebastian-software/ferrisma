@@ -46,6 +46,7 @@ use crate::av1__common__restoration::{
 use crate::simd::aom_dsp__x86__synonyms::*;
 use core::arch::x86_64::*;
 
+// Load 4 bytes from the possibly-misaligned pointer p, extend each byte to
 // 32-bit precision and return them in an SSE register.
 #[inline]
 #[target_feature(enable = "sse4.1")]

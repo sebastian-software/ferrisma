@@ -1,0 +1,16 @@
+{
+ "aligned_externs": [],
+ "comment_start": 12,
+ "consts": {},
+ "extern_c": [],
+ "feature": "avx2",
+ "macros": {},
+ "output": "bitdepth_conversion_avx2_h.rs",
+ "prelude": "preludes/prelude_avg.h",
+ "public": [],
+ "public_all": true,
+ "rtcd": [],
+ "skip": [],
+ "source": "upstream/aom/aom_dsp/x86/bitdepth_conversion_avx2.h",
+ "structs": {}
+}

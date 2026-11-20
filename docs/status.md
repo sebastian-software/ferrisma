@@ -8,9 +8,9 @@ the linked guides and evidence records own the details.
 The `ferrisma` npm package and crate at version `0.0.0` have been published as
 placeholders. They contain no image processing implementation; the functional
 engine is available from this repository. The name and domain are recorded in
-[ADR-0038](adr/0038-ferrisma-project-name.md). The domain `ferrisma.dev` does
-not serve this project's site yet: on 2026-11-13 it answered with a GitHub
-Pages page that is not ours
+[ADR-0038](adr/0038-ferrisma-project-name.md). The domain `ferrisma.dev` has
+served this project's homepage since 2026-11-20. Before that, on 2026-11-13, it
+answered with a GitHub Pages page that was not ours
 ([#251](https://github.com/sebastian-software/ferrisma/issues/251)).
 
 The repository contains both the pipeline a caller can exercise today and the

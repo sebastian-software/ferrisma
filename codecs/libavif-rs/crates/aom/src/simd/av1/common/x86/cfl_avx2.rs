@@ -59,6 +59,16 @@ type cfl_subtract_average_fn = Option<unsafe extern "C-unwind" fn(*const u16, *m
 type cfl_predict_lbd_fn = Option<unsafe extern "C-unwind" fn(*const i16, *mut u8, i32, i32)>;
 type cfl_predict_hbd_fn = Option<unsafe extern "C-unwind" fn(*const i16, *mut u16, i32, i32, i32)>;
 
+// Adds 4 pixels (in a 2x2 grid) and multiplies them by 2. Resulting in a more
+// precise version of a box filter 4:2:0 pixel subsampling in Q3.
+//
+// The CfL prediction buffer is always of size CFL_BUF_SQUARE. However, the
+// active area is specified using width and height.
+//
+// Note: We don't need to worry about going over the active area, as long as we
+// stay inside the CfL prediction buffer.
+//
+// Note: For 4:2:0 luma subsampling, the width will never be greater than 16.
 #[inline]
 #[target_feature(enable = "avx2")]
 unsafe fn cfl_luma_subsampling_420_lbd_avx2(

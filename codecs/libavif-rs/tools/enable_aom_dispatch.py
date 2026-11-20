@@ -6,7 +6,7 @@ Usage: python3 tools/enable_aom_dispatch.py NAME...            (Neon, macOS ARM6
        python3 tools/enable_aom_dispatch.py [--linux] --rehash   (record the digests of the units)
        python3 tools/enable_aom_dispatch.py [--linux] --check    (compare the tree with the tool's output)
 
-With --linux each argument is one specialization, `<function>_<sse2|ssse3|sse4_1|avx2>`,
+With --linux each argument is one specialization, `<function>_<sse2|sse3|ssse3|sse4_1|avx2>`,
 as crates/aom/rtcd/x86_64.pl lists them; the tool dispatches every listed
 variant of a function (ADR 0058, amendment of 2026-11-14).
 
@@ -45,8 +45,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 LINUX = sys.argv[1:2] == ['--linux']
 NAMES = sys.argv[2:] if LINUX else sys.argv[1:]
-X86_EXTENSIONS = ('sse2', 'ssse3', 'sse4_1', 'avx2')
-X86_FLAGS = {'sse2': 'HAS_SSE2', 'ssse3': 'HAS_SSSE3', 'sse4_1': 'HAS_SSE4_1', 'avx2': 'HAS_AVX2'}
+X86_EXTENSIONS = ('sse2', 'sse3', 'ssse3', 'sse4_1', 'avx2')
+X86_FLAGS = {'sse2': 'HAS_SSE2', 'sse3': 'HAS_SSE3', 'ssse3': 'HAS_SSSE3', 'sse4_1': 'HAS_SSE4_1', 'avx2': 'HAS_AVX2'}
 sys.path.insert(0, str(ROOT / 'tools'))
 import transpile_aom  # noqa: E402
 
@@ -123,11 +123,12 @@ def header_order(header_text):
     return re.findall(r'^\s*(\w+) = \1_c;', header_text, re.M)
 
 
-def edit_rtcd_unit(text, name, params, ret, order):
+def edit_rtcd_unit(text, name, params, ret, order, others=()):
     ftype = fn_type(params, ret)
     opt = f'Option<{ftype}>'
     if re.search(r'pub static mut ' + name + r':', text):
         raise SystemExit(f'{name} is already dispatched')
+    text = ensure_copied_types(text, ftype, others, linux=False)
     # extern declarations
     decl_params = ', '.join(split_top(params))
     r = f' {ret}' if ret else ''
@@ -217,10 +218,21 @@ def type_definition(text, name):
         k += 1
 
 
-def ensure_copied_types(text, ftype, others):
+def definition_types(definition):
+    """The text of the types a copied definition names: the right-hand side
+    of a `pub type`, or the field types of a `pub struct`."""
+    if re.search(r'^pub struct', definition, re.M):
+        return ' '.join(re.findall(r'^    pub \w+: (.*),$', definition, re.M))
+    return definition.split('=', 1)[1]
+
+
+def ensure_copied_types(text, ftype, others, linux=True):
     """Type aliases and records a new RTCD declaration names (the CfL
-    function-pointer types, WienerConvolveParams) that the unit lacks, copied verbatim from the first unit of the
-    same profile that defines them, after the unit's last `pub type`."""
+    function-pointer types, WienerConvolveParams, CNN_LAYER_CONFIG) that the
+    unit lacks, copied verbatim from the first unit of the same profile that
+    defines them, after the unit's last `pub type`; then, the same way, the
+    types that each copied definition names in turn, as C2Rust gives every
+    unit its own copy of the records it uses."""
     for name in sorted(set(re.findall(r'\b([A-Za-z_]\w*)\b', ftype)) - RUST_WORDS - set(INT_ALIASES)):
         if re.search(r'^pub (type|struct|union) ' + name + r'\b', text, re.M):
             continue
@@ -230,36 +242,42 @@ def ensure_copied_types(text, ftype, others):
         last = list(re.finditer(r'^pub type (\w+) = ', text, re.M))[-1]
         pos = last.start() + len(type_definition(text[last.start():], last.group(1)))
         text = text[:pos] + definition + text[pos:]
-        text = ensure_int_aliases(text, definition)
+        if linux:
+            text = ensure_int_aliases(text, definition)
+        text = ensure_copied_types(text, definition_types(definition), others, linux)
     return text
 
 
-def check_int_aliases():
-    """--check: every integer alias the Linux RTCD units use is defined there
-    in its canonical form."""
+def check_int_aliases(linux=True):
+    """--check: every type the RTCD units' pointer globals name is defined
+    there, with the types those definitions name (copied records), and on
+    Linux every integer alias in its canonical form."""
+    platform = 'linux' if linux else 'macos'
     bad = []
     for profile in ['release', 'debug']:
         for rel in RTCD_UNITS.values():
-            path = CRATE / f'src/linux/{profile}' / rel
+            path = CRATE / f'src/{platform}/{profile}' / rel
             text = path.read_text()
             used = ' '.join(re.findall(r'^pub static mut \w+: (Option<.*?>) = None;', text, re.M | re.S))
-            others = [p.read_text() for p in sorted((CRATE / f'src/linux/{profile}').rglob('*.rs')) if p != path]
-            if ensure_int_aliases(text, text) != text or ensure_copied_types(text, used, others) != text:
+            others = [p.read_text() for p in sorted((CRATE / f'src/{platform}/{profile}').rglob('*.rs')) if p != path]
+            if linux and ensure_int_aliases(text, text) != text:
+                bad.append(str(path.relative_to(ROOT)))
+            elif ensure_copied_types(text, used, others, linux) != text:
                 bad.append(str(path.relative_to(ROOT)))
     if bad:
         raise SystemExit(f'type aliases missing: {bad}')
-    print('Linux RTCD units: integer and copied type aliases complete')
+    print(f'{platform} RTCD units: copied type aliases and records complete')
 
 
 def edit_rtcd_unit_linux(text, name, params, ret, order, variants, others=()):
     ftype = fn_type(params, ret)
     opt = f'Option<{ftype}>'
-    if re.search(r'pub static mut ' + name + r':', text):
-        raise SystemExit(f'{name} is already dispatched')
-    text = ensure_int_aliases(text, ftype)
-    text = ensure_copied_types(text, ftype, others)
     decl_params = ', '.join(split_top(params))
     r = f' {ret}' if ret else ''
+    if re.search(r'pub static mut ' + name + r':', text):
+        return add_variants_linux(text, name, decl_params, r, ftype, opt, variants)
+    text = ensure_int_aliases(text, ftype)
+    text = ensure_copied_types(text, ftype, others)
     anchor = 'extern "C-unwind" {\n'
     decls = ''.join(f'    fn {name}_{ext}({decl_params}){r};\n' for ext in ['c', *variants])
     text = text.replace(anchor, anchor + decls, 1)
@@ -283,6 +301,55 @@ def edit_rtcd_unit_linux(text, name, params, ret, order, variants, others=()):
             insert = m.start()
             break
     return text[:insert] + block + text[insert:]
+
+
+def statement_end(text, pos):
+    """The index after the `;` that ends the statement starting at pos
+    (parentheses, brackets and angle brackets balanced; `->` is no bracket)."""
+    depth, k = 0, pos
+    while True:
+        ch = text[k]
+        if ch in '([<':
+            depth += 1
+        elif ch in ')]>' and text[k - 1] != '-':
+            depth -= 1
+        elif ch == ';' and depth == 0:
+            return k + 1
+        k += 1
+
+
+def add_variants_linux(text, name, decl_params, r, ftype, opt, variants):
+    """A function that is already dispatched gains further x86 variants (for
+    example an SSE4.1 kernel below an existing AVX2 one): their declarations
+    follow the `_c` declaration, and the function's setup block is rewritten
+    with every variant in header order, as a first dispatch writes it. The
+    units dispatched at the freeze are rustfmt-formatted, so declarations and
+    statements may span lines."""
+    missing = [ext for ext in variants if not re.search(r'^\s*fn ' + name + '_' + ext + r'\(', text, re.M)]
+    if not missing:
+        raise SystemExit(f'{name} is already dispatched with {variants}')
+    c_decl = re.search(r'^    fn ' + name + r'_c\(', text, re.M)
+    if not c_decl:
+        raise SystemExit(f'{name}: no _c declaration to extend')
+    end = statement_end(text, c_decl.start()) + 1
+    decls = ''.join(f'    fn {name}_{ext}({decl_params}){r};\n' for ext in missing)
+    text = text[:end] + decls + text[end:]
+    block = f'    {name} = Some({name}_c as {ftype}) as {opt};\n'
+    for ext in variants:
+        block += (f'    if flags & {X86_FLAGS[ext]} != 0 {{\n'
+                  f'        {name} = Some({name}_{ext} as {ftype}) as {opt};\n'
+                  f'    }}\n')
+    setup = text.index('unsafe extern "C-unwind" fn setup_rtcd_internal() {')
+    first = re.compile(r'^    ' + name + r' = Some\(', re.M).search(text, setup)
+    if not first:
+        raise SystemExit(f'{name}: setup block not found')
+    stop = statement_end(text, first.start()) + 1
+    variant = re.compile(r'    if flags & HAS_\w+ != 0 \{\n        ' + name + r' = Some\(')
+    while variant.match(text, stop):
+        inner = statement_end(text, stop + text[stop:].index(name + ' = Some('))
+        assert text[inner:inner + 7] == '\n    }\n', text[inner:inner + 20]
+        stop = inner + 7
+    return text[:first.start()] + block + text[stop:]
 
 
 LITERAL = re.compile(r'''b?r(#*)".*?"\1|b?"(?:\\.|[^"\\])*"|b?'(?:\\.|[^'\\])'|//[^\n]*''', re.S)
@@ -310,6 +377,24 @@ def count_code(pattern, text):
     return sub_code(pattern, lambda m: m.group(0), text)[1]
 
 
+def pasted_c_uses(csource, name):
+    """Uses of `name`_c that the C source spells through token pasting in a
+    macro body, as variance.c's sub-pixel macros call
+    `aom_variance##W##x##H##_c(...)`: those are explicit `_c` calls too. An
+    all-uppercase segment between `##` is taken as a macro parameter; a
+    pasted name in a definition line (one that starts with the return type)
+    is not a use."""
+    uses = 0
+    for line in csource.split('\n'):
+        for m in re.finditer(r'\b(\w+(?:\s*##\s*\w+)*\s*##\s*_c)\s*\(', line):
+            parts = [p.strip() for p in m.group(1).split('##')]
+            pattern = ''.join(r'\w+' if re.fullmatch(r'[A-Z][A-Z0-9_]*', p) else re.escape(p) for p in parts)
+            if re.fullmatch(pattern, name + '_c') and not re.match(r'\s*(?!return\b)[A-Za-z_][\w \*]*\s' +
+                                                                     re.escape(m.group(1)), line):
+                uses += 1
+    return uses
+
+
 def edit_caller(text, csource, name, params, ret, report, rel):
     ftype = fn_type(params, ret)
     opt = f'Option<{ftype}>'
@@ -317,6 +402,7 @@ def edit_caller(text, csource, name, params, ret, report, rel):
     # prototype (a line that starts with the return type), stay direct calls.
     definition = re.compile(r'^[A-Za-z_][\w \*]*\b' + name + r'_c\(', re.M)
     explicit_c = len(re.findall(r'\b' + name + r'_c\b', csource)) - len(definition.findall(csource))
+    explicit_c += pasted_c_uses(csource, name)
     if explicit_c:
         report.append(f'MANUAL {rel}: C source names {name}_c explicitly {explicit_c}x; left unchanged')
         return text
@@ -428,7 +514,7 @@ def check(linux):
         names = overlay_table(text, linux).group(2).split()
         wanted = {}
         for spec in names:
-            m = re.fullmatch(r'(\w+?)_(sse2|ssse3|sse4_1|avx2)', spec)
+            m = re.fullmatch(r'(\w+?)_(sse2|sse3|ssse3|sse4_1|avx2)', spec)
             if not m:
                 problems.append(f'{overlay.relative_to(ROOT)}: {spec} is not <function>_<extension>')
                 continue
@@ -483,11 +569,10 @@ def check(linux):
                 csource = (ROOT / unit['source']).read_text()
                 if edit_caller(texts[rel], csource, name, params, ret, report, rel) != texts[rel]:
                     problems.append(f'{profile}:{rel}: still calls or takes the address of {name}_c')
-    if linux:
-        try:
-            check_int_aliases()
-        except SystemExit as error:
-            problems.append(str(error))
+    try:
+        check_int_aliases(linux)
+    except SystemExit as error:
+        problems.append(str(error))
     if problems:
         print('\n'.join(problems))
         raise SystemExit(f'{len(problems)} differences from the output of tools/enable_aom_dispatch.py')
@@ -543,7 +628,7 @@ def plan(report):
     if LINUX:
         functions = []
         for spec in NAMES:
-            base, ext = re.fullmatch(r'(\w+?)_(sse2|ssse3|sse4_1|avx2)', spec).groups()
+            base, ext = re.fullmatch(r'(\w+?)_(sse2|sse3|ssse3|sse4_1|avx2)', spec).groups()
             if base not in functions:
                 functions.append(base)
     for profile in ['release', 'debug']:
@@ -578,8 +663,9 @@ def plan(report):
                 texts[rtcd_rel] = edit_rtcd_unit_linux(texts[rtcd_rel], name, params, ret,
                                                        header_order(headers[header[0]]), variants, others)
             else:
+                others = [texts[r] for r in sorted(units) if r != rtcd_rel]
                 texts[rtcd_rel] = edit_rtcd_unit(texts[rtcd_rel], name, params, ret,
-                                                 header_order(headers[header[0]]))
+                                                 header_order(headers[header[0]]), others)
             for rel, unit in units.items():
                 if rel == rtcd_rel or name not in mentions[rel]:
                     continue

@@ -14,7 +14,7 @@ unless every one equals the committed file.
 Families: the 8-bit inverse transform, the loop filters and the 8-bit intra
 predictors (port ADR 0058, amendment of 2026-11-14).
 """
-import argparse, re, subprocess, sys, tempfile
+import argparse, os, re, subprocess, sys, tempfile
 from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -94,7 +94,10 @@ def write(rel, text):
     # rustfmt and its default configuration.
     empty = WORK / 'rustfmt.toml'
     empty.write_text('')
-    r = subprocess.run(['rustup', 'run', 'stable', 'rustfmt', '--edition', '2021', '--config-path', str(empty),
+    # X86_C2R_RUSTFMT_TOOLCHAIN pins the toolchain in CI (the formatting
+    # of the committed files is that of rustfmt 1.9.0, Rust 1.98.1).
+    toolchain = os.environ.get('X86_C2R_RUSTFMT_TOOLCHAIN', 'stable')
+    r = subprocess.run(['rustup', 'run', toolchain, 'rustfmt', '--edition', '2021', '--config-path', str(empty),
                         str(path)], capture_output=True, text=True)
     if r.returncode:
         raise SystemExit(f'rustfmt failed on {path}: {r.stderr}')
@@ -287,17 +290,31 @@ def sse_and_sum_squares():
                 x + blk)
     simple_file('aom_dsp/x86/blk_sse_sum_avx2.rs', 'blk_sse_sum_avx2.json', 'aom_dsp/x86/blk_sse_sum_avx2.c', 'avx2',
                 y + blk)
-    part_note = ('// Only the still-image functions of this file (aom_mse_wxh_16bit*, aom_mse_16xh_16bit*) and the\n'
-                 '// static helpers they call are translated; the inter-prediction variance kernels are not\n'
-                 '// (working decision O2, 2026-11-13, delegated, revisable by the owner).\n')
-    for rel, cfg, src, feat, uses in [
-            ('aom_dsp/x86/variance_sse2.rs', 'variance_sse2_mse.json', 'aom_dsp/x86/variance_sse2.c', 'sse2', x),
-            ('aom_dsp/x86/variance_avx2.rs', 'variance_avx2_mse.json', 'aom_dsp/x86/variance_avx2.c', 'avx2', y),
+    part_note = ('// Only the functions of this file that the still-image encoder dispatches (the block\n'
+                 '// variances and MSEs, aom_get_var_sse_sum_*, aom_mse_wxh_16bit*, aom_mse_16xh_16bit*) and\n'
+                 '// the static helpers they call are translated; the macros that define the block\n'
+                 '// variances are expanded by the preprocessor. The sub-pixel and averaging kernels are\n'
+                 '// not translated (working decision O2, 2026-11-13, delegated, revisable by the owner).\n')
+    hb_note = ('// Only the functions of this file that call no NASM kernel are translated:\n'
+               '// aom_mse_wxh_16bit_highbd_sse2 and its helpers. The block variances and MSEs call\n'
+               '// aom_highbd_calc{8x8,16x16}var_sse2 of highbd_variance_impl_sse2.asm and stay on `_c`.\n')
+    rnd = '// ROUND_POWER_OF_TWO (aom_ports/mem.h) is written out through the config\'s `replace`.\n'
+    hb_fn = ('\n// typedef void (*high_variance_fn_t)(const uint16_t *src, int src_stride,\n'
+             '//                                    const uint16_t *ref, int ref_stride,\n'
+             '//                                    uint32_t *sse, int *sum);\n'
+             'type high_variance_fn_t = Option<unsafe fn(*const u16, i32, *const u16, i32, *mut u32, *mut i32)>;\n')
+    for rel, cfg, src, feat, uses, note, extra in [
+            ('aom_dsp/x86/variance_sse2.rs', 'variance_sse2_mse.json', 'aom_dsp/x86/variance_sse2.c', 'sse2',
+             x + 'use crate::simd::aom_dsp__x86__mem_sse2::loadu_int32;\n', part_note, ''),
+            ('aom_dsp/x86/variance_avx2.rs', 'variance_avx2_mse.json', 'aom_dsp/x86/variance_avx2.c', 'avx2', y,
+             part_note, ''),
             ('aom_dsp/x86/highbd_variance_sse2.rs', 'highbd_variance_sse2_mse.json', 'aom_dsp/x86/highbd_variance_sse2.c',
-             'sse2', x),
+             'sse2', x, hb_note, ''),
             ('aom_dsp/x86/highbd_variance_avx2.rs', 'highbd_variance_avx2_mse.json', 'aom_dsp/x86/highbd_variance_avx2.c',
-             'avx2', y)]:
-        simple_file(rel, cfg, src, feat, uses, extra='', note=part_note)
+             'avx2', y, part_note + rnd, hb_fn),
+            ('aom_dsp/x86/highbd_variance_sse4.rs', 'highbd_variance_sse4.json', 'aom_dsp/x86/highbd_variance_sse4.c',
+             'sse4.1', '', '// Only the block variances are translated; the sub-pixel kernels are not.\n' + rnd, '')]:
+        simple_file(rel, cfg, src, feat, uses, extra=extra, note=note)
 
 def txb():
     x = 'use crate::simd::aom_dsp__x86__synonyms::*;\n'
@@ -479,6 +496,61 @@ def interp_cubic_rate_dist():
     simple_file('av1/encoder/x86/model_rd_sse2.rs', 'model_rd_sse2.json', 'av1/encoder/x86/model_rd_sse2.c', 'sse2', '')
 
 
+CNN_NOTE = ('// The two statement macros of the file (PERFORM_CONVOLVE_FOR_3_5X5_BLOCKS,\n'
+            '// PERFORM_CONVOLVE_FOR_1_5X5_BLOCK) were expanded with the C preprocessor\n'
+            '// before printing; their `do { ... } while (0)` stays a loop that runs once.\n'
+            '// Each `_mm*_mul_ps` and `_mm*_add_ps` and each scalar `*` and `+` is a\n'
+            '// separate rounding, as in the original built with -ffp-contract=off\n'
+            '// (ADR 0024); Rust never contracts.\n')
+
+
+def cnn():
+    simple_file('av1/encoder/x86/cnn_avx2.rs', 'cnn_avx2.json', 'av1/encoder/x86/cnn_avx2.c', 'avx2',
+                'use crate::av1__encoder__cnn::{av1_cnn_convolve_no_maxpool_padding_valid_c, CNN_LAYER_CONFIG};\n',
+                ALIGN, note=CNN_NOTE)
+
+
+HADAMARD_NOTE = ('// Only the Hadamard kernels of the file are translated (the config\'s `only`\n'
+                 '// list; the averaging, SATD, projection and variance kernels after them are\n'
+                 '// not on the still-image path).\n')
+
+
+def hadamard():
+    for ext in ['sse2', 'avx2']:
+        h = f'aom_dsp/x86/bitdepth_conversion_{ext}.h'
+        write(f'aom_dsp/x86/bitdepth_conversion_{ext}.rs', LIC(year_of(h))
+              + f'\n// Translated from upstream/aom/{h} (ADR 0056, ADR 0058).\n'
+              '// The functions were\n// ' + PRINTER + '.\n'
+              + NOTES.format(feat=ext) + '\n' + run(f'bitdepth_conversion_{ext}_h.json'))
+    simple_file('aom_dsp/x86/avg_intrin_sse2.rs', 'avg_intrin_sse2.json', 'aom_dsp/x86/avg_intrin_sse2.c', 'sse2',
+                'use crate::simd::aom_dsp__x86__bitdepth_conversion_sse2::*;\n', ALIGN, note=HADAMARD_NOTE)
+    simple_file('aom_dsp/x86/avg_intrin_avx2.rs', 'avg_intrin_avx2.json', 'aom_dsp/x86/avg_intrin_avx2.c', 'avx2',
+                'use crate::simd::aom_dsp__x86__bitdepth_conversion_avx2::*;\n', ALIGN, note=HADAMARD_NOTE)
+
+
+NN_NOTE = ('// Each `_mm*_mul_ps` and `_mm*_add_ps` and each scalar `*` and `+` is a\n'
+           '// separate rounding, as in the original built with -ffp-contract=off\n'
+           '// (ADR 0024); `float` literals stay single precision.\n')
+
+
+def nn():
+    nn_uses = 'use crate::av1__encoder__ml::{av1_nn_output_prec_reduce, NN_CONFIG};\n'
+    nn_const = '\n// av1/encoder/ml.h\nconst NN_MAX_NODES_PER_LAYER: i32 = 128;\n'
+    simple_file('av1/encoder/x86/ml_sse3.rs', 'ml_sse3.json', 'av1/encoder/x86/ml_sse3.c', 'sse3', nn_uses,
+                nn_const, note=NN_NOTE + '// approx_exp\'s object-like macros A, B and C are written out in place.\n')
+    simple_file('av1/encoder/x86/ml_avx2.rs', 'ml_avx2.json', 'av1/encoder/x86/ml_avx2.c', 'avx2',
+                nn_uses + 'use crate::simd::av1__encoder__x86__ml_sse3::{av1_nn_propagate_4to1_sse3,\n'
+                '    av1_nn_propagate_4to4_sse3, av1_nn_propagate_4to8_sse3};\n', nn_const,
+                note=NN_NOTE + '// The statement macro CALC_OUTPUT_FOR_2ROWS was expanded with the C\n'
+                '// preprocessor before printing; AOMMAX(bias_val, 0) is written out.\n')
+
+
+def highbd_quantize_fp_sse4():
+    simple_file('av1/encoder/x86/av1_highbd_quantize_sse4.rs', 'av1_highbd_quantize_sse4.json',
+                'av1/encoder/x86/av1_highbd_quantize_sse4.c', 'sse4.1', '',
+                note='// ROUND_POWER_OF_TWO (aom_ports/mem.h) is written out through the config\'s `replace`.\n')
+
+
 def main():
     global OUT, WORK
     parser = argparse.ArgumentParser(description=__doc__)
@@ -500,6 +572,10 @@ def main():
         horver_correlation()
         nz_map_contexts()
         interp_cubic_rate_dist()
+        cnn()
+        hadamard()
+        nn()
+        highbd_quantize_fp_sse4()
         if args.check:
             bad = []
             for path in sorted(OUT.rglob('*.rs')):
