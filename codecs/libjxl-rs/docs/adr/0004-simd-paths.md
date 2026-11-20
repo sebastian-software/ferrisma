@@ -2073,9 +2073,23 @@ word of all 183 exceptional requests**, so O1 compares them and the gate
 fails. The scalar builds reduce a block in one scalar `Add` order, which
 neither optimization level changes; the AVX2 object's commuted lane
 reduction has no counterpart in them. Rule O1 therefore does not cover this
-case, and the class decision of 2026-11-15 is narrower than O1 would
-allow. The gate is not narrowed beyond O1; whether the class decision
-stands beside O1, or the AVX2 encoder path waits, is the owner's decision.
+case.
+
+**Owner decision 2026-11-20: the class stays as a named exception beside
+O1.** The class decision of 2026-11-15 stays in force as a recorded
+exception: only which NaN survives the original's SIMD reduction differs,
+NaN payloads are outside the 1.0 gate (ADR-0041 section 3), and whole-image
+encodes are byte-identical. `tests/simd_encoder_aq.rs` implements exactly
+that class (`map_nan_blocks`, unchanged from 2026-11-15, the reason in its
+doc comment): on AVX2 the `aq_map` words of a request whose input puts two
+or more NaN-producing terms into one block's reduction are not compared.
+Rule O1 applies to every other word on both targets, and any difference
+outside O1 and the class fails the gate. Results are in the next
+paragraph's successor below ("Encoder selection").
+
+**Condition (e), speed on x86-64 hardware (2026-11-20).** One run of the
+benchmark workflow on hosted x86-64 runners (run 44759716301) is recorded in
+[the x86-64 encode three-column record](../../../../docs/benchmarks/v1.0-jxl-encode-three-column-x86-64-2026-11-20.md).
 <!-- end encoder aq -->
 <!-- encoder selection -->
 ## Encoder selection (2026-11-15, branch `v1/jxl-enc-select`)
