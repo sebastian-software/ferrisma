@@ -31,7 +31,7 @@ together with the dispatch headers, the owned RTCD and caller units, and their
 recorded hashes (ADR 0056, amendment of 2026-11-13); `--linux` does the same
 for the x86 overlay and the Linux profiles (ADR 0058, amendment of 2026-11-14).
 
-- Arm: 513 RTCD functions dispatch to Neon kernels: the high-bitdepth set (190
+- Arm: 525 RTCD functions dispatch to Neon kernels: the high-bitdepth set (190
   intra predictors, transforms, CDEF, quantization) and, since 2026-11-13, the
   still-image 8-bit inverse transform `av1_inv_txfm_add`, the 40 loop filters,
   the 190 8-bit intra predictors with `av1_dr_prediction_z1/z2/z3`, the 9 CfL
@@ -42,10 +42,12 @@ for the x86 overlay and the Linux profiles (ADR 0058, amendment of 2026-11-14).
   exact with `_c` for every argument (extra context positions; wrapping where
   `_c` saturates), because the original's Neon build runs them too and the
   SIMD-against-original gate is identical. The per-size `av1_inv_txfm2d_add_*`
-  entry points are not dispatched (see `rtcd/arm64.pl`), nor are the
-  high-bitdepth Hadamard kernels (coefficient order).
+  entry points are not dispatched (see `rtcd/arm64.pl`). Since 2026-11-20
+  the CNN partition kernel, `av1_nn_predict` and the Hadamard kernels follow
+  the original's Neon build, which differs from `_c` (summation and
+  coefficient order).
   ADR 0056 lists what remains on `_c`.
-- x86-64: 358 RTCD functions dispatch through 444 kernel assignments, because
+- x86-64: 371 RTCD functions dispatch through 462 kernel assignments, because
   some functions have both an SSE2, SSSE3 or SSE4.1 and an AVX2 variant.
   Since 2026-11-14 that includes the 8-bit inverse transform
   `av1_inv_txfm_add` (SSSE3 and AVX2) and the 40 loop filters (SSE2, and AVX2

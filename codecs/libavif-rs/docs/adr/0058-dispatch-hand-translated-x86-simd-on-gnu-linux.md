@@ -295,3 +295,31 @@ and the four profiles once more with `RUSTFLAGS=-Zallow-features=`. The dispatch
 rewrite of `enable_aom_dispatch.py` leaves string, byte-string and char
 literals and comments alone (the Linux debug profile keeps the C text of
 `assert` as byte strings).
+
+## Amendment: CNN, NN, Hadamard and the SSE3 family (2026-11-20)
+
+The x86 counterparts of the 2026-11-20 Neon families (ADR 0056 amendment of
+that date) are printed by `tools/x86_c2r` and dispatched through
+`enable_aom_dispatch.py --linux`:
+`av1_cnn_convolve_no_maxpool_padding_valid` (AVX2), the Hadamard kernels
+(`avg_intrin_sse2.c` SSE2 and `avg_intrin_avx2.c` AVX2, with
+`bitdepth_conversion_sse2.h`/`_avx2.h`), and `av1_nn_predict` (SSE3 and
+AVX2, `ml_sse3.c` and `ml_avx2.c`) with `av1_nn_fast_softmax_16` (SSE3).
+
+The SSE3 family was disabled in the dispatch headers, although the
+original's x86 build selects `av1_nn_predict_sse3` and
+`av1_nn_fast_softmax_16_sse3` on every CPU from SSE3 up, so the port's
+`sse4.1` level ran `_c` where the original runs SSE3. `tools/transpile_aom.py`
+no longer disables SSE3, `rtcd/x86_64.pl` withdraws every unported SSE3
+specialization like those of the other families, and
+`enable_aom_dispatch.py` accepts `_sse3` (`HAS_SSE3`). The regenerated Linux
+headers change only by the two SSE3 functions. The x86 overlay dispatches
+371 RTCD functions.
+
+The printer learned float struct fields and zero values, `float` literals
+typed `f32` (C rounds them to single precision and keeps the arithmetic in
+single precision), a pointer `+=` used as an operand, an opt-in
+`keep_lines` that keeps line numbers through multi-line `DECLARE_ALIGNED`,
+and the return types of `_mm256_extractf128_ps` and
+`_mm256_permute2f128_ps`. `assemble.py --check` reproduces all 58 files.
+

@@ -14,7 +14,7 @@ unless every one equals the committed file.
 Families: the 8-bit inverse transform, the loop filters and the 8-bit intra
 predictors (port ADR 0058, amendment of 2026-11-14).
 """
-import argparse, re, subprocess, sys, tempfile
+import argparse, os, re, subprocess, sys, tempfile
 from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -94,7 +94,10 @@ def write(rel, text):
     # rustfmt and its default configuration.
     empty = WORK / 'rustfmt.toml'
     empty.write_text('')
-    r = subprocess.run(['rustup', 'run', 'stable', 'rustfmt', '--edition', '2021', '--config-path', str(empty),
+    # X86_C2R_RUSTFMT_TOOLCHAIN pins the toolchain in CI (the formatting
+    # of the committed files is that of rustfmt 1.9.0, Rust 1.98.1).
+    toolchain = os.environ.get('X86_C2R_RUSTFMT_TOOLCHAIN', 'stable')
+    r = subprocess.run(['rustup', 'run', toolchain, 'rustfmt', '--edition', '2021', '--config-path', str(empty),
                         str(path)], capture_output=True, text=True)
     if r.returncode:
         raise SystemExit(f'rustfmt failed on {path}: {r.stderr}')

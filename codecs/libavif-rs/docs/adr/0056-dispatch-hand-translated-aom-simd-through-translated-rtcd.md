@@ -444,8 +444,39 @@ and `44191d50…`): `neon` 82 of 82 after each kernel, and on the final tree
   the frozen translation" keep running on the translated C path; SIMD stays
   ported only on the still-image path.
 
+## Amendment: CNN, NN and Hadamard kernels (2026-11-20)
+
+A sampled profile of the port's macOS ARM64 encoder (dog 1512x2016, speeds
+6 and 7, 8 and 10 bit, one thread) measured which `_c` functions with an
+original Neon variant the still-image encoder still runs. Three families of
+the #123 table above are dispatched now, each matching the original's Neon
+build rather than `_c` (ADR-0041 D4):
+
+| Kernel | Self time on `_c` (speed 6) | Evidence |
+| --- | --- | --- |
+| `av1_cnn_convolve_no_maxpool_padding_valid` (`cnn_neon.c`) | 10 to 12% | `tests/simd/cnn.rs` (CNNConvolveTest, tolerance); kernel outputs bit-identical to the original Neon `libaom.a` on 64 inputs x 5 layers |
+| `aom_hadamard_*`, `aom_hadamard_lp_*`, `aom_highbd_hadamard_*` (`hadamard_neon.c`, `highbd_hadamard_neon.c`) | 1 to 2.4% | `tests/simd/hadamard.rs` (sorted, as the original test); outputs bit-identical, in coefficient order, to the original Neon `libaom.a` on 200 inputs |
+| `av1_nn_predict` (`ml_neon.c`) | 0.3 to 1.2% | `tests/simd/nn_predict.rs` (tolerance); outputs bit-identical to the original Neon `libaom.a` except where `av1_nn_output_prec_reduce` converts an out-of-range float to `int` (C undefined behavior; only for inputs scaled far beyond the encoder's) |
+
+The statement in the #123 table that the Hadamard kernels are off the
+still-image path was wrong: the profile shows `aom_hadamard_8x8_c`,
+`_16x16_c` and the high-bitdepth ones running at speeds 6 and 7.
+`tools/enable_aom_dispatch.py` now copies the C records a new RTCD
+declaration names (`CNN_LAYER_CONFIG` and the types of its fields) into the
+RTCD unit, as C2Rust gives every unit its own copy, and `--check` verifies
+those copies on macOS too. With the three families the arm64 overlay
+dispatches 525 RTCD functions; `check_aom_simd_original.py` reports `neon`
+82 of 82 and `scalar` 82 of 82 identical to the original.
+
+Still on `_c` with an original Neon variant on the still-image path: the
+8-bit and high-bitdepth variance kernels (`aom_variance*`,
+`aom_highbd_{8,10,12}_variance*`, 0.3 to 1.5% at speed 6) and
+`aom_quantize_b_helper` (libaom calls only `_c`, see above).
+
 ## Amendment log
 
 - 2026-11-15 — Owner decisions on #203 (non-contracting reference for both
   targets) and O2 (video code kept, SIMD only on the still-image path).
   Earlier amendments are the dated sections above.
+- 2026-11-20 — CNN, NN and Hadamard kernels dispatched to Neon (measured
+  still-image profile; #123 table corrected for Hadamard).
