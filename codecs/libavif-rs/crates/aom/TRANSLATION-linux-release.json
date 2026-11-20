@@ -23,11 +23,11 @@
       "--disable-avx512"
     ],
     "overlay": "crates/aom/rtcd/x86_64.pl",
-    "overlay_sha256": "94a81d23f7de6cb11ca83f0079104f25651f747858e62618511dd8c1c2e488af",
+    "overlay_sha256": "5a1242d0e11891674069b093ce002bef189a2b5394d96087d4bf15df6fe586d5",
     "headers": {
       "config/aom_dsp_rtcd.h": "1f48551d90f6e4047fd1bc83e5b368c1711c3b6c2498e9fe351a730f1aa17ae2",
       "config/aom_scale_rtcd.h": "691037710b3c581297ce3d121638764eea39f2f3745ac58f4797e4b1a935cc91",
-      "config/av1_rtcd.h": "40c3e82237dbba12c34249b2f469e4edddb5a175c053043d70464d274dc61b71"
+      "config/av1_rtcd.h": "0dc0bd47c8b506b2561160642992cb1a52ea48ce83ffd065c82b012d112c8f18"
     }
   },
   "optional_inline_test_bridges": [
@@ -125,8 +125,8 @@
       "source": "upstream/aom/av1/common/av1_rtcd.c",
       "rust": "crates/aom/src/linux/release/av1/common/av1_rtcd.rs",
       "raw_sha256": "e0df845da0a02e4d946707c75b0af34ba483f83778b2926d35cf836dde4426a7",
-      "rust_sha256": "09b47fc26da03e00d22e77f4d64a7c65222f136c540ba0b7353f7193c82912d0",
-      "production_rust_sha256": "09b47fc26da03e00d22e77f4d64a7c65222f136c540ba0b7353f7193c82912d0",
+      "rust_sha256": "46c1f64edecdc351c0e8f7b3193a0b8a782cf45498cc6ff5b7a826eaf62f05bf",
+      "production_rust_sha256": "46c1f64edecdc351c0e8f7b3193a0b8a782cf45498cc6ff5b7a826eaf62f05bf",
       "corrections": {
         "target-libc-thread-storage": 1,
         "raw-c-mutable-address": 1,
@@ -1439,8 +1439,8 @@
       "source": "upstream/aom/av1/encoder/cnn.c",
       "rust": "crates/aom/src/linux/release/av1/encoder/cnn.rs",
       "raw_sha256": "25ebda44acf9986c7494e26b28d57886e3b747089e04c9f47887787afc9b1985",
-      "rust_sha256": "e6524f9c7ccbe24dace0135186f1297e3c19e36b2513ba3ed78e4139bb2f3d89",
-      "production_rust_sha256": "e6524f9c7ccbe24dace0135186f1297e3c19e36b2513ba3ed78e4139bb2f3d89",
+      "rust_sha256": "124a88fe32e3bc3662e0d5a2c9921400fb9c5c688cb50e9893786d4aa70b9b4b",
+      "production_rust_sha256": "124a88fe32e3bc3662e0d5a2c9921400fb9c5c688cb50e9893786d4aa70b9b4b",
       "corrections": {
         "canonical-cfg-labels": 2,
         "raw-c-mutable-address": 46,

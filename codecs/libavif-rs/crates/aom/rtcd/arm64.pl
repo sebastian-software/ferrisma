@@ -455,6 +455,7 @@ my %ported_neon = map { $_ => 1 } qw/
   av1_apply_selfguided_restoration
   av1_block_error
   av1_block_error_lp
+  av1_cnn_convolve_no_maxpool_padding_valid
   av1_dr_prediction_z1
   av1_dr_prediction_z2
   av1_dr_prediction_z3

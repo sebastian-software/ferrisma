@@ -8,6 +8,8 @@
 mod acm_random;
 #[path = "simd/cdef.rs"]
 mod cdef;
+#[path = "simd/cnn.rs"]
+mod cnn;
 #[path = "simd/highbd_inv_txfm.rs"]
 mod highbd_inv_txfm;
 #[path = "simd/lowbd_inv_txfm.rs"]

@@ -12,6 +12,8 @@
 // Mechanically translated from upstream/aom/av1/common/av1_rtcd.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C-unwind" {
+    fn av1_cnn_convolve_no_maxpool_padding_valid_c(input: *mut *const core::ffi::c_float, in_width: core::ffi::c_int, in_height: core::ffi::c_int, in_stride: core::ffi::c_int, layer_config: *const CNN_LAYER_CONFIG, output: *mut *mut core::ffi::c_float, out_stride: core::ffi::c_int, start_idx: core::ffi::c_int, cstep: core::ffi::c_int, channel_step: core::ffi::c_int);
+    fn av1_cnn_convolve_no_maxpool_padding_valid_avx2(input: *mut *const core::ffi::c_float, in_width: core::ffi::c_int, in_height: core::ffi::c_int, in_stride: core::ffi::c_int, layer_config: *const CNN_LAYER_CONFIG, output: *mut *mut core::ffi::c_float, out_stride: core::ffi::c_int, start_idx: core::ffi::c_int, cstep: core::ffi::c_int, channel_step: core::ffi::c_int);
     fn av1_interp_cubic_rate_dist_c(p1: *const core::ffi::c_double, p2: *const core::ffi::c_double, x: core::ffi::c_double, rate_dist_f: *mut core::ffi::c_double);
     fn av1_interp_cubic_rate_dist_sse2(p1: *const core::ffi::c_double, p2: *const core::ffi::c_double, x: core::ffi::c_double, rate_dist_f: *mut core::ffi::c_double);
     fn av1_round_shift_array_c(arr: *mut int32_t, size: core::ffi::c_int, bit: core::ffi::c_int);
@@ -939,6 +941,47 @@ pub type cfl_predict_hbd_fn = Option<
     ) -> (),
 >;
 pub type TX_CLASS = uint8_t;
+pub type ACTIVATION = uint8_t;
+pub type BRANCH_COMBINE = uint8_t;
+pub type BRANCH_COPY = uint8_t;
+pub type PADDING_TYPE = uint8_t;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct CNN_BRANCH_CONFIG {
+    pub input_to_branches: core::ffi::c_int,
+    pub channels_to_copy: core::ffi::c_int,
+    pub branches_to_combine: core::ffi::c_int,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct CNN_BATCHNORM_PARAMS {
+    pub bn_gamma: *const core::ffi::c_float,
+    pub bn_beta: *const core::ffi::c_float,
+    pub bn_mean: *const core::ffi::c_float,
+    pub bn_std: *const core::ffi::c_float,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct CNN_LAYER_CONFIG {
+    pub in_channels: core::ffi::c_int,
+    pub filter_width: core::ffi::c_int,
+    pub filter_height: core::ffi::c_int,
+    pub out_channels: core::ffi::c_int,
+    pub skip_width: core::ffi::c_int,
+    pub skip_height: core::ffi::c_int,
+    pub maxpool: core::ffi::c_int,
+    pub weights: *const core::ffi::c_float,
+    pub bias: *const core::ffi::c_float,
+    pub pad: PADDING_TYPE,
+    pub activation: ACTIVATION,
+    pub deconvolve: core::ffi::c_int,
+    pub branch: core::ffi::c_int,
+    pub branch_copy_type: BRANCH_COPY,
+    pub branch_combine_type: BRANCH_COMBINE,
+    pub branch_config: CNN_BRANCH_CONFIG,
+    pub bn_params: CNN_BATCHNORM_PARAMS,
+    pub output_num: core::ffi::c_int,
+}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WienerConvolveParams {
@@ -966,6 +1009,8 @@ pub static mut av1_block_error: Option<
 pub static mut av1_block_error_lp: Option<
     unsafe extern "C-unwind" fn(*const int16_t, *const int16_t, intptr_t) -> int64_t,
 > = None;
+#[no_mangle]
+pub static mut av1_cnn_convolve_no_maxpool_padding_valid: Option<unsafe extern "C-unwind" fn(*mut *const core::ffi::c_float, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const CNN_LAYER_CONFIG, *mut *mut core::ffi::c_float, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()> = None;
 #[no_mangle]
 pub static mut av1_dr_prediction_z1: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()> = None;
 #[no_mangle]
@@ -1538,6 +1583,10 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
             as Option<
                 unsafe extern "C-unwind" fn(*const int16_t, *const int16_t, intptr_t) -> int64_t,
             >;
+    }
+    av1_cnn_convolve_no_maxpool_padding_valid = Some(av1_cnn_convolve_no_maxpool_padding_valid_c as unsafe extern "C-unwind" fn(*mut *const core::ffi::c_float, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const CNN_LAYER_CONFIG, *mut *mut core::ffi::c_float, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut *const core::ffi::c_float, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const CNN_LAYER_CONFIG, *mut *mut core::ffi::c_float, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    if flags & HAS_AVX2 != 0 {
+        av1_cnn_convolve_no_maxpool_padding_valid = Some(av1_cnn_convolve_no_maxpool_padding_valid_avx2 as unsafe extern "C-unwind" fn(*mut *const core::ffi::c_float, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const CNN_LAYER_CONFIG, *mut *mut core::ffi::c_float, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut *const core::ffi::c_float, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const CNN_LAYER_CONFIG, *mut *mut core::ffi::c_float, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
     }
     av1_dr_prediction_z1 = Some(av1_dr_prediction_z1_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
     if flags & HAS_SSE4_1 != 0 {

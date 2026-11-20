@@ -362,6 +362,7 @@ my %ported_x86 = map { $_ => 1 } qw/
   av1_apply_selfguided_restoration_sse4_1
   av1_block_error_avx2
   av1_block_error_lp_avx2
+  av1_cnn_convolve_no_maxpool_padding_valid_avx2
   av1_dr_prediction_z1_avx2
   av1_dr_prediction_z1_sse4_1
   av1_dr_prediction_z2_avx2

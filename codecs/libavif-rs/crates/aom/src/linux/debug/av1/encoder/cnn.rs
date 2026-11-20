@@ -12,6 +12,7 @@
 // Mechanically translated from upstream/aom/av1/encoder/cnn.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C-unwind" {
+    static mut av1_cnn_convolve_no_maxpool_padding_valid: Option<unsafe extern "C-unwind" fn(*mut *const core::ffi::c_float, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const CNN_LAYER_CONFIG, *mut *mut core::ffi::c_float, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
     fn aom_malloc(size: size_t) -> *mut core::ffi::c_void;
     fn aom_free(memblk: *mut core::ffi::c_void);
     fn aom_get_worker_interface() -> *const AVxWorkerInterface;
@@ -1770,7 +1771,7 @@ unsafe extern "C-unwind" fn av1_cnn_convolve(
                 );
             }
             2 => {
-                av1_cnn_convolve_no_maxpool_padding_valid_c(
+                av1_cnn_convolve_no_maxpool_padding_valid.expect("non-null function pointer")(
                     input,
                     in_width,
                     in_height,

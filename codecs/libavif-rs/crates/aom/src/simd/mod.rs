@@ -140,6 +140,10 @@ pub mod av1__encoder__arm__av1_fwd_txfm2d_neon;
 pub mod av1__encoder__arm__av1_highbd_quantize_neon;
 
 #[cfg(target_arch = "aarch64")]
+#[path = "av1/encoder/arm/cnn_neon.rs"]
+pub mod av1__encoder__arm__cnn_neon;
+
+#[cfg(target_arch = "aarch64")]
 #[path = "av1/encoder/arm/encodetxb_neon.rs"]
 pub mod av1__encoder__arm__encodetxb_neon;
 
@@ -442,6 +446,10 @@ pub mod av1__encoder__x86__av1_quantize_sse2;
 #[cfg(target_arch = "x86_64")]
 #[path = "av1/encoder/x86/av1_txfm1d_sse4.rs"]
 pub mod av1__encoder__x86__av1_txfm1d_sse4;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "av1/encoder/x86/cnn_avx2.rs"]
+pub mod av1__encoder__x86__cnn_avx2;
 
 #[cfg(target_arch = "x86_64")]
 #[path = "av1/encoder/x86/encodetxb_avx2.rs"]

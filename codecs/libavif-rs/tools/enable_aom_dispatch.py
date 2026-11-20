@@ -123,11 +123,12 @@ def header_order(header_text):
     return re.findall(r'^\s*(\w+) = \1_c;', header_text, re.M)
 
 
-def edit_rtcd_unit(text, name, params, ret, order):
+def edit_rtcd_unit(text, name, params, ret, order, others=()):
     ftype = fn_type(params, ret)
     opt = f'Option<{ftype}>'
     if re.search(r'pub static mut ' + name + r':', text):
         raise SystemExit(f'{name} is already dispatched')
+    text = ensure_copied_types(text, ftype, others, linux=False)
     # extern declarations
     decl_params = ', '.join(split_top(params))
     r = f' {ret}' if ret else ''
@@ -217,10 +218,21 @@ def type_definition(text, name):
         k += 1
 
 
-def ensure_copied_types(text, ftype, others):
+def definition_types(definition):
+    """The text of the types a copied definition names: the right-hand side
+    of a `pub type`, or the field types of a `pub struct`."""
+    if re.search(r'^pub struct', definition, re.M):
+        return ' '.join(re.findall(r'^    pub \w+: (.*),$', definition, re.M))
+    return definition.split('=', 1)[1]
+
+
+def ensure_copied_types(text, ftype, others, linux=True):
     """Type aliases and records a new RTCD declaration names (the CfL
-    function-pointer types, WienerConvolveParams) that the unit lacks, copied verbatim from the first unit of the
-    same profile that defines them, after the unit's last `pub type`."""
+    function-pointer types, WienerConvolveParams, CNN_LAYER_CONFIG) that the
+    unit lacks, copied verbatim from the first unit of the same profile that
+    defines them, after the unit's last `pub type`; then, the same way, the
+    types that each copied definition names in turn, as C2Rust gives every
+    unit its own copy of the records it uses."""
     for name in sorted(set(re.findall(r'\b([A-Za-z_]\w*)\b', ftype)) - RUST_WORDS - set(INT_ALIASES)):
         if re.search(r'^pub (type|struct|union) ' + name + r'\b', text, re.M):
             continue
@@ -230,25 +242,31 @@ def ensure_copied_types(text, ftype, others):
         last = list(re.finditer(r'^pub type (\w+) = ', text, re.M))[-1]
         pos = last.start() + len(type_definition(text[last.start():], last.group(1)))
         text = text[:pos] + definition + text[pos:]
-        text = ensure_int_aliases(text, definition)
+        if linux:
+            text = ensure_int_aliases(text, definition)
+        text = ensure_copied_types(text, definition_types(definition), others, linux)
     return text
 
 
-def check_int_aliases():
-    """--check: every integer alias the Linux RTCD units use is defined there
-    in its canonical form."""
+def check_int_aliases(linux=True):
+    """--check: every type the RTCD units' pointer globals name is defined
+    there, with the types those definitions name (copied records), and on
+    Linux every integer alias in its canonical form."""
+    platform = 'linux' if linux else 'macos'
     bad = []
     for profile in ['release', 'debug']:
         for rel in RTCD_UNITS.values():
-            path = CRATE / f'src/linux/{profile}' / rel
+            path = CRATE / f'src/{platform}/{profile}' / rel
             text = path.read_text()
             used = ' '.join(re.findall(r'^pub static mut \w+: (Option<.*?>) = None;', text, re.M | re.S))
-            others = [p.read_text() for p in sorted((CRATE / f'src/linux/{profile}').rglob('*.rs')) if p != path]
-            if ensure_int_aliases(text, text) != text or ensure_copied_types(text, used, others) != text:
+            others = [p.read_text() for p in sorted((CRATE / f'src/{platform}/{profile}').rglob('*.rs')) if p != path]
+            if linux and ensure_int_aliases(text, text) != text:
+                bad.append(str(path.relative_to(ROOT)))
+            elif ensure_copied_types(text, used, others, linux) != text:
                 bad.append(str(path.relative_to(ROOT)))
     if bad:
         raise SystemExit(f'type aliases missing: {bad}')
-    print('Linux RTCD units: integer and copied type aliases complete')
+    print(f'{platform} RTCD units: copied type aliases and records complete')
 
 
 def edit_rtcd_unit_linux(text, name, params, ret, order, variants, others=()):
@@ -483,11 +501,10 @@ def check(linux):
                 csource = (ROOT / unit['source']).read_text()
                 if edit_caller(texts[rel], csource, name, params, ret, report, rel) != texts[rel]:
                     problems.append(f'{profile}:{rel}: still calls or takes the address of {name}_c')
-    if linux:
-        try:
-            check_int_aliases()
-        except SystemExit as error:
-            problems.append(str(error))
+    try:
+        check_int_aliases(linux)
+    except SystemExit as error:
+        problems.append(str(error))
     if problems:
         print('\n'.join(problems))
         raise SystemExit(f'{len(problems)} differences from the output of tools/enable_aom_dispatch.py')
@@ -578,8 +595,9 @@ def plan(report):
                 texts[rtcd_rel] = edit_rtcd_unit_linux(texts[rtcd_rel], name, params, ret,
                                                        header_order(headers[header[0]]), variants, others)
             else:
+                others = [texts[r] for r in sorted(units) if r != rtcd_rel]
                 texts[rtcd_rel] = edit_rtcd_unit(texts[rtcd_rel], name, params, ret,
-                                                 header_order(headers[header[0]]))
+                                                 header_order(headers[header[0]]), others)
             for rel, unit in units.items():
                 if rel == rtcd_rel or name not in mentions[rel]:
                     continue

@@ -479,6 +479,20 @@ def interp_cubic_rate_dist():
     simple_file('av1/encoder/x86/model_rd_sse2.rs', 'model_rd_sse2.json', 'av1/encoder/x86/model_rd_sse2.c', 'sse2', '')
 
 
+CNN_NOTE = ('// The two statement macros of the file (PERFORM_CONVOLVE_FOR_3_5X5_BLOCKS,\n'
+            '// PERFORM_CONVOLVE_FOR_1_5X5_BLOCK) were expanded with the C preprocessor\n'
+            '// before printing; their `do { ... } while (0)` stays a loop that runs once.\n'
+            '// Each `_mm*_mul_ps` and `_mm*_add_ps` and each scalar `*` and `+` is a\n'
+            '// separate rounding, as in the original built with -ffp-contract=off\n'
+            '// (ADR 0024); Rust never contracts.\n')
+
+
+def cnn():
+    simple_file('av1/encoder/x86/cnn_avx2.rs', 'cnn_avx2.json', 'av1/encoder/x86/cnn_avx2.c', 'avx2',
+                'use crate::av1__encoder__cnn::{av1_cnn_convolve_no_maxpool_padding_valid_c, CNN_LAYER_CONFIG};\n',
+                ALIGN, note=CNN_NOTE)
+
+
 def main():
     global OUT, WORK
     parser = argparse.ArgumentParser(description=__doc__)
@@ -500,6 +514,7 @@ def main():
         horver_correlation()
         nz_map_contexts()
         interp_cubic_rate_dist()
+        cnn()
         if args.check:
             bad = []
             for path in sorted(OUT.rglob('*.rs')):

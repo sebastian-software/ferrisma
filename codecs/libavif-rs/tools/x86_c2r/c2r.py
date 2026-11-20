@@ -1112,7 +1112,8 @@ MACRO_RET = {'_mm_extract_epi16': ('int', 'i32'), '_mm_extract_epi32': ('int', '
              '_mm_extract_epi8': ('int', 'i32'), '_mm_extract_epi64': ('int', 'i64'),
              '_mm256_extract_epi32': ('int', 'i32'), '_mm256_extract_epi16': ('int', 'i32'),
              '_mm256_extract_epi8': ('int', 'i32'), '_mm256_extracti128_si256': ('vec', '__m128i'),
-             '_mm256_extractf128_si256': ('vec', '__m128i'), '_mm_shuffle_ps': ('vec', '__m128')}
+             '_mm256_extractf128_si256': ('vec', '__m128i'), '_mm_shuffle_ps': ('vec', '__m128'),
+             '_mm256_extractf128_ps': ('vec', '__m128')}
 RUST_PTR = {'_mm_storeu_si32': ('ptr', ('int', 'u8'), False), '_mm_loadu_si32': ('ptr', ('int', 'u8'), True),
             '_mm_storeu_si16': ('ptr', ('int', 'u8'), False), '_mm_loadu_si16': ('ptr', ('int', 'u8'), True),
             '_mm_storeu_si64': ('ptr', ('int', 'u8'), False), '_mm_loadu_si64': ('ptr', ('int', 'u8'), True)}
@@ -1130,6 +1131,8 @@ def rename(name):
 def zero_value(t):
     if t[0] in ('int', 'lit'):
         return '0'
+    if t[0] == 'float':
+        return '0.0'
     if t[0] == 'fnptr':
         return 'None'
     if t[0] == 'arr':
@@ -1155,6 +1158,8 @@ def ftype_parse(text):
         return ('bool',)
     if re.fullmatch(r'[iu](8|16|32|64|size)', text):
         return ('int', text)
+    if text in ('f32', 'f64'):
+        return ('float', text)
     return ('struct', text)
 
 
@@ -1375,11 +1380,15 @@ def declare_aligned(text):
     return out
 
 
-def strip_declare_aligned(text):
+def strip_declare_aligned(text, keep_lines=False):
+    """Replace DECLARE_ALIGNED(n, type, decl) by `type decl`. With keep_lines
+    the line breaks inside the macro call follow the declaration, so that the
+    source keeps its line numbers and every comment its place."""
     for align, typ, name, start, end in reversed(declare_aligned(text)):
         inner = text[text.index('(', start) + 1:end - 1]
         typ, decl = inner.split(',', 1)[1].split(',', 1)
-        text = text[:start] + typ.strip() + ' ' + decl.strip() + text[end:]
+        breaks = '\n' * text[start:end].count('\n') if keep_lines else ''
+        text = text[:start] + typ.strip() + ' ' + decl.strip() + breaks + text[end:]
     return text
 
 
@@ -1459,7 +1468,7 @@ def translate(config_path, work=None):
             if os.environ.get('C2R_VERBOSE'):
                 print(f'note: function-like or complex #define {dname} {value}', file=sys.stderr)
     aligned = {name: align for align, _, name, _, _ in declare_aligned(clean)}
-    clean = strip_declare_aligned(clean)
+    clean = strip_declare_aligned(clean, cfg.get('keep_lines', False))
     if cfg.get('only'):
         # File-scope invocations of function-generating macros (AOM_VAR_*, VAR_FN,
         # ...) define functions outside `only`; they are blanked before parsing.

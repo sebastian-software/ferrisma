@@ -22,11 +22,11 @@
       "--disable-sve2"
     ],
     "overlay": "crates/aom/rtcd/arm64.pl",
-    "overlay_sha256": "20a353091584c63693ceabbdbcb91c92078fad7105d4cba3b0c6e8fbcebb5db8",
+    "overlay_sha256": "2ad75b25a0369382839f4d6b9a3d675fbba2259d2fb5cd51b04bb2acb1ce7424",
     "headers": {
       "config/aom_dsp_rtcd.h": "1d1b4740705aa350cf4eb98f529a68e45a841304245102493dec13da61ee06b1",
       "config/aom_scale_rtcd.h": "c570ff0504c001c33925ffb1897c9f45812db2d3dcb800c144d1fb5e8101d12c",
-      "config/av1_rtcd.h": "4fc1e538240956797d986142c86d68c0323696d02a48cc3e705e6b3dbf370bd4"
+      "config/av1_rtcd.h": "91a2dc7102ff1008d338ab478a59676d1d52c0db424d3fb7cbb337b0f9329bda"
     }
   },
   "optional_inline_test_bridges": [
@@ -124,8 +124,8 @@
       "source": "upstream/aom/av1/common/av1_rtcd.c",
       "rust": "crates/aom/src/macos/debug/av1/common/av1_rtcd.rs",
       "raw_sha256": "845c3229b8f587dc62b595f2640a20099921cde75a03f49058e1ee805ab2fc19",
-      "rust_sha256": "889d2bd68a6fc6849703430589f458756c0747ab56966687d1c7046af9188fe9",
-      "production_rust_sha256": "889d2bd68a6fc6849703430589f458756c0747ab56966687d1c7046af9188fe9",
+      "rust_sha256": "4e6ed3d62dee1167e8cc7b9b64b5dab6b21c0dd856e795fbba65861986ed6f0a",
+      "production_rust_sha256": "4e6ed3d62dee1167e8cc7b9b64b5dab6b21c0dd856e795fbba65861986ed6f0a",
       "corrections": {
         "target-libc-thread-storage": 1,
         "target-libc-once-initializer": 1,
@@ -1545,8 +1545,8 @@
       "source": "upstream/aom/av1/encoder/cnn.c",
       "rust": "crates/aom/src/macos/debug/av1/encoder/cnn.rs",
       "raw_sha256": "cf7bf0d5d96c3a21d96f1754e078fba8ccc0b5f54d9f068bf08e5601d01ecfbd",
-      "rust_sha256": "51de1334a398628ca2f75999dc8184d8fa115259698e360b9a23d3122ca8bcec",
-      "production_rust_sha256": "51de1334a398628ca2f75999dc8184d8fa115259698e360b9a23d3122ca8bcec",
+      "rust_sha256": "ad9b062914bf9cb8e22619cda388ca8037562391dead39c3c451e6af7e383643",
+      "production_rust_sha256": "ad9b062914bf9cb8e22619cda388ca8037562391dead39c3c451e6af7e383643",
       "corrections": {
         "canonical-cfg-labels": 2,
         "target-runtime-assertion": 39,

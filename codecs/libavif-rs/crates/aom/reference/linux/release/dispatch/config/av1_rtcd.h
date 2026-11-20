@@ -158,7 +158,8 @@ void av1_cnn_batchnorm_c(float **image, int channels, int width, int height, int
 #define av1_cnn_batchnorm av1_cnn_batchnorm_c
 
 void av1_cnn_convolve_no_maxpool_padding_valid_c(const float **input, int in_width, int in_height, int in_stride, const CNN_LAYER_CONFIG *layer_config, float **output, int out_stride, int start_idx, int cstep, int channel_step);
-#define av1_cnn_convolve_no_maxpool_padding_valid av1_cnn_convolve_no_maxpool_padding_valid_c
+void av1_cnn_convolve_no_maxpool_padding_valid_avx2(const float **input, int in_width, int in_height, int in_stride, const CNN_LAYER_CONFIG *layer_config, float **output, int out_stride, int start_idx, int cstep, int channel_step);
+RTCD_EXTERN void (*av1_cnn_convolve_no_maxpool_padding_valid)(const float **input, int in_width, int in_height, int in_stride, const CNN_LAYER_CONFIG *layer_config, float **output, int out_stride, int start_idx, int cstep, int channel_step);
 
 void av1_cnn_deconvolve_c(const float **input, int in_width, int in_height, int in_stride, const CNN_LAYER_CONFIG *layer_config, float **output, int out_stride);
 #define av1_cnn_deconvolve av1_cnn_deconvolve_c
@@ -705,6 +706,8 @@ static void setup_rtcd_internal(void)
     if (flags & HAS_AVX2) av1_block_error = av1_block_error_avx2;
     av1_block_error_lp = av1_block_error_lp_c;
     if (flags & HAS_AVX2) av1_block_error_lp = av1_block_error_lp_avx2;
+    av1_cnn_convolve_no_maxpool_padding_valid = av1_cnn_convolve_no_maxpool_padding_valid_c;
+    if (flags & HAS_AVX2) av1_cnn_convolve_no_maxpool_padding_valid = av1_cnn_convolve_no_maxpool_padding_valid_avx2;
     av1_dr_prediction_z1 = av1_dr_prediction_z1_c;
     if (flags & HAS_SSE4_1) av1_dr_prediction_z1 = av1_dr_prediction_z1_sse4_1;
     if (flags & HAS_AVX2) av1_dr_prediction_z1 = av1_dr_prediction_z1_avx2;
