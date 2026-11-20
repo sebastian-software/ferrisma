@@ -551,6 +551,7 @@ def main():
         interp_cubic_rate_dist()
         cnn()
         hadamard()
+        nn()
         if args.check:
             bad = []
             for path in sorted(OUT.rglob('*.rs')):

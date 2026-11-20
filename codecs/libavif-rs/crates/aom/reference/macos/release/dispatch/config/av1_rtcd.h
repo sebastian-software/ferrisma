@@ -505,7 +505,8 @@ void av1_nn_fast_softmax_16_c(const float *input_nodes, float *output);
 #define av1_nn_fast_softmax_16 av1_nn_fast_softmax_16_c
 
 void av1_nn_predict_c(const float *input_nodes, const NN_CONFIG *const nn_config, int reduce_prec, float *const output);
-#define av1_nn_predict av1_nn_predict_c
+void av1_nn_predict_neon(const float *input_nodes, const NN_CONFIG *const nn_config, int reduce_prec, float *const output);
+RTCD_EXTERN void (*av1_nn_predict)(const float *input_nodes, const NN_CONFIG *const nn_config, int reduce_prec, float *const output);
 
 void av1_quantize_b_c(const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan, const qm_val_t * qm_ptr, const qm_val_t * iqm_ptr, int log_scale);
 #define av1_quantize_b av1_quantize_b_c
@@ -753,6 +754,8 @@ static void setup_rtcd_internal(void)
     if (flags & HAS_NEON) av1_inv_txfm_add = av1_inv_txfm_add_neon;
     av1_lowbd_fwd_txfm = av1_lowbd_fwd_txfm_c;
     if (flags & HAS_NEON) av1_lowbd_fwd_txfm = av1_lowbd_fwd_txfm_neon;
+    av1_nn_predict = av1_nn_predict_c;
+    if (flags & HAS_NEON) av1_nn_predict = av1_nn_predict_neon;
     av1_quantize_fp = av1_quantize_fp_c;
     if (flags & HAS_NEON) av1_quantize_fp = av1_quantize_fp_neon;
     av1_quantize_fp_32x32 = av1_quantize_fp_32x32_c;

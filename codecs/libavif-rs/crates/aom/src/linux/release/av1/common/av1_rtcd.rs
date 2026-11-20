@@ -12,6 +12,11 @@
 // Mechanically translated from upstream/aom/av1/common/av1_rtcd.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C-unwind" {
+    fn av1_nn_fast_softmax_16_c(input_nodes: *const core::ffi::c_float, output: *mut core::ffi::c_float);
+    fn av1_nn_fast_softmax_16_sse3(input_nodes: *const core::ffi::c_float, output: *mut core::ffi::c_float);
+    fn av1_nn_predict_c(input_nodes: *const core::ffi::c_float, nn_config: *const NN_CONFIG, reduce_prec: core::ffi::c_int, output: *mut core::ffi::c_float);
+    fn av1_nn_predict_sse3(input_nodes: *const core::ffi::c_float, nn_config: *const NN_CONFIG, reduce_prec: core::ffi::c_int, output: *mut core::ffi::c_float);
+    fn av1_nn_predict_avx2(input_nodes: *const core::ffi::c_float, nn_config: *const NN_CONFIG, reduce_prec: core::ffi::c_int, output: *mut core::ffi::c_float);
     fn av1_cnn_convolve_no_maxpool_padding_valid_c(input: *mut *const core::ffi::c_float, in_width: core::ffi::c_int, in_height: core::ffi::c_int, in_stride: core::ffi::c_int, layer_config: *const CNN_LAYER_CONFIG, output: *mut *mut core::ffi::c_float, out_stride: core::ffi::c_int, start_idx: core::ffi::c_int, cstep: core::ffi::c_int, channel_step: core::ffi::c_int);
     fn av1_cnn_convolve_no_maxpool_padding_valid_avx2(input: *mut *const core::ffi::c_float, in_width: core::ffi::c_int, in_height: core::ffi::c_int, in_stride: core::ffi::c_int, layer_config: *const CNN_LAYER_CONFIG, output: *mut *mut core::ffi::c_float, out_stride: core::ffi::c_int, start_idx: core::ffi::c_int, cstep: core::ffi::c_int, channel_step: core::ffi::c_int);
     fn av1_interp_cubic_rate_dist_c(p1: *const core::ffi::c_double, p2: *const core::ffi::c_double, x: core::ffi::c_double, rate_dist_f: *mut core::ffi::c_double);
@@ -947,6 +952,16 @@ pub type BRANCH_COPY = uint8_t;
 pub type PADDING_TYPE = uint8_t;
 #[derive(Copy, Clone)]
 #[repr(C)]
+pub struct NN_CONFIG {
+    pub num_inputs: core::ffi::c_int,
+    pub num_outputs: core::ffi::c_int,
+    pub num_hidden_layers: core::ffi::c_int,
+    pub num_hidden_nodes: [core::ffi::c_int; 10],
+    pub weights: [*const core::ffi::c_float; 11],
+    pub bias: [*const core::ffi::c_float; 11],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub struct CNN_BRANCH_CONFIG {
     pub input_to_branches: core::ffi::c_int,
     pub channels_to_copy: core::ffi::c_int,
@@ -1327,6 +1342,10 @@ pub static mut av1_interp_cubic_rate_dist: Option<unsafe extern "C-unwind" fn(*c
 pub static mut av1_inv_txfm_add: Option<unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()> = None;
 #[no_mangle]
 pub static mut av1_lowbd_fwd_txfm: Option<unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int, *mut TxfmParam) -> ()> = None;
+#[no_mangle]
+pub static mut av1_nn_fast_softmax_16: Option<unsafe extern "C-unwind" fn(*const core::ffi::c_float, *mut core::ffi::c_float) -> ()> = None;
+#[no_mangle]
+pub static mut av1_nn_predict: Option<unsafe extern "C-unwind" fn(*const core::ffi::c_float, *const NN_CONFIG, core::ffi::c_int, *mut core::ffi::c_float) -> ()> = None;
 #[no_mangle]
 pub static mut av1_quantize_fp: Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()> = None;
 #[no_mangle]
@@ -3013,6 +3032,17 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
     }
     if flags & HAS_AVX2 != 0 {
         av1_lowbd_fwd_txfm = Some(av1_lowbd_fwd_txfm_avx2 as unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int, *mut TxfmParam) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int, *mut TxfmParam) -> ()>;
+    }
+    av1_nn_fast_softmax_16 = Some(av1_nn_fast_softmax_16_c as unsafe extern "C-unwind" fn(*const core::ffi::c_float, *mut core::ffi::c_float) -> ()) as Option<unsafe extern "C-unwind" fn(*const core::ffi::c_float, *mut core::ffi::c_float) -> ()>;
+    if flags & HAS_SSE3 != 0 {
+        av1_nn_fast_softmax_16 = Some(av1_nn_fast_softmax_16_sse3 as unsafe extern "C-unwind" fn(*const core::ffi::c_float, *mut core::ffi::c_float) -> ()) as Option<unsafe extern "C-unwind" fn(*const core::ffi::c_float, *mut core::ffi::c_float) -> ()>;
+    }
+    av1_nn_predict = Some(av1_nn_predict_c as unsafe extern "C-unwind" fn(*const core::ffi::c_float, *const NN_CONFIG, core::ffi::c_int, *mut core::ffi::c_float) -> ()) as Option<unsafe extern "C-unwind" fn(*const core::ffi::c_float, *const NN_CONFIG, core::ffi::c_int, *mut core::ffi::c_float) -> ()>;
+    if flags & HAS_SSE3 != 0 {
+        av1_nn_predict = Some(av1_nn_predict_sse3 as unsafe extern "C-unwind" fn(*const core::ffi::c_float, *const NN_CONFIG, core::ffi::c_int, *mut core::ffi::c_float) -> ()) as Option<unsafe extern "C-unwind" fn(*const core::ffi::c_float, *const NN_CONFIG, core::ffi::c_int, *mut core::ffi::c_float) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        av1_nn_predict = Some(av1_nn_predict_avx2 as unsafe extern "C-unwind" fn(*const core::ffi::c_float, *const NN_CONFIG, core::ffi::c_int, *mut core::ffi::c_float) -> ()) as Option<unsafe extern "C-unwind" fn(*const core::ffi::c_float, *const NN_CONFIG, core::ffi::c_int, *mut core::ffi::c_float) -> ()>;
     }
     av1_quantize_fp = Some(av1_quantize_fp_c as unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()>;
     if flags & HAS_SSE2 != 0 {

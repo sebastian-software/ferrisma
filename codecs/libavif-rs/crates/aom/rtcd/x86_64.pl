@@ -3,7 +3,7 @@
 # file to the original cmake/rtcd.pl after aom_dsp_rtcd_defs.pl,
 # aom_scale_rtcd.pl, or av1_rtcd_defs.pl. It withdraws every SSE2, SSE4.1 and
 # AVX2 specialization that the port does not implement (SSSE3 too since
-# 2026-11-14, ADR 0058 amendment), so the generated
+# 2026-11-14, SSE3 since 2026-11-20, ADR 0058 amendments), so the generated
 # dispatch header names only existing functions. Every listed
 # `<name>_<extension>` must be bit-exact with `<name>_c` for the same
 # arguments. Variants implemented only in NASM files are never listed.
@@ -430,6 +430,9 @@ my %ported_x86 = map { $_ => 1 } qw/
   av1_inv_txfm_add_ssse3
   av1_lowbd_fwd_txfm_avx2
   av1_lowbd_fwd_txfm_sse4_1
+  av1_nn_fast_softmax_16_sse3
+  av1_nn_predict_avx2
+  av1_nn_predict_sse3
   av1_quantize_fp_32x32_avx2
   av1_quantize_fp_64x64_avx2
   av1_quantize_fp_avx2
@@ -476,7 +479,7 @@ my %ported_x86 = map { $_ => 1 } qw/
   cfl_get_subtract_average_fn_sse2
 /;
 foreach my $fn (keys %ALL_FUNCS) {
-  foreach my $ext (qw/sse2 ssse3 sse4_1 avx2/) {
+  foreach my $ext (qw/sse2 sse3 ssse3 sse4_1 avx2/) {
     undef ${"${fn}_${ext}"} unless $ported_x86{"${fn}_${ext}"};
   }
 }

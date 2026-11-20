@@ -13,12 +13,7 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
-    fn av1_nn_predict_c(
-        input_nodes: *const core::ffi::c_float,
-        nn_config: *const NN_CONFIG,
-        reduce_prec: core::ffi::c_int,
-        output: *mut core::ffi::c_float,
-    );
+    static mut av1_nn_predict: Option<unsafe extern "C-unwind" fn(*const core::ffi::c_float, *const NN_CONFIG, core::ffi::c_int, *mut core::ffi::c_float) -> ()>;
     fn av1_tile_set_row(
         tile: *mut TileInfo,
         cm: *const AV1Common,
@@ -6658,7 +6653,7 @@ unsafe extern "C-unwind" fn get_smart_mv_prec(
         f_idx += 1;
     }
     let mut score: core::ffi::c_float = 0.0f32;
-    av1_nn_predict_c(
+    av1_nn_predict.expect("non-null function pointer")(
         features.as_mut_ptr(),
         &raw const av1_mv_prec_dnn_config,
         1 as core::ffi::c_int,

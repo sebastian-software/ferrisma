@@ -504,6 +504,7 @@ my %ported_neon = map { $_ => 1 } qw/
   av1_highbd_wiener_convolve_add_src
   av1_inv_txfm_add
   av1_lowbd_fwd_txfm
+  av1_nn_predict
   av1_quantize_fp
   av1_quantize_fp_32x32
   av1_quantize_fp_64x64

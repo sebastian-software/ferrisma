@@ -32,6 +32,8 @@ mod sum_squares;
 mod sse_sum;
 #[path = "simd/hadamard.rs"]
 mod hadamard;
+#[path = "simd/nn_predict.rs"]
+mod nn_predict;
 #[path = "simd/horver_correlation.rs"]
 mod horver_correlation;
 #[path = "simd/encodetxb.rs"]

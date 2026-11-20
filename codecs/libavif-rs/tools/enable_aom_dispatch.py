@@ -6,7 +6,7 @@ Usage: python3 tools/enable_aom_dispatch.py NAME...            (Neon, macOS ARM6
        python3 tools/enable_aom_dispatch.py [--linux] --rehash   (record the digests of the units)
        python3 tools/enable_aom_dispatch.py [--linux] --check    (compare the tree with the tool's output)
 
-With --linux each argument is one specialization, `<function>_<sse2|ssse3|sse4_1|avx2>`,
+With --linux each argument is one specialization, `<function>_<sse2|sse3|ssse3|sse4_1|avx2>`,
 as crates/aom/rtcd/x86_64.pl lists them; the tool dispatches every listed
 variant of a function (ADR 0058, amendment of 2026-11-14).
 
@@ -45,8 +45,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 LINUX = sys.argv[1:2] == ['--linux']
 NAMES = sys.argv[2:] if LINUX else sys.argv[1:]
-X86_EXTENSIONS = ('sse2', 'ssse3', 'sse4_1', 'avx2')
-X86_FLAGS = {'sse2': 'HAS_SSE2', 'ssse3': 'HAS_SSSE3', 'sse4_1': 'HAS_SSE4_1', 'avx2': 'HAS_AVX2'}
+X86_EXTENSIONS = ('sse2', 'sse3', 'ssse3', 'sse4_1', 'avx2')
+X86_FLAGS = {'sse2': 'HAS_SSE2', 'sse3': 'HAS_SSE3', 'ssse3': 'HAS_SSSE3', 'sse4_1': 'HAS_SSE4_1', 'avx2': 'HAS_AVX2'}
 sys.path.insert(0, str(ROOT / 'tools'))
 import transpile_aom  # noqa: E402
 
@@ -446,7 +446,7 @@ def check(linux):
         names = overlay_table(text, linux).group(2).split()
         wanted = {}
         for spec in names:
-            m = re.fullmatch(r'(\w+?)_(sse2|ssse3|sse4_1|avx2)', spec)
+            m = re.fullmatch(r'(\w+?)_(sse2|sse3|ssse3|sse4_1|avx2)', spec)
             if not m:
                 problems.append(f'{overlay.relative_to(ROOT)}: {spec} is not <function>_<extension>')
                 continue
@@ -560,7 +560,7 @@ def plan(report):
     if LINUX:
         functions = []
         for spec in NAMES:
-            base, ext = re.fullmatch(r'(\w+?)_(sse2|ssse3|sse4_1|avx2)', spec).groups()
+            base, ext = re.fullmatch(r'(\w+?)_(sse2|sse3|ssse3|sse4_1|avx2)', spec).groups()
             if base not in functions:
                 functions.append(base)
     for profile in ['release', 'debug']:
