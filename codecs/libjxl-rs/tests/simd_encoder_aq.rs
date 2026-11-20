@@ -339,8 +339,14 @@ fn map_input_exceptional(request: &str) -> bool {
 /// GammaModulation reduction (`SumOfLanes` over the 8x8 window) give
 /// `aq_map` words that depend on which NaN survives, the compiler's operand
 /// choice in the original's object, read as an integer by FastLog2f. The
-/// owner's decision of 2026-11-15 first excluded that class by name; the
-/// general rule O1 replaces it.
+/// owner's decision of 2026-11-15 excluded that class by name (46 of 286
+/// requests); this gate applies the general rule O1 instead, as #246 asks.
+/// Finding of 2026-11-20 (x86-64 under Rosetta 2): the original's two
+/// x86-64 scalar references agree on every word of those requests (one
+/// scalar `Add` order, no cross-lane reduction), so rule O1 compares the
+/// words and the 46 requests fail on AVX2. Whether the class decision of
+/// 2026-11-15 stands beside O1 is the owner's decision (port ADR 0004,
+/// "`enc_adaptive_quantization`"); this gate does not narrow beyond O1.
 fn check_map_through_dispatch(requests: &[String]) {
     let _lock = dispatch_lock();
     hwy::set_encoder_simd_for_test(Some(false));
@@ -361,27 +367,42 @@ fn check_map_through_dispatch(requests: &[String]) {
     let masks = simd_common::reference_masks(requests, map_input_exceptional);
     let exceptional = requests.iter().filter(|r| map_input_exceptional(r)).count();
     let (mut words, mut masked_requests, mut masked_words, mut masked_differing) = (0, 0, 0, 0);
+    let mut failures = Vec::new();
     for (((request, rust), cpp), mask) in requests.iter().zip(&simd).zip(&originals).zip(&masks) {
         let flagged = mask
             .as_ref()
             .map_or(0, |m| m.iter().filter(|&&f| f).count());
-        let (compared, differ) =
-            simd_common::same_under_o1(rust, cpp, all_float, all_defined, mask.as_deref())
-                .unwrap_or_else(|e| {
-                    panic!("eaq-map: {e} (O1 words not compared: {flagged})\nrequest: {request}")
-                });
-        words += compared;
+        match simd_common::same_under_o1(rust, cpp, all_float, all_defined, mask.as_deref()) {
+            Ok((compared, differ)) => {
+                words += compared;
+                masked_differing += differ;
+            }
+            Err(e) => failures.push(format!(
+                "{e} (O1 words not compared: {flagged}; NaN or infinity input: {})\nrequest: {request}",
+                map_input_exceptional(request)
+            )),
+        }
         masked_requests += usize::from(flagged > 0);
         masked_words += flagged;
-        masked_differing += differ;
     }
     println!(
-        "eaq-map on {}: {} requests, {words} words matched; NaN rule O1: {exceptional} requests \
-         with NaN or infinity input, {masked_requests} of them with words where the two scalar \
-         references disagree ({masked_words} words not compared, of which {masked_differing} \
-         differ between the port and the original)",
+        "eaq-map on {}: {} requests, {words} words matched in {} requests; NaN rule O1: \
+         {exceptional} requests with NaN or infinity input, {masked_requests} of them with words \
+         where the two scalar references disagree ({masked_words} words not compared, of which \
+         {masked_differing} differ between the port and the original)",
         simd_common::target().name(),
-        requests.len()
+        requests.len(),
+        requests.len() - failures.len()
+    );
+    for failure in &failures {
+        println!("eaq-map differs: {}", failure.lines().next().unwrap_or(""));
+    }
+    assert!(
+        failures.is_empty(),
+        "eaq-map: {} of {} requests differ from the original under rule O1; the first: {}",
+        failures.len(),
+        requests.len(),
+        failures[0]
     );
 }
 
