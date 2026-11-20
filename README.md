@@ -1,7 +1,8 @@
 # Ferrisma
 
-**[ferrisma.dev](https://ferrisma.dev)** (the domain does not serve this
-project's site yet: [#251](https://github.com/sebastian-software/ferrisma/issues/251))
+**[ferrisma.dev](https://ferrisma.dev)** (serves this project's homepage since
+2026-11-20; before that it answered with a GitHub Pages page that was not ours:
+[#251](https://github.com/sebastian-software/ferrisma/issues/251))
 
 **A Rust image pipeline and its codec ports, developed in one repository.**
 
