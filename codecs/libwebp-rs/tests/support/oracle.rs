@@ -22,7 +22,7 @@
     reason = "each test crate uses a different subset of the helpers"
 )]
 
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::fmt::Display;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -129,6 +129,27 @@ impl Oracle {
     }
 }
 
+/// The AddressSanitizer setting every probe runs with: an allocation the
+/// host cannot satisfy returns NULL, as it does in the original's own
+/// sanitized runs (OSS-Fuzz, whose runner sets `allocator_may_return_null=1`)
+/// and in the uninstrumented oracle, instead of aborting the probe. Probes
+/// such as `wp1/safe_alloc` request blocks up to `WEBP_MAX_ALLOCABLE_MEMORY`
+/// on purpose; whether the host grants them depends on its memory and
+/// overcommit policy, and the Rust side sees the same refusal as `None`.
+/// The variable is ignored by the uninstrumented variants.
+const ASAN_ALLOCATOR_MAY_RETURN_NULL: &str = "allocator_may_return_null=1";
+
+/// `ASAN_OPTIONS` for a probe: the setting above, then the caller's own
+/// options, which ASan reads later and therefore lets win.
+fn asan_options() -> OsString {
+    let mut options = OsString::from(ASAN_ALLOCATOR_MAY_RETURN_NULL);
+    if let Some(caller) = std::env::var_os("ASAN_OPTIONS").filter(|value| !value.is_empty()) {
+        options.push(":");
+        options.push(caller);
+    }
+    options
+}
+
 /// One probe executable.
 pub struct Probe {
     path: PathBuf,
@@ -139,6 +160,7 @@ impl Probe {
     pub fn run<A: AsRef<OsStr>>(&self, args: &[A], stdin: &[u8]) -> Output {
         let mut child = Command::new(&self.path)
             .args(args)
+            .env("ASAN_OPTIONS", asan_options())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())

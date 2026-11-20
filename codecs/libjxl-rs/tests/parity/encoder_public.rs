@@ -2753,6 +2753,20 @@ streaming_gate_parts! {
     public_encoder_streaming_gate_4000x3000_h7_matches_original: "streaming-gate-4000x3000-h7", (4000, 3000), 2, 7..8;
 }
 
+// Thin shapes (ADR-0027, amendment 2026-11-17): the gate's eight histories
+// (seed 2, as at 4000x3000) at sizes that cross one threshold each with a
+// fraction of the pixels of the large sizes. 2049x257 and 257x2049 cross one
+// DC-group boundary in one direction (9x2 and 2x9 AC groups); 4097x9 and
+// 9x4097 have three DC groups in a row and a side above 2^12, which no other
+// whole encode has. The 2048x1536 and 4000x3000 parts run in the deep tier
+// (tools/check.py DEEP_TESTS); these run with every nightly.
+streaming_gate_parts! {
+    public_encoder_streaming_gate_2049x257_matches_original: "streaming-gate-2049x257", (2049, 257), 2, 0..8;
+    public_encoder_streaming_gate_257x2049_matches_original: "streaming-gate-257x2049", (257, 2049), 2, 0..8;
+    public_encoder_streaming_gate_4097x9_matches_original: "streaming-gate-4097x9", (4097, 9), 2, 0..8;
+    public_encoder_streaming_gate_9x4097_matches_original: "streaming-gate-9x4097", (9, 4097), 2, 0..8;
+}
+
 // end encoder streaming
 
 // encoder container

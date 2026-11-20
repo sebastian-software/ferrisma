@@ -26,8 +26,8 @@
 //!   (`[blend_4x4+16]` loads 32 bytes, 12 of them from `blend_4x8_0`); its
 //!   bytes are the original object's.
 //! - Fast path: the `cglobal` and `CDEF_FILTER w, h` up to `.border_block`
-//!   are `cdef_filter_8bpc::<W, H, F, DIR>` (`F` the frame size, `DIR` the
-//!   direction), with the macro's `%if`s as `if`s on the constants; the main
+//!   are `cdef_filter_8bpc::<W, H, F>` (`F` the frame size), with the
+//!   macro's `%if`s as `if`s on the constants; the main
 //!   path, `.pri_only` and `.sec_only` are the branches on `pri` and `sec`,
 //!   and the bodies of `.k_loop`, `.pri_k_loop` and `.sec_k_loop` are
 //!   `cdef_filter_8bpc_{,pri_,sec_}k_loop`, called for k = 1 and then k = 0.
@@ -59,14 +59,9 @@
 //!   (`_p1` fast path, `_p2` border path and `dir`).
 //!
 //! Deviations from the assembly, and whether they change the count:
-//! - The fast path's jump table is resolved at compile time: the entry point
-//!   selects one of eight bodies by `dir & 7` (`dir` itself inside the
-//!   contract, 0..=7), in which every table index is a constant, so each
-//!   computed `call`/`ret` becomes the loader's code in place. With a
-//!   run-time choice per tap the compiler carried the loaded pixels between
-//!   the taps in general-purpose registers and stack slots (1.68, 1.32 and
-//!   1.67 times the assembly's instructions). Fewer instructions; larger
-//!   code (eight bodies per size).
+//! - The fast path's jump table is a `match` on the run-time index
+//!   (`cdef_filter_8bpc_tap`), with `dir & 7` (`dir` itself inside the
+//!   contract, 0..=7); the compiler decides how to compile the choice.
 //! - The fast path reads `left` at offsets -16 to +20 (32-byte `pblendw`
 //!   operands at `[leftq-16+…]`, `pmovzxbw [leftq-7]`, 16 bytes at
 //!   `[leftq+5]`), beyond the `h` rows of two pixels the caller hands over.
@@ -1122,8 +1117,8 @@ unsafe fn cdef_filter_8bpc_tap<const W: usize, const H: usize>(m: &mut M, g: &Gp
         21 => cdef_filter_8bpc_d0k1::<W, H>(m, g, fr), // d0k1
         22 => cdef_filter_8bpc_d1k0::<W, H>(m, g, fr), // d1k0
         23 => cdef_filter_8bpc_d1k1::<W, H>(m, g, fr), // d1k1
-        // Not reached: the body's `dir` is `dir & 7`, so idx <= 7*2 + 1 + 4*2 = 23.
-        _ => {}
+        // Not reached: `dir` is `dir & 7`, so idx <= 7*2 + 1 + 4*2 = 23.
+        _ => unreachable!(),
     }
 }
 
@@ -1403,7 +1398,7 @@ unsafe fn cdef_filter_8bpc_next_rows(g: &mut GprP1, fr: *const u8, bot: *const u
 /// `cdef_filter_WxH_8bpc` with `edges == 0xf` (after `jne .border_block`): the entry, the main path (pri and sec),
 /// `.pri_only` and `.sec_only`. `F` is the size of the frame in bytes.
 #[inline(always)]
-unsafe fn cdef_filter_8bpc<const W: usize, const H: usize, const F: usize, const DIR: usize>(
+unsafe fn cdef_filter_8bpc<const W: usize, const H: usize, const F: usize>(
     dst: *mut u8,
     stride: isize,
     left: *const [u8; 2],
@@ -1411,6 +1406,7 @@ unsafe fn cdef_filter_8bpc<const W: usize, const H: usize, const F: usize, const
     bot: *const u8,
     pri: c_int,
     sec: c_int,
+    dir: usize,
     damping: c_int,
 ) {
     // The frame (`ALLOC_STACK`), zeroed whole: the tap loaders' blends read bytes of it that the assembly never
@@ -1480,8 +1476,7 @@ unsafe fn cdef_filter_8bpc<const W: usize, const H: usize, const F: usize, const
     let zero = 0; // xor zerod, zerod
     let secdmp = sec; // movifnidn secdmpd, secdmpm
 
-    // mov dird, r7m (PREP_REGS): `dir` is the body's constant (the entry point selected the body by `dir & 7`).
-    let dir = DIR;
+    // mov dird, r7m (PREP_REGS): `dir` is the argument.
     if pri != 0 {
         // test prid, prid ; jz .sec_only
         m[0] = zx(_mm_cvtsi32_si128(pri)); // movd xm0, prid
@@ -1610,20 +1605,9 @@ pub unsafe extern "C" fn dav1d_cdef_filter_8x8_8bpc_avx2(
         return cdef_filter_8x8_8bpc_border_block(dst, stride, left, top, bot, pri, sec, dir, damping, edges);
     }
     const F: usize = 8 * 4 + 8 * 8 * 2 + 32;
-    // The jump table's index is `dir*2 + k + tap*2` with `dir` from r7m; here `dir` selects one body per
-    // direction, in which every index is a constant (`dir & 7`: the contract keeps `dir` in 0..=7, where it
-    // is `dir`; outside it the assembly would jump through bytes beyond its table).
-    match dir & 7 {
-        0 => cdef_filter_8bpc::<8, 8, F, 0>(dst, stride, left, top, bot, pri, sec, damping),
-        1 => cdef_filter_8bpc::<8, 8, F, 1>(dst, stride, left, top, bot, pri, sec, damping),
-        2 => cdef_filter_8bpc::<8, 8, F, 2>(dst, stride, left, top, bot, pri, sec, damping),
-        3 => cdef_filter_8bpc::<8, 8, F, 3>(dst, stride, left, top, bot, pri, sec, damping),
-        4 => cdef_filter_8bpc::<8, 8, F, 4>(dst, stride, left, top, bot, pri, sec, damping),
-        5 => cdef_filter_8bpc::<8, 8, F, 5>(dst, stride, left, top, bot, pri, sec, damping),
-        6 => cdef_filter_8bpc::<8, 8, F, 6>(dst, stride, left, top, bot, pri, sec, damping),
-        7 => cdef_filter_8bpc::<8, 8, F, 7>(dst, stride, left, top, bot, pri, sec, damping),
-        _ => {}
-    }
+    // `dir & 7`: the contract keeps `dir` in 0..=7, where it is `dir`; outside it the assembly would jump through
+    // bytes beyond its table.
+    cdef_filter_8bpc::<8, 8, F>(dst, stride, left, top, bot, pri, sec, (dir & 7) as usize, damping)
 }
 
 /// `cdef_filter_4x8_8bpc`.
@@ -1646,20 +1630,9 @@ pub unsafe extern "C" fn dav1d_cdef_filter_4x8_8bpc_avx2(
     }
     // ALLOC_STACK 8*2+4*8*1 = 0x30 bytes, plus 8: `.d0k1` reads [rsp+0x18..0x38] (blend discards the last 8).
     const F: usize = 8 * 2 + 4 * 8 * 1 + 8;
-    // The jump table's index is `dir*2 + k + tap*2` with `dir` from r7m; here `dir` selects one body per
-    // direction, in which every index is a constant (`dir & 7`: the contract keeps `dir` in 0..=7, where it
-    // is `dir`; outside it the assembly would jump through bytes beyond its table).
-    match dir & 7 {
-        0 => cdef_filter_8bpc::<4, 8, F, 0>(dst, stride, left, top, bot, pri, sec, damping),
-        1 => cdef_filter_8bpc::<4, 8, F, 1>(dst, stride, left, top, bot, pri, sec, damping),
-        2 => cdef_filter_8bpc::<4, 8, F, 2>(dst, stride, left, top, bot, pri, sec, damping),
-        3 => cdef_filter_8bpc::<4, 8, F, 3>(dst, stride, left, top, bot, pri, sec, damping),
-        4 => cdef_filter_8bpc::<4, 8, F, 4>(dst, stride, left, top, bot, pri, sec, damping),
-        5 => cdef_filter_8bpc::<4, 8, F, 5>(dst, stride, left, top, bot, pri, sec, damping),
-        6 => cdef_filter_8bpc::<4, 8, F, 6>(dst, stride, left, top, bot, pri, sec, damping),
-        7 => cdef_filter_8bpc::<4, 8, F, 7>(dst, stride, left, top, bot, pri, sec, damping),
-        _ => {}
-    }
+    // `dir & 7`: the contract keeps `dir` in 0..=7, where it is `dir`; outside it the assembly would jump through
+    // bytes beyond its table.
+    cdef_filter_8bpc::<4, 8, F>(dst, stride, left, top, bot, pri, sec, (dir & 7) as usize, damping)
 }
 
 /// `cdef_filter_4x4_8bpc`.
@@ -1681,20 +1654,9 @@ pub unsafe extern "C" fn dav1d_cdef_filter_4x4_8bpc_avx2(
         return cdef_filter_4x4_8bpc_border_block(dst, stride, left, top, bot, pri, sec, dir, damping, edges);
     }
     const F: usize = 0x60;
-    // The jump table's index is `dir*2 + k + tap*2` with `dir` from r7m; here `dir` selects one body per
-    // direction, in which every index is a constant (`dir & 7`: the contract keeps `dir` in 0..=7, where it
-    // is `dir`; outside it the assembly would jump through bytes beyond its table).
-    match dir & 7 {
-        0 => cdef_filter_8bpc::<4, 4, F, 0>(dst, stride, left, top, bot, pri, sec, damping),
-        1 => cdef_filter_8bpc::<4, 4, F, 1>(dst, stride, left, top, bot, pri, sec, damping),
-        2 => cdef_filter_8bpc::<4, 4, F, 2>(dst, stride, left, top, bot, pri, sec, damping),
-        3 => cdef_filter_8bpc::<4, 4, F, 3>(dst, stride, left, top, bot, pri, sec, damping),
-        4 => cdef_filter_8bpc::<4, 4, F, 4>(dst, stride, left, top, bot, pri, sec, damping),
-        5 => cdef_filter_8bpc::<4, 4, F, 5>(dst, stride, left, top, bot, pri, sec, damping),
-        6 => cdef_filter_8bpc::<4, 4, F, 6>(dst, stride, left, top, bot, pri, sec, damping),
-        7 => cdef_filter_8bpc::<4, 4, F, 7>(dst, stride, left, top, bot, pri, sec, damping),
-        _ => {}
-    }
+    // `dir & 7`: the contract keeps `dir` in 0..=7, where it is `dir`; outside it the assembly would jump through
+    // bytes beyond its table.
+    cdef_filter_8bpc::<4, 4, F>(dst, stride, left, top, bot, pri, sec, (dir & 7) as usize, damping)
 }
 
 // ---- part 2: `.border_block` of `cdef_filter_{8x8,4x8,4x4}_8bpc` (edges != 0xf): `cdef_avx2.asm` lines

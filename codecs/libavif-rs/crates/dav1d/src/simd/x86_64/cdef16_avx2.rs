@@ -36,7 +36,7 @@
 //! Deviations from the assembly:
 //! - Every vector access to caller memory is an unaligned move where the assembly uses `mova` (`dst`
 //!   rows of 8 pixels, the `src` rows of `cdef_dir_16bpc`): the same bytes and instruction count.
-//! - `px` is zeroed whole at entry (`util::zeroed`): the padding writes every byte the filter uses on
+//! - `px` is a zero-initialized array: the padding writes every byte the filter uses on
 //!   every edge combination, but the 4-pixel-wide loads (`movu m, [tmpq+offq+32*1]`, 32 bytes of which
 //!   `punpcklqdq` uses the low 8 of each lane) reach 4 bytes past the last padded row, beyond the
 //!   assembly's frame. The buffer has the assembly's frame size, starts 16 bytes later than the frame
@@ -54,10 +54,8 @@
 
 use core::arch::x86_64::*;
 use core::ffi::{c_int, c_uint};
-use core::mem::MaybeUninit;
 
 use super::cdef_avx2::{at, cdef_dir_8bpc_main, lo, regs, zx, M};
-use super::util::zeroed;
 
 // ---- SECTION_RODATA ----
 
@@ -569,8 +567,8 @@ unsafe fn cdef_filter_4x4_16bpc(
     // The frame, `16*10` bytes as in the assembly, but starting at `px-48` (the assembly: `px-64`), so
     // that the filter's 32-byte loads, which reach `px+100`, stay inside it; zeroed whole (the bytes
     // `px+96..px+100` are read and never written; everything else the filter reads is written below).
-    let mut frame = MaybeUninit::<[__m128i; 10]>::uninit();
-    let px = at(zeroed(&mut frame).cast::<u8>(), 48);
+    let mut frame = [_mm_setzero_si128(); 10];
+    let px = at(frame.as_mut_ptr().cast::<u8>(), 48);
     let edge = edges; // mov edged, r9m
                       // lea r8, [dir_table4]
     m[0] = zx(_mm_loadu_si128(dst.cast())); // movu xm0, [dstq+strideq*0]
@@ -678,8 +676,8 @@ unsafe fn cdef_filter_4x8_16bpc(
     // The frame, `16*14` bytes as in the assembly, but starting at `px-48` (the assembly: `px-64`), so
     // that the filter's 32-byte loads, which reach `px+164`, stay inside it; zeroed whole (the bytes
     // `px+160..px+164` are read and never written; everything else the filter reads is written below).
-    let mut frame = MaybeUninit::<[__m128i; 14]>::uninit();
-    let px = at(zeroed(&mut frame).cast::<u8>(), 48);
+    let mut frame = [_mm_setzero_si128(); 14];
+    let px = at(frame.as_mut_ptr().cast::<u8>(), 48);
     let edge = edges; // mov edged, r9m
     m[0] = zx(_mm_loadu_si128(dst.cast())); // movu xm0, [dstq+strideq*0]
     m[1] = zx(_mm_loadu_si128(at(dst, stride).cast())); // movu xm1, [dstq+strideq*1]
@@ -799,8 +797,8 @@ unsafe fn cdef_filter_8x8_16bpc(
     let mut m = regs();
     // The frame, `32*13` bytes with `px` at `+32*3` as in the assembly (the filter reads `px-68` to
     // `px+308`); zeroed whole.
-    let mut frame = MaybeUninit::<[__m256i; 13]>::uninit();
-    let px = at(zeroed(&mut frame).cast::<u8>(), 32 * 3);
+    let mut frame = [_mm256_setzero_si256(); 13];
+    let px = at(frame.as_mut_ptr().cast::<u8>(), 32 * 3);
     let edge = edges; // mov edged, r9m
     m[0] = _mm256_loadu_si256(dst.cast()); // movu m0, [dstq+strideq*0]
     m[1] = _mm256_loadu_si256(at(dst, stride).cast()); // movu m1, [dstq+strideq*1]

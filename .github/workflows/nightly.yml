@@ -1,4 +1,13 @@
 name: Nightly validation
+# Tiers 2 and 3 of engine ADR-0027 (amendment 2026-11-17). The nightly tier
+# runs daily on main, at most 60 minutes per job and about 3 hours in all; it
+# blocks a release, not a merge. The deep tier (deep.yml calls this workflow
+# with tier: deep, weekly and before every release candidate) runs only the
+# checks the nightly tier does not: the codec families' deep checks
+# (nightly-family.yml) and the M1 fuzz campaign. A release needs the last
+# nightly and the last deep run green on the release commit
+# (docs/publishing.md, "Release procedure"). A red job of a scheduled run
+# opens or updates one issue per job (report, decision D5).
 on:
   schedule:
     - cron: '17 2 * * *'
@@ -9,6 +18,27 @@ on:
         type: choice
         options: [all, jpeg, webp, jxl, avif]
         default: all
+      tier:
+        description: Validation tier (deep runs only the checks the nightly tier does not)
+        type: choice
+        options: [nightly, deep]
+        default: nightly
+      report:
+        description: Issues for failed jobs (always on for scheduled runs; dry-run prints them)
+        type: choice
+        options: [none, dry-run, issues]
+        default: none
+  workflow_call:
+    inputs:
+      component:
+        type: string
+        default: all
+      tier:
+        type: string
+        default: nightly
+      report:
+        type: string
+        default: none
 permissions:
   contents: read
 jobs:
@@ -24,17 +54,23 @@ jobs:
     uses: ./.github/workflows/nightly-family.yml
     with:
       component: ${{ matrix.component }}
+      tier: ${{ inputs.tier || 'nightly' }}
   macos-workspace:
-    if: inputs.component == '' || inputs.component == 'all'
+    if: (inputs.component == '' || inputs.component == 'all') && (inputs.tier == '' || inputs.tier == 'nightly')
     uses: ./.github/workflows/workspace.yml
   fuzz-smoke:
-    if: inputs.component == '' || inputs.component == 'all'
+    if: (inputs.component == '' || inputs.component == 'all') && (inputs.tier == '' || inputs.tier == 'nightly')
     uses: ./.github/workflows/m1-fuzz-smoke.yml
   performance-smoke:
-    if: inputs.component == '' || inputs.component == 'all'
+    if: (inputs.component == '' || inputs.component == 'all') && (inputs.tier == '' || inputs.tier == 'nightly')
     uses: ./.github/workflows/m1-performance-smoke.yml
+  # Deep tier: the sustained 30-minute ASan mutation campaigns (Linux and
+  # macOS) of the engine and the JPEG port.
+  fuzz-campaign:
+    if: (inputs.component == '' || inputs.component == 'all') && inputs.tier == 'deep'
+    uses: ./.github/workflows/m1-fuzz-campaign.yml
   kernel-bench:
-    if: inputs.component == '' || inputs.component == 'all'
+    if: (inputs.component == '' || inputs.component == 'all') && (inputs.tier == '' || inputs.tier == 'nightly')
     strategy:
       fail-fast: false
       max-parallel: 2
@@ -52,7 +88,7 @@ jobs:
   # green; read it from the red step in this job and its summary. A finding
   # means the pinned version will need to be raised, with its lint fixes.
   clippy-canary:
-    if: inputs.component == '' || inputs.component == 'all'
+    if: (inputs.component == '' || inputs.component == 'all') && (inputs.tier == '' || inputs.tier == 'nightly')
     runs-on: ubuntu-24.04
     continue-on-error: true
     timeout-minutes: 60
@@ -81,7 +117,7 @@ jobs:
           echo 'Clippy at the latest stable reports findings the pinned version does not. This is not a gate failure; raise tools/lint-toolchain deliberately, with the fixes.' | tee -a "$GITHUB_STEP_SUMMARY"
   gate:
     if: always()
-    needs: [families, macos-workspace, kernel-bench, fuzz-smoke, performance-smoke]
+    needs: [families, macos-workspace, kernel-bench, fuzz-smoke, performance-smoke, fuzz-campaign]
     runs-on: ubuntu-24.04
     env:
       FAMILIES: ${{ needs.families.result }}
@@ -89,9 +125,48 @@ jobs:
       BENCH: ${{ needs.kernel-bench.result }}
       FUZZ: ${{ needs.fuzz-smoke.result }}
       PERFORMANCE: ${{ needs.performance-smoke.result }}
+      CAMPAIGN: ${{ needs.fuzz-campaign.result }}
       COMPONENT: ${{ inputs.component }}
+      TIER: ${{ inputs.tier || 'nightly' }}
     steps:
       - run: |
-          printf 'Codec families: %s\nmacOS workspace: %s\nKernel benchmark: %s\nFuzz smoke: %s\nPerformance smoke: %s\n' "$FAMILIES" "$WORKSPACE" "$BENCH" "$FUZZ" "$PERFORMANCE" | tee -a "$GITHUB_STEP_SUMMARY"
+          printf 'Tier: %s\nCodec families: %s\nmacOS workspace: %s\nKernel benchmark: %s\nFuzz smoke: %s\nPerformance smoke: %s\nFuzz campaign: %s\n' "$TIER" "$FAMILIES" "$WORKSPACE" "$BENCH" "$FUZZ" "$PERFORMANCE" "$CAMPAIGN" | tee -a "$GITHUB_STEP_SUMMARY"
           [ "$FAMILIES" = success ] || exit 1
-          if [ -z "$COMPONENT" ] || [ "$COMPONENT" = all ]; then [ "$WORKSPACE" = success ] && [ "$BENCH" = success ] && [ "$FUZZ" = success ] && [ "$PERFORMANCE" = success ]; else [ "$WORKSPACE" = skipped ] && [ "$BENCH" = skipped ] && [ "$FUZZ" = skipped ] && [ "$PERFORMANCE" = skipped ]; fi
+          all=false; if [ -z "$COMPONENT" ] || [ "$COMPONENT" = all ]; then all=true; fi
+          # Each job ran and passed where its tier and the component select it,
+          # and was skipped everywhere else.
+          check() { if [ "$1" = true ]; then [ "$2" = success ]; else [ "$2" = skipped ]; fi; }
+          nightly=false; deep=false
+          case "$TIER" in nightly) nightly=$all ;; deep) deep=$all ;; *) exit 1 ;; esac
+          check "$nightly" "$WORKSPACE" && check "$nightly" "$BENCH" && check "$nightly" "$FUZZ" && check "$nightly" "$PERFORMANCE" && check "$deep" "$CAMPAIGN"
+  # D5 (engine ADR-0027, amendment 2026-11-17): one issue per failed job,
+  # opened or commented by exact title, with the failing tests from its log
+  # and the links (scripts/ci/report_failed_jobs.py). On for scheduled runs,
+  # including the deep tier's; a dispatched run opts in with report: issues,
+  # or prints what it would open with report: dry-run. The Clippy canary
+  # reports and never blocks (ADR-0027, amendment 2026-11-15), so it opens no
+  # issue either.
+  report:
+    name: Report failed jobs
+    if: always() && (github.event_name == 'schedule' || (inputs.report != '' && inputs.report != 'none'))
+    needs: [families, macos-workspace, kernel-bench, fuzz-smoke, performance-smoke, fuzz-campaign, clippy-canary, gate]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/ci
+      - name: Open or update one issue per failed job
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TIER: ${{ inputs.tier == 'deep' && 'Deep' || 'Nightly' }}
+          DRY_RUN: ${{ github.event_name != 'schedule' && inputs.report == 'dry-run' && '--dry-run' || '' }}
+        run: |
+          python3 -I scripts/ci/report_failed_jobs.py --repo "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" \
+            --attempt "$GITHUB_RUN_ATTEMPT" --tier "$TIER" --ignore-job '(^|/ )clippy-canary$' \
+            --strip-prefix 'deep / ' $DRY_RUN

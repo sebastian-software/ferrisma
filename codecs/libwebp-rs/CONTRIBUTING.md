@@ -97,6 +97,11 @@ with `LIBWEBP_SIMD_LEVEL` capping the CPU query of both sides. Further flags:
   translation without the SIMD modules; with `--oracle`, only against
   `release`.
 - `--stage static` runs only the checks that need no C compiler.
+- `--partition K/N` (test stage) runs the K-th of N disjoint shares of every
+  `cargo test` invocation's tests ([tools/partition.py](tools/partition.py)),
+  as the hosted nightly's oracle jobs do; `--baseline` then runs in the last
+  share only, and `python3 tools/partition.py verify build/partitions` checks
+  that a set of shares ran every test exactly once.
 
 Focused commands:
 

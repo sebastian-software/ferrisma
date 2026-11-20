@@ -1,0 +1,41 @@
+{
+  "testdata_revision": "73695d303670c90e4d506ea89d9901b081385089",
+  "photographs": [
+    {
+      "name": "flower",
+      "source": "jxl/flower/flower.pnm",
+      "source_sha256": "b134697d49b86668c188f8fb1dfd68f05f8d1a7bae7039f1fc60743b9ed4003f",
+      "size": [2268, 1512],
+      "pixels_sha256": "75d325bc5a3131be037fe8556fdd4203668f99de02cb2c625d736f4f1de2e88d",
+      "license": "CC-BY-4.0",
+      "license_file": "../encoder-step1/LICENSE-testdata-CC-BY-4.0.txt"
+    },
+    {
+      "name": "bliznaca",
+      "source": "external/wesaturate/500px/u76c0g_bliznaca_srgb8.png",
+      "source_sha256": "3fb0583484fde716ab6b5d406764698fa48f72fcec8ee9014d3c59328a489616",
+      "size": [500, 500],
+      "pixels_sha256": "e16590d03c8e96d453882ee059c119a03e697febdcb65dfb2e5c134d4403234d",
+      "license": "CC0-1.0",
+      "license_file": "../encoder-step1/LICENSE-wesaturate-CC0.md"
+    },
+    {
+      "name": "keong_macan",
+      "source": "external/wesaturate/500px/cvo9xd_keong_macan_srgb8.png",
+      "source_sha256": "eb9189de8004dd0e56c5ccd8312567ae325bcef42861e2bfc86b064f4c4861b6",
+      "size": [500, 500],
+      "pixels_sha256": "6171da7ec999eba2195e005f41b3126fb35072c449adcc3e34ec7490135f4386",
+      "license": "CC0-1.0",
+      "license_file": "../encoder-step1/LICENSE-wesaturate-CC0.md"
+    },
+    {
+      "name": "riaphotographs",
+      "source": "external/wesaturate/500px/tmshre_riaphotographs_srgb8.png",
+      "source_sha256": "fa85b95a14533303b64d9015537a6f21e50094dcc42ca9c48f93ed242a9781f6",
+      "size": [500, 500],
+      "pixels_sha256": "16ecd20ff13473122d1b2dd007eac6eb7126b6c36adaf94199c6f8cb9dbe4770",
+      "license": "CC0-1.0",
+      "license_file": "../encoder-step1/LICENSE-wesaturate-CC0.md"
+    }
+  ]
+}

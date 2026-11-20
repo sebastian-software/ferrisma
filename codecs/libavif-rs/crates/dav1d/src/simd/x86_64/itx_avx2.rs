@@ -76,13 +76,11 @@
 //!   then not undefined behavior); 4-byte rows with unaligned `i32` reads
 //!   and writes (`movd`/`pinsrd`/`pextrd`), `movhps` with an unaligned
 //!   8-byte read or write (`movhps_ld`, `movhps_st`).
-//! - The frames of the 32- and 64-point sizes are zeroed whole before their
-//!   first use (`zeroed_frame`), where the assembly leaves them
-//!   uninitialized: which slots a later loop reads depends on the eob path,
-//!   so no load can find a slot without a value. Cost: one 32-byte store per
-//!   slot (16 to 199 per call; ADR 0062 has the instructions per call). The
-//!   zero goes through `core::hint::black_box`, or the compiler calls
-//!   `memset` for the larger frames.
+//! - The frames of the 32- and 64-point sizes are zero-initialized arrays,
+//!   where the assembly leaves them uninitialized: which slots a later loop
+//!   reads depends on the eob path, so no load can find a slot without a
+//!   value. The compiler writes the zeros as it chooses (stores, or a call
+//!   of `memset` for the larger frames).
 //! - Flag arithmetic on general-purpose registers is written as Rust on the
 //!   same bit widths (`add eobd, -279 / adc r4b, al` as `overflowing_add`
 //!   plus the carry, the `add …, 0x80000000 / jnc` loop counters, `test r3,
@@ -520,22 +518,6 @@ macro_rules! inv_txfm_fn {
             $body(dst, stride, c, eob $(, $arg)*)
         }
     };
-}
-
-/// Not in the original: writes zero to every slot of the frame `*buf` (the 32- and 64-point sizes) and returns
-/// the pointer to its first slot, as `super::util::zeroed`, with one difference: the zero vector goes through
-/// `core::hint::black_box`, so the compiler keeps the 32-byte stores instead of replacing them by a call of
-/// `memset` (which it does for these frame sizes with `zeroed`; glibc's `memset` then runs `rep stosb`, which
-/// Callgrind counts once per byte: 4096 instructions for the frame of 64x32). The frame is reached only through
-/// the returned pointer afterwards.
-#[inline(always)]
-pub(crate) unsafe fn zeroed_frame<const N: usize>(buf: &mut core::mem::MaybeUninit<[__m256i; N]>) -> *mut __m256i {
-    let p = buf.as_mut_ptr().cast::<__m256i>();
-    let zero = core::hint::black_box(_mm256_setzero_si256());
-    for i in 0..N {
-        _mm256_store_si256(p.add(i), zero);
-    }
-    p
 }
 
 // --- part 1: itx_avx2.asm lines 290-1331 and 1870-2147 (ITX4_END, WHT, 4x4, 4x8, 4x16, 8x4, 16x4) --------------------
@@ -5646,8 +5628,8 @@ unsafe fn inv_txfm_add_dct_dct_16x32(mut dst: Dst, stride: isize, c: Coef, eob: 
     // PROLOGUE 0, 8, 16, 32*35, dst, stride, c, eob, tmp1, tmp2, base, tmp3
     let mut stack = [_mm256_setzero_si256(); 3]; // [rsp+32*0..3]
     let stack = &mut stack;
-    let mut frame = core::mem::MaybeUninit::<[__m256i; 32]>::uninit(); // [rsp+32*3..35]
-    let frame0: *mut __m256i = zeroed_frame(&mut frame); // zeroed whole (see above)
+    let mut frame = [_mm256_setzero_si256(); 32]; // [rsp+32*3..35]
+    let frame0: *mut __m256i = frame.as_mut_ptr(); // zeroed whole (see above)
     load_16rows(m, stack, c, 64, 1, 1); // LOAD_16ROWS cq, 64, 1
     idct_16x16_internal_main(m, stack); // call m(idct_16x16_internal_8bpc).main
     let tmp1 = at(frame0, 32 * 4); // lea tmp1q, [rsp+32*7]
@@ -6075,8 +6057,8 @@ unsafe fn inv_txfm_add_dct_dct_32x16(mut dst: Dst, stride: isize, mut c: Coef, e
     // PROLOGUE 0, 6, 16, 32*19, dst, stride, c, eob, tmp1, tmp2
     let mut stack = [_mm256_setzero_si256(); 3]; // [rsp+32*0..3]
     let stack = &mut stack;
-    let mut frame = core::mem::MaybeUninit::<[__m256i; 16]>::uninit(); // [rsp+32*3..19]
-    let frame0: *mut __m256i = zeroed_frame(&mut frame); // zeroed whole (see above)
+    let mut frame = [_mm256_setzero_si256(); 16]; // [rsp+32*3..19]
+    let frame0: *mut __m256i = frame.as_mut_ptr(); // zeroed whole (see above)
     m[15] = pw(2896 * 8); // vpbroadcastd m15, [o(pw_2896x8)]
     m[0] = _mm256_mulhrs_epi16(m[15], _mm256_loadu_si256(at(c, 32 * 1).cast())); // pmulhrsw m0, m15, [cq+32* 1]
     m[1] = _mm256_mulhrs_epi16(m[15], _mm256_loadu_si256(at(c, 32 * 3).cast())); // pmulhrsw m1, m15, [cq+32* 3]
@@ -6352,8 +6334,8 @@ unsafe fn inv_txfm_add_dct_dct_32x32(mut dst: Dst, stride: isize, mut c: Coef, e
     // PROLOGUE 0, 9, 16, 32*67, dst, stride, c, eob, tmp1, tmp2, base, tmp3, tmp4
     let mut stack = [_mm256_setzero_si256(); 3]; // [rsp+32*0..3]
     let stack = &mut stack;
-    let mut frame = core::mem::MaybeUninit::<[__m256i; 64]>::uninit(); // [rsp+32*3..67]
-    let frame0: *mut __m256i = zeroed_frame(&mut frame); // zeroed whole (see above)
+    let mut frame = [_mm256_setzero_si256(); 64]; // [rsp+32*3..67]
+    let frame0: *mut __m256i = frame.as_mut_ptr(); // zeroed whole (see above)
     let mut tmp1 = at(frame0, 32 * 4); // lea tmp1q, [rsp+32*7]
     let mut tmp2 = at(tmp1, 32 * 8); // lea tmp2q, [tmp1q+32*8]
     let mut tmp3;
@@ -6604,7 +6586,7 @@ inv_txfm_fn!(
 
 // The frames of these sizes (`PROLOGUE …, 32*N`) are arrays of `N` 32-byte slots, reached through the raw pointer
 // `rsp` to their first slot and the pointers the assembly derives from it (`tmp1q`, `tmp2q`, `r2`, `r3`). Each
-// frame is zeroed whole before its first use (`zeroed_frame`), so no load from it can find a slot without a
+// frame is zeroed whole before its first use (a zero-initialized array), so no load from it can find a slot without a
 // value, whichever eob path wrote it. The subroutines that the assembly `call`s address the caller's first slots
 // as `[rsp+gprsize+32*n]`; they receive them as `&mut [__m256i; 3]` (`s3_p5(rsp)`), which no other pointer
 // touches while the subroutine runs (`tmp1q`/`tmp2q` never point below slot 3).
@@ -6990,8 +6972,8 @@ unsafe fn inv_txfm_add_dct_dct_16x64(mut dst: Dst, stride: isize, c: Coef, eob: 
     }
     // .normal: PROLOGUE 0, 10, 16, 32*67, dst, stride, c, eob, tmp1, tmp2. The frame is zeroed whole (see the top
     // of this part).
-    let mut frame = core::mem::MaybeUninit::<[__m256i; 67]>::uninit();
-    let rsp: *mut __m256i = zeroed_frame(&mut frame);
+    let mut frame = [_mm256_setzero_si256(); 67];
+    let rsp: *mut __m256i = frame.as_mut_ptr();
     let mut cq = c;
     let mut tmp1 = at(rsp, 32 * 23); // lea tmp1q, [rsp+32*23]
     let mut tmp2 = at(tmp1, 32 * 24); // lea tmp2q, [tmp1q+32*24]
@@ -7226,8 +7208,8 @@ unsafe fn inv_txfm_add_dct_dct_64x16(mut dst: Dst, stride: isize, c: Coef, eob: 
     }
     // .normal: PROLOGUE 0, 7, 16, 32*67, dst, stride, c, eob, tmp1, tmp2. The frame is zeroed whole (see the top
     // of this part).
-    let mut frame = core::mem::MaybeUninit::<[__m256i; 67]>::uninit();
-    let rsp: *mut __m256i = zeroed_frame(&mut frame);
+    let mut frame = [_mm256_setzero_si256(); 67];
+    let rsp: *mut __m256i = frame.as_mut_ptr();
     load_8rows(m, at(c, 32 * 0), 32 * 4, 0); // LOAD_8ROWS cq+32*0, 32*4
     m[8] = _mm256_setzero_si256(); // pxor m8, m8
     repx!([0, 4, 8, 12, 16, 20, 24, 28], i => _mm256_storeu_si256(at(c, 32 * i).cast(), m[8])); // REPX {mova [cq+32*x], m8}, 0, 4, 8, 12, 16, 20, 24, 28
@@ -7362,8 +7344,8 @@ unsafe fn inv_txfm_add_dct_dct_32x64(mut dst: Dst, stride: isize, mut c: Coef, e
     }
     // .normal: PROLOGUE 0, 11, 16, 32*99, dst, stride, c, eob, tmp1, tmp2. The frame is zeroed whole (see the top of
     // this part).
-    let mut frame = core::mem::MaybeUninit::<[__m256i; 99]>::uninit();
-    let rsp = zeroed_frame(&mut frame);
+    let mut frame = [_mm256_setzero_si256(); 99];
+    let rsp = frame.as_mut_ptr();
     let mut tmp1 = at(rsp, 32 * 7); // lea tmp1q, [rsp+32*7]
                                     // r10d is -1 (r10b nonzero: the fast paths) for an eob below 136, else 0; the loops count in its top bit.
     let mut r10d = (eob.wrapping_sub(136) >> 31) as u32; // lea r10d, [eobq-136] / sar r10d, 31
@@ -7676,8 +7658,8 @@ unsafe fn inv_txfm_add_dct_dct_64x32(mut dst: Dst, stride: isize, mut c: Coef, e
     }
     // .normal: PROLOGUE 0, 9, 16, 32*131, dst, stride, c, eob, tmp1, tmp2, base, tmp3, tmp4. The frame is zeroed
     // whole (see the top of this part).
-    let mut frame = core::mem::MaybeUninit::<[__m256i; 131]>::uninit();
-    let rsp: *mut __m256i = zeroed_frame(&mut frame);
+    let mut frame = [_mm256_setzero_si256(); 131];
+    let rsp: *mut __m256i = frame.as_mut_ptr();
     let mut tmp1 = at(rsp, 32 * 7); // lea tmp1q, [rsp+32*7]
     let mut tmp4d = eob.wrapping_sub(136) as u32; // lea tmp4d, [eobq-136]
     loop {
@@ -7799,8 +7781,8 @@ unsafe fn inv_txfm_add_dct_dct_64x64(mut dst: Dst, stride: isize, mut c: Coef, e
     }
     // .normal: PROLOGUE 0, 11, 16, 32*199, dst, stride, c, eob, tmp1, tmp2. The frame is zeroed whole (see the top
     // of this part).
-    let mut frame = core::mem::MaybeUninit::<[__m256i; 199]>::uninit();
-    let rsp = zeroed_frame(&mut frame);
+    let mut frame = [_mm256_setzero_si256(); 199];
+    let rsp = frame.as_mut_ptr();
     let mut tmp1 = at(rsp, 32 * 71); // lea tmp1q, [rsp+32*71]
     let mut r10d = eob.wrapping_sub(136) as u32; // lea r10d, [eobq-136]
     loop {

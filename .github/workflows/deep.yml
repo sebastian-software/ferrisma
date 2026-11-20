@@ -1,0 +1,48 @@
+name: Deep validation
+# Tier 3 of engine ADR-0027 (amendment 2026-11-17): weekly on Sunday and,
+# dispatched on the candidate commit, before every release candidate. It runs
+# only the checks the nightly tier does not (nightly.yml with tier: deep: the
+# codec families' deep checks, at most two families at a time, and the M1
+# fuzz campaign), within the hosted limit of 6 hours per job. It blocks a
+# release: the release commit needs the last nightly and the last deep run
+# green. Scheduled runs open or update one issue per failed job (decision D5),
+# titled "Deep: <job> failed".
+on:
+  schedule:
+    # Sunday, after the 02:17 nightly.
+    - cron: '17 7 * * 0'
+  workflow_dispatch:
+    inputs:
+      component:
+        description: Codec family to validate
+        type: choice
+        options: [all, jpeg, webp, jxl, avif]
+        default: all
+      report:
+        description: Issues for failed jobs (always on for scheduled runs; dry-run prints them)
+        type: choice
+        options: [none, dry-run, issues]
+        default: none
+permissions:
+  contents: read
+jobs:
+  deep:
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    uses: ./.github/workflows/nightly.yml
+    with:
+      component: ${{ inputs.component || 'all' }}
+      tier: deep
+      report: ${{ inputs.report || 'none' }}
+  gate:
+    if: always()
+    needs: [deep]
+    runs-on: ubuntu-24.04
+    env:
+      DEEP: ${{ needs.deep.result }}
+    steps:
+      - run: |
+          printf 'Deep tier: %s\n' "$DEEP" | tee -a "$GITHUB_STEP_SUMMARY"
+          [ "$DEEP" = success ]

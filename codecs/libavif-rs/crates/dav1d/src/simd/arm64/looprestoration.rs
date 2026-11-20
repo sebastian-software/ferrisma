@@ -9,8 +9,8 @@
 //! in `looprestoration_common.rs`, the C side of the self-guided filters and the slot assignments in
 //! `simd/arm/looprestoration.rs`. The table `right_ext_mask_buf` is `RIGHT_EXT_MASK_BUF`.
 //!
-//! Stack buffers: the Wiener filters keep their rows of intermediate values in a local buffer, zeroed
-//! whole before use (`util::zeroed`); the self-guided kernels have none (their rows are the wrappers',
+//! Stack buffers: the Wiener filters keep their rows of intermediate values in a local buffer, zero-initialized
+//! (`[0; N]`); the self-guided kernels have none (their rows are the wrappers',
 //! zeroed whole there).
 //!
 //! # The Wiener filters
@@ -23,12 +23,10 @@
 //! in registers, and a row function pushes what it changes and pops it at the end, the row pointers
 //! shifted by one. Here the registers that live across those calls are the fields of `WienerRegs`, which
 //! every row function takes by reference, and a row function leaves in it exactly what the assembly's
-//! function leaves in the registers. The row functions are separate functions (`#[inline(never)]`), as in
-//! the assembly; each loads the coefficients and the two rounding constants it uses from
+//! function leaves in the registers. The row functions are separate functions, as in the assembly (whether
+//! they are inlined is the compiler's choice); each loads the coefficients and the two rounding constants it uses from
 //! `WienerRegs`, where the assembly keeps them in registers across `bl`, and stores the shifted row
-//! pointers at entry, where the assembly pushes them shifted and pops them at the end. (Inlined into the
-//! entry points, the copies of the row loops shared their widened coefficients, and LLVM compiled the
-//! `smull`/`smlal` chains of the main loop as `sshll` + `mul`/`mla`.)
+//! pointers at entry, where the assembly pushes them shifted and pops them at the end.
 //!
 //! The labels of the entry points (`L(main_7)`, `L(no_top_7)`, ...) are labeled blocks; the fall-through
 //! chain `L(v3_7)` -> `L(v2_7)` -> `L(v1_7)` is a count of the vertical passes that remain. In the row
@@ -89,12 +87,10 @@
 
 use core::arch::aarch64::*;
 use core::ffi::{c_int, c_uint};
-use core::mem::MaybeUninit;
 use core::ptr::read_unaligned;
 
 use super::super::arm::looprestoration::LooprestorationParams;
 use super::looprestoration_tmpl::*;
-use super::util::zeroed;
 
 /// `right_ext_mask_buf` with the label `right_ext_mask` at offset 48: 48 bytes
 /// of 0x00, then 48 bytes of 0xff (shared by the Wiener and the box-sum
@@ -181,8 +177,8 @@ pub unsafe extern "C" fn dav1d_wiener_filter7_8bpc_neon(
 
     // sub_sp 384*2*6. Zero-initialized whole: which of the six rows a vertical pass loads depends on the
     // edge flags and the height, so that every loaded element was stored before is not obvious here.
-    let mut rows = MaybeUninit::<WienerRows<{ 384 * 6 }>>::uninit();
-    let sp = zeroed(&mut rows) as *mut i16;
+    let mut rows = WienerRows([0; 384 * 6]);
+    let sp = rows.0.as_mut_ptr();
 
     // x9  - t6
     // x10 - t5
@@ -340,7 +336,6 @@ pub unsafe extern "C" fn dav1d_wiener_filter7_8bpc_neon(
 /// `wiener_filter7_h_8bpc_neon`: filters the source row `x3` horizontally into the row `x14`.
 /// Leaves `x3`, `w4` and `x14` unchanged (the assembly saves and restores them); advances `x2` by one
 /// row of `left` if it is not NULL.
-#[inline(never)]
 unsafe fn wiener_filter7_h_8bpc_neon(r: &mut WienerRegs) {
     // stp x3, x4, [sp, #-32]!; str x14, [sp, #16]
     let mut x3 = r.x3;
@@ -486,7 +481,6 @@ unsafe fn wiener_filter7_h_8bpc_neon(r: &mut WienerRegs) {
 /// `wiener_filter7_v_8bpc_neon`: filters the rows `x9`-`x14` (t6-t1, with t1 standing in for t0)
 /// vertically into the output row `x0`. Leaves the row pointers shifted (`x9` gets the value of `x10`,
 /// etc; `x14` stays) and `x0` advanced by `stride`.
-#[inline(never)]
 unsafe fn wiener_filter7_v_8bpc_neon(r: &mut WienerRegs) {
     // Backing up/restoring registers shifted, so that x9 gets the value
     // of x10, etc, afterwards.
@@ -565,7 +559,6 @@ unsafe fn wiener_filter7_v_8bpc_neon(r: &mut WienerRegs) {
 /// the rows `x9`-`x14` with it vertically into the output row `x0`. Leaves the row pointers shifted
 /// (`x9` gets the value of `x10`, etc, `x14` that of `x15`, and `x15` the former `x10`), `x3` and `x0`
 /// advanced by `stride`, and `x2` advanced by one row of `left` if it is not NULL.
-#[inline(never)]
 unsafe fn wiener_filter7_hv_8bpc_neon(r: &mut WienerRegs) {
     // Backing up/restoring registers shifted, so that x9 gets the value
     // of x10, etc, and x15==x9, afterwards.
@@ -800,8 +793,8 @@ pub unsafe extern "C" fn dav1d_wiener_filter5_8bpc_neon(
 
     // sub_sp 384*2*4. Zero-initialized whole: which of the four rows a vertical pass loads depends on the
     // edge flags and the height, so that every loaded element was stored before is not obvious here.
-    let mut rows = MaybeUninit::<WienerRows<{ 384 * 4 }>>::uninit();
-    let sp = zeroed(&mut rows) as *mut i16;
+    let mut rows = WienerRows([0; 384 * 4]);
+    let sp = rows.0.as_mut_ptr();
 
     // x11 - t4
     // x12 - t3
@@ -940,7 +933,6 @@ pub unsafe extern "C" fn dav1d_wiener_filter5_8bpc_neon(
 /// `wiener_filter5_h_8bpc_neon`: filters the source row `x3` horizontally into the row `x14`.
 /// Leaves `x3`, `w4` and `x14` unchanged (the assembly saves and restores them); advances `x2` by one
 /// row of `left` if it is not NULL.
-#[inline(never)]
 unsafe fn wiener_filter5_h_8bpc_neon(r: &mut WienerRegs) {
     // stp x3, x4, [sp, #-32]!; str x14, [sp, #16]
     let mut x3 = r.x3;
@@ -1077,7 +1069,6 @@ unsafe fn wiener_filter5_h_8bpc_neon(r: &mut WienerRegs) {
 /// `wiener_filter5_v_8bpc_neon`: filters the rows `x11`-`x14` (t4-t1, with t1 standing in for t0)
 /// vertically into the output row `x0`. Leaves every register unchanged (the assembly saves and
 /// restores the row pointers, `x0` and `w4`).
-#[inline(never)]
 unsafe fn wiener_filter5_v_8bpc_neon(r: &mut WienerRegs) {
     // stp x11, x12, [sp, #-48]!; stp x13, x14, [sp, #16]; stp x0, x4, [sp, #32]
     let (mut x11, mut x12, mut x13, mut x14) = (r.x11, r.x12, r.x13, r.x14);
@@ -1133,7 +1124,6 @@ unsafe fn wiener_filter5_v_8bpc_neon(r: &mut WienerRegs) {
 /// the rows `x11`-`x14` with it vertically into the output row `x0`. Leaves the row pointers shifted
 /// (`x11` gets the value of `x12`, etc, `x14` that of `x15`, and `x15` the former `x12`), `x3` and `x0`
 /// advanced by `stride`, and `x2` advanced by one row of `left` if it is not NULL.
-#[inline(never)]
 unsafe fn wiener_filter5_hv_8bpc_neon(r: &mut WienerRegs) {
     // Backing up/restoring registers shifted, so that x11 gets the value
     // of x12, etc, and x15==x11, afterwards.

@@ -45,23 +45,13 @@
 //!   z1–z3) costs about 12 instructions more per use; `tzcnt` one.
 //! - The jump tables' indices outside the contract (`w`, `h` powers of two
 //!   from 4 to 64) go to the last arm, except in dc/h/v/paeth/pal_pred,
-//!   where they are `unreachable_unchecked` as the assembly's jump through
-//!   bytes beyond its table is undefined (two instructions fewer per call).
+//!   where they reach `unreachable!()` (the assembly's jump through bytes
+//!   beyond its table is undefined; here it is a checked panic).
 //! - Stack frames (`ALLOC_STACK`) are locals zeroed whole, or written whole
 //!   before the first load (said at each site). The z1 and z3 frames are
 //!   larger than the assembly's: its main loops load lanes from beyond its
 //!   frame and blend them away; here those bytes are zeros of the larger
 //!   frame. A few 32-byte stores per call on the paths with a frame.
-//! - `core::hint::black_box` keeps a value opaque where the compiler
-//!   otherwise rewrote the assembly's instruction pattern into a longer one
-//!   (`stride*3` in the dc family, `top` in paeth, the read-only base and
-//!   the `psrlw 8` count in smooth, the edge pointer, the shuffle masks,
-//!   `r2` at the head of the w4 and w16 loops and `dst`/`r5` on entering
-//!   `.w16_leftonly_loop` in z2, the destination of z3's h4 end loop): one
-//!   store and load each, and in z2 an empty `black_box(())` that makes the
-//!   compiler reload frame slots where the assembly reloads them;
-//!   each took a kernel from above 1.3 times the assembly's instructions to
-//!   below. No `black_box` changes a value.
 //! - Every vector access to caller memory is an unaligned move where the
 //!   assembly uses `mova`; `movhps`/`pextr*`/`pinsr*`/`movd` to and from
 //!   memory are unaligned scalar accesses of the same bytes. Same count.
@@ -72,14 +62,15 @@
 //! makes them; the values never reach the output. Derived from the code by
 //! the sections, not checked with guard pages:
 //! - the edge (`topleft`): dc_top and v read 32 or 64 pixels at every
-//!   width, dc_left 32 from `tl-h`, paeth (4x4), smooth (`tl[-64..-1]`
-//!   from w16 on, whatever `h`), filter and cfl_top/cfl_left whole vectors;
-//!   z1 reads up to `topleft[198]`, z2 `topleft[-69..67]`, z3 down to
-//!   `topleft[-191]`. In the decoder `topleft` is `edge_8bpc + 128` (inter-
-//!   intra: `+ 32`, smooth reaching 32 bytes before the array) inside the
-//!   task context's scratch structure, which has the bytes before and
-//!   behind the array (`simd/x86/ipred.rs`, test
-//!   `the_edge_array_has_readable_slack_around_it`);
+//!   width, dc_left 32 from `tl-h`, paeth (4x4), smooth and smooth_h
+//!   (`tl[-64..-1]` from w16 on, whatever `h`), filter and cfl_top/cfl_left
+//!   whole vectors; z1 reads up to `topleft[198]`, z2 `topleft[-69..67]`, z3
+//!   down to `topleft[-191]`. In the decoder `topleft` is `edge_8bpc + 128`
+//!   (inter-intra: `+ 32`) in a 257-pixel array. The kernels whose loads can
+//!   leave that array (z1, z3, and smooth and smooth_h from w16 on) copy
+//!   the pixels the C kernel reads into a zero-initialized local first and
+//!   run on the copy (`crate::simd::copy_edge`; not in the original); test
+//!   `the_kernels_read_only_the_edge_array` in `simd/x86/ipred.rs`;
 //! - `cfl_ac` loads 16 or 32 bytes of luma rows where C reads 8 or 16
 //!   (`.w8_wpad`, `.w16_pad1`, 444 `.w8`), inside the luma rows' stride.
 //!
@@ -358,22 +349,12 @@ unsafe fn vextracti128_p1(x: __m256i) -> __m256i {
     zx(_mm256_extracti128_si256::<1>(x))
 }
 
-/// `tzcnt` of a block dimension (a power of two from 4 to 64, never zero; the original selects these kernels on
-/// AVX2 alone, so this is `trailing_zeros`, not BMI's `tzcnt`). A `match` on it is a jump table: an index outside
-/// the table's range is unreachable by the contract, as the assembly's `jmp` through the table assumes.
+/// `tzcnt` of a block dimension (a power of two from 4 to 64; the original selects these kernels on AVX2 alone, so
+/// this is `trailing_zeros`, not BMI's `tzcnt`). A `match` on it stands for the jump table; an index outside the
+/// table's range is outside the contract and reaches `unreachable!()`.
 #[inline(always)]
-unsafe fn tzcnt_p1(x: c_int) -> u32 {
-    // The contract makes `x` a power of two from 4 to 64: never zero, so the zero case needs no code.
-    core::num::NonZeroU32::new_unchecked(x as u32).trailing_zeros()
-}
-
-/// `lea r, [strideq*3]`. Not in the original: the value goes through `core::hint::black_box` (once per call),
-/// so that the compiler keeps it in a register and addresses the fourth row as `[dst+stride3]`, as the
-/// assembly does; without it, it rewrites the row addresses as a chain of `add dst, stride` (two or three more
-/// instructions in every iteration of the four-row loops). Costs a store and a load per call.
-#[inline(always)]
-fn lea3_p1(stride: isize) -> isize {
-    core::hint::black_box(stride * 3)
+fn tzcnt_p1(x: c_int) -> u32 {
+    (x as u32).trailing_zeros()
 }
 
 // ---- ipred_dc_8bpc: .s4 … .s64 (also the targets of ipred_dc_splat_avx2_table) ----
@@ -477,7 +458,7 @@ unsafe fn ipred_dc_splat_p1(m: &mut M, dst: *mut u8, stride: isize, stride3: isi
         4 => ipred_dc_8bpc_s16(m, dst, stride, stride3, h),
         5 => ipred_dc_8bpc_s32(m, dst, stride, stride3, h),
         6 => ipred_dc_8bpc_s64(m, dst, stride, stride3, h),
-        _ => core::hint::unreachable_unchecked(), // outside the jump table (contract: 2..=6)
+        _ => unreachable!(), // outside the jump table (contract: 2..=6)
     }
 }
 
@@ -539,7 +520,7 @@ unsafe fn ipred_dc_left_jmp_p1(m: &mut M, tl: *const u8, nl: u32) {
         4 => ipred_dc_left_8bpc_h16(m),
         5 => ipred_dc_left_8bpc_h32(m),
         6 => ipred_dc_left_8bpc_h64(m, tl),
-        _ => core::hint::unreachable_unchecked(), // outside the jump table (contract: 2..=6)
+        _ => unreachable!(), // outside the jump table (contract: 2..=6)
     }
 }
 
@@ -569,7 +550,7 @@ pub unsafe extern "C" fn dav1d_ipred_dc_top_8bpc_avx2(
     m[0] = _mm256_maddubs_epi16(m[0], m[2]); //                    pmaddubsw m0, m2
                                              //                                                             add r6, r5 / add r5, … / movsxd wq, … / add wq, r5
     ipred_dc_left_jmp_p1(m, tl, wl); //                            jmp r6
-    let stride3 = lea3_p1(stride); //                                   lea stride3q, [strideq*3] (.h4)
+    let stride3 = stride * 3; //                                   lea stride3q, [strideq*3] (.h4)
     ipred_dc_splat_p1(m, dst, stride, stride3, h, wl); //          jmp wq
 }
 
@@ -599,7 +580,7 @@ pub unsafe extern "C" fn dav1d_ipred_dc_left_8bpc_avx2(
     m[0] = _mm256_maddubs_epi16(m[0], m[2]); //                    pmaddubsw m0, m2
                                              //                                                             add r6, r5 / add r5, … / movsxd wq, … / add wq, r5
     ipred_dc_left_jmp_p1(m, tl, r6); //                            jmp r6
-    let stride3 = lea3_p1(stride); //                                   lea stride3q, [strideq*3] (.h4)
+    let stride3 = stride * 3; //                                   lea stride3q, [strideq*3] (.h4)
     ipred_dc_splat_p1(m, dst, stride, stride3, h, wl); //          jmp wq
 }
 
@@ -818,7 +799,7 @@ pub unsafe extern "C" fn dav1d_ipred_dc_8bpc_avx2(
     m[3] = _mm256_cmpeq_epi32(m[3], m[3]); //                      pcmpeqd m3, m3
     m[4] = zx(_mm_srli_epi16::<1>(lo(m[4]))); //                   psrlw xm4, 1
                                               //                                                             add r6, r5; add wq, r5
-    let stride3 = lea3_p1(stride); //                                   lea stride3q, [strideq*3]
+    let stride3 = stride * 3; //                                   lea stride3q, [strideq*3]
     match r6 {
         //                                                         jmp r6
         2 => ipred_dc_8bpc_h4(m, tl),
@@ -826,7 +807,7 @@ pub unsafe extern "C" fn dav1d_ipred_dc_8bpc_avx2(
         4 => ipred_dc_8bpc_h16(m, tl),
         5 => ipred_dc_8bpc_h32(m, tl),
         6 => ipred_dc_8bpc_h64(m, tl),
-        _ => core::hint::unreachable_unchecked(), // outside the jump table (contract: 2..=6)
+        _ => unreachable!(), // outside the jump table (contract: 2..=6)
     }
     match wl {
         //                                                         jmp wq
@@ -835,7 +816,7 @@ pub unsafe extern "C" fn dav1d_ipred_dc_8bpc_avx2(
         4 => ipred_dc_8bpc_w16(m, dst, stride, stride3, tl, h),
         5 => ipred_dc_8bpc_w32(m, dst, stride, stride3, tl, h),
         6 => ipred_dc_8bpc_w64(m, dst, stride, stride3, tl, h),
-        _ => core::hint::unreachable_unchecked(), // outside the jump table (contract: 2..=6)
+        _ => unreachable!(), // outside the jump table (contract: 2..=6)
     }
 }
 
@@ -860,7 +841,7 @@ pub unsafe extern "C" fn dav1d_ipred_dc_128_8bpc_avx2(
     m[0] = vpbroadcastd_p1(ro(pb_128, 0)); //                      vpbroadcastd m0, [r5-ipred_dc_splat_avx2_table+pb_128]
     m[1] = m[0]; //                                                mova m1, m0
                  //                                                             add wq, r5
-    let stride3 = lea3_p1(stride); //                                   lea stride3q, [strideq*3]
+    let stride3 = stride * 3; //                                   lea stride3q, [strideq*3]
     ipred_dc_splat_p1(m, dst, stride, stride3, h, wl); //          jmp wq
 }
 
@@ -885,7 +866,7 @@ pub unsafe extern "C" fn dav1d_ipred_v_8bpc_avx2(
     m[1] = y_p1(a_p1(tl, 33)); //                                  movu m1, [tlq+33]
     let h = height; //                                             movifnidn hd, hm
                     //                                                             movsxd wq, [r5+wq*4]; add wq, r5
-    let stride3 = lea3_p1(stride); //                                   lea stride3q, [strideq*3]
+    let stride3 = stride * 3; //                                   lea stride3q, [strideq*3]
     ipred_dc_splat_p1(m, dst, stride, stride3, h, wl); //          jmp wq
 }
 
@@ -977,7 +958,7 @@ pub unsafe extern "C" fn dav1d_ipred_h_8bpc_avx2(
     let wl = tzcnt_p1(width); //                                   tzcnt wd, wm
     let h = height; //                                             movifnidn hd, hm
                     //                                                             movsxd wq, [r5+wq*4]; add wq, r5
-    let stride3 = lea3_p1(stride); //                                   lea stride3q, [strideq*3]
+    let stride3 = stride * 3; //                                   lea stride3q, [strideq*3]
     match wl {
         //                                                         jmp wq
         2 => ipred_h::<4>(m, dst, stride, stride3, tl, h), //      .w4: IPRED_H 4, d
@@ -985,7 +966,7 @@ pub unsafe extern "C" fn dav1d_ipred_h_8bpc_avx2(
         4 => ipred_h::<16>(m, dst, stride, stride3, tl, h), //     .w16: IPRED_H 16, a
         5 => ipred_h::<32>(m, dst, stride, stride3, tl, h), //     .w32: IPRED_H 32, a (INIT_YMM)
         6 => ipred_h_8bpc_w64(m, dst, stride, stride3, tl, h),
-        _ => core::hint::unreachable_unchecked(), // outside the jump table (contract: 2..=6)
+        _ => unreachable!(), // outside the jump table (contract: 2..=6)
     }
 }
 
@@ -993,11 +974,6 @@ pub unsafe extern "C" fn dav1d_ipred_h_8bpc_avx2(
 
 /// `%macro PAETH top, ldiff`: `m0` = the Paeth predictor of the top pixels `m[top]`, the left pixels `m3` and
 /// the top-left pixel `m5`, with `m[ldiff]` = |top - topleft| and `m4` = 1 bytes; clobbers `m1`, `m2`.
-///
-/// Every call site first passes `m[top]` through `core::hint::black_box` (not in the original): `top` does not
-/// change within a row loop, so the compiler would otherwise hoist half of the `pavgb` (`_mm256_avg_epu8`, which
-/// the compiler sees as widen, add, add one, shift, narrow) out of the loop and then could no longer form the
-/// `pavgb` instruction; it emitted nine instructions for it in every row. The barrier costs a store and a load.
 #[inline(always)]
 unsafe fn paeth(m: &mut M, top: usize, ldiff: usize) {
     m[1] = _mm256_avg_epu8(m[top], m[3]); //                       pavgb m1, m%1, m3
@@ -1025,7 +1001,7 @@ unsafe fn paeth(m: &mut M, top: usize, ldiff: usize) {
 unsafe fn ipred_paeth_8bpc_w4(m: &mut M, mut dst: *mut u8, stride: isize, mut tl: *const u8, mut h: c_int) {
     m[6] = vpbroadcastd_p1(a_p1(tl, 1)); //                        vpbroadcastd m6, [tlq+1] ; top
     m[8] = y_p1(ro(ipred_h_shuf, 0)); //                           mova m8, [base+ipred_h_shuf]
-    let r3 = lea3_p1(stride); //                                        lea r3, [strideq*3]
+    let r3 = stride * 3; //                                        lea r3, [strideq*3]
     m[7] = _mm256_subs_epu8(m[5], m[6]); //                        psubusb m7, m5, m6
     m[0] = _mm256_subs_epu8(m[6], m[5]); //                        psubusb m0, m6, m5
     m[7] = _mm256_or_si256(m[7], m[0]); //                         por m7, m0 ; ldiff
@@ -1034,7 +1010,6 @@ unsafe fn ipred_paeth_8bpc_w4(m: &mut M, mut dst: *mut u8, stride: isize, mut tl
         tl = a_p1(tl, -8); //                                      sub tlq, 8
         m[3] = vpbroadcastq_p1(tl); //                             vpbroadcastq m3, [tlq]
         m[3] = _mm256_shuffle_epi8(m[3], m[8]); //                 pshufb m3, m8 ; left
-        m[6] = core::hint::black_box(m[6]); // (not in the original; see `paeth`)
         paeth(m, 6, 7); //                                         PAETH 6, 7
         m[1] = vextracti128_p1(m[0]); //                           vextracti128 xm1, m0, 1
         movd_st_p1(dst, m[0]); //                                  movd   [dstq+strideq*0], xm0
@@ -1063,7 +1038,7 @@ unsafe fn ipred_paeth_8bpc_w4(m: &mut M, mut dst: *mut u8, stride: isize, mut tl
 unsafe fn ipred_paeth_8bpc_w8(m: &mut M, mut dst: *mut u8, stride: isize, mut tl: *const u8, mut h: c_int) {
     m[6] = vpbroadcastq_p1(a_p1(tl, 1)); //                        vpbroadcastq m6, [tlq+1]
     m[8] = y_p1(ro(ipred_h_shuf, 0)); //                           mova m8, [base+ipred_h_shuf]
-    let r3 = lea3_p1(stride); //                                        lea r3, [strideq*3]
+    let r3 = stride * 3; //                                        lea r3, [strideq*3]
     m[7] = _mm256_subs_epu8(m[5], m[6]); //                        psubusb m7, m5, m6
     m[0] = _mm256_subs_epu8(m[6], m[5]); //                        psubusb m0, m6, m5
     m[7] = _mm256_or_si256(m[7], m[0]); //                         por m7, m0
@@ -1072,7 +1047,6 @@ unsafe fn ipred_paeth_8bpc_w8(m: &mut M, mut dst: *mut u8, stride: isize, mut tl
         tl = a_p1(tl, -4); //                                      sub tlq, 4
         m[3] = vpbroadcastd_p1(tl); //                             vpbroadcastd m3, [tlq]
         m[3] = _mm256_shuffle_epi8(m[3], m[8]); //                 pshufb m3, m8
-        m[6] = core::hint::black_box(m[6]); // (not in the original; see `paeth`)
         paeth(m, 6, 7); //                                         PAETH 6, 7
         m[1] = vextracti128_p1(m[0]); //                           vextracti128 xm1, m0, 1
         movq_st_p1(dst, m[0]); //                                  movq   [dstq+strideq*0], xm0
@@ -1101,7 +1075,6 @@ unsafe fn ipred_paeth_8bpc_w16(m: &mut M, mut dst: *mut u8, stride: isize, mut t
         tl = a_p1(tl, -2); //                                      sub tlq, 2
         m[3] = vpbroadcastd_p1(tl); //                             vpbroadcastd m3, [tlq]
         m[3] = _mm256_shuffle_epi8(m[3], m[8]); //                 pshufb m3, m8
-        m[6] = core::hint::black_box(m[6]); // (not in the original; see `paeth`)
         paeth(m, 6, 7); //                                         PAETH 6, 7
         movx_st_p1(dst, m[0]); //                                  mova [dstq+strideq*0], xm0
         vextracti128_st_p1(at(dst, stride), m[0]); //              vextracti128 [dstq+strideq*1], m0, 1
@@ -1125,7 +1098,6 @@ unsafe fn ipred_paeth_8bpc_w32(m: &mut M, mut dst: *mut u8, stride: isize, mut t
         // .w32_loop:
         tl = a_p1(tl, -1); //                                      dec tlq
         m[3] = vpbroadcastb_p1(tl); //                             vpbroadcastb m3, [tlq]
-        m[6] = core::hint::black_box(m[6]); // (not in the original; see `paeth`)
         paeth(m, 6, 7); //                                         PAETH 6, 7
         movy_st_p1(dst, m[0]); //                                  mova [dstq], m0
         dst = at(dst, stride); //                                  add dstq, strideq
@@ -1152,10 +1124,8 @@ unsafe fn ipred_paeth_8bpc_w64(m: &mut M, mut dst: *mut u8, stride: isize, mut t
         // .w64_loop:
         tl = a_p1(tl, -1); //                                      dec tlq
         m[3] = vpbroadcastb_p1(tl); //                             vpbroadcastb m3, [tlq]
-        m[6] = core::hint::black_box(m[6]); // (not in the original; see `paeth`)
         paeth(m, 6, 8); //                                         PAETH 6, 8
         movy_st_p1(dst, m[0]); //                                  mova [dstq+32*0], m0
-        m[7] = core::hint::black_box(m[7]); // (not in the original; see `paeth`)
         paeth(m, 7, 9); //                                         PAETH 7, 9
         movy_st_p1(at(dst, 32), m[0]); //                          mova [dstq+32*1], m0
         dst = at(dst, stride); //                                  add dstq, strideq
@@ -1196,7 +1166,7 @@ pub unsafe extern "C" fn dav1d_ipred_paeth_8bpc_avx2(
         4 => ipred_paeth_8bpc_w16(m, dst, stride, tl, h),
         5 => ipred_paeth_8bpc_w32(m, dst, stride, tl, h),
         6 => ipred_paeth_8bpc_w64(m, dst, stride, tl, h),
-        _ => core::hint::unreachable_unchecked(), // outside the jump table (contract: 2..=6)
+        _ => unreachable!(), // outside the jump table (contract: 2..=6)
     }
 }
 
@@ -1336,7 +1306,7 @@ pub unsafe extern "C" fn dav1d_pal_pred_8bpc_avx2(
                                  //                                                             lea r2, [pal_pred_avx2_table]
     let wl = tzcnt_p1(w); //                                       tzcnt wd, wm
                           //                                                             movifnidn hd, hm; movsxd wq, [r2+wq*4]; add wq, r2
-    let r2 = lea3_p1(stride); //                                        lea r2, [strideq*3]
+    let r2 = stride * 3; //                                        lea r2, [strideq*3]
     match wl {
         //                                                         jmp wq
         2 => pal_pred_8bpc_w4(m, dst, stride, r2, idx, h),
@@ -1344,7 +1314,7 @@ pub unsafe extern "C" fn dav1d_pal_pred_8bpc_avx2(
         4 => pal_pred_8bpc_w16(m, dst, stride, r2, idx, h),
         5 => pal_pred_8bpc_w32(m, dst, stride, idx, h),
         6 => pal_pred_8bpc_w64(m, dst, stride, idx, h),
-        _ => core::hint::unreachable_unchecked(), // outside the jump table (contract: 2..=6)
+        _ => unreachable!(), // outside the jump table (contract: 2..=6)
     }
 }
 
@@ -1467,29 +1437,10 @@ fn atc_p2(p: *const u8, off: isize) -> *const u8 {
     p.wrapping_offset(off)
 }
 
-/// `[base+label+off]`: `ro(label, off)` relative to `base`, the address of `RODATA` that `rodata_p2` returns.
+/// `[base+label+off]`: `ro(label, off)` relative to `base`, the address of `RODATA`.
 #[inline(always)]
 fn rob_p2(base: *const u8, label: usize, off: isize) -> *const u8 {
     base.wrapping_add(label).wrapping_offset(off)
-}
-
-/// The address of `RODATA` (the assembly's `base` register), hidden from the optimizer by `black_box`. With the
-/// address known, the compiler constant-folds the `pshufb` masks and rewrites `vbroadcasti128`/`vpbroadcastd` +
-/// `pshufb` into longer shuffle sequences (up to four instructions for two); through an opaque address the masks
-/// are loaded as in the assembly. Costs about four instructions per call, so smooth_v and smooth_h use it only in
-/// the paths where it saves more (smooth_v `.w16`, `.w64`, smooth_h `.w16`); smooth uses it throughout.
-#[inline(always)]
-fn rodata_p2() -> *const u8 {
-    core::hint::black_box(RODATA.0.as_ptr())
-}
-
-/// The count 8 for the `psrlw m, 8` of `SMOOTH_2D_END`, hidden from the optimizer by `black_box`. With an
-/// immediate count the compiler merges `pavgw` and `psrlw 8` into a 32-bit computation (`vpmovzxwd`, `vpaddd`,
-/// `vpsubd`, `vpsrld 9`, `vpackusdw`, `vpermq`: about 2.4 times the instructions); `vpsrlw m, m, xmm` with the
-/// count 8 gives the same words. Costs about two instructions per call.
-#[inline(always)]
-fn psrlw8_p2() -> __m128i {
-    unsafe { core::hint::black_box(_mm_cvtsi32_si128(8)) }
 }
 
 /// `SMOOTH src1, src2, mul1, mul2, add1, add2`.
@@ -1510,24 +1461,15 @@ unsafe fn smooth(m: &mut M, s1: usize, s2: usize, mu1: usize, mu2: usize, a1: us
 /// operand) are passed as values: no call site names `m0`/`m1`, the only registers the macro writes before it
 /// reads them.
 #[inline(always)]
-unsafe fn smooth_2d_end(
-    m: &mut M,
-    psrlw8: __m128i,
-    s1: usize,
-    s2: usize,
-    mu1: usize,
-    mu2: usize,
-    a1: __m256i,
-    a2: __m256i,
-) {
+unsafe fn smooth_2d_end(m: &mut M, s1: usize, s2: usize, mu1: usize, mu2: usize, a1: __m256i, a2: __m256i) {
     m[0] = _mm256_maddubs_epi16(m[mu1], m[s1]); // pmaddubsw m0, m%3, m%1
     m[1] = _mm256_maddubs_epi16(m[mu2], m[s2]); // pmaddubsw m1, m%4, m%2
     m[0] = _mm256_add_epi16(m[0], a1); // paddw m0, %5
     m[1] = _mm256_add_epi16(m[1], a2); // paddw m1, %6
     m[0] = _mm256_avg_epu16(m[0], m[2]); // pavgw m0, m2
     m[1] = _mm256_avg_epu16(m[1], m[3]); // pavgw m1, m3
-    m[0] = _mm256_srl_epi16(m[0], psrlw8); // psrlw m0, 8
-    m[1] = _mm256_srl_epi16(m[1], psrlw8); // psrlw m1, 8
+    m[0] = _mm256_srli_epi16::<8>(m[0]); // psrlw m0, 8
+    m[1] = _mm256_srli_epi16::<8>(m[1]); // psrlw m1, 8
     m[0] = _mm256_packus_epi16(m[0], m[1]); // packuswb m0, m1
 }
 
@@ -1547,7 +1489,6 @@ pub unsafe extern "C" fn dav1d_ipred_smooth_v_8bpc_avx2(
 ) {
     let m = &mut regs();
     let base = RODATA.0.as_ptr(); // lea r6, [ipred_smooth_v_avx2_table] (`base`: the address of RODATA)
-                                  // (`base` is made opaque only in the paths where that saves instructions; see `rodata_p2`)
     let tl = topleft as *mut u8;
     // tzcnt wd, wm (w is a power of two from 4 to 64, never zero)
     let w = (width as u32).trailing_zeros();
@@ -1664,8 +1605,7 @@ unsafe fn ipred_smooth_v_8bpc_w16(
     mut h: isize,
     weights: *const u8,
 ) {
-    let base = rodata_p2(); // (`base`, opaque in this path; see `rodata_p2`)
-                            // WIN64_SPILL_XMM 7
+    // WIN64_SPILL_XMM 7
     m[3] = vbroadcasti128_p2(at(tl, 1)); // vbroadcasti128 m3, [tlq+1]
     m[6] = movu_p2(rob_p2(base, ipred_v_shuf, 0)); // mova m6, [base+ipred_v_shuf]
     m[2] = _mm256_unpacklo_epi8(m[3], m[5]); // punpcklbw m2, m3, m5
@@ -1736,8 +1676,7 @@ unsafe fn ipred_smooth_v_8bpc_w64(
     mut h: isize,
     weights: *const u8,
 ) {
-    let base = rodata_p2(); // (`base`, opaque in this path; see `rodata_p2`)
-                            // WIN64_SPILL_XMM 11
+    // WIN64_SPILL_XMM 11
     m[4] = movu_p2(at(tl, 1)); // movu m4, [tlq+ 1]
     m[8] = movu_p2(at(tl, 33)); // movu m8, [tlq+33]
     m[3] = _mm256_unpacklo_epi8(m[4], m[5]); // punpcklbw m3, m4, m5
@@ -1785,9 +1724,18 @@ pub unsafe extern "C" fn dav1d_ipred_smooth_h_8bpc_avx2(
     _max_width: c_int,
     _max_height: c_int,
 ) {
+    // Not in the original: from 16 columns on the kernel loads `topleft[-64..-1]` whatever the height, before the
+    // array of an inter-intra edge (`edge + 32`); those calls run on a copy of the pixels the C kernel reads,
+    // `topleft[-height..=width]`, with zeros around them (`copy_edge`).
+    let mut edge: [u8; 257];
+    let topleft = if width >= 16 {
+        edge = [0; 257];
+        crate::simd::copy_edge(&mut edge, 128, topleft, -(height as isize), width as isize)
+    } else {
+        topleft
+    };
     let m = &mut regs();
     let base = RODATA.0.as_ptr(); // lea r5, [ipred_smooth_h_avx2_table] (`base`: the address of RODATA)
-                                  // (`base` is made opaque only in the paths where that saves instructions; see `rodata_p2`)
     let tl = topleft as *mut u8;
     let w = width as isize; // mov wd, wm
     m[3] = vpbroadcastb_p2(at(tl, w)); // vpbroadcastb m3, [tlq+wq] ; right
@@ -1920,9 +1868,8 @@ unsafe fn ipred_smooth_h_8bpc_w16(
     mut tl: *mut u8,
     mut h: isize,
 ) {
-    let base = rodata_p2(); // (`base`, opaque in this path; see `rodata_p2`)
-                            // ALLOC_STACK 32*4, 8: the frame. `ipred_smooth_h_8bpc_prep` writes all of its 128 bytes (four 32-byte
-                            // stores) before the loop below reads any of it, so it needs no initialization.
+    // ALLOC_STACK 32*4, 8: the frame. `ipred_smooth_h_8bpc_prep` writes all of its 128 bytes (four 32-byte
+    // stores) before the loop below reads any of it, so it needs no initialization.
     let mut frame = core::mem::MaybeUninit::<[__m256i; 4]>::uninit();
     let rsp = frame.as_mut_ptr() as *mut u8;
     let mut r3 = at(rsp, 64 * 2 - 4); // lea r3, [rsp+64*2-4]
@@ -2075,8 +2022,18 @@ pub unsafe extern "C" fn dav1d_ipred_smooth_8bpc_avx2(
     _max_width: c_int,
     _max_height: c_int,
 ) {
+    // Not in the original: from 16 columns on the kernel loads `topleft[-64..-1]` whatever the height, before the
+    // array of an inter-intra edge (`edge + 32`); those calls run on a copy of the pixels the C kernel reads,
+    // `topleft[-height..=width]`, with zeros around them (`copy_edge`).
+    let mut edge: [u8; 257];
+    let topleft = if width >= 16 {
+        edge = [0; 257];
+        crate::simd::copy_edge(&mut edge, 128, topleft, -(height as isize), width as isize)
+    } else {
+        topleft
+    };
     let m = &mut regs();
-    let base = rodata_p2(); // lea r6, [ipred_smooth_avx2_table] (`base`: the address of RODATA)
+    let base = RODATA.0.as_ptr(); // lea r6, [ipred_smooth_avx2_table] (`base`: the address of RODATA)
     let tl = topleft as *mut u8;
     let w = width as isize; // mov wd, wm
     m[4] = vpbroadcastb_p2(at(tl, w)); // vpbroadcastb m4, [tlq+wq] ; right
@@ -2123,7 +2080,6 @@ unsafe fn ipred_smooth_8bpc_w4(
     m[9] = _mm256_maddubs_epi16(m[8], m[5]); // pmaddubsw m9, m8, m5
     m[3] = _mm256_add_epi16(m[3], m[8]); // paddw m3, m8 ;   1 * top + 255 * bottom + 255
     m[9] = _mm256_add_epi16(m[9], m[3]); // paddw m9, m3 ; 128 * top + 129 * bottom + 255
-    let psrlw8 = psrlw8_p2(); // the count of `psrlw m, 8` in SMOOTH_2D_END
     loop {
         // .w4_loop:
         m[1] = vpbroadcastq_p2(at(tl, h)); // vpbroadcastq m1, [tlq+hq]
@@ -2142,7 +2098,7 @@ unsafe fn ipred_smooth_8bpc_w4(
         v_weights = atc_p2(v_weights, 16); // add v_weightsq, 16
         m[0] = _mm256_shuffle_epi8(m[1], m[6]); // pshufb m0, m1, m6
         m[1] = _mm256_shuffle_epi8(m[1], m[7]); // pshufb m1, m7
-        smooth_2d_end(m, psrlw8, 0, 1, 8, 8, m[9], m[9]); // SMOOTH_2D_END 0, 1, 8, 8, 9, 9
+        smooth_2d_end(m, 0, 1, 8, 8, m[9], m[9]); // SMOOTH_2D_END 0, 1, 8, 8, 9, 9
         m[1] = zx(_mm256_extracti128_si256::<1>(m[0])); // vextracti128 xm1, m0, 1
         movd_st_p2(at(dst, 0), lo(m[0])); // movd [dstq+strideq*0], xm0
         movd_st_p2(at(dst, stride), lo(m[1])); // movd [dstq+strideq*1], xm1
@@ -2189,7 +2145,6 @@ unsafe fn ipred_smooth_8bpc_w8(
     m[9] = _mm256_maddubs_epi16(m[8], m[5]); // pmaddubsw m9, m8, m5
     m[3] = _mm256_add_epi16(m[3], m[8]); // paddw m3, m8
     m[9] = _mm256_add_epi16(m[9], m[3]); // paddw m9, m3
-    let psrlw8 = psrlw8_p2(); // the count of `psrlw m, 8` in SMOOTH_2D_END
     loop {
         // .w8_loop:
         m[1] = vpbroadcastd_p2(at(tl, h)); // vpbroadcastd m1, [tlq+hq]
@@ -2208,7 +2163,7 @@ unsafe fn ipred_smooth_8bpc_w8(
         v_weights = atc_p2(v_weights, 8); // add v_weightsq, 8
         m[0] = _mm256_shuffle_epi8(m[1], m[6]); // pshufb m0, m1, m6
         m[1] = _mm256_shuffle_epi8(m[1], m[7]); // pshufb m1, m7
-        smooth_2d_end(m, psrlw8, 0, 1, 8, 8, m[9], m[9]); // SMOOTH_2D_END 0, 1, 8, 8, 9, 9
+        smooth_2d_end(m, 0, 1, 8, 8, m[9], m[9]); // SMOOTH_2D_END 0, 1, 8, 8, 9, 9
         m[1] = zx(_mm256_extracti128_si256::<1>(m[0])); // vextracti128 xm1, m0, 1
         movq_st_p2(at(dst, 0), lo(m[0])); // movq [dstq+strideq*0], xm0
         movq_st_p2(at(dst, stride), lo(m[1])); // movq [dstq+strideq*1], xm1
@@ -2254,7 +2209,6 @@ unsafe fn ipred_smooth_8bpc_w16(
     m[3] = _mm256_add_epi16(m[3], m[11]); // paddw m3, m11
     m[12] = _mm256_add_epi16(m[12], m[0]); // paddw m12, m0
     m[13] = _mm256_add_epi16(m[13], m[3]); // paddw m13, m3
-    let psrlw8 = psrlw8_p2(); // the count of `psrlw m, 8` in SMOOTH_2D_END
     loop {
         // .w16_loop:
         m[3] = vpbroadcastd_p2(at(tl, h)); // vpbroadcastd m3, [tlq+hq]
@@ -2269,7 +2223,7 @@ unsafe fn ipred_smooth_8bpc_w16(
         m[1] = _mm256_shuffle_epi8(m[1], m[9]); // pshufb m1, m9
         m[2] = _mm256_add_epi16(m[2], m[0]); // paddw m2, m0
         m[3] = _mm256_add_epi16(m[3], m[0]); // paddw m3, m0
-        smooth_2d_end(m, psrlw8, 1, 1, 10, 11, m[12], m[13]); // SMOOTH_2D_END 1, 1, 10, 11, 12, 13
+        smooth_2d_end(m, 1, 1, 10, 11, m[12], m[13]); // SMOOTH_2D_END 1, 1, 10, 11, 12, 13
         movx_st_p2(at(dst, 0), lo(m[0])); // mova [dstq+strideq*0], xm0
         vextracti128_st_p2(at(dst, stride), m[0]); // vextracti128 [dstq+strideq*1], m0, 1
         dst = at(dst, stride * 2); // lea dstq, [dstq+strideq*2]
@@ -2310,7 +2264,6 @@ unsafe fn ipred_smooth_8bpc_w32(
     m[3] = _mm256_add_epi16(m[3], m[8]); // paddw m3, m8
     m[9] = _mm256_add_epi16(m[9], m[0]); // paddw m9, m0
     m[10] = _mm256_add_epi16(m[10], m[3]); // paddw m10, m3
-    let psrlw8 = psrlw8_p2(); // the count of `psrlw m, 8` in SMOOTH_2D_END
     loop {
         // .w32_loop:
         m[3] = vpbroadcastb_p2(at(tl, h)); // vpbroadcastb m3, [tlq+hq]
@@ -2322,7 +2275,7 @@ unsafe fn ipred_smooth_8bpc_w32(
         m[3] = _mm256_maddubs_epi16(m[3], m[6]); // pmaddubsw m3, m6
         m[2] = _mm256_add_epi16(m[2], m[0]); // paddw m2, m0
         m[3] = _mm256_add_epi16(m[3], m[0]); // paddw m3, m0
-        smooth_2d_end(m, psrlw8, 1, 1, 7, 8, m[9], m[10]); // SMOOTH_2D_END 1, 1, 7, 8, 9, 10
+        smooth_2d_end(m, 1, 1, 7, 8, m[9], m[10]); // SMOOTH_2D_END 1, 1, 7, 8, 9, 10
         movu_st_p2(dst, m[0]); // mova [dstq], m0
         dst = at(dst, stride); // add dstq, strideq
         h -= 1; // dec hd
@@ -2383,7 +2336,6 @@ unsafe fn ipred_smooth_8bpc_w64(
     _mm256_store_si256(at(r6, 32 * 1) as *mut __m256i, m[1]); // mova [r6+32*1], m1
     _mm256_store_si256(at(r6, 32 * 2) as *mut __m256i, m[2]); // mova [r6+32*2], m2
     _mm256_store_si256(at(r6, 32 * 3) as *mut __m256i, m[3]); // mova [r6+32*3], m3
-    let psrlw8 = psrlw8_p2(); // the count of `psrlw m, 8` in SMOOTH_2D_END
     loop {
         // .w64_loop:
         m[5] = vpbroadcastb_p2(at(tl, h)); // vpbroadcastb m5, [tlq+hq]
@@ -2397,7 +2349,7 @@ unsafe fn ipred_smooth_8bpc_w64(
         m[3] = _mm256_add_epi16(m[3], m[6]); // paddw m3, m6
         let a5 = _mm256_load_si256(at(r6, 32 * 0) as *const __m256i); // [r6+32*0]
         let a6 = _mm256_load_si256(at(r6, 32 * 1) as *const __m256i); // [r6+32*1]
-        smooth_2d_end(m, psrlw8, 7, 7, 12, 13, a5, a6); // SMOOTH_2D_END 7, 7, 12, 13, [r6+32*0], [r6+32*1]
+        smooth_2d_end(m, 7, 7, 12, 13, a5, a6); // SMOOTH_2D_END 7, 7, 12, 13, [r6+32*0], [r6+32*1]
         movu_st_p2(at(dst, 32 * 0), m[0]); // mova [dstq+32*0], m0
         m[2] = _mm256_maddubs_epi16(m[5], m[10]); // pmaddubsw m2, m5, m10
         m[3] = _mm256_maddubs_epi16(m[5], m[11]); // pmaddubsw m3, m5, m11
@@ -2405,7 +2357,7 @@ unsafe fn ipred_smooth_8bpc_w64(
         m[3] = _mm256_add_epi16(m[3], m[6]); // paddw m3, m6
         let a5 = _mm256_load_si256(at(r6, 32 * 2) as *const __m256i); // [r6+32*2]
         let a6 = _mm256_load_si256(at(r6, 32 * 3) as *const __m256i); // [r6+32*3]
-        smooth_2d_end(m, psrlw8, 7, 7, 14, 15, a5, a6); // SMOOTH_2D_END 7, 7, 14, 15, [r6+32*2], [r6+32*3]
+        smooth_2d_end(m, 7, 7, 14, 15, a5, a6); // SMOOTH_2D_END 7, 7, 14, 15, [r6+32*2], [r6+32*3]
         movu_st_p2(at(dst, 32 * 1), m[0]); // mova [dstq+32*1], m0
         dst = at(dst, stride); // add dstq, strideq
         h -= 1; // dec hd
@@ -3633,6 +3585,10 @@ pub unsafe extern "C" fn dav1d_ipred_z1_8bpc_avx2(
     _max_width: c_int,
     _max_height: c_int,
 ) {
+    // Not in the original: the kernel loads up to `tl[198]`, behind the caller's array; it runs on a copy of the
+    // pixels the C kernel reads, `tl[0..=w+h]`, with zeros around them (`copy_edge`).
+    let mut edge = [0u8; 64 + 256];
+    let tl = crate::simd::copy_edge(&mut edge, 64, tl, 0, (w + h) as isize);
     let mut m = regs();
     let m = &mut m;
     // lea r6, [ipred_z1_avx2_table]
@@ -3826,34 +3782,6 @@ fn popcnt_p4(x: i32) -> i32 {
     x.count_ones() as i32
 }
 
-/// Not in the assembly: called once the frame is written whole, it hands the frame's address to an opaque hint,
-/// so that the compiler does not forward the copy of the edge into narrowed loads of `tl` that it schedules before
-/// the jump table (about 17 instructions on every call). The frame keeps being addressed through the original
-/// pointer (`rsp`-relative). No effect on any value.
-#[inline(always)]
-fn barrier_p4(fp: *mut u8) {
-    core::hint::black_box(fp);
-}
-
-/// Not in the assembly: hands the x position to an opaque hint at the head of a row loop and takes it back
-/// unchanged (a store and a reload). The assembly computes the positions of a loop pass as a chain of `lea`s from
-/// `r2`; without the hint the compiler's loop strength reduction turns the chain into separate induction variables
-/// with `2*dx`/`3*dx` held in registers, runs out of general-purpose registers and spills and shuffles them
-/// (counted in the `.w4_loop`/`.w16_loop` disassembly). No effect on any value.
-#[inline(always)]
-fn opaque_p4<T>(x: T) -> T {
-    core::hint::black_box(x)
-}
-
-/// Not in the assembly: an empty compiler barrier (`black_box(())` is an empty block that may write memory: no
-/// instruction). Placed before the assembly reloads a value it stored to its frame, so that the compiler reloads
-/// it as well instead of keeping the value in a register across the loop, where it would have to spill it to a
-/// slot of its own. No effect on any value.
-#[inline(always)]
-fn reload_p4() {
-    core::hint::black_box(());
-}
-
 /// `ipred_z2_8bpc` (`ipred_avx2.asm` lines 2132–2986).
 #[target_feature(enable = "avx2")]
 pub unsafe extern "C" fn dav1d_ipred_z2_8bpc_avx2(
@@ -3911,7 +3839,6 @@ pub unsafe extern "C" fn dav1d_ipred_z2_8bpc_avx2(
     st256_p4(at(fp, 0), m[2]); // mova [rsp+ 0], m2
     st256_p4(at(fp, 32), m[0]); // mova [rsp+32], m0
     st256_p4(at(fp, 64), m[1]); // mova [rsp+64], m1
-    barrier_p4(fp); // (not in the assembly)
     g.dx = -g.dx; // neg dxd
     g.dy = -g.dy; // neg dyd
     match w {
@@ -4165,7 +4092,6 @@ unsafe fn ipred_z2_8bpc_w4_main(m: &mut M, g: &mut GprP4) {
     m[5] = _mm256_broadcastq_epi64(lo(m[5])); // vpbroadcastq m5, xm5
     loop {
         // .w4_loop:
-        g.r2 = opaque_p4(g.r2); // (not in the assembly: keeps the chain of leas, see opaque_p4)
         g.r3 = g.r2 + g.dx; // lea r3d, [r2+dxq]
         g.r2 = ((g.r2 as u32) >> 6) as i32; // shr r2d, 6 ; base_x0
         m[1] = _mm256_set1_epi64x(rd64_p4(at(fp, g.r2 as isize))); // vpbroadcastq m1, [rsp+r2]
@@ -4699,7 +4625,6 @@ unsafe fn ipred_z2_8bpc_w16_main(m: &mut M, g: &mut GprP4) {
         'w16_end: {
             loop {
                 // .w16_loop:
-                g.r2 = opaque_p4(g.r2); // (not in the assembly: keeps the chain of leas, see opaque_p4)
                 g.r3 = g.r2 + g.dx; // lea r3d, [r2+dxq]
                 g.r2 = ((g.r2 as u32) >> 6) as i32; // shr r2d, 6 ; base_x0
                 m[0] = zx(ld128_p4(at(fp, g.r2 as isize))); // movu xm0, [rsp+r2]
@@ -4760,9 +4685,6 @@ unsafe fn ipred_z2_8bpc_w16_main(m: &mut M, g: &mut GprP4) {
                     break; // cmp r2d, (63-16)<<6 ; jge .w16_loop
                 }
             }
-            // (not in the assembly: see opaque_p4; without it the compiler keeps the forms of dst and r5 that this
-            // loop uses as extra induction variables of .w16_loop)
-            (g.dst, g.r5) = opaque_p4((g.dst, g.r5));
             loop {
                 // .w16_leftonly_loop:
                 // Every column of these rows uses the left edge (base_x < 0): all lanes are gathered.
@@ -4791,7 +4713,6 @@ unsafe fn ipred_z2_8bpc_w16_main(m: &mut M, g: &mut GprP4) {
             }
         }
         // .w16_end:
-        reload_p4(); // (not in the assembly: [rsp+156], [rsp+160] and [rsp+192] are reloaded, see reload_p4)
         g.r8 -= 1 << 8; // sub r8d, 1<<8
         if g.r8 < 0 {
             return; // jl .w16_ret ; RET
@@ -5015,6 +4936,10 @@ pub unsafe extern "C" fn dav1d_ipred_z3_8bpc_avx2(
     _max_width: c_int,
     _max_height: c_int,
 ) {
+    // Not in the original: the kernel loads down to `topleft[-191]`, before the caller's array; it runs on a copy
+    // of the pixels the C kernel reads, `topleft[-(width+height)..=0]`, with zeros around them (`copy_edge`).
+    let mut edge = [0u8; 256 + 64];
+    let topleft = crate::simd::copy_edge(&mut edge, 256, topleft, -((width + height) as isize), 0);
     let mut m = regs();
     let m = &mut m;
     // lea r6, [ipred_z3_avx2_table]
@@ -5178,7 +5103,7 @@ unsafe fn ipred_z3_8bpc_h4_no_upsample(
     // the edge is filtered into it: `.h4_main` loads 8 bytes at tl-4-base with tl = rsp+15 and base from 0
     // (rsp+11..rsp+18) to at most 63 (rsp-52; 4*dy >> 6 in the first iteration, dy <= 1023; later iterations
     // run only while their first base is below maxbase <= 9). The lanes outside the frame are blended away.
-    let mut frame = core::mem::MaybeUninit::<[__m256i; 4]>::uninit();
+    let mut frame: [__m256i; 4];
     let mut maxbase: i64 = 7; // mov maxbased, 7
     if angle & 0x400 == 0 {
         // test angled, 0x400 / jnz .h4_main ; !enable_intra_edge_filter
@@ -5187,7 +5112,8 @@ unsafe fn ipred_z3_8bpc_h4_no_upsample(
         maxbase = 7; // mov maxbased, 7
         if r5 != 0 {
             // test r5d, r5d / jz .h4_main ; filter_strength == 0
-            let rsp = super::util::zeroed(&mut frame).cast::<u8>().add(64);
+            frame = [_mm256_setzero_si256(); 4];
+            let rsp = frame.as_mut_ptr().cast::<u8>().add(64);
             r5 = r5.count_ones(); // popcnt r5d, r5d
             let k = r5 as isize * 4 - 4; // z_filter_k-4+r5*4 (r5 is 1..=3)
             m[7] = bcd_p5(ro(ipred_h_shuf, 0)); // vpbroadcastd m7, [base+pb_7]
@@ -5295,11 +5221,7 @@ unsafe fn ipred_z3_8bpc_h4_main(
         }
     }
     m[7] = zx(_mm_packus_epi16(lo(m[7]), lo(m[7]))); // packuswb xm7, xm7
-                                                     // Not in the original: without this barrier the compiler carries the end loop's row pointers (dst +
-                                                     // stride*1..3, advanced by 4) and its trip count through every iteration of `.h4_loop`, which then spills
-                                                     // `w` and `tl` (about 20 instructions per iteration more than the assembly's). One store and one load, only
-                                                     // on the way into the end loop.
-    let mut dst = core::hint::black_box(dst);
+    let mut dst = dst;
     loop {
         // .h4_end_loop:
         let x = _mm_cvtsi128_si32(lo(m[7]));
@@ -5446,7 +5368,7 @@ unsafe fn ipred_z3_8bpc_h8_no_upsample(
     // the edge is filtered into it (rsp+14..rsp+32 written): `.h8_main` loads 16 bytes at tl-8-base with
     // tl = rsp+31 and base from 0 (up to rsp+38) to at most 32 (rsp-9; 2*dy >> 6 in the first iteration, later
     // the first base of an iteration is below maxbase <= 17). The lanes outside the written bytes are blended away.
-    let mut frame = core::mem::MaybeUninit::<[__m256i; 4]>::uninit();
+    let mut frame: [__m256i; 4];
     let mut maxbase = w + 7; // lea maxbased, [wq+7]
     if angle & 0x400 != 0 {
         // test angled, 0x400 / jnz .h8_no_intra_edge_filter
@@ -5458,7 +5380,8 @@ unsafe fn ipred_z3_8bpc_h8_no_upsample(
         let mut r5 = ipred_z3_8bpc_filter_strength(m, maxbase, &mut angle); // call .filter_strength
         if r5 != 0 {
             // test r5d, r5d / jz .h8_main ; filter_strength == 0
-            let rsp = super::util::zeroed(&mut frame).cast::<u8>().add(64);
+            frame = [_mm256_setzero_si256(); 4];
+            let rsp = frame.as_mut_ptr().cast::<u8>().add(64);
             r5 = r5.count_ones(); // popcnt r5d, r5d
             let k = r5 as isize * 4 - 4; // z_filter_k-4+r5*4 (r5 is 1..=3)
             m[6] = zx(_mm256_castsi256_si128(bcd_p5(ro(dav1d_z_filter_s, 32)))); // vpbroadcastd xm6, [base+pb_15]
@@ -5667,7 +5590,7 @@ unsafe fn ipred_z3_8bpc_h16(
     // tl-16-base with tl = rsp+63 and base from 0 (up to rsp+71) to at most 48 (rsp-1; 2*dy >> 6 in the first
     // iteration, later the first base of an iteration is below maxbase <= 33). The lanes outside the written
     // bytes are blended away.
-    let mut frame = core::mem::MaybeUninit::<[__m256i; 5]>::uninit();
+    let mut frame: [__m256i; 5];
     let mut maxbase = w + 15; // lea maxbased, [wq+15]
     if angle & 0x400 != 0 {
         // test angled, 0x400 / jnz .h16_no_intra_edge_filter
@@ -5679,7 +5602,8 @@ unsafe fn ipred_z3_8bpc_h16(
         let mut r5 = ipred_z3_8bpc_filter_strength(m, maxbase, &mut angle); // call .filter_strength
         if r5 != 0 {
             // test r5d, r5d / jz .h16_main ; filter_strength == 0
-            let rsp = super::util::zeroed(&mut frame).cast::<u8>().add(64);
+            frame = [_mm256_setzero_si256(); 5];
+            let rsp = frame.as_mut_ptr().cast::<u8>().add(64);
             r5 = r5.count_ones(); // popcnt r5d, r5d
             let k = r5 as isize * 4 - 4; // z_filter_k-4+r5*4 (r5 is 1..=3)
             m[11] = bcd_p5(ro(z2_y_shuf_h4, 8)); // vpbroadcastd m11, [base+pb_27]
@@ -5939,13 +5863,14 @@ unsafe fn ipred_z3_8bpc_h32(
     // the edge is filtered into it (rsp+30..rsp+96 written): `.h32_main` loads 16 bytes at tl-8-base-{0,8,16,24}
     // with tl = rsp+95 and base from 0 (up to rsp+103) to at most 64 (rsp-1; dy >> 6 <= 15 in the first
     // iteration, later the base is below maxbase <= 65). The lanes outside the written bytes are blended away.
-    let mut frame = core::mem::MaybeUninit::<[__m256i; 6]>::uninit();
+    let mut frame: [__m256i; 6];
     let mut maxbase = w + 31; // lea maxbased, [wq+31]
     maxbase &= 31; // and maxbased, 31
     maxbase |= 32; // or maxbased, 32 ; imin(w+31, 63)
     if angle & 0x400 == 0 {
         // test angled, 0x400 / jnz .h32_main ; !enable_intra_edge_filter
-        let rsp = super::util::zeroed(&mut frame).cast::<u8>().add(64);
+        frame = [_mm256_setzero_si256(); 6];
+        let rsp = frame.as_mut_ptr().cast::<u8>().add(64);
         m[0] = bci_p5(ro(cfl_ac_w16_pad_shuffle, 0), 0); // vbroadcasti128 m0, [pb_0to15]
         let mut r4 = 21i32; // mov r4d, 21
         let mut r5 = 3i32; // mov r5d, 3
@@ -6230,11 +6155,12 @@ unsafe fn ipred_z3_8bpc_h64(
     // tl-base-{24,32,56,64} with tl = rsp+127 and base from 0 (up to rsp+135) to at most 126 (rsp-63; dy >> 6
     // <= 15 in the first iteration, later the base is below maxbase = w+63 <= 127). The lanes outside the
     // frame are blended away.
-    let mut frame = core::mem::MaybeUninit::<[__m256i; 7]>::uninit();
+    let mut frame: [__m256i; 7];
     let maxbase = w + 63; // lea maxbased, [wq+63]
     if angle & 0x400 == 0 {
         // test angled, 0x400 / jnz .h64_main ; !enable_intra_edge_filter
-        let rsp = super::util::zeroed(&mut frame).cast::<u8>().add(64);
+        frame = [_mm256_setzero_si256(); 7];
+        let rsp = frame.as_mut_ptr().cast::<u8>().add(64);
         let mut r4 = 21i32; // mov r4d, 21
         m[11] = zx(_mm_set1_epi8(*tl.wrapping_offset(-127) as i8)); // vpbroadcastb xm11, [tlq-127]
         m[11] = zx(_mm_blend_epi32::<0x0e>(lo(m[11]), ld16_p5(tl, -130))); // vpblendd xm11, [tlq-130], 0x0e ; 120-127
