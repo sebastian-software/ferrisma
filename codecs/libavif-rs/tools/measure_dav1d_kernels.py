@@ -126,13 +126,13 @@ def rebuilt_kernels(bpc=8):
 
     The mirror is simd/arm/itx.rs (8 and 16 bpc) or, on x86-64, simd/x86/itx.rs: its `assign_wht` and
     `assign(t, <size>, <slots>)` calls follow the original's `assign_itx*_fn` statements, the slot lists are in
-    simd/itx/mod.rs. Each row is named after the original's kernel for that slot, with the bit depth it is for
+    crates/dav1d-kernels/src/itx/mod.rs. Each row is named after the original's kernel for that slot, with the bit depth it is for
     (8, 10 or 12 on x86-64, 8 or 16 on AArch64; WHT is `_16bpc` and assigned at 10 and at 12 bits)."""
     simd = ROOT / 'crates/dav1d/src/simd'
     text = (simd / f'{"x86" if X86 else "arm"}/itx.rs').read_text()
     slot_lists = {name: re.findall(r'\b[A-Z_]+\b', body) for name, body in
                   re.findall(r'pub const (ITX\d+|IDENTITY): &\[usize\] = &\[(.*?)\];',
-                             (simd / 'itx/mod.rs').read_text(), re.S)}
+                             (ROOT / 'crates/dav1d-kernels/src/itx/mod.rs').read_text(), re.S)}
     arch = 'x86' if X86 else 'arm'
     body = text.split(f'pub unsafe fn itx_dsp_init_{arch}_{8 if bpc == 8 else 16}bpc')[1].split('\n}\n')[0]
     if X86 and bpc != 8:
