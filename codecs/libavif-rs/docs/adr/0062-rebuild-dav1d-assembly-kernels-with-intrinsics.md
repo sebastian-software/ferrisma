@@ -1,6 +1,8 @@
 # Rebuild dav1d's assembly kernels with intrinsics
 
-- **Status:** Accepted (infrastructure and the first itx slice on AArch64 NEON)
+- **Status:** Accepted (infrastructure and the first itx slice on AArch64 NEON;
+  amended 2026-11-20: CDEF and the inverse transforms are written from the
+  algorithm on `fearless_simd`, see "Kernels written from the algorithm")
 - **Date:** 2026-11-16
 - **Source:** owner decision of 2026-11-16 (engine
   [ADR-0031](../../../../docs/adr/0031-workspace-libavif-input-experiment.md),
@@ -201,6 +203,38 @@ justifies such code. The assembly-shaped structure of the kernels
 arrays, emulated frames and the wrapping pointer steps that come with
 them) is not changed by this amendment; whether it stays is a separate
 decision.
+
+**Kernels written from the algorithm** (amended 2026-11-20; owner
+decision of 2026-11-20). CDEF and the inverse transforms are no longer
+rebuilt from the assembly: they are written from the C original
+(`cdef_tmpl.c`; `itx_tmpl.c`, `itx_1d.c`) on the portable vector types of
+the `fearless_simd` crate (1.2.0, Apache-2.0 OR MIT, no dependencies of its
+own), one implementation per family for NEON on AArch64 and the library's
+`Avx2` level on x86-64, in `simd/cdef/` and `simd/itx/`. They replace the
+1:1 ports of `cdef.S`, `cdef16.S`, `itx.S`, `itx16.S`, `cdef_avx2.asm`,
+`cdef16_avx2.asm`, `itx_avx2.asm` and `itx16_avx2.asm` (removed with this
+amendment, about 34,800 lines with 1,135 `unsafe`; the kernels written
+from the algorithm are about 3,100 lines with 31, at the DSP-table
+boundary and the level token), and the pilot switches (`--cfg dav1d_cdef_pilot`, `--cfg
+dav1d_itx_pilot`, `DAV1D_CDEF_PILOT`, `DAV1D_ITX_PILOT`) and the pilot's
+other CDEF variants (autovectorized, `core::arch` per architecture) are
+gone: the crate has one SIMD implementation per job. The init mirrors
+(`simd/{arm,x86}/{cdef,itx}.rs`) keep the original's selection under its
+CPU flags statement by statement and fill exactly the slots where the
+original assigns its NEON or AVX2 kernels (itx: one `Kernels::assign` call
+per `assign_itx*_fn` statement of the header); the C kernels,
+`dav1d_set_cpu_flags_mask(0)` and the scalar gate are unchanged. The
+numerics follow engine ADR-0041 (amendment of 2026-11-18): a kernel written
+from the algorithm gives the original's SIMD output on conformant input
+and its C output on any input, which the unit tests check against the
+translated C over the whole `int16_t` coefficient range (inverse
+transforms) and checkasm's inputs (CDEF). `fearless_simd`'s `Avx2` level
+needs x86-64-v3 (AVX2, BMI1/2, F16C, FMA, LZCNT, MOVBE, …), a little more
+than dav1d's AVX2 flag (AVX2, BMI1/2 and the OS's YMM state): on a CPU with
+the flag but without that level these two families keep the C kernels (and
+`all_simd` 0), where the removed ports ran; no other family changes. The
+"Kernels" paragraph above stays for the other families; whether they move
+to the same form is a separate decision.
 
 **Gate (engine ADR-0041, ADR-0044 D2).**
 
@@ -2005,14 +2039,66 @@ the 16 bpc z3 frames' lazy `write_bytes` zeroing and the two-stride
 64-column store functions of the NEON 16 bpc DC/V paths (ordinary code,
 kept).
 
+**2026-11-20, CDEF and the inverse transforms written from the algorithm
+are the shipped kernels** (decision paragraph "Kernels written from the
+algorithm"; branch `v1/dav1d-kernel-rollout` from the itx pilot `60ed3a09`
+merged with `main` at `61e20ecf`; evidence in the coordination directory,
+`evidence/dav1d-kernel-rollout/`). The slot sets of the new init mirrors
+equal those of the removed per-slot assignments in all six init branches
+(ARM 8 bpc and 10 bits 156 each, WHT only at 12 bits; x86-64 8 bpc and 10
+bits 156, 12 bits 148), checked by the conversion and by the selection
+tests. Gates, on macOS ARM64 natively and on x86-64 in the Rosetta
+container (both at the default level, no `RUSTFLAGS`, no environment
+selection):
+
+| Check | ARM64 (NEON) | x86-64 (AVX2) |
+| --- | --- | --- |
+| `cargo test -p libavif-dav1d --release --lib simd` | 24 passed | 20 passed |
+| `check_dav1d_dsp.py --simd neon\|avx2` / scalar | 17 groups x 3,155 selections x 11 seeds, pass / pass | same, pass / pass |
+| checkasm `itx_8bpc`, `itx_16bpc`, `cdef_8bpc`, `cdef_16bpc` alone, seeds 1-100 | 400 of 400 | 400 of 400 |
+| `check_dav1d_simd_original.py --level neon\|avx2` and `--level scalar` (994 decodes with the six profiling stills) | 994 / 994 identical | 994 / 994 identical |
+| `run_dav1d_tests.py` (release) | 1,711 of 1,711 | 1,711 of 1,711 |
+| `check_dav1d_abi.py`, `check_dav1d_api.py`, `check_dav1d_linkage.py` | 12,157 checks 0 differences; 83; pass | not run (rustc killed for memory in the 8 GB VM); 83; pass |
+| `cargo xtask codecs --codec avif --stage pr` | pass | in hosted CI |
+
+Instructions per call against the original's assembly
+(`measure_dav1d_kernels.py`, identical outputs; geometric mean, range):
+ARM64 CDEF 1.45 (1.01-2.24), itx 8 bpc 2.86 (1.34-6.59), 16 bpc 2.64
+(1.18-7.14); x86-64 CDEF 2.67 (2.04-3.74), itx 8 bpc 3.85 (2.51-11.18),
+10 bits 3.52 (2.12-13.20), 12 bits 3.04 (1.87-13.31). Instructions per
+decode, one thread (old port with the removed ports → this branch; stock
+dav1d with its assembly at the same level), pictures identical:
+
+| Still | ARM64 | x86-64 (Callgrind) |
+| --- | --- | --- |
+| 8-bit 4:4:4 q60 | 1.627 → 1.840 G (+13.1 %; stock 1.483) | 1.653 → 1.875 G (+13.5 %; stock 1.485) |
+| 8-bit 4:2:0 q60 | 1.294 → 1.426 G (+10.2 %; 1.170) | 1.354 → 1.499 G (+10.7 %; 1.199) |
+| 10-bit 4:4:4 q60 | 2.214 → 2.460 G (+11.1 %; 2.080) | 2.241 → 2.468 G (+10.1 %; 2.045) |
+| 10-bit 4:2:0 q60 | 1.659 → 1.817 G (+9.5 %; 1.524) | 1.718 → 1.874 G (+9.1 %; 1.539) |
+| 8-bit 4:4:4 lossless | 10.690 → 10.726 G (+0.3 %; 9.537) | 12.322 → 12.656 G (+2.7 %; 10.500) |
+
+The port now runs 1.18 to 1.24 (ARM64) and 1.21 to 1.26 (x86-64) times
+stock dav1d's instructions on the q60 stills, from 1.06 to 1.13; the cost
+is accepted by the owner decision (optimization later). The cdylib grows
+from 2,177,616 to 3,217,008 bytes on ARM64 (+1.04 MB) and from 3,075,488
+to 3,965,800 bytes on x86-64 (+0.89 MB): the generic kernels are
+instantiated per block size and transform type. Removed: the eight ported
+kernel files (34,784 lines, 1,135 `unsafe`), the pilot's CDEF variants v1
+and v3, the switches; `simd/cdef/` and `simd/itx/` hold 3,135 lines (31
+`unsafe`, all in the two `mod.rs` boundaries and `cdef/kernels.rs`'s level
+token) and 348 lines of tests.
+
 ## Review when
 
-A family is completed on a target; the x86-64 AVX2 kernels arrive; the owner
+`fearless_simd` changes its levels or is updated past 1.2.0 (the pin is
+exact); a further family moves to kernels written from the algorithm; a
+family is completed on a target; the x86-64 AVX2 kernels arrive; the owner
 reopens the SSSE3/SSE4.1 gap or the AVX-512 scope; dav1d is updated; or the
 engine's decoder choice changes.
 
 ## Amendment log
 
+- 2026-11-20 — CDEF and the inverse transforms written from the algorithm on `fearless_simd` are the shipped kernels on NEON and AVX2; the 1:1 ports of their assembly and the pilot switches removed (decision paragraph "Kernels written from the algorithm" and validation above).
 - 2026-11-19 — plain Rust, no codegen steering (owner principle of 2026-11-18): the compiler tricks removed, the edge reads kept inside the caller's array, the rule "no `call` in an entry point" withdrawn and the per-call ratio a measurement, not a target (decision paragraph and validation above).
 - 2026-11-18 — intra prediction on AVX2, 8 and 16 bpc (validation above).
 - 2026-11-18 — CDEF on AVX2, 8 and 16 bpc; the instructions per decode by family on x86-64 (validation above).

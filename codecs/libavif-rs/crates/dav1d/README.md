@@ -48,18 +48,23 @@ missing stack-buffer alignment.
   fuzz regressions and bounded original tests do not establish continuous
   fuzzing.
 
-## Kernels rebuilt from the assembly
+## SIMD kernels
 
 dav1d's speed is in its assembly, which this crate does not contain. Under
-engine ADR-0044 D2 the kernels are rebuilt with `core::arch` intrinsics in
-`src/simd/` and dispatched by `tools/enable_dav1d_dispatch.py` (list in
-`dispatch.txt`): libavif-rs ADR 0062. Gates: `tools/check_dav1d_dsp.py --simd
+engine ADR-0044 D2 the kernels live in `src/simd/` and are dispatched by
+`tools/enable_dav1d_dispatch.py` (list in `dispatch.txt`): libavif-rs ADR
+0062. CDEF and the inverse transforms are written from the C algorithm on
+the portable vector types of `fearless_simd` (`src/simd/cdef/`,
+`src/simd/itx/`, one implementation for NEON and AVX2); the entropy decoder
+(msac), the loop filter, intra prediction and loop restoration are rebuilt
+from the assembly with `core::arch` intrinsics. Covered: AArch64 NEON (all
+of them, 8 and 16 bpc) and x86-64 AVX2 (all but loop restoration); below
+AVX2, and for CDEF and the inverse transforms on an AVX2 CPU without
+x86-64-v3, the C kernels run. Gates: `tools/check_dav1d_dsp.py --simd
 neon|avx2` (original checkasm bodies, original assembly against the port at
 the same level) and `tools/check_dav1d_simd_original.py` (whole decodes
 against `tools/build_dav1d.py --asm`). `dav1d_set_cpu_flags_mask(0)` selects
-the C kernels. Done so far on AArch64 NEON: the inverse transforms, the
-entropy decoder (msac), the loop filter, CDEF, intra prediction and loop
-restoration, at 8 and 16 bpc.
+the C kernels.
 
 Open work for this crate (the remaining SIMD kernels, safe wrappers, sanitizer coverage, the Argon
 corpus, the fault-fuzzer ASan mode on Linux) is tracked in the GitHub issues.
