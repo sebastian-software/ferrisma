@@ -90,6 +90,9 @@ keywords = ["image", "avif", "webp", "jpeg-xl", "resize"]
 categories = ["multimedia::images"]
 # Package only what a dependent build, the documentation, and the license
 # obligations need; nested workspace packages are excluded by Cargo anyway.
+# The integration tests and their fixtures (`tests/`, 2.1 MB of the 2.9 MB)
+# stay in the repository: a dependent never builds them, and the unit tests
+# in `src` that embed fixtures compile only under `cfg(test)`.
 include = [
     "/Cargo.toml",
     "/README.md",
@@ -99,7 +102,6 @@ include = [
     "/assets/icc/**",
     "/src/**",
     "/examples/**",
-    "/tests/**",
 ]
 publish = false
 
