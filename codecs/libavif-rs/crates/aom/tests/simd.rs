@@ -40,6 +40,8 @@ mod horver_correlation;
 mod encodetxb;
 #[path = "simd/mse_16bit.rs"]
 mod mse_16bit;
+#[path = "simd/variance.rs"]
+mod variance;
 #[path = "simd/blk_sse_sum.rs"]
 mod blk_sse_sum;
 #[path = "simd/round_shift_array.rs"]

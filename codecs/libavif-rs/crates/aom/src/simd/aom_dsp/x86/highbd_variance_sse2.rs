@@ -14,9 +14,9 @@
 // transliterated with a typing-aware C-subset printer (not C2Rust) and
 // reviewed against the C function by function: the same sequence of intrinsic
 // and helper calls, constants and operators in order (ADR 0058).
-// Only the still-image functions of this file (aom_mse_wxh_16bit*, aom_mse_16xh_16bit*) and the
-// static helpers they call are translated; the inter-prediction variance kernels are not
-// (working decision O2, 2026-11-13, delegated, revisable by the owner).
+// Only the functions of this file that call no NASM kernel are translated:
+// aom_mse_wxh_16bit_highbd_sse2 and its helpers. The block variances and MSEs call
+// aom_highbd_calc{8x8,16x16}var_sse2 of highbd_variance_impl_sse2.asm and stay on `_c`.
 //
 // Translation notes:
 // - Every function carries `sse2`, the flag upstream compiles the file with.

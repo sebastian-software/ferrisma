@@ -377,6 +377,24 @@ def count_code(pattern, text):
     return sub_code(pattern, lambda m: m.group(0), text)[1]
 
 
+def pasted_c_uses(csource, name):
+    """Uses of `name`_c that the C source spells through token pasting in a
+    macro body, as variance.c's sub-pixel macros call
+    `aom_variance##W##x##H##_c(...)`: those are explicit `_c` calls too. An
+    all-uppercase segment between `##` is taken as a macro parameter; a
+    pasted name in a definition line (one that starts with the return type)
+    is not a use."""
+    uses = 0
+    for line in csource.split('\n'):
+        for m in re.finditer(r'\b(\w+(?:\s*##\s*\w+)*\s*##\s*_c)\s*\(', line):
+            parts = [p.strip() for p in m.group(1).split('##')]
+            pattern = ''.join(r'\w+' if re.fullmatch(r'[A-Z][A-Z0-9_]*', p) else re.escape(p) for p in parts)
+            if re.fullmatch(pattern, name + '_c') and not re.match(r'\s*(?!return\b)[A-Za-z_][\w \*]*\s' +
+                                                                     re.escape(m.group(1)), line):
+                uses += 1
+    return uses
+
+
 def edit_caller(text, csource, name, params, ret, report, rel):
     ftype = fn_type(params, ret)
     opt = f'Option<{ftype}>'
@@ -384,6 +402,7 @@ def edit_caller(text, csource, name, params, ret, report, rel):
     # prototype (a line that starts with the return type), stay direct calls.
     definition = re.compile(r'^[A-Za-z_][\w \*]*\b' + name + r'_c\(', re.M)
     explicit_c = len(re.findall(r'\b' + name + r'_c\b', csource)) - len(definition.findall(csource))
+    explicit_c += pasted_c_uses(csource, name)
     if explicit_c:
         report.append(f'MANUAL {rel}: C source names {name}_c explicitly {explicit_c}x; left unchanged')
         return text

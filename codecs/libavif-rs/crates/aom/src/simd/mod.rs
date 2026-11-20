@@ -268,6 +268,10 @@ pub mod aom_dsp__x86__highbd_variance_avx2;
 pub mod aom_dsp__x86__highbd_variance_sse2;
 
 #[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/highbd_variance_sse4.rs"]
+pub mod aom_dsp__x86__highbd_variance_sse4;
+
+#[cfg(target_arch = "x86_64")]
 #[path = "aom_dsp/x86/intrapred_avx2.rs"]
 pub mod aom_dsp__x86__intrapred_avx2;
 

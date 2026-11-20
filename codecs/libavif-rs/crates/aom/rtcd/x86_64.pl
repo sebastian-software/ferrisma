@@ -101,6 +101,10 @@ my %ported_x86 = map { $_ => 1 } qw/
   aom_dc_top_predictor_8x4_sse2
   aom_get_blk_sse_sum_avx2
   aom_get_blk_sse_sum_sse2
+  aom_get_var_sse_sum_16x16_dual_avx2
+  aom_get_var_sse_sum_16x16_dual_sse2
+  aom_get_var_sse_sum_8x8_quad_avx2
+  aom_get_var_sse_sum_8x8_quad_sse2
   aom_h_predictor_16x32_sse2
   aom_h_predictor_16x4_sse2
   aom_h_predictor_16x64_sse2
@@ -128,6 +132,27 @@ my %ported_x86 = map { $_ => 1 } qw/
   aom_hadamard_lp_8x8_dual_avx2
   aom_hadamard_lp_8x8_dual_sse2
   aom_hadamard_lp_8x8_sse2
+  aom_highbd_10_mse16x16_avx2
+  aom_highbd_10_variance128x128_avx2
+  aom_highbd_10_variance128x64_avx2
+  aom_highbd_10_variance16x16_avx2
+  aom_highbd_10_variance16x32_avx2
+  aom_highbd_10_variance16x64_avx2
+  aom_highbd_10_variance16x8_avx2
+  aom_highbd_10_variance32x16_avx2
+  aom_highbd_10_variance32x32_avx2
+  aom_highbd_10_variance32x64_avx2
+  aom_highbd_10_variance32x8_avx2
+  aom_highbd_10_variance4x4_sse4_1
+  aom_highbd_10_variance64x128_avx2
+  aom_highbd_10_variance64x16_avx2
+  aom_highbd_10_variance64x32_avx2
+  aom_highbd_10_variance64x64_avx2
+  aom_highbd_10_variance8x16_avx2
+  aom_highbd_10_variance8x32_avx2
+  aom_highbd_10_variance8x8_avx2
+  aom_highbd_12_variance4x4_sse4_1
+  aom_highbd_8_variance4x4_sse4_1
   aom_highbd_dc_128_predictor_16x16_sse2
   aom_highbd_dc_128_predictor_16x32_sse2
   aom_highbd_dc_128_predictor_16x8_sse2
@@ -242,6 +267,11 @@ my %ported_x86 = map { $_ => 1 } qw/
   aom_lpf_vertical_8_dual_sse2
   aom_lpf_vertical_8_quad_sse2
   aom_lpf_vertical_8_sse2
+  aom_mse16x16_avx2
+  aom_mse16x16_sse2
+  aom_mse16x8_sse2
+  aom_mse8x16_sse2
+  aom_mse8x8_sse2
   aom_mse_16xh_16bit_avx2
   aom_mse_16xh_16bit_sse2
   aom_mse_wxh_16bit_avx2
@@ -372,6 +402,43 @@ my %ported_x86 = map { $_ => 1 } qw/
   aom_var_2d_u16_sse2
   aom_var_2d_u8_avx2
   aom_var_2d_u8_sse2
+  aom_variance128x128_avx2
+  aom_variance128x128_sse2
+  aom_variance128x64_avx2
+  aom_variance128x64_sse2
+  aom_variance16x16_avx2
+  aom_variance16x16_sse2
+  aom_variance16x32_avx2
+  aom_variance16x32_sse2
+  aom_variance16x4_avx2
+  aom_variance16x4_sse2
+  aom_variance16x64_avx2
+  aom_variance16x64_sse2
+  aom_variance16x8_avx2
+  aom_variance16x8_sse2
+  aom_variance32x16_avx2
+  aom_variance32x16_sse2
+  aom_variance32x32_avx2
+  aom_variance32x32_sse2
+  aom_variance32x64_avx2
+  aom_variance32x64_sse2
+  aom_variance32x8_avx2
+  aom_variance32x8_sse2
+  aom_variance4x16_sse2
+  aom_variance4x4_sse2
+  aom_variance4x8_sse2
+  aom_variance64x128_avx2
+  aom_variance64x128_sse2
+  aom_variance64x16_avx2
+  aom_variance64x16_sse2
+  aom_variance64x32_avx2
+  aom_variance64x32_sse2
+  aom_variance64x64_avx2
+  aom_variance64x64_sse2
+  aom_variance8x16_sse2
+  aom_variance8x32_sse2
+  aom_variance8x4_sse2
+  aom_variance8x8_sse2
   av1_apply_selfguided_restoration_avx2
   av1_apply_selfguided_restoration_sse4_1
   av1_block_error_avx2

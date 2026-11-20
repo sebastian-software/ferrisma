@@ -290,17 +290,31 @@ def sse_and_sum_squares():
                 x + blk)
     simple_file('aom_dsp/x86/blk_sse_sum_avx2.rs', 'blk_sse_sum_avx2.json', 'aom_dsp/x86/blk_sse_sum_avx2.c', 'avx2',
                 y + blk)
-    part_note = ('// Only the still-image functions of this file (aom_mse_wxh_16bit*, aom_mse_16xh_16bit*) and the\n'
-                 '// static helpers they call are translated; the inter-prediction variance kernels are not\n'
-                 '// (working decision O2, 2026-11-13, delegated, revisable by the owner).\n')
-    for rel, cfg, src, feat, uses in [
-            ('aom_dsp/x86/variance_sse2.rs', 'variance_sse2_mse.json', 'aom_dsp/x86/variance_sse2.c', 'sse2', x),
-            ('aom_dsp/x86/variance_avx2.rs', 'variance_avx2_mse.json', 'aom_dsp/x86/variance_avx2.c', 'avx2', y),
+    part_note = ('// Only the functions of this file that the still-image encoder dispatches (the block\n'
+                 '// variances and MSEs, aom_get_var_sse_sum_*, aom_mse_wxh_16bit*, aom_mse_16xh_16bit*) and\n'
+                 '// the static helpers they call are translated; the macros that define the block\n'
+                 '// variances are expanded by the preprocessor. The sub-pixel and averaging kernels are\n'
+                 '// not translated (working decision O2, 2026-11-13, delegated, revisable by the owner).\n')
+    hb_note = ('// Only the functions of this file that call no NASM kernel are translated:\n'
+               '// aom_mse_wxh_16bit_highbd_sse2 and its helpers. The block variances and MSEs call\n'
+               '// aom_highbd_calc{8x8,16x16}var_sse2 of highbd_variance_impl_sse2.asm and stay on `_c`.\n')
+    rnd = '// ROUND_POWER_OF_TWO (aom_ports/mem.h) is written out through the config\'s `replace`.\n'
+    hb_fn = ('\n// typedef void (*high_variance_fn_t)(const uint16_t *src, int src_stride,\n'
+             '//                                    const uint16_t *ref, int ref_stride,\n'
+             '//                                    uint32_t *sse, int *sum);\n'
+             'type high_variance_fn_t = Option<unsafe fn(*const u16, i32, *const u16, i32, *mut u32, *mut i32)>;\n')
+    for rel, cfg, src, feat, uses, note, extra in [
+            ('aom_dsp/x86/variance_sse2.rs', 'variance_sse2_mse.json', 'aom_dsp/x86/variance_sse2.c', 'sse2',
+             x + 'use crate::simd::aom_dsp__x86__mem_sse2::loadu_int32;\n', part_note, ''),
+            ('aom_dsp/x86/variance_avx2.rs', 'variance_avx2_mse.json', 'aom_dsp/x86/variance_avx2.c', 'avx2', y,
+             part_note, ''),
             ('aom_dsp/x86/highbd_variance_sse2.rs', 'highbd_variance_sse2_mse.json', 'aom_dsp/x86/highbd_variance_sse2.c',
-             'sse2', x),
+             'sse2', x, hb_note, ''),
             ('aom_dsp/x86/highbd_variance_avx2.rs', 'highbd_variance_avx2_mse.json', 'aom_dsp/x86/highbd_variance_avx2.c',
-             'avx2', y)]:
-        simple_file(rel, cfg, src, feat, uses, extra='', note=part_note)
+             'avx2', y, part_note + rnd, hb_fn),
+            ('aom_dsp/x86/highbd_variance_sse4.rs', 'highbd_variance_sse4.json', 'aom_dsp/x86/highbd_variance_sse4.c',
+             'sse4.1', '', '// Only the block variances are translated; the sub-pixel kernels are not.\n' + rnd, '')]:
+        simple_file(rel, cfg, src, feat, uses, extra=extra, note=note)
 
 def txb():
     x = 'use crate::simd::aom_dsp__x86__synonyms::*;\n'

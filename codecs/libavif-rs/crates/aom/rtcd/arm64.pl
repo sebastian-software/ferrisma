@@ -87,6 +87,8 @@ my %ported_neon = map { $_ => 1 } qw/
   aom_dc_top_predictor_8x4
   aom_dc_top_predictor_8x8
   aom_get_blk_sse_sum
+  aom_get_var_sse_sum_16x16_dual
+  aom_get_var_sse_sum_8x8_quad
   aom_h_predictor_16x16
   aom_h_predictor_16x32
   aom_h_predictor_16x4
@@ -113,6 +115,84 @@ my %ported_neon = map { $_ => 1 } qw/
   aom_hadamard_lp_16x16
   aom_hadamard_lp_8x8
   aom_hadamard_lp_8x8_dual
+  aom_highbd_10_mse16x16
+  aom_highbd_10_mse16x8
+  aom_highbd_10_mse8x16
+  aom_highbd_10_mse8x8
+  aom_highbd_10_variance128x128
+  aom_highbd_10_variance128x64
+  aom_highbd_10_variance16x16
+  aom_highbd_10_variance16x32
+  aom_highbd_10_variance16x4
+  aom_highbd_10_variance16x64
+  aom_highbd_10_variance16x8
+  aom_highbd_10_variance32x16
+  aom_highbd_10_variance32x32
+  aom_highbd_10_variance32x64
+  aom_highbd_10_variance32x8
+  aom_highbd_10_variance4x16
+  aom_highbd_10_variance4x4
+  aom_highbd_10_variance4x8
+  aom_highbd_10_variance64x128
+  aom_highbd_10_variance64x16
+  aom_highbd_10_variance64x32
+  aom_highbd_10_variance64x64
+  aom_highbd_10_variance8x16
+  aom_highbd_10_variance8x32
+  aom_highbd_10_variance8x4
+  aom_highbd_10_variance8x8
+  aom_highbd_12_mse16x16
+  aom_highbd_12_mse16x8
+  aom_highbd_12_mse8x16
+  aom_highbd_12_mse8x8
+  aom_highbd_12_variance128x128
+  aom_highbd_12_variance128x64
+  aom_highbd_12_variance16x16
+  aom_highbd_12_variance16x32
+  aom_highbd_12_variance16x4
+  aom_highbd_12_variance16x64
+  aom_highbd_12_variance16x8
+  aom_highbd_12_variance32x16
+  aom_highbd_12_variance32x32
+  aom_highbd_12_variance32x64
+  aom_highbd_12_variance32x8
+  aom_highbd_12_variance4x16
+  aom_highbd_12_variance4x4
+  aom_highbd_12_variance4x8
+  aom_highbd_12_variance64x128
+  aom_highbd_12_variance64x16
+  aom_highbd_12_variance64x32
+  aom_highbd_12_variance64x64
+  aom_highbd_12_variance8x16
+  aom_highbd_12_variance8x32
+  aom_highbd_12_variance8x4
+  aom_highbd_12_variance8x8
+  aom_highbd_8_mse16x16
+  aom_highbd_8_mse16x8
+  aom_highbd_8_mse8x16
+  aom_highbd_8_mse8x8
+  aom_highbd_8_variance128x128
+  aom_highbd_8_variance128x64
+  aom_highbd_8_variance16x16
+  aom_highbd_8_variance16x32
+  aom_highbd_8_variance16x4
+  aom_highbd_8_variance16x64
+  aom_highbd_8_variance16x8
+  aom_highbd_8_variance32x16
+  aom_highbd_8_variance32x32
+  aom_highbd_8_variance32x64
+  aom_highbd_8_variance32x8
+  aom_highbd_8_variance4x16
+  aom_highbd_8_variance4x4
+  aom_highbd_8_variance4x8
+  aom_highbd_8_variance64x128
+  aom_highbd_8_variance64x16
+  aom_highbd_8_variance64x32
+  aom_highbd_8_variance64x64
+  aom_highbd_8_variance8x16
+  aom_highbd_8_variance8x32
+  aom_highbd_8_variance8x4
+  aom_highbd_8_variance8x8
   aom_highbd_dc_128_predictor_16x16
   aom_highbd_dc_128_predictor_16x32
   aom_highbd_dc_128_predictor_16x4
@@ -354,6 +434,10 @@ my %ported_neon = map { $_ => 1 } qw/
   aom_lpf_vertical_8
   aom_lpf_vertical_8_dual
   aom_lpf_vertical_8_quad
+  aom_mse16x16
+  aom_mse16x8
+  aom_mse8x16
+  aom_mse8x8
   aom_mse_16xh_16bit
   aom_mse_wxh_16bit
   aom_mse_wxh_16bit_highbd
@@ -462,6 +546,28 @@ my %ported_neon = map { $_ => 1 } qw/
   aom_v_predictor_8x8
   aom_var_2d_u16
   aom_var_2d_u8
+  aom_variance128x128
+  aom_variance128x64
+  aom_variance16x16
+  aom_variance16x32
+  aom_variance16x4
+  aom_variance16x64
+  aom_variance16x8
+  aom_variance32x16
+  aom_variance32x32
+  aom_variance32x64
+  aom_variance32x8
+  aom_variance4x16
+  aom_variance4x4
+  aom_variance4x8
+  aom_variance64x128
+  aom_variance64x16
+  aom_variance64x32
+  aom_variance64x64
+  aom_variance8x16
+  aom_variance8x32
+  aom_variance8x4
+  aom_variance8x8
   av1_apply_selfguided_restoration
   av1_block_error
   av1_block_error_lp
