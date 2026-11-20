@@ -476,7 +476,7 @@ pub fn inverse_transform_add<
 ) {
     let tx_type = const { kernel_type(SLOT) };
     let Block { mut rows, coeff, eob, extent } = block;
-    let pass = Pass { kinds: TX1D_TYPES[tx_type], rect2: is_rect2(W, H), shift: shift(W, H), depth };
+    let pass = Pass { rect2: is_rect2(W, H), shift: shift(W, H), depth };
     if tx_type == DCT_DCT && eob == 0 {
         return dc_only::<_, _, _, W, H>(simd, &mut rows, coeff, pass);
     }
@@ -489,23 +489,41 @@ pub fn inverse_transform_add<
     let within =
         |bound: usize| W <= 32 && H <= 32 && coded_rows <= bound && coded_columns <= bound && (SW > bound || SH > bound);
     if within(8) {
-        passes::<_, _, _, W, H, 8, 8>(simd, &mut rows, coeff, coded_rows, pass);
+        passes::<_, _, _, W, H, 8, 8, SLOT>(simd, &mut rows, coeff, coded_rows, pass);
     } else if within(16) {
-        passes::<_, _, _, W, H, 16, 16>(simd, &mut rows, coeff, coded_rows, pass);
+        passes::<_, _, _, W, H, 16, 16, SLOT>(simd, &mut rows, coeff, coded_rows, pass);
     } else {
-        passes::<_, _, _, W, H, SW, SH>(simd, &mut rows, coeff, coded_rows, pass);
+        passes::<_, _, _, W, H, SW, SH, SLOT>(simd, &mut rows, coeff, coded_rows, pass);
     }
 }
 
 /// What the two passes of a block share.
 #[derive(Clone, Copy)]
 struct Pass {
-    /// The first (row) and the second (column) 1-D transform.
-    kinds: [Kind; 2],
     /// `is_rect2`: the coefficients are scaled by 181 / 256 first.
     rect2: bool,
     shift: u32,
     depth: Depth,
+}
+
+/// `$call` with `$T` the transform type of `$kind`, chosen with `if const`:
+/// only that call is compiled, also without optimization.
+macro_rules! by_kind {
+    ($kind:expr, $T:ident => $call:expr) => {
+        if const { matches!($kind, Kind::Dct) } {
+            type $T = tx1d::Dct;
+            $call
+        } else if const { matches!($kind, Kind::Adst) } {
+            type $T = tx1d::Adst;
+            $call
+        } else if const { matches!($kind, Kind::FlipAdst) } {
+            type $T = tx1d::FlipAdst;
+            $call
+        } else {
+            type $T = tx1d::Identity;
+            $call
+        }
+    };
 }
 
 /// Both passes, for a block whose coefficients outside the first `NX`
@@ -520,14 +538,22 @@ struct Pass {
 /// 12% more instructions on these blocks than the two pass functions, so
 /// they keep those.
 #[inline(always)]
-fn passes<S: Level, P: Pixel, C: Coef, const W: usize, const H: usize, const NX: usize, const NY: usize>(
+fn passes<
+    S: Level,
+    P: Pixel,
+    C: Coef,
+    const W: usize,
+    const H: usize,
+    const NX: usize,
+    const NY: usize,
+    const SLOT: usize,
+>(
     simd: S,
     rows: &mut [&mut [P]; H],
     coeff: &mut [C],
     coded_rows: usize,
     pass: Pass,
 ) {
-    use tx1d::*;
     let sh = H.min(32);
     let mut tmp = [[C::ZERO; W]; NY];
     if const { W * H <= 32 && cfg!(target_arch = "x86_64") } {
@@ -535,37 +561,17 @@ fn passes<S: Level, P: Pixel, C: Coef, const W: usize, const H: usize, const NX:
             #[inline(always)]
             || {
                 let pass = Pass { depth: C::depth(pass.depth), ..pass };
-                match pass.kinds[0] {
-                    Kind::Dct => first_pass_lanes::<_, _, Dct, W, H, NX, NY>(simd, coeff, coded_rows, pass, &mut tmp),
-                    Kind::Adst => first_pass_lanes::<_, _, Adst, W, H, NX, NY>(simd, coeff, coded_rows, pass, &mut tmp),
-                    Kind::FlipAdst => first_pass_lanes::<_, _, FlipAdst, W, H, NX, NY>(simd, coeff, coded_rows, pass, &mut tmp),
-                    Kind::Identity => first_pass_lanes::<_, _, Identity, W, H, NX, NY>(simd, coeff, coded_rows, pass, &mut tmp),
-                }
+                by_kind!(TX1D_TYPES[kernel_type(SLOT)][0], T => first_pass_lanes::<_, _, T, W, H, NX, NY>(simd, coeff, coded_rows, pass, &mut tmp));
                 let tmp = tmp.as_flattened();
-                match pass.kinds[1] {
-                    Kind::Dct => second_pass_lanes::<_, _, _, Dct, W, H>(simd, tmp, pass.depth, rows),
-                    Kind::Adst => second_pass_lanes::<_, _, _, Adst, W, H>(simd, tmp, pass.depth, rows),
-                    Kind::FlipAdst => second_pass_lanes::<_, _, _, FlipAdst, W, H>(simd, tmp, pass.depth, rows),
-                    Kind::Identity => second_pass_lanes::<_, _, _, Identity, W, H>(simd, tmp, pass.depth, rows),
-                }
+                by_kind!(TX1D_TYPES[kernel_type(SLOT)][1], T => second_pass_lanes::<_, _, _, T, W, H>(simd, tmp, pass.depth, rows));
             },
         );
         return;
     }
     let tmp_rows = &mut tmp;
-    match pass.kinds[0] {
-        Kind::Dct => first_pass_shared::<_, _, Dct, W, H, NX, NY>(simd, coeff, coded_rows, pass, tmp_rows),
-        Kind::Adst => first_pass_shared::<_, _, Adst, W, H, NX, NY>(simd, coeff, coded_rows, pass, tmp_rows),
-        Kind::FlipAdst => first_pass_shared::<_, _, FlipAdst, W, H, NX, NY>(simd, coeff, coded_rows, pass, tmp_rows),
-        Kind::Identity => first_pass_shared::<_, _, Identity, W, H, NX, NY>(simd, coeff, coded_rows, pass, tmp_rows),
-    }
+    by_kind!(TX1D_TYPES[kernel_type(SLOT)][0], T => first_pass_shared::<_, _, T, W, H, NX, NY>(simd, coeff, coded_rows, pass, tmp_rows));
     let tmp = tmp[..NY.min(sh)].as_flattened();
-    match pass.kinds[1] {
-        Kind::Dct => second_pass_shared::<_, _, _, Dct, W, H>(simd, tmp, pass.depth, rows),
-        Kind::Adst => second_pass_shared::<_, _, _, Adst, W, H>(simd, tmp, pass.depth, rows),
-        Kind::FlipAdst => second_pass_shared::<_, _, _, FlipAdst, W, H>(simd, tmp, pass.depth, rows),
-        Kind::Identity => second_pass_shared::<_, _, _, Identity, W, H>(simd, tmp, pass.depth, rows),
-    }
+    by_kind!(TX1D_TYPES[kernel_type(SLOT)][1], T => second_pass_shared::<_, _, _, T, W, H>(simd, tmp, pass.depth, rows));
 }
 
 /// The rows of the coefficient block: transformed with `T`, rounded,
@@ -608,9 +614,9 @@ fn first_pass<S: Level, V: Memory<S, C>, C: Coef, T: Tx1d, const W: usize, const
 /// natural width where `NY` fills it, else 8.
 macro_rules! first_pass_lanes_of {
     ($pass:ident, $S:ident, $C:ident, $T:ident, $W:expr, $H:expr, $NX:expr, $NY:expr, $($arg:expr),*) => {
-        if $W.min($H) == 4 {
+        if const { $W == 4 || $H == 4 } {
             $pass::<_, $C::Lanes4<$S>, _, $T, $W, $NX>($($arg),*)
-        } else if $NY.min($H) >= $C::Native::<$S>::LEN {
+        } else if const { $NY >= $C::Native::<$S>::LEN && $H >= $C::Native::<$S>::LEN } {
             $pass::<_, $C::Native<$S>, _, $T, $W, $NX>($($arg),*)
         } else {
             $pass::<_, $C::Lanes8<$S>, _, $T, $W, $NX>($($arg),*)
@@ -672,8 +678,7 @@ fn rows_pass<S: Simd, V: Memory<S, C>, C: Coef, T: Tx1d, const W: usize, const N
             }
         }
         // iclip((tmp[i] + rnd) >> shift, col_clip_min, col_clip_max)
-        let mut out = transform(
-            T::KIND,
+        let mut out = transform::<T, _, _, _>(
             input,
             row_clip,
             #[inline(always)]
@@ -727,9 +732,9 @@ fn second_pass<S: Level, V: Memory<S, C>, C: Coef, P: Pixel, T: Tx1d, const H: u
 /// the natural width where its `W` columns fill it, else 8.
 macro_rules! second_pass_lanes_of {
     ($pass:ident, $S:ident, $C:ident, $T:ident, $W:expr, $H:expr, $($arg:expr),*) => {
-        if $W == 4 {
+        if const { $W == 4 } {
             $pass::<_, $C::Lanes4<$S>, _, _, $T, $H>($($arg),*)
-        } else if $W >= $C::Native::<$S>::LEN {
+        } else if const { $W >= $C::Native::<$S>::LEN } {
             $pass::<_, $C::Native<$S>, _, _, $T, $H>($($arg),*)
         } else {
             $pass::<_, $C::Lanes8<$S>, _, _, $T, $H>($($arg),*)
@@ -777,8 +782,7 @@ fn columns_pass<S: Simd, V: Memory<S, C>, C: Coef, P: Pixel, T: Tx1d, const H: u
             *c = V::load_from(simd, &row[x0..][..lanes]);
         }
         // (c + 8) >> 4
-        let residual = transform(
-            T::KIND,
+        let residual = transform::<T, _, _, _>(
             input,
             col_clip,
             #[inline(always)]
