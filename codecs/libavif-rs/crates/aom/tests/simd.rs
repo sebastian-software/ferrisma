@@ -30,6 +30,8 @@ mod fwht4x4;
 mod sum_squares;
 #[path = "simd/sse_sum.rs"]
 mod sse_sum;
+#[path = "simd/hadamard.rs"]
+mod hadamard;
 #[path = "simd/horver_correlation.rs"]
 mod horver_correlation;
 #[path = "simd/encodetxb.rs"]

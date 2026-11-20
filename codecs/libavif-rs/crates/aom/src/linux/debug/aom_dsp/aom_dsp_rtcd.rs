@@ -12,6 +12,30 @@
 // Mechanically translated from upstream/aom/aom_dsp/aom_dsp_rtcd.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C-unwind" {
+    fn aom_highbd_hadamard_32x32_c(src_diff: *const int16_t, src_stride: ptrdiff_t, coeff: *mut tran_low_t);
+    fn aom_highbd_hadamard_32x32_avx2(src_diff: *const int16_t, src_stride: ptrdiff_t, coeff: *mut tran_low_t);
+    fn aom_highbd_hadamard_16x16_c(src_diff: *const int16_t, src_stride: ptrdiff_t, coeff: *mut tran_low_t);
+    fn aom_highbd_hadamard_16x16_avx2(src_diff: *const int16_t, src_stride: ptrdiff_t, coeff: *mut tran_low_t);
+    fn aom_highbd_hadamard_8x8_c(src_diff: *const int16_t, src_stride: ptrdiff_t, coeff: *mut tran_low_t);
+    fn aom_highbd_hadamard_8x8_avx2(src_diff: *const int16_t, src_stride: ptrdiff_t, coeff: *mut tran_low_t);
+    fn aom_hadamard_lp_8x8_dual_c(src_diff: *const int16_t, src_stride: ptrdiff_t, coeff: *mut int16_t);
+    fn aom_hadamard_lp_8x8_dual_sse2(src_diff: *const int16_t, src_stride: ptrdiff_t, coeff: *mut int16_t);
+    fn aom_hadamard_lp_8x8_dual_avx2(src_diff: *const int16_t, src_stride: ptrdiff_t, coeff: *mut int16_t);
+    fn aom_hadamard_lp_16x16_c(src_diff: *const int16_t, src_stride: ptrdiff_t, coeff: *mut int16_t);
+    fn aom_hadamard_lp_16x16_sse2(src_diff: *const int16_t, src_stride: ptrdiff_t, coeff: *mut int16_t);
+    fn aom_hadamard_lp_16x16_avx2(src_diff: *const int16_t, src_stride: ptrdiff_t, coeff: *mut int16_t);
+    fn aom_hadamard_lp_8x8_c(src_diff: *const int16_t, src_stride: ptrdiff_t, coeff: *mut int16_t);
+    fn aom_hadamard_lp_8x8_sse2(src_diff: *const int16_t, src_stride: ptrdiff_t, coeff: *mut int16_t);
+    fn aom_hadamard_32x32_c(src_diff: *const int16_t, src_stride: ptrdiff_t, coeff: *mut tran_low_t);
+    fn aom_hadamard_32x32_sse2(src_diff: *const int16_t, src_stride: ptrdiff_t, coeff: *mut tran_low_t);
+    fn aom_hadamard_32x32_avx2(src_diff: *const int16_t, src_stride: ptrdiff_t, coeff: *mut tran_low_t);
+    fn aom_hadamard_16x16_c(src_diff: *const int16_t, src_stride: ptrdiff_t, coeff: *mut tran_low_t);
+    fn aom_hadamard_16x16_sse2(src_diff: *const int16_t, src_stride: ptrdiff_t, coeff: *mut tran_low_t);
+    fn aom_hadamard_16x16_avx2(src_diff: *const int16_t, src_stride: ptrdiff_t, coeff: *mut tran_low_t);
+    fn aom_hadamard_8x8_c(src_diff: *const int16_t, src_stride: ptrdiff_t, coeff: *mut tran_low_t);
+    fn aom_hadamard_8x8_sse2(src_diff: *const int16_t, src_stride: ptrdiff_t, coeff: *mut tran_low_t);
+    fn aom_hadamard_4x4_c(src_diff: *const int16_t, src_stride: ptrdiff_t, coeff: *mut tran_low_t);
+    fn aom_hadamard_4x4_sse2(src_diff: *const int16_t, src_stride: ptrdiff_t, coeff: *mut tran_low_t);
     fn aom_mse_wxh_16bit_highbd_c(dst: *mut uint16_t, dstride: core::ffi::c_int, src: *mut uint16_t, sstride: core::ffi::c_int, w: core::ffi::c_int, h: core::ffi::c_int) -> uint64_t;
     fn aom_mse_wxh_16bit_highbd_sse2(dst: *mut uint16_t, dstride: core::ffi::c_int, src: *mut uint16_t, sstride: core::ffi::c_int, w: core::ffi::c_int, h: core::ffi::c_int) -> uint64_t;
     fn aom_mse_wxh_16bit_highbd_avx2(dst: *mut uint16_t, dstride: core::ffi::c_int, src: *mut uint16_t, sstride: core::ffi::c_int, w: core::ffi::c_int, h: core::ffi::c_int) -> uint64_t;
@@ -1641,6 +1665,20 @@ pub static mut aom_h_predictor_8x32: Option<unsafe extern "C-unwind" fn(*mut uin
 #[no_mangle]
 pub static mut aom_h_predictor_8x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
 #[no_mangle]
+pub static mut aom_hadamard_16x16: Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_hadamard_32x32: Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_hadamard_4x4: Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_hadamard_8x8: Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_hadamard_lp_16x16: Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut int16_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_hadamard_lp_8x8: Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut int16_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_hadamard_lp_8x8_dual: Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut int16_t) -> ()> = None;
+#[no_mangle]
 pub static mut aom_highbd_dc_128_predictor_16x16: Option<
     unsafe extern "C-unwind" fn(
         *mut uint16_t,
@@ -2100,6 +2138,12 @@ pub static mut aom_highbd_h_predictor_8x8: Option<
         core::ffi::c_int,
     ) -> (),
 > = None;
+#[no_mangle]
+pub static mut aom_highbd_hadamard_16x16: Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_highbd_hadamard_32x32: Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_highbd_hadamard_8x8: Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()> = None;
 #[no_mangle]
 pub static mut aom_highbd_lpf_horizontal_14: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()> = None;
 #[no_mangle]
@@ -3163,6 +3207,46 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
     aom_h_predictor_8x4 = Some(aom_h_predictor_8x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
     if flags & HAS_SSE2 != 0 {
         aom_h_predictor_8x4 = Some(aom_h_predictor_8x4_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_hadamard_16x16 = Some(aom_hadamard_16x16_c as unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_hadamard_16x16 = Some(aom_hadamard_16x16_sse2 as unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_hadamard_16x16 = Some(aom_hadamard_16x16_avx2 as unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()>;
+    }
+    aom_hadamard_32x32 = Some(aom_hadamard_32x32_c as unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_hadamard_32x32 = Some(aom_hadamard_32x32_sse2 as unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_hadamard_32x32 = Some(aom_hadamard_32x32_avx2 as unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()>;
+    }
+    aom_hadamard_4x4 = Some(aom_hadamard_4x4_c as unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_hadamard_4x4 = Some(aom_hadamard_4x4_sse2 as unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()>;
+    }
+    aom_hadamard_8x8 = Some(aom_hadamard_8x8_c as unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_hadamard_8x8 = Some(aom_hadamard_8x8_sse2 as unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()>;
+    }
+    aom_hadamard_lp_16x16 = Some(aom_hadamard_lp_16x16_c as unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut int16_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut int16_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_hadamard_lp_16x16 = Some(aom_hadamard_lp_16x16_sse2 as unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut int16_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut int16_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_hadamard_lp_16x16 = Some(aom_hadamard_lp_16x16_avx2 as unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut int16_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut int16_t) -> ()>;
+    }
+    aom_hadamard_lp_8x8 = Some(aom_hadamard_lp_8x8_c as unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut int16_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut int16_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_hadamard_lp_8x8 = Some(aom_hadamard_lp_8x8_sse2 as unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut int16_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut int16_t) -> ()>;
+    }
+    aom_hadamard_lp_8x8_dual = Some(aom_hadamard_lp_8x8_dual_c as unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut int16_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut int16_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_hadamard_lp_8x8_dual = Some(aom_hadamard_lp_8x8_dual_sse2 as unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut int16_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut int16_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_hadamard_lp_8x8_dual = Some(aom_hadamard_lp_8x8_dual_avx2 as unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut int16_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut int16_t) -> ()>;
     }
     aom_highbd_dc_128_predictor_16x16 = Some(
         aom_highbd_dc_128_predictor_16x16_c
@@ -5003,6 +5087,18 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
                     core::ffi::c_int,
                 ) -> (),
             >;
+    }
+    aom_highbd_hadamard_16x16 = Some(aom_highbd_hadamard_16x16_c as unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()>;
+    if flags & HAS_AVX2 != 0 {
+        aom_highbd_hadamard_16x16 = Some(aom_highbd_hadamard_16x16_avx2 as unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()>;
+    }
+    aom_highbd_hadamard_32x32 = Some(aom_highbd_hadamard_32x32_c as unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()>;
+    if flags & HAS_AVX2 != 0 {
+        aom_highbd_hadamard_32x32 = Some(aom_highbd_hadamard_32x32_avx2 as unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()>;
+    }
+    aom_highbd_hadamard_8x8 = Some(aom_highbd_hadamard_8x8_c as unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()>;
+    if flags & HAS_AVX2 != 0 {
+        aom_highbd_hadamard_8x8 = Some(aom_highbd_hadamard_8x8_avx2 as unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()>;
     }
     aom_highbd_lpf_horizontal_14 = Some(aom_highbd_lpf_horizontal_14_c as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
     if flags & HAS_SSE2 != 0 {

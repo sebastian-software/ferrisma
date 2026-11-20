@@ -499,25 +499,36 @@ void aom_h_predictor_8x8_c(uint8_t *dst, ptrdiff_t y_stride, const uint8_t *abov
 #define aom_h_predictor_8x8 aom_h_predictor_8x8_c
 
 void aom_hadamard_16x16_c(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff);
-#define aom_hadamard_16x16 aom_hadamard_16x16_c
+void aom_hadamard_16x16_sse2(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff);
+void aom_hadamard_16x16_avx2(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff);
+RTCD_EXTERN void (*aom_hadamard_16x16)(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff);
 
 void aom_hadamard_32x32_c(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff);
-#define aom_hadamard_32x32 aom_hadamard_32x32_c
+void aom_hadamard_32x32_sse2(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff);
+void aom_hadamard_32x32_avx2(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff);
+RTCD_EXTERN void (*aom_hadamard_32x32)(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff);
 
 void aom_hadamard_4x4_c(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff);
-#define aom_hadamard_4x4 aom_hadamard_4x4_c
+void aom_hadamard_4x4_sse2(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff);
+RTCD_EXTERN void (*aom_hadamard_4x4)(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff);
 
 void aom_hadamard_8x8_c(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff);
-#define aom_hadamard_8x8 aom_hadamard_8x8_c
+void aom_hadamard_8x8_sse2(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff);
+RTCD_EXTERN void (*aom_hadamard_8x8)(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff);
 
 void aom_hadamard_lp_16x16_c(const int16_t *src_diff, ptrdiff_t src_stride, int16_t *coeff);
-#define aom_hadamard_lp_16x16 aom_hadamard_lp_16x16_c
+void aom_hadamard_lp_16x16_sse2(const int16_t *src_diff, ptrdiff_t src_stride, int16_t *coeff);
+void aom_hadamard_lp_16x16_avx2(const int16_t *src_diff, ptrdiff_t src_stride, int16_t *coeff);
+RTCD_EXTERN void (*aom_hadamard_lp_16x16)(const int16_t *src_diff, ptrdiff_t src_stride, int16_t *coeff);
 
 void aom_hadamard_lp_8x8_c(const int16_t *src_diff, ptrdiff_t src_stride, int16_t *coeff);
-#define aom_hadamard_lp_8x8 aom_hadamard_lp_8x8_c
+void aom_hadamard_lp_8x8_sse2(const int16_t *src_diff, ptrdiff_t src_stride, int16_t *coeff);
+RTCD_EXTERN void (*aom_hadamard_lp_8x8)(const int16_t *src_diff, ptrdiff_t src_stride, int16_t *coeff);
 
 void aom_hadamard_lp_8x8_dual_c(const int16_t *src_diff, ptrdiff_t src_stride, int16_t *coeff);
-#define aom_hadamard_lp_8x8_dual aom_hadamard_lp_8x8_dual_c
+void aom_hadamard_lp_8x8_dual_sse2(const int16_t *src_diff, ptrdiff_t src_stride, int16_t *coeff);
+void aom_hadamard_lp_8x8_dual_avx2(const int16_t *src_diff, ptrdiff_t src_stride, int16_t *coeff);
+RTCD_EXTERN void (*aom_hadamard_lp_8x8_dual)(const int16_t *src_diff, ptrdiff_t src_stride, int16_t *coeff);
 
 unsigned int aom_highbd_10_masked_sub_pixel_variance128x128_c(const uint8_t *src, int src_stride, int xoffset, int yoffset, const uint8_t *ref, int ref_stride, const uint8_t *second_pred, const uint8_t *msk, int msk_stride, int invert_mask, unsigned int *sse);
 #define aom_highbd_10_masked_sub_pixel_variance128x128 aom_highbd_10_masked_sub_pixel_variance128x128_c
@@ -2111,13 +2122,16 @@ void aom_highbd_h_predictor_8x8_sse2(uint16_t *dst, ptrdiff_t y_stride, const ui
 RTCD_EXTERN void (*aom_highbd_h_predictor_8x8)(uint16_t *dst, ptrdiff_t y_stride, const uint16_t *above, const uint16_t *left, int bd);
 
 void aom_highbd_hadamard_16x16_c(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff);
-#define aom_highbd_hadamard_16x16 aom_highbd_hadamard_16x16_c
+void aom_highbd_hadamard_16x16_avx2(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff);
+RTCD_EXTERN void (*aom_highbd_hadamard_16x16)(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff);
 
 void aom_highbd_hadamard_32x32_c(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff);
-#define aom_highbd_hadamard_32x32 aom_highbd_hadamard_32x32_c
+void aom_highbd_hadamard_32x32_avx2(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff);
+RTCD_EXTERN void (*aom_highbd_hadamard_32x32)(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff);
 
 void aom_highbd_hadamard_8x8_c(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff);
-#define aom_highbd_hadamard_8x8 aom_highbd_hadamard_8x8_c
+void aom_highbd_hadamard_8x8_avx2(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff);
+RTCD_EXTERN void (*aom_highbd_hadamard_8x8)(const int16_t *src_diff, ptrdiff_t src_stride, tran_low_t *coeff);
 
 void aom_highbd_lpf_horizontal_14_c(uint16_t *s, int pitch, const uint8_t *blimit, const uint8_t *limit, const uint8_t *thresh, int bd);
 void aom_highbd_lpf_horizontal_14_sse2(uint16_t *s, int pitch, const uint8_t *blimit, const uint8_t *limit, const uint8_t *thresh, int bd);
@@ -4667,6 +4681,24 @@ static void setup_rtcd_internal(void)
     if (flags & HAS_SSE2) aom_h_predictor_8x32 = aom_h_predictor_8x32_sse2;
     aom_h_predictor_8x4 = aom_h_predictor_8x4_c;
     if (flags & HAS_SSE2) aom_h_predictor_8x4 = aom_h_predictor_8x4_sse2;
+    aom_hadamard_16x16 = aom_hadamard_16x16_c;
+    if (flags & HAS_SSE2) aom_hadamard_16x16 = aom_hadamard_16x16_sse2;
+    if (flags & HAS_AVX2) aom_hadamard_16x16 = aom_hadamard_16x16_avx2;
+    aom_hadamard_32x32 = aom_hadamard_32x32_c;
+    if (flags & HAS_SSE2) aom_hadamard_32x32 = aom_hadamard_32x32_sse2;
+    if (flags & HAS_AVX2) aom_hadamard_32x32 = aom_hadamard_32x32_avx2;
+    aom_hadamard_4x4 = aom_hadamard_4x4_c;
+    if (flags & HAS_SSE2) aom_hadamard_4x4 = aom_hadamard_4x4_sse2;
+    aom_hadamard_8x8 = aom_hadamard_8x8_c;
+    if (flags & HAS_SSE2) aom_hadamard_8x8 = aom_hadamard_8x8_sse2;
+    aom_hadamard_lp_16x16 = aom_hadamard_lp_16x16_c;
+    if (flags & HAS_SSE2) aom_hadamard_lp_16x16 = aom_hadamard_lp_16x16_sse2;
+    if (flags & HAS_AVX2) aom_hadamard_lp_16x16 = aom_hadamard_lp_16x16_avx2;
+    aom_hadamard_lp_8x8 = aom_hadamard_lp_8x8_c;
+    if (flags & HAS_SSE2) aom_hadamard_lp_8x8 = aom_hadamard_lp_8x8_sse2;
+    aom_hadamard_lp_8x8_dual = aom_hadamard_lp_8x8_dual_c;
+    if (flags & HAS_SSE2) aom_hadamard_lp_8x8_dual = aom_hadamard_lp_8x8_dual_sse2;
+    if (flags & HAS_AVX2) aom_hadamard_lp_8x8_dual = aom_hadamard_lp_8x8_dual_avx2;
     aom_highbd_dc_128_predictor_16x16 = aom_highbd_dc_128_predictor_16x16_c;
     if (flags & HAS_SSE2) aom_highbd_dc_128_predictor_16x16 = aom_highbd_dc_128_predictor_16x16_sse2;
     aom_highbd_dc_128_predictor_16x32 = aom_highbd_dc_128_predictor_16x32_c;
@@ -4759,6 +4791,12 @@ static void setup_rtcd_internal(void)
     if (flags & HAS_SSE2) aom_highbd_h_predictor_8x4 = aom_highbd_h_predictor_8x4_sse2;
     aom_highbd_h_predictor_8x8 = aom_highbd_h_predictor_8x8_c;
     if (flags & HAS_SSE2) aom_highbd_h_predictor_8x8 = aom_highbd_h_predictor_8x8_sse2;
+    aom_highbd_hadamard_16x16 = aom_highbd_hadamard_16x16_c;
+    if (flags & HAS_AVX2) aom_highbd_hadamard_16x16 = aom_highbd_hadamard_16x16_avx2;
+    aom_highbd_hadamard_32x32 = aom_highbd_hadamard_32x32_c;
+    if (flags & HAS_AVX2) aom_highbd_hadamard_32x32 = aom_highbd_hadamard_32x32_avx2;
+    aom_highbd_hadamard_8x8 = aom_highbd_hadamard_8x8_c;
+    if (flags & HAS_AVX2) aom_highbd_hadamard_8x8 = aom_highbd_hadamard_8x8_avx2;
     aom_highbd_lpf_horizontal_14 = aom_highbd_lpf_horizontal_14_c;
     if (flags & HAS_SSE2) aom_highbd_lpf_horizontal_14 = aom_highbd_lpf_horizontal_14_sse2;
     aom_highbd_lpf_horizontal_14_dual = aom_highbd_lpf_horizontal_14_dual_c;

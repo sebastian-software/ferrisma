@@ -493,6 +493,41 @@ def cnn():
                 ALIGN, note=CNN_NOTE)
 
 
+HADAMARD_NOTE = ('// Only the Hadamard kernels of the file are translated (the config\'s `only`\n'
+                 '// list; the averaging, SATD, projection and variance kernels after them are\n'
+                 '// not on the still-image path).\n')
+
+
+def hadamard():
+    for ext in ['sse2', 'avx2']:
+        h = f'aom_dsp/x86/bitdepth_conversion_{ext}.h'
+        write(f'aom_dsp/x86/bitdepth_conversion_{ext}.rs', LIC(year_of(h))
+              + f'\n// Translated from upstream/aom/{h} (ADR 0056, ADR 0058).\n'
+              '// The functions were\n// ' + PRINTER + '.\n'
+              + NOTES.format(feat=ext) + '\n' + run(f'bitdepth_conversion_{ext}_h.json'))
+    simple_file('aom_dsp/x86/avg_intrin_sse2.rs', 'avg_intrin_sse2.json', 'aom_dsp/x86/avg_intrin_sse2.c', 'sse2',
+                'use crate::simd::aom_dsp__x86__bitdepth_conversion_sse2::*;\n', ALIGN, note=HADAMARD_NOTE)
+    simple_file('aom_dsp/x86/avg_intrin_avx2.rs', 'avg_intrin_avx2.json', 'aom_dsp/x86/avg_intrin_avx2.c', 'avx2',
+                'use crate::simd::aom_dsp__x86__bitdepth_conversion_avx2::*;\n', ALIGN, note=HADAMARD_NOTE)
+
+
+NN_NOTE = ('// Each `_mm*_mul_ps` and `_mm*_add_ps` and each scalar `*` and `+` is a\n'
+           '// separate rounding, as in the original built with -ffp-contract=off\n'
+           '// (ADR 0024); `float` literals stay single precision.\n')
+
+
+def nn():
+    nn_uses = 'use crate::av1__encoder__ml::{av1_nn_output_prec_reduce, NN_CONFIG};\n'
+    nn_const = '\n// av1/encoder/ml.h\nconst NN_MAX_NODES_PER_LAYER: i32 = 128;\n'
+    simple_file('av1/encoder/x86/ml_sse3.rs', 'ml_sse3.json', 'av1/encoder/x86/ml_sse3.c', 'sse3', nn_uses,
+                nn_const, note=NN_NOTE + '// approx_exp\'s object-like macros A, B and C are written out in place.\n')
+    simple_file('av1/encoder/x86/ml_avx2.rs', 'ml_avx2.json', 'av1/encoder/x86/ml_avx2.c', 'avx2',
+                nn_uses + 'use crate::simd::av1__encoder__x86__ml_sse3::{av1_nn_propagate_4to1_sse3,\n'
+                '    av1_nn_propagate_4to4_sse3, av1_nn_propagate_4to8_sse3};\n', nn_const,
+                note=NN_NOTE + '// The statement macro CALC_OUTPUT_FOR_2ROWS was expanded with the C\n'
+                '// preprocessor before printing; AOMMAX(bias_val, 0) is written out.\n')
+
+
 def main():
     global OUT, WORK
     parser = argparse.ArgumentParser(description=__doc__)
@@ -515,6 +550,7 @@ def main():
         nz_map_contexts()
         interp_cubic_rate_dist()
         cnn()
+        hadamard()
         if args.check:
             bad = []
             for path in sorted(OUT.rglob('*.rs')):

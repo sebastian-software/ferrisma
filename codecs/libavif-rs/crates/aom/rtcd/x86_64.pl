@@ -117,6 +117,17 @@ my %ported_x86 = map { $_ => 1 } qw/
   aom_h_predictor_8x16_sse2
   aom_h_predictor_8x32_sse2
   aom_h_predictor_8x4_sse2
+  aom_hadamard_16x16_avx2
+  aom_hadamard_16x16_sse2
+  aom_hadamard_32x32_avx2
+  aom_hadamard_32x32_sse2
+  aom_hadamard_4x4_sse2
+  aom_hadamard_8x8_sse2
+  aom_hadamard_lp_16x16_avx2
+  aom_hadamard_lp_16x16_sse2
+  aom_hadamard_lp_8x8_dual_avx2
+  aom_hadamard_lp_8x8_dual_sse2
+  aom_hadamard_lp_8x8_sse2
   aom_highbd_dc_128_predictor_16x16_sse2
   aom_highbd_dc_128_predictor_16x32_sse2
   aom_highbd_dc_128_predictor_16x8_sse2
@@ -163,6 +174,9 @@ my %ported_x86 = map { $_ => 1 } qw/
   aom_highbd_h_predictor_8x16_sse2
   aom_highbd_h_predictor_8x4_sse2
   aom_highbd_h_predictor_8x8_sse2
+  aom_highbd_hadamard_16x16_avx2
+  aom_highbd_hadamard_32x32_avx2
+  aom_highbd_hadamard_8x8_avx2
   aom_highbd_lpf_horizontal_14_dual_avx2
   aom_highbd_lpf_horizontal_14_dual_sse2
   aom_highbd_lpf_horizontal_14_sse2

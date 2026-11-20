@@ -319,7 +319,12 @@ class Printer:
             return E(n.value.replace("'", "b'", 1) + ' as i8', ('int', 'i8'), 'as', True)
         if n.type in ('double', 'float'):
             v = n.value.rstrip('fF')
-            return E(v if '.' in v or 'e' in v.lower() else v + '.0', ('flit',), const=True)
+            v = v if '.' in v or 'e' in v.lower() else v + '.0'
+            if n.value[-1] in 'fF':
+                # A `float` literal: C rounds it to single precision, and
+                # arithmetic with other floats stays single precision.
+                return E(f'{v}f32', ('float', 'f32'), const=True)
+            return E(v, ('flit',), const=True)
         raise Unsupported(f'constant {n.type} {n.value}')
 
     def x_ID(self, n):
@@ -548,6 +553,12 @@ class Printer:
         return E(f'if {c.code} {{ {a.code} }} else {{ {b.code} }}', t, 'low', a.const and b.const and c.const)
 
     def x_Assignment(self, n):
+        # `(p += s)` as an operand (avg_intrin_sse2.c loads row after row this
+        # way): a block that advances the pointer and yields its new value.
+        lhs = self.expr(n.lvalue)
+        if n.op in ('+=', '-=') and lhs.typ[0] == 'ptr' and isinstance(n.lvalue, c_ast.ID):
+            p = self.ptr_offset(lhs, self.as_int(self.expr(n.rvalue)), n.op == '-=')
+            return E(f'{{ {lhs.code} = {p.code}; {lhs.code} }}', lhs.typ, 'atom')
         raise Unsupported(f'assignment inside an expression at {n.coord}')
 
     def x_FuncCall(self, n):
@@ -1113,7 +1124,7 @@ MACRO_RET = {'_mm_extract_epi16': ('int', 'i32'), '_mm_extract_epi32': ('int', '
              '_mm256_extract_epi32': ('int', 'i32'), '_mm256_extract_epi16': ('int', 'i32'),
              '_mm256_extract_epi8': ('int', 'i32'), '_mm256_extracti128_si256': ('vec', '__m128i'),
              '_mm256_extractf128_si256': ('vec', '__m128i'), '_mm_shuffle_ps': ('vec', '__m128'),
-             '_mm256_extractf128_ps': ('vec', '__m128')}
+             '_mm256_extractf128_ps': ('vec', '__m128'), '_mm256_permute2f128_ps': ('vec', '__m256')}
 RUST_PTR = {'_mm_storeu_si32': ('ptr', ('int', 'u8'), False), '_mm_loadu_si32': ('ptr', ('int', 'u8'), True),
             '_mm_storeu_si16': ('ptr', ('int', 'u8'), False), '_mm_loadu_si16': ('ptr', ('int', 'u8'), True),
             '_mm_storeu_si64': ('ptr', ('int', 'u8'), False), '_mm_loadu_si64': ('ptr', ('int', 'u8'), True)}

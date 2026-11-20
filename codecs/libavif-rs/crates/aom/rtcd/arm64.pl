@@ -106,6 +106,13 @@ my %ported_neon = map { $_ => 1 } qw/
   aom_h_predictor_8x32
   aom_h_predictor_8x4
   aom_h_predictor_8x8
+  aom_hadamard_16x16
+  aom_hadamard_32x32
+  aom_hadamard_4x4
+  aom_hadamard_8x8
+  aom_hadamard_lp_16x16
+  aom_hadamard_lp_8x8
+  aom_hadamard_lp_8x8_dual
   aom_highbd_dc_128_predictor_16x16
   aom_highbd_dc_128_predictor_16x32
   aom_highbd_dc_128_predictor_16x4
@@ -201,6 +208,9 @@ my %ported_neon = map { $_ => 1 } qw/
   aom_highbd_h_predictor_8x32
   aom_highbd_h_predictor_8x4
   aom_highbd_h_predictor_8x8
+  aom_highbd_hadamard_16x16
+  aom_highbd_hadamard_32x32
+  aom_highbd_hadamard_8x8
   aom_highbd_lpf_horizontal_14
   aom_highbd_lpf_horizontal_14_dual
   aom_highbd_lpf_horizontal_4

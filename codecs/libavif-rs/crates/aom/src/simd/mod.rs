@@ -24,6 +24,14 @@ pub mod types {
 pub mod aom_dsp__arm__blk_sse_sum_neon;
 
 #[cfg(target_arch = "aarch64")]
+#[path = "aom_dsp/arm/hadamard_neon.rs"]
+pub mod aom_dsp__arm__hadamard_neon;
+
+#[cfg(target_arch = "aarch64")]
+#[path = "aom_dsp/arm/highbd_hadamard_neon.rs"]
+pub mod aom_dsp__arm__highbd_hadamard_neon;
+
+#[cfg(target_arch = "aarch64")]
 #[path = "aom_dsp/arm/highbd_intrapred_neon.rs"]
 pub mod aom_dsp__arm__highbd_intrapred_neon;
 
@@ -186,6 +194,22 @@ pub mod aom_dsp__simd__v256_intrinsics_x86;
 #[cfg(target_arch = "x86_64")]
 #[path = "aom_dsp/simd/v64_intrinsics_x86.rs"]
 pub mod aom_dsp__simd__v64_intrinsics_x86;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/avg_intrin_avx2.rs"]
+pub mod aom_dsp__x86__avg_intrin_avx2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/avg_intrin_sse2.rs"]
+pub mod aom_dsp__x86__avg_intrin_sse2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/bitdepth_conversion_avx2.rs"]
+pub mod aom_dsp__x86__bitdepth_conversion_avx2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/bitdepth_conversion_sse2.rs"]
+pub mod aom_dsp__x86__bitdepth_conversion_sse2;
 
 #[cfg(target_arch = "x86_64")]
 #[path = "aom_dsp/x86/blk_sse_sum_avx2.rs"]
