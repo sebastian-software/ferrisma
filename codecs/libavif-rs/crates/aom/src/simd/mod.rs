@@ -192,6 +192,10 @@ pub mod av1__encoder__arm__txfm_neon;
 pub mod aom_dsp__simd__v128_intrinsics_x86;
 
 #[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/simd/v256_intrinsics_v128.rs"]
+pub mod aom_dsp__simd__v256_intrinsics_v128;
+
+#[cfg(target_arch = "x86_64")]
 #[path = "aom_dsp/simd/v256_intrinsics_x86.rs"]
 pub mod aom_dsp__simd__v256_intrinsics_x86;
 
@@ -386,6 +390,10 @@ pub mod av1__common__x86__av1_txfm_sse4;
 #[cfg(target_arch = "x86_64")]
 #[path = "av1/common/x86/cdef_block_avx2.rs"]
 pub mod av1__common__x86__cdef_block_avx2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "av1/common/x86/cdef_block_sse4.rs"]
+pub mod av1__common__x86__cdef_block_sse4;
 
 #[cfg(target_arch = "x86_64")]
 #[path = "av1/common/x86/cfl_avx2.rs"]

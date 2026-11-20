@@ -449,17 +449,29 @@ my %ported_x86 = map { $_ => 1 } qw/
   av1_wiener_convolve_add_src_avx2
   av1_wiener_convolve_add_src_sse2
   cdef_copy_rect8_16bit_to_16bit_avx2
+  cdef_copy_rect8_16bit_to_16bit_sse4_1
   cdef_copy_rect8_8bit_to_16bit_avx2
+  cdef_copy_rect8_8bit_to_16bit_sse4_1
   cdef_filter_16_0_avx2
+  cdef_filter_16_0_sse4_1
   cdef_filter_16_1_avx2
+  cdef_filter_16_1_sse4_1
   cdef_filter_16_2_avx2
+  cdef_filter_16_2_sse4_1
   cdef_filter_16_3_avx2
+  cdef_filter_16_3_sse4_1
   cdef_filter_8_0_avx2
+  cdef_filter_8_0_sse4_1
   cdef_filter_8_1_avx2
+  cdef_filter_8_1_sse4_1
   cdef_filter_8_2_avx2
+  cdef_filter_8_2_sse4_1
   cdef_filter_8_3_avx2
+  cdef_filter_8_3_sse4_1
   cdef_find_dir_avx2
   cdef_find_dir_dual_avx2
+  cdef_find_dir_dual_sse4_1
+  cdef_find_dir_sse4_1
   cfl_get_luma_subsampling_420_hbd_avx2
   cfl_get_luma_subsampling_420_hbd_ssse3
   cfl_get_luma_subsampling_420_lbd_avx2

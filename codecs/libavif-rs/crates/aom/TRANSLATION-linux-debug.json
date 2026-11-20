@@ -22,11 +22,11 @@
       "--disable-avx512"
     ],
     "overlay": "crates/aom/rtcd/x86_64.pl",
-    "overlay_sha256": "5107ba974c2fa8610f6407a80505ccc2cec9f7c0eb460db8318f124bc28a343f",
+    "overlay_sha256": "f3192adecb52c2d7b6cf759d6a7aeafb4c6fb3b8c25c9c44fdd425593460ec96",
     "headers": {
       "config/aom_dsp_rtcd.h": "1553606ab153b3b74f662d9653580f4b4ca14225cd37b7d75c17ab4d3b14e6e7",
       "config/aom_scale_rtcd.h": "691037710b3c581297ce3d121638764eea39f2f3745ac58f4797e4b1a935cc91",
-      "config/av1_rtcd.h": "99fe9e1912e0a4af2ec830b56ddc9377e68590dc3a75285f4dc92ebda22f5e1a"
+      "config/av1_rtcd.h": "2c83b53fae17efed7e2dcb5e0dbeeeae71b84c0c6551e9f246ee6323dd57fbb7"
     }
   },
   "optional_inline_test_bridges": [
@@ -124,8 +124,8 @@
       "source": "upstream/aom/av1/common/av1_rtcd.c",
       "rust": "crates/aom/src/linux/debug/av1/common/av1_rtcd.rs",
       "raw_sha256": "e0df845da0a02e4d946707c75b0af34ba483f83778b2926d35cf836dde4426a7",
-      "rust_sha256": "527d6b71070750da4eb26c10eb842e697516249380d2f3abf27441a479bfc8b1",
-      "production_rust_sha256": "527d6b71070750da4eb26c10eb842e697516249380d2f3abf27441a479bfc8b1",
+      "rust_sha256": "a25c22d372a6604a7628b9501cc70ec586ecbc12111e21531377048f1d8c6cc7",
+      "production_rust_sha256": "a25c22d372a6604a7628b9501cc70ec586ecbc12111e21531377048f1d8c6cc7",
       "corrections": {
         "target-libc-thread-storage": 1,
         "raw-c-mutable-address": 1,
