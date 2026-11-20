@@ -13,8 +13,15 @@ export const NAME = "Ferrisma";
 export const REPOSITORY = "https://github.com/sebastian-software/ferrisma";
 export const FAMILY_SITE = "https://ferramenta.dev";
 
-/** A path inside the site, below Vite's base. */
-export const path = (route: string) => `${import.meta.env.BASE_URL}${route}`;
+/**
+ * A path inside the site, below Vite's base. Pages end with a slash, as GitHub
+ * Pages serves them (a folder with an `index.html`); files keep their name.
+ */
+export const path = (route: string) => {
+  const [page = "", anchor] = route.split("#");
+  const slash = page === "" || page.endsWith("/") || /\.[a-z0-9]+$/i.test(page) ? "" : "/";
+  return `${import.meta.env.BASE_URL}${page}${slash}${anchor === undefined ? "" : `#${anchor}`}`;
+};
 /** A file in the repository on GitHub, at `main`. */
 export const blob = (file: string) => `${REPOSITORY}/blob/main/${file}`;
 

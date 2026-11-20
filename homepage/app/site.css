@@ -180,3 +180,12 @@
 .fx-explainer section + section {
   margin-top: 2.5rem;
 }
+
+/*
+ * Ardo's not-found page: its "Back to home" button sets its label in a CSS
+ * layer, so Monografie's unlayered link color wins and paints the label in the
+ * button's own oxide. Give the label the page ground again.
+ */
+.fx-not-found main a[href="/"] {
+  color: var(--ardo-color-bg);
+}

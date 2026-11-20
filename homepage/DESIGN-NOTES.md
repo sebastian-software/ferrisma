@@ -145,7 +145,9 @@ the rename before this site can switch over.
   changes shape. Update the guide, and the homepage follows.
 - **Crate names** of the ports will change (`plannedCrate` in
   `app/ferrisma.ts`).
-- The ferrisma.dev domain does not serve this site yet (#251).
+- The ferrisma.dev domain does not serve this site yet (#251). The Homepage
+  workflow deploys `main` to GitHub Pages once the custom domain is set in the
+  repository's Pages settings.
 
 ## Two guide pages added
 
