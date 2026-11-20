@@ -24,4 +24,4 @@ port-test-bridges = []
 port-macro-tests = []
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(libavif_rs_asan)"] }
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(libavif_rs_asan)", "cfg(aom_one_source_prototype)"] }
