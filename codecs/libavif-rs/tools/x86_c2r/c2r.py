@@ -1436,12 +1436,29 @@ def cpp_expand(text, spec):
     src = text.split('\n')
     src = [l if not re.match(r'\s*#\s*include\b', l) else '' for l in src]
     full = '\n'.join(defs) + '\n' + '\n'.join(src)
-    args = (['cc', '-E', '-P', '-C', '-x', 'c', '-'] + [f'-D{k}={v}' for k, v in CONFIG.items() if k != '__cplusplus']
+    # No -P: the line markers place every output line on the line it comes
+    # from, so the expanded source keeps the original's line numbers whatever
+    # blank lines the preprocessor would collapse (GCC and Clang collapse
+    # differently under -P). -nostdinc: GCC otherwise pre-includes glibc's
+    # stdc-predef.h, whose comments -C would carry into the output; the
+    # sources' own #include lines are dropped above, so no header is needed.
+    args = (['cc', '-E', '-C', '-nostdinc', '-x', 'c', '-'] + [f'-D{k}={v}' for k, v in CONFIG.items() if k != '__cplusplus']
             + [f'-D{d}' for d in spec.get('defines', [])])
     r = subprocess.run(args, input=full, capture_output=True, text=True)
     if r.returncode:
         raise SystemExit(f'cpp failed: {r.stderr[:2000]}')
-    return r.stdout
+    offset = full.count('\n') - text.count('\n')  # lines of `defs` before the source
+    out, current, line = {}, None, 0
+    for row in r.stdout.split('\n'):
+        m = re.match(r'#\s*(?:line\s+)?(\d+)\s+"([^"]*)"', row)
+        if m:
+            line, current = int(m.group(1)), m.group(2)
+            continue
+        if current in ('<stdin>', '-') and line > offset:
+            out.setdefault(line - offset, []).append(row)
+        line += 1
+    last = max(out) if out else 0
+    return '\n'.join(' '.join(out.get(k, [''])) for k in range(1, last + 1)) + '\n'
 
 
 ROOT = Path(__file__).resolve().parents[2]
