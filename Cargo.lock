@@ -316,8 +316,15 @@ name = "libavif-dav1d"
 version = "0.1.0"
 dependencies = [
  "c2rust-bitfields",
- "fearless_simd",
+ "libavif-dav1d-kernels",
  "libc",
+]
+
+[[package]]
+name = "libavif-dav1d-kernels"
+version = "0.1.0"
+dependencies = [
+ "fearless_simd",
 ]
 
 [[package]]

@@ -7,6 +7,8 @@
 //! the 16-bit lanes saturate exactly where the C clips (a wrapping instead of
 //! a saturating addition passes checkasm and fails `kernels_match_c_8bpc`).
 
+use core::ffi::c_int;
+
 use super::*;
 
 struct Rng(u32);
@@ -112,14 +114,14 @@ fn draw(rng: &mut Rng, tx: usize, tx_type: usize, pixel_max: i32, cf_max: i32) -
 
 fn check_8bpc(draws: usize) {
     let (c, _) = c_tables(10);
-    let kernels = table_8bpc();
+    let kernels = kernels_8bpc().unwrap();
     let mut rng = Rng(0x2545_f491);
     let mut checked = 0;
     for tx in 0..19 {
         let (w, h) = SIZES[tx];
         for tx_type in 0..17 {
             let Some(c_fn) = c[tx][tx_type] else { continue };
-            let simd_fn: ItxFn = if tx_type == WHT_WHT { wht_8bpc } else { kernels[tx][tx_type] };
+            let simd_fn: ItxFn = kernels.slot(tx, tx_type);
             for _ in 0..draws {
                 let (pixels, coeff, eob) = draw(&mut rng, tx, tx_type, 255, i16::MAX.into());
                 let mut outputs = [pixels.clone(), pixels].map(|p| p.into_iter().map(|v| v as u8).collect::<Vec<_>>());
@@ -138,7 +140,7 @@ fn check_8bpc(draws: usize) {
 
 fn check_16bpc(bpc: c_int, draws: usize) {
     let (_, c) = c_tables(bpc);
-    let kernels = table_16bpc();
+    let kernels = kernels_16bpc().unwrap();
     let pixel_max = (1 << bpc) - 1;
     let cf_max = (128 << bpc) - 1;
     let mut rng = Rng(0x1234_5678 ^ bpc as u32);
@@ -146,7 +148,7 @@ fn check_16bpc(bpc: c_int, draws: usize) {
         let (w, h) = SIZES[tx];
         for tx_type in 0..17 {
             let Some(c_fn) = c[tx][tx_type] else { continue };
-            let simd_fn: ItxFn16 = if tx_type == WHT_WHT { wht_16bpc } else { kernels[tx][tx_type] };
+            let simd_fn: ItxFn16 = kernels.slot(tx, tx_type);
             for _ in 0..draws {
                 let (pixels, coeff, eob) = draw(&mut rng, tx, tx_type, pixel_max, cf_max);
                 let mut outputs = [pixels.clone(), pixels].map(|p| p.into_iter().map(|v| v as u16).collect::<Vec<_>>());
@@ -163,7 +165,7 @@ fn check_16bpc(bpc: c_int, draws: usize) {
 
 #[test]
 fn kernels_match_c_8bpc() {
-    if available() {
+    if kernels_8bpc().is_some() {
         check_8bpc(300);
     } else {
         eprintln!("itx: level not available, skipped");
@@ -172,7 +174,7 @@ fn kernels_match_c_8bpc() {
 
 #[test]
 fn kernels_match_c_10bpc() {
-    if available() {
+    if kernels_16bpc().is_some() {
         check_16bpc(10, 300);
     } else {
         eprintln!("itx: level not available, skipped");
@@ -181,7 +183,7 @@ fn kernels_match_c_10bpc() {
 
 #[test]
 fn kernels_match_c_12bpc() {
-    if available() {
+    if kernels_16bpc().is_some() {
         check_16bpc(12, 300);
     } else {
         eprintln!("itx: level not available, skipped");
@@ -192,10 +194,11 @@ fn kernels_match_c_12bpc() {
 #[test]
 fn last_nonzero_rows_match_c() {
     let _ = c_tables(10);
+    let scans = scans();
     for tx in 0..19 {
         let (w, h) = SIZES[tx];
         for eob in 0..w.min(32) * h.min(32) {
-            assert_eq!(coded_rows(tx, DCT_DCT_FOR_TESTS, eob), c_coded_rows(tx, DCT_DCT_FOR_TESTS, eob), "{w}x{h} eob {eob}");
+            assert_eq!(coded_rows(&scans, tx, DCT_DCT_FOR_TESTS, eob), c_coded_rows(tx, DCT_DCT_FOR_TESTS, eob), "{w}x{h} eob {eob}");
         }
     }
 }

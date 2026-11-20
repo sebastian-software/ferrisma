@@ -112,7 +112,7 @@ fn filter_with<S: Simd, const W: usize, const H: usize, const PRI: bool, const S
                 let off = params.primary(k);
                 for off in [off, -off] {
                     let p = load(y, off);
-                    sum = sum + constrain(p, px, pri_strength, params.pri_shift) * tap;
+                    sum += constrain(p, px, pri_strength, params.pri_shift) * tap;
                     if SEC {
                         min = umin(min, p);
                         max = max.max(p);
@@ -124,7 +124,7 @@ fn filter_with<S: Simd, const W: usize, const H: usize, const PRI: bool, const S
                 for off in params.secondary(k) {
                     for off in [off, -off] {
                         let s = load(y, off);
-                        sum = sum + constrain(s, px, sec_strength, params.sec_shift) * tap;
+                        sum += constrain(s, px, sec_strength, params.sec_shift) * tap;
                         if PRI {
                             min = umin(min, s);
                             max = max.max(s);

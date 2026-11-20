@@ -54,8 +54,10 @@ dav1d's speed is in its assembly, which this crate does not contain. Under
 engine ADR-0044 D2 the kernels live in `src/simd/` and are dispatched by
 `tools/enable_dav1d_dispatch.py` (list in `dispatch.txt`): libavif-rs ADR
 0062. CDEF and the inverse transforms are written from the C algorithm on
-the portable vector types of `fearless_simd` (`src/simd/cdef/`,
-`src/simd/itx/`, one implementation for NEON and AVX2); the entropy decoder
+the portable vector types of `fearless_simd`, one implementation for NEON
+and AVX2, in the crate `libavif-dav1d-kernels` (`../dav1d-kernels`,
+optimized in dev builds as well; installed and tested from `src/simd/cdef/`
+and `src/simd/itx/`); the entropy decoder
 (msac), the loop filter, intra prediction and loop restoration are rebuilt
 from the assembly with `core::arch` intrinsics. Covered: AArch64 NEON (all
 of them, 8 and 16 bpc) and x86-64 AVX2 (all but loop restoration); below

@@ -37,7 +37,7 @@ pub unsafe fn itx_dsp_init_arm_8bpc(c: *mut c_void, _bpc: c_int, all_simd: *mut 
         return;
     }
 
-    let Some(k) = Kernels::new_8bpc() else {
+    let Some(k) = kernels_8bpc() else {
         return;
     };
     let t = &mut c.itxfm_add;
@@ -91,7 +91,7 @@ pub unsafe fn itx_dsp_init_arm_16bpc(c: *mut c_void, bpc: c_int, all_simd: *mut 
         return;
     }
 
-    let Some(k) = Kernels::new_16bpc() else {
+    let Some(k) = kernels_16bpc() else {
         return;
     };
     let t = &mut c.itxfm_add;

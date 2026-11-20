@@ -4,6 +4,8 @@
 //! edges, many random draws. A development check; the gate is checkasm
 //! against the original's assembly and the whole-image decodes.
 
+use core::ffi::{c_int, c_uint};
+
 use super::*;
 
 struct Rng(u32);
@@ -19,7 +21,7 @@ impl Rng {
 }
 
 /// `init_tmp` of the checkasm test.
-fn init_tmp<P: Pixel>(rng: &mut Rng, buf: &mut [P], bitdepth_max: u16, from: impl Fn(u16) -> P) {
+fn init_tmp<P>(rng: &mut Rng, buf: &mut [P], bitdepth_max: u16, from: impl Fn(u16) -> P) {
     let fill_type = rng.next() & 7;
     for v in buf {
         let r = rng.next() as u16;
@@ -65,8 +67,8 @@ const SIZES: [(usize, usize); 3] = [(8, 8), (4, 8), (4, 4)];
 
 fn check_kernels(name: &str, draws: usize) {
     let (c_fb8, c_dir8, c_fb16, c_dir16) = c_kernels();
-    let fb8: [CFilter8; 3] = [filter_8bpc::<8, 8>, filter_8bpc::<4, 8>, filter_8bpc::<4, 4>];
-    let fb16: [CFilter16; 3] = [filter_16bpc::<8, 8>, filter_16bpc::<4, 8>, filter_16bpc::<4, 4>];
+    let (k8, k16) = (kernels_8bpc().unwrap(), kernels_16bpc().unwrap());
+    let (fb8, dir_8bpc, fb16, dir_16bpc) = (k8.fb, k8.dir, k16.fb, k16.dir);
     let mut rng = Rng(0x2545_f491);
     for draw in 0..draws {
         for (slot, &(w, _h)) in SIZES.iter().enumerate() {
@@ -137,7 +139,7 @@ fn check_kernels(name: &str, draws: usize) {
 
 #[test]
 fn kernels_match_the_c_kernels() {
-    if kernels::available() {
+    if kernels_8bpc().is_some() {
         check_kernels("cdef", 3000);
     } else {
         eprintln!("cdef: level not available, skipped");

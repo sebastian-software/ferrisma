@@ -19,10 +19,12 @@
 //!
 //! Two families are not rebuilt from the assembly but written from the
 //! algorithm on the portable vector types of `fearless_simd` (ADR 0062,
-//! "Kernels written from the algorithm"): `cdef/` (`cdef_tmpl.c`) and `itx/`
-//! (`itx_tmpl.c`, `itx_1d.c`), one implementation for NEON and AVX2. The
-//! init mirrors `arm/<family>.rs` and `x86/<family>.rs` install them in the
-//! slots where the original assigns its assembly.
+//! "Kernels written from the algorithm"): CDEF (`cdef_tmpl.c`) and the
+//! inverse transforms (`itx_tmpl.c`, `itx_1d.c`), one implementation for
+//! NEON and AVX2, in the crate `libavif-dav1d-kernels`. `cdef/` and `itx/`
+//! hold their installation and tests; the init mirrors `arm/<family>.rs`
+//! and `x86/<family>.rs` install them in the slots where the original
+//! assigns its assembly.
 #![allow(clippy::all)]
 
 pub mod cpu;

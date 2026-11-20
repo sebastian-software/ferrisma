@@ -28,10 +28,9 @@ port-test-bridges = []
 libc = "0.2.191"
 c2rust-bitfields = "0.3.0"
 
-# The portable vector types of the CDEF and inverse-transform kernels
-# (src/simd/cdef, src/simd/itx; ADR 0062). Apache-2.0 OR MIT, linebender,
-# no dependencies of its own.
-fearless_simd = "=1.2.0"
+# CDEF and the inverse transforms written from the algorithm on fearless_simd
+# (ADR 0062), installed by src/simd/{arm,x86}/{cdef,itx}.rs.
+libavif-dav1d-kernels = { path = "../dav1d-kernels", version = "0.1.0" }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(libavif_rs_asan)", "cfg(dav1d_portable)"] }

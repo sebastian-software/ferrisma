@@ -203,7 +203,7 @@ mod tests {
             .lock()
             .unwrap_or_else(|e| e.into_inner());
         let level = std::arch::is_x86_feature_detected!("avx2")
-            && fearless_simd::Level::new().as_avx2().is_some();
+            && crate::simd::cdef::kernels_8bpc().is_some();
         let (scalar8, scalar16) = (slots8(0), slots16(0));
         for (simd, c) in slots8(!0).iter().zip(scalar8) {
             assert_eq!(*simd != c, level);

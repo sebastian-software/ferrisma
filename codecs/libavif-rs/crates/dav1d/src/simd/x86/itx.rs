@@ -83,7 +83,7 @@ pub unsafe fn itx_dsp_init_x86_8bpc(c: *mut c_void, _bpc: c_int, all_simd: *mut 
         return;
     }
 
-    let Some(k) = Kernels::new_8bpc() else {
+    let Some(k) = kernels_8bpc() else {
         return;
     };
     let t = &mut c.itxfm_add;
@@ -172,7 +172,7 @@ pub unsafe fn itx_dsp_init_x86_16bpc(c: *mut c_void, bpc: c_int, all_simd: *mut 
         return;
     }
 
-    let Some(k) = Kernels::new_16bpc() else {
+    let Some(k) = kernels_16bpc() else {
         return;
     };
     let t = &mut c.itxfm_add;
@@ -294,9 +294,9 @@ mod tests {
         }
     }
 
-    /// Whether the CPU has AVX2 and `fearless_simd`'s `Avx2` level.
+    /// Whether the CPU has AVX2 and the kernels' level (`fearless_simd`'s `Avx2`).
     fn level() -> bool {
-        std::arch::is_x86_feature_detected!("avx2") && fearless_simd::Level::new().as_avx2().is_some()
+        std::arch::is_x86_feature_detected!("avx2") && kernels_8bpc().is_some()
     }
 
     /// The slots in which two tables differ.
