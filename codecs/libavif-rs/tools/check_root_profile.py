@@ -141,7 +141,7 @@ def main():
                  # The workspace's dev setting for dav1d's fearless_simd
                  # kernels (root Cargo.toml): unoptimized they need megabyte
                  # stack frames.
-                 '[profile.dev.package.libavif-dav1d-kernels]\nopt-level=3\n[profile.dev.package.fearless_simd]\nopt-level=3\n')
+                 '[profile.dev.package.libavif-dav1d-kernels]\nopt-level=1\ndebug="line-tables-only"\n[profile.dev.package.fearless_simd]\nopt-level=1\ndebug="line-tables-only"\n')
     (work / 'Cargo.toml').write_text(manifest)
     # Bind translated ELF globals locally when an independent C oracle is also
     # loaded by a differential consumer. This supplies no codec implementation.

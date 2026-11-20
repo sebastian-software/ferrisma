@@ -534,18 +534,19 @@ fn passes<S: Level, P: Pixel, C: Coef, const W: usize, const H: usize, const NX:
         simd.vectorize(
             #[inline(always)]
             || {
-                let depth = C::depth(pass.depth);
+                let pass = Pass { depth: C::depth(pass.depth), ..pass };
                 match pass.kinds[0] {
-                    Kind::Dct => first_pass_lanes::<_, _, Dct, W, H, NX, NY>(simd, coeff, coded_rows, depth, &mut tmp),
-                    Kind::Adst => first_pass_lanes::<_, _, Adst, W, H, NX, NY>(simd, coeff, coded_rows, depth, &mut tmp),
-                    Kind::FlipAdst => first_pass_lanes::<_, _, FlipAdst, W, H, NX, NY>(simd, coeff, coded_rows, depth, &mut tmp),
-                    Kind::Identity => first_pass_lanes::<_, _, Identity, W, H, NX, NY>(simd, coeff, coded_rows, depth, &mut tmp),
+                    Kind::Dct => first_pass_lanes::<_, _, Dct, W, H, NX, NY>(simd, coeff, coded_rows, pass, &mut tmp),
+                    Kind::Adst => first_pass_lanes::<_, _, Adst, W, H, NX, NY>(simd, coeff, coded_rows, pass, &mut tmp),
+                    Kind::FlipAdst => first_pass_lanes::<_, _, FlipAdst, W, H, NX, NY>(simd, coeff, coded_rows, pass, &mut tmp),
+                    Kind::Identity => first_pass_lanes::<_, _, Identity, W, H, NX, NY>(simd, coeff, coded_rows, pass, &mut tmp),
                 }
+                let tmp = tmp.as_flattened();
                 match pass.kinds[1] {
-                    Kind::Dct => second_pass_lanes::<_, _, _, Dct, W, H>(simd, &tmp, depth, rows),
-                    Kind::Adst => second_pass_lanes::<_, _, _, Adst, W, H>(simd, &tmp, depth, rows),
-                    Kind::FlipAdst => second_pass_lanes::<_, _, _, FlipAdst, W, H>(simd, &tmp, depth, rows),
-                    Kind::Identity => second_pass_lanes::<_, _, _, Identity, W, H>(simd, &tmp, depth, rows),
+                    Kind::Dct => second_pass_lanes::<_, _, _, Dct, W, H>(simd, tmp, pass.depth, rows),
+                    Kind::Adst => second_pass_lanes::<_, _, _, Adst, W, H>(simd, tmp, pass.depth, rows),
+                    Kind::FlipAdst => second_pass_lanes::<_, _, _, FlipAdst, W, H>(simd, tmp, pass.depth, rows),
+                    Kind::Identity => second_pass_lanes::<_, _, _, Identity, W, H>(simd, tmp, pass.depth, rows),
                 }
             },
         );
@@ -553,17 +554,17 @@ fn passes<S: Level, P: Pixel, C: Coef, const W: usize, const H: usize, const NX:
     }
     let tmp_rows = &mut tmp;
     match pass.kinds[0] {
-        Kind::Dct => first_pass::<_, _, Dct, W, H, NX, NY>(simd, coeff, coded_rows, pass.depth, tmp_rows),
-        Kind::Adst => first_pass::<_, _, Adst, W, H, NX, NY>(simd, coeff, coded_rows, pass.depth, tmp_rows),
-        Kind::FlipAdst => first_pass::<_, _, FlipAdst, W, H, NX, NY>(simd, coeff, coded_rows, pass.depth, tmp_rows),
-        Kind::Identity => first_pass::<_, _, Identity, W, H, NX, NY>(simd, coeff, coded_rows, pass.depth, tmp_rows),
+        Kind::Dct => first_pass_shared::<_, _, Dct, W, H, NX, NY>(simd, coeff, coded_rows, pass, tmp_rows),
+        Kind::Adst => first_pass_shared::<_, _, Adst, W, H, NX, NY>(simd, coeff, coded_rows, pass, tmp_rows),
+        Kind::FlipAdst => first_pass_shared::<_, _, FlipAdst, W, H, NX, NY>(simd, coeff, coded_rows, pass, tmp_rows),
+        Kind::Identity => first_pass_shared::<_, _, Identity, W, H, NX, NY>(simd, coeff, coded_rows, pass, tmp_rows),
     }
-    let tmp = &tmp[..NY.min(sh)];
+    let tmp = tmp[..NY.min(sh)].as_flattened();
     match pass.kinds[1] {
-        Kind::Dct => second_pass::<_, _, _, Dct, W, H>(simd, tmp, pass.depth, rows),
-        Kind::Adst => second_pass::<_, _, _, Adst, W, H>(simd, tmp, pass.depth, rows),
-        Kind::FlipAdst => second_pass::<_, _, _, FlipAdst, W, H>(simd, tmp, pass.depth, rows),
-        Kind::Identity => second_pass::<_, _, _, Identity, W, H>(simd, tmp, pass.depth, rows),
+        Kind::Dct => second_pass_shared::<_, _, _, Dct, W, H>(simd, tmp, pass.depth, rows),
+        Kind::Adst => second_pass_shared::<_, _, _, Adst, W, H>(simd, tmp, pass.depth, rows),
+        Kind::FlipAdst => second_pass_shared::<_, _, _, FlipAdst, W, H>(simd, tmp, pass.depth, rows),
+        Kind::Identity => second_pass_shared::<_, _, _, Identity, W, H>(simd, tmp, pass.depth, rows),
     }
 }
 
@@ -572,19 +573,22 @@ fn passes<S: Level, P: Pixel, C: Coef, const W: usize, const H: usize, const NX:
 /// read set to 0. Rows from `coded_rows` up and columns from `NX` up hold no
 /// nonzero coefficient; their part of `tmp` stays 0, as in the C.
 ///
-/// One region with the level's features per block size, bound and
-/// transform, shared by the kernels of the block size: inlined into each
-/// kernel, the passes made the library many times larger and its build very
-/// slow. On x86-64 the region is a function of its own (it carries the AVX2
+/// One region with the level's features per row length `W`, lanes `V`,
+/// bound `NX` and transform, shared by the kernels of every block size with
+/// that row length: the block's height reaches it only as values (`sh`, and
+/// `rect2` and `shift` in `pass`). Inlined into each kernel, or one copy per
+/// block size, the passes made the library large and its build slow. On
+/// x86-64 the region is a function of its own (it carries the AVX2
 /// features), so it is shared as it is; on AArch64 the compiler inlines it,
 /// and this function is kept out of line instead (for code size and build
 /// time only).
 #[cfg_attr(target_arch = "aarch64", inline(never))]
-fn first_pass<S: Level, C: Coef, T: Tx1d, const W: usize, const H: usize, const NX: usize, const NY: usize>(
+fn first_pass<S: Level, V: Memory<S, C>, C: Coef, T: Tx1d, const W: usize, const NX: usize>(
     simd: S,
     coeff: &mut [C],
+    sh: usize,
     coded_rows: usize,
-    depth: Depth,
+    pass: Pass,
     tmp: &mut [[C; W]],
 ) {
     simd.vectorize(
@@ -593,46 +597,68 @@ fn first_pass<S: Level, C: Coef, T: Tx1d, const W: usize, const H: usize, const 
             // Inside the region: on x86-64 the region is a function of its
             // own, and a constant computed outside it would reach it only as
             // a value in memory.
-            first_pass_lanes::<_, _, T, W, H, NX, NY>(simd, coeff, coded_rows, C::depth(depth), tmp);
+            let pass = Pass { depth: C::depth(pass.depth), ..pass };
+            rows_pass::<_, V, _, T, W, NX>(simd, coeff, sh, coded_rows, pass, tmp);
         },
     )
 }
 
-/// `first_pass` on the lanes of its block (module documentation): 4 where
-/// the block is 4 wide or tall, the natural width where `NY` (the rows that
-/// can be nonzero) fills it, else 8.
+/// The lanes of the first pass of a `W`x`H` block whose rows from `NY` up
+/// are zero (module documentation): 4 where the block is 4 wide or tall, the
+/// natural width where `NY` fills it, else 8.
+macro_rules! first_pass_lanes_of {
+    ($pass:ident, $S:ident, $C:ident, $T:ident, $W:expr, $H:expr, $NX:expr, $NY:expr, $($arg:expr),*) => {
+        if $W.min($H) == 4 {
+            $pass::<_, $C::Lanes4<$S>, _, $T, $W, $NX>($($arg),*)
+        } else if $NY.min($H) >= $C::Native::<$S>::LEN {
+            $pass::<_, $C::Native<$S>, _, $T, $W, $NX>($($arg),*)
+        } else {
+            $pass::<_, $C::Lanes8<$S>, _, $T, $W, $NX>($($arg),*)
+        }
+    };
+}
+
+/// `first_pass` of a `W`x`H` block, on the lanes of the block.
+#[inline(always)]
+fn first_pass_shared<S: Level, C: Coef, T: Tx1d, const W: usize, const H: usize, const NX: usize, const NY: usize>(
+    simd: S,
+    coeff: &mut [C],
+    coded_rows: usize,
+    pass: Pass,
+    tmp: &mut [[C; W]],
+) {
+    first_pass_lanes_of!(first_pass, S, C, T, W, H, NX, NY, simd, coeff, H.min(32), coded_rows, pass, tmp)
+}
+
+/// The rows of `first_pass`, inline (the x86-64 region of the small blocks).
 #[inline(always)]
 fn first_pass_lanes<S: Level, C: Coef, T: Tx1d, const W: usize, const H: usize, const NX: usize, const NY: usize>(
     simd: S,
     coeff: &mut [C],
     coded_rows: usize,
-    depth: Depth,
+    pass: Pass,
     tmp: &mut [[C; W]],
 ) {
-    if W.min(H) == 4 {
-        rows_pass::<_, C::Lanes4<S>, _, T, W, H, NX>(simd, coeff, coded_rows, depth, tmp);
-    } else if NY.min(H) >= C::Native::<S>::LEN {
-        rows_pass::<_, C::Native<S>, _, T, W, H, NX>(simd, coeff, coded_rows, depth, tmp);
-    } else {
-        rows_pass::<_, C::Lanes8<S>, _, T, W, H, NX>(simd, coeff, coded_rows, depth, tmp);
-    }
+    first_pass_lanes_of!(rows_pass, S, C, T, W, H, NX, NY, simd, coeff, H.min(32), coded_rows, pass, tmp)
 }
 
-/// `first_pass` on lanes `V`.
+/// `first_pass` on lanes `V`, for a block of `sh` coefficient rows (`pass`:
+/// its `rect2` and `shift`, and the depth as the coefficient type fixes it).
 #[inline(always)]
-fn rows_pass<S: Simd, V: Memory<S, C>, C: Coef, T: Tx1d, const W: usize, const H: usize, const NX: usize>(
+fn rows_pass<S: Simd, V: Memory<S, C>, C: Coef, T: Tx1d, const W: usize, const NX: usize>(
     simd: S,
     coeff: &mut [C],
+    sh: usize,
     coded_rows: usize,
-    depth: Depth,
+    pass: Pass,
     tmp: &mut [[C; W]],
 ) {
-    let sh = H.min(32);
+    let depth = pass.depth;
     let lanes = V::LEN;
     let nx = NX.min(W.min(32));
     let row_clip = V::range(simd, depth.row_clip);
     let col_clip = V::range(simd, depth.col_clip);
-    let shift = const { shift(W, H) };
+    let shift = pass.shift;
     let rnd = (1 << shift) >> 1;
     for y0 in (0..coded_rows).step_by(lanes) {
         // Input x of rows y0..y0 + L; from `nx` up zero.
@@ -641,7 +667,7 @@ fn rows_pass<S: Simd, V: Memory<S, C>, C: Coef, T: Tx1d, const W: usize, const H
             let column = &mut coeff[x * sh + y0..][..lanes];
             *c = V::load_from(simd, column);
             column.fill(C::ZERO);
-            if is_rect2(W, H) {
+            if pass.rect2 {
                 *c = V::stored((c.wide() * 181 + 128) >> 8);
             }
         }
@@ -675,13 +701,16 @@ fn rows_pass<S: Simd, V: Memory<S, C>, C: Coef, T: Tx1d, const W: usize, const H
     }
 }
 
-/// The columns of `tmp` (rows from `tmp.len()` up are zero) transformed
-/// with `T` and added to the pixels: `iclip_pixel(dst + ((c + 8) >> 4))`.
-/// Shared as `first_pass` is.
+/// The columns of `tmp` (`w` values per row; rows from the end of `tmp` up
+/// are zero) transformed with `T` and added to the pixels:
+/// `iclip_pixel(dst + ((c + 8) >> 4))`. One region per column length `H`,
+/// lanes `V` and transform, shared by the kernels of every block size with
+/// that height (the width reaches it as `w`), as `first_pass` is.
 #[cfg_attr(target_arch = "aarch64", inline(never))]
-fn second_pass<S: Level, C: Coef, P: Pixel, T: Tx1d, const W: usize, const H: usize>(
+fn second_pass<S: Level, V: Memory<S, C>, C: Coef, P: Pixel, T: Tx1d, const H: usize>(
     simd: S,
-    tmp: &[[C; W]],
+    tmp: &[C],
+    w: usize,
     depth: Depth,
     rows: &mut [&mut [P]; H],
 ) {
@@ -689,42 +718,62 @@ fn second_pass<S: Level, C: Coef, P: Pixel, T: Tx1d, const W: usize, const H: us
         #[inline(always)]
         || {
             // Inside the region (as in `first_pass`).
-            second_pass_lanes::<_, _, _, T, W, H>(simd, tmp, C::depth(depth), rows);
+            columns_pass::<_, V, _, _, T, H>(simd, tmp, w, C::depth(depth), rows);
         },
     )
 }
 
-/// `second_pass` on the lanes of its block: 4 where the block is 4 wide,
+/// The lanes of the second pass of a block `W` wide: 4 where it is 4 wide,
 /// the natural width where its `W` columns fill it, else 8.
+macro_rules! second_pass_lanes_of {
+    ($pass:ident, $S:ident, $C:ident, $T:ident, $W:expr, $H:expr, $($arg:expr),*) => {
+        if $W == 4 {
+            $pass::<_, $C::Lanes4<$S>, _, _, $T, $H>($($arg),*)
+        } else if $W >= $C::Native::<$S>::LEN {
+            $pass::<_, $C::Native<$S>, _, _, $T, $H>($($arg),*)
+        } else {
+            $pass::<_, $C::Lanes8<$S>, _, _, $T, $H>($($arg),*)
+        }
+    };
+}
+
+/// `second_pass` of a `W`x`H` block, on the lanes of the block.
 #[inline(always)]
-fn second_pass_lanes<S: Level, C: Coef, P: Pixel, T: Tx1d, const W: usize, const H: usize>(
+fn second_pass_shared<S: Level, C: Coef, P: Pixel, T: Tx1d, const W: usize, const H: usize>(
     simd: S,
-    tmp: &[[C; W]],
+    tmp: &[C],
     depth: Depth,
     rows: &mut [&mut [P]; H],
 ) {
-    if W == 4 {
-        columns_pass::<_, C::Lanes4<S>, _, _, T, W, H>(simd, tmp, depth, rows);
-    } else if W >= C::Native::<S>::LEN {
-        columns_pass::<_, C::Native<S>, _, _, T, W, H>(simd, tmp, depth, rows);
-    } else {
-        columns_pass::<_, C::Lanes8<S>, _, _, T, W, H>(simd, tmp, depth, rows);
-    }
+    second_pass_lanes_of!(second_pass, S, C, T, W, H, simd, tmp, W, depth, rows)
+}
+
+/// The columns of `second_pass`, inline (the x86-64 region of the small
+/// blocks).
+#[inline(always)]
+fn second_pass_lanes<S: Level, C: Coef, P: Pixel, T: Tx1d, const W: usize, const H: usize>(
+    simd: S,
+    tmp: &[C],
+    depth: Depth,
+    rows: &mut [&mut [P]; H],
+) {
+    second_pass_lanes_of!(columns_pass, S, C, T, W, H, simd, tmp, W, depth, rows)
 }
 
 /// `second_pass` on lanes `V`.
 #[inline(always)]
-fn columns_pass<S: Simd, V: Memory<S, C>, C: Coef, P: Pixel, T: Tx1d, const W: usize, const H: usize>(
+fn columns_pass<S: Simd, V: Memory<S, C>, C: Coef, P: Pixel, T: Tx1d, const H: usize>(
     simd: S,
-    tmp: &[[C; W]],
+    tmp: &[C],
+    w: usize,
     depth: Depth,
     rows: &mut [&mut [P]; H],
 ) {
     let lanes = V::LEN;
     let col_clip = V::range(simd, depth.col_clip);
-    for x0 in (0..W).step_by(lanes) {
+    for x0 in (0..w).step_by(lanes) {
         let mut input = [V::splat(simd, Default::default()); H];
-        for (c, row) in input.iter_mut().zip(tmp) {
+        for (c, row) in input.iter_mut().zip(tmp.chunks_exact(w)) {
             *c = V::load_from(simd, &row[x0..][..lanes]);
         }
         // (c + 8) >> 4
