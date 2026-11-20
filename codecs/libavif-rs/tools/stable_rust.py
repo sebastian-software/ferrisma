@@ -248,6 +248,8 @@ def profile_of(rel):
     if crate == 'sharpyuv':
         return 'sharpyuv'
     if crate == 'aom':
+        if rest[0] == 'libaom':  # the one tree (codec ADR 0063)
+            return 'aom/one-source'
         if len(rest) == 1:  # crates/aom/src/macros-<platform>-<profile>.rs
             return 'aom/' + '/'.join(rest[0][:-3].split('-')[-2:])
         return f'aom/{rest[0]}/{rest[1]}'
@@ -305,10 +307,9 @@ def main():
         return
     # Re-record digests: the libaom manifests through the port's own rehash
     # (ADR 0059), the others with the same digest definition.
-    aom_stale = {path.stem.split('-')[1] for path, _ in stale if path.parent.name == 'aom'}
-    for platform in sorted(aom_stale):
-        args = ['--linux', '--rehash'] if platform == 'linux' else ['--rehash']
-        subprocess.run([sys.executable, '-I', str(ROOT / 'tools/enable_aom_dispatch.py'), *args],
+    if any(path.parent.name == 'aom' for path, _ in stale):
+        # One record for the one tree (codec ADR 0063).
+        subprocess.run([sys.executable, '-I', str(ROOT / 'tools/enable_aom_dispatch.py'), '--rehash'],
                        check=True, cwd=ROOT, stdout=subprocess.DEVNULL)
     for path, record in records.items():
         if path.parent.name == 'aom':

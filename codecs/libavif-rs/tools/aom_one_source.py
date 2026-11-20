@@ -32,6 +32,8 @@ import re
 import shlex
 import shutil
 import subprocess
+import sys
+import tempfile
 
 from aom_compound_literals import name_float_tables
 from aom_corrections import compatibility
@@ -63,9 +65,55 @@ PLACEHOLDER_RECORDS = re.compile(
     re.S)
 
 
+def debug_only_statements(text):
+    """Make each `#[cfg(debug_assertions)] { .. }` block a statement.
+
+    A block that ends its enclosing block would be the tail expression, where
+    an attribute does not remove it; a `;` makes it a statement."""
+    marker = '#[cfg(debug_assertions)]\n{'
+    position = 0
+    while (start := text.find(marker, position)) >= 0:
+        index, depth = start + len(marker) - 1, 0
+        while True:
+            char = text[index]
+            if char == '"' or text.startswith('b"', index):
+                index = text.index('"', index) + 1
+                while text[index] != '"':
+                    index += 2 if text[index] == '\\' else 1
+            elif char == "'" and re.match(r"'(\\.|[^\\'])'", text[index:index + 4]):
+                index = re.match(r"'(\\.|[^\\'])'", text[index:index + 4]).end() + index - 1
+            elif char == '{':
+                depth += 1
+            elif char == '}':
+                depth -= 1
+                if depth == 0:
+                    break
+            index += 1
+        following = text[index + 1:].lstrip()
+        if following.startswith('}'):
+            text = text[:index + 1] + ';' + text[index + 1:]
+        position = index + 1
+    return text
+
+
 def one_source_text(text, changes):
     """Map the prepared presentation's hooks to the owned Rust platform layer."""
-    text = re.sub(r'\n    fn ferrisma_debug_assertions\(\) -> bool;', '', text)
+    text = re.sub(r'\n    fn ferrisma_debug_(?:assertions|only)\(\) -> bool;', '', text)
+    text, count = re.subn(r'\bif ferrisma_debug_only\(\) \{', '#[cfg(debug_assertions)]\n{', text)
+    if count:
+        changes['one-source-debug-only-block'] = count
+        text = debug_only_statements(text)
+    if 'ferrisma_debug_only' in text:
+        raise SystemExit('unexpected form of a Debug-only block')
+    for item in DEBUG_BLOCKS['debug_only_fields']:
+        text, count = re.subn(r'^( *)(pub ' + item['field'] + r': )', r'\1#[cfg(debug_assertions)]\n\1\2', text, flags=re.M)
+        if count:
+            changes['one-source-debug-only-field'] = count
+    for item in DEBUG_BLOCKS['debug_only_exports']:
+        text, count = re.subn(r'#\[no_mangle\]\n(pub unsafe extern "C-unwind" fn ' + item['function'] + r'\()',
+                              r'#[cfg_attr(debug_assertions, no_mangle)]\n\1', text)
+        if count:
+            changes['one-source-debug-only-export'] = count
     for call, replacement in HOOK_CALLS.items():
         count = text.count(call)
         if count:
@@ -100,6 +148,75 @@ def one_source_text(text, changes):
     return text
 
 
+DEBUG_BLOCKS = json.loads((PREPARED / 'debug_blocks.json').read_text())
+DIRECTIVE = re.compile(r'^\s*#\s*(if|ifdef|ifndef|elif|else|endif)\b')
+
+
+def prepared_sources(source_root, directory):
+    """Copies of the files with Debug-only blocks, presented per debug_blocks.json.
+
+    Each listed directive becomes FERRISMA_DEBUG_ONLY_BEGIN (after `condition`,
+    if the directive also tested another macro) and its #endif becomes
+    FERRISMA_DEBUG_ONLY_END (prelude.h). Every other line stays as it is, so
+    __LINE__ and the statements are the original's. Returns the rewritten
+    paths relative to the source root."""
+    by_file = {}
+    for block in DEBUG_BLOCKS['blocks']:
+        by_file.setdefault(block['file'], []).append(block)
+    for statement in DEBUG_BLOCKS.get('statements', []):
+        by_file.setdefault(statement['file'], [])
+    for name, blocks in by_file.items():
+        lines = (source_root / name).read_text().split('\n')
+        for statement in [s for s in DEBUG_BLOCKS.get('statements', []) if s['file'] == name]:
+            first, last = statement['line'] - 1, statement['last_line'] - 1
+            if lines[first].strip() != statement['expect'] or not lines[last].rstrip().endswith(';'):
+                raise SystemExit(f'{name}:{statement["line"]}: unexpected statement {lines[first]!r}')
+            lines[first] = 'FERRISMA_DEBUG_ONLY_BEGIN ' + lines[first]
+            lines[last] = lines[last] + ' FERRISMA_DEBUG_ONLY_END'
+        for block in blocks:
+            start = block['line'] - 1
+            if lines[start].strip() != block['expect']:
+                raise SystemExit(f'{name}:{block["line"]}: expected {block["expect"]!r}, found {lines[start]!r}')
+            depth, end, middle = 0, None, None
+            for index in range(start, len(lines)):
+                match = DIRECTIVE.match(lines[index])
+                if not match:
+                    continue
+                kind = match.group(1)
+                if kind in ('if', 'ifdef', 'ifndef'):
+                    depth += 1
+                elif kind == 'endif':
+                    depth -= 1
+                    if depth == 0:
+                        end = index
+                        break
+                elif depth == 1:
+                    if kind == 'elif' or not block.get('drop_else'):
+                        raise SystemExit(f'{name}:{block["line"]}: unexpected #{kind} in a Debug-only block')
+                    middle = index
+            if end is None:
+                raise SystemExit(f'{name}:{block["line"]}: unterminated block')
+            opening = 'FERRISMA_DEBUG_ONLY_BEGIN'
+            if 'condition' in block:
+                # Keep the line count: the marker opens the next line.
+                lines[start] = block['condition']
+                lines[start + 1] = opening + ' ' + lines[start + 1]
+            else:
+                lines[start] = opening
+            if middle is not None:
+                # The #else branch only casts the Debug-only variable to void.
+                for index in range(middle, end):
+                    lines[index] = ''
+            if 'condition' in block:
+                lines[end - 1] = lines[end - 1] + ' FERRISMA_DEBUG_ONLY_END'
+            else:
+                lines[end] = 'FERRISMA_DEBUG_ONLY_END'
+        target = directory / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text('\n'.join(lines))
+    return set(by_file)
+
+
 def prepared_config(build, directory):
     """The generic configuration with the one-source overrides."""
     target = directory / 'config'
@@ -115,10 +232,13 @@ def prepared_config(build, directory):
     return directory
 
 
-def prepared_command(entry, build, platform, config_root, dispatch_root):
+def prepared_command(entry, build, platform, config_root, dispatch_root, source_root=None):
     flags = shlex.split(entry['command'])
     result = [str(LLVM / 'bin/clang'), f'--target={TARGETS[platform]}', '-nostdlibinc',
               '-isystem', str(PREPARED / 'include'), '-include', str(PREPARED / 'prelude.h')]
+    if source_root is not None:
+        # Prepared copies shadow the originals; __FILE__ keeps the one form.
+        result += [f'-I{source_root}', f'-fmacro-prefix-map={source_root}=upstream/aom']
     if dispatch_root is not None:
         result.append(f'-I{dispatch_root}')
     index = 1
@@ -148,6 +268,98 @@ def write_modules(out):
     return target
 
 
+def install():
+    """Merge both targets' outputs into the one owned tree and record it.
+
+    Writes crates/aom/src/libaom (tools/merge_aom_platforms.py, with the
+    va_list spelling of tools/aom_va_list.py), src/modules.rs, src/api.rs,
+    crates/aom/reference/one-source and crates/aom/TRANSLATION.json."""
+    import aom_manifest
+    from aom_api import facade
+    from merge_aom_platforms import project, ARCHES
+    from stable_rust import digests
+    outputs = {platform: ROOT / f'build/aom-one-source/out/{platform}/debug' for platform in TARGETS}
+    records = {platform: json.loads((ROOT / f'build/aom-one-source/out/{platform}/debug.json').read_text())
+               for platform in TARGETS}
+    tree = ROOT / aom_manifest.TREE
+    shutil.rmtree(tree, ignore_errors=True)
+    report = ROOT / 'build/aom-one-source/merge-report.json'
+    subprocess.run([sys.executable, '-I', str(ROOT / 'tools/merge_aom_platforms.py'),
+                    '--macos', str(outputs['macos']), '--linux', str(outputs['linux']),
+                    '--output', str(tree), '--report', str(report), '--verify'], check=True)
+    order = [unit['source'] for unit in records['macos']['units']]
+    if order != [unit['source'] for unit in records['linux']['units']]:
+        raise SystemExit('The targets translated different unit sequences')
+    build = ROOT / 'build/aom-native-debug'
+    one_reference = ROOT / 'crates/aom/reference/one-source'
+    shutil.rmtree(one_reference, ignore_errors=True)
+    units, modules, bridges = [], ['// Generated by tools/aom_one_source.py --install.'], []
+    by_platform = {platform: {unit['source']: unit for unit in records[platform]['units']} for platform in TARGETS}
+    for relative in map(Path, order):
+        rust = Path(aom_manifest.TREE) / relative.with_suffix('.rs')
+        if relative.parts[0] == 'generated':
+            source = one_reference / relative
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_bytes((build / relative.relative_to('generated')).read_bytes())
+        else:
+            source = ROOT / 'upstream/aom' / relative
+        text = (ROOT / rust).read_text()
+        full, production = digests(text)
+        for name in re.findall(r'pub (?:unsafe )?extern "C-unwind" fn port_aom_inline_(\w+)\(', text):
+            bridges.append(dict(function=name, source=str(source.relative_to(ROOT)), export='port_aom_inline_' + name))
+        units.append(dict(source=str(source.relative_to(ROOT)), rust=str(rust), rust_sha256=full,
+                          production_rust_sha256=production,
+                          raw_sha256={p: by_platform[p][str(relative)]['raw_sha256'] for p in TARGETS},
+                          corrections={p: by_platform[p][str(relative)]['corrections'] for p in TARGETS}))
+        modules.append(f'#[path = "libaom/{relative.with_suffix(".rs")}"] pub mod {"__".join(relative.with_suffix("").parts)};')
+    (ROOT / 'crates/aom/src/modules.rs').write_text('\n'.join(modules) + '\n')
+    # One public facade: derived from each target's projection, which must agree.
+    facades = set()
+    with tempfile.TemporaryDirectory() as scratch:
+        for platform in TARGETS:
+            projected = []
+            for unit in units:
+                path = Path(scratch) / platform / unit['rust']
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(project((ROOT / unit['rust']).read_text(), ARCHES[platform]))
+                projected.append(dict(unit, rust=str(path)))
+            facades.add(facade(projected, build))
+    if len(facades) != 1:
+        raise SystemExit('The targets export different public facades')
+    (ROOT / 'crates/aom/src/api.rs').write_text(facades.pop())
+    targets = {}
+    for platform in TARGETS:
+        work = ROOT / f'build/aom-one-source/work/{platform}/debug'
+        reference = aom_manifest.reference(platform)
+        headers = {}
+        for directory, label in [(work / 'prepared/config', 'config'), (work / 'dispatch/config', 'dispatch/config')]:
+            for path in sorted(directory.glob('*.h')):
+                target = reference / label / path.name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(path.read_bytes())
+                headers[f'{label}/{path.name}'] = aom_manifest.sha256(path)
+        # The original C configuration of each profile (unchanged reference
+        # builds, crates/aom/reference/<platform>/<profile>/config).
+        builds = {profile: {f'config/{path.name}': aom_manifest.sha256(path) for path in
+                            sorted((ROOT / f'crates/aom/reference/{platform}/{profile}/config').glob('*.h'))}
+                  for profile in aom_manifest.PROFILES}
+        targets[platform] = dict(clang_target=records[platform]['target'],
+                                 rtcd_dispatch=records[platform]['rtcd_dispatch'],
+                                 presentation_headers=headers, reference_builds=builds)
+    merge = json.loads(report.read_text())
+    aom_manifest.save(dict(
+        translator='c2rust 0.21.0', llvm='16.0.6',
+        presentation=dict(tool='tools/aom_one_source.py', prelude_sha256=records['macos']['prelude_sha256'],
+                          neutral_headers=records['macos']['neutral_headers'],
+                          debug_blocks_sha256=aom_manifest.sha256(PREPARED / 'debug_blocks.json'),
+                          config_overrides=CONFIG_OVERRIDES, dropped_flags=sorted(DROPPED),
+                          profile_database='build/aom-native-debug'),
+        merge=dict(tool='tools/merge_aom_platforms.py', va_list=merge['va_list'], totals=merge['totals'],
+                   verify=merge['verify']),
+        targets=targets, optional_inline_test_bridges=bridges, units=units))
+    print(f'{len(units)} units installed in {aom_manifest.TREE}')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--platform', choices=sorted(TARGETS), required=True)
@@ -155,6 +367,10 @@ def main():
                         help='start from the Release compilation database (the prepared input is the same)')
     parser.add_argument('--import-only', action='store_true')
     parser.add_argument('--units', nargs='*', help='only these source paths (diagnosis)')
+    parser.add_argument('--install', action='store_true',
+                        help='merge build/aom-one-source/out/{macos,linux}/debug into crates/aom (after both targets)')
+    if '--install' in sys.argv[1:]:
+        return install()
     args = parser.parse_args()
     profile = 'release' if args.release else 'debug'
     platform = args.platform
@@ -167,6 +383,10 @@ def main():
     config_root = prepared_config(build, work / 'prepared')
     dispatch_root = work / 'dispatch'
     dispatch = dispatch_headers(platform, config_root, dispatch_root)
+    native_source = ROOT / 'build/aom-native-source'
+    source_root = work / 'prepared-src'
+    shutil.rmtree(source_root, ignore_errors=True)
+    rewritten = prepared_sources(native_source, source_root)
     inputs = []
     for original_entry in entries:
         entry = dict(original_entry)
@@ -180,8 +400,12 @@ def main():
             source.write_text(content)
             entry['command'] = entry['command'].replace(entry['file'], str(source))
             entry['file'] = str(source)
+        if source.is_relative_to(native_source) and str(source.relative_to(native_source)) in rewritten:
+            source = source_root / source.relative_to(native_source)
+            entry['command'] = entry['command'].replace(entry['file'], str(source))
+            entry['file'] = str(source)
         entry['command'] = prepared_command(entry, build, platform, config_root,
-                                            dispatch_root if dispatch else None)
+                                            dispatch_root if dispatch else None, source_root)
         # transpile_aom.py appends the resource directory last, and the layout
         # query of dav1d_layout.py drops exactly that final pair.
         entry['command'] += f' -isystem {LLVM}/lib/clang/16/include'

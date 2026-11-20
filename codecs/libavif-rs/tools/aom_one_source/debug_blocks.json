@@ -1,0 +1,118 @@
+{
+  "description": "Debug-only C statement blocks that the one-source translation keeps out of Release builds (owner decision 2026-11-21). tools/aom_one_source.py presents each block, in a prepared copy of its file, as FERRISMA_DEBUG_ONLY_BEGIN ... FERRISMA_DEBUG_ONLY_END; the translated block becomes `#[cfg(debug_assertions)] { ... }`. `line` is the opening directive in upstream/aom (libaom 3.15.2), `expect` its text; `condition` is what remains of a compound directive; `drop_else` removes an #else branch that only casts to void. Declarations a later assert names (mi_count) stay unconditional, as dead locals in Release. `statements` are asserts outside such blocks that name a Debug-only field; they are presented the same way, so Release builds without the field compile.",
+  "blocks": [
+    {
+      "file": "av1/encoder/block.h",
+      "line": 1538,
+      "expect": "#ifndef NDEBUG",
+      "why": "txb_skip initialization-check bits"
+    },
+    {
+      "file": "av1/encoder/block.h",
+      "line": 1552,
+      "expect": "#ifndef NDEBUG",
+      "why": "asserts on those bits"
+    },
+    {
+      "file": "av1/encoder/partition_search.c",
+      "line": 728,
+      "expect": "#ifndef NDEBUG",
+      "why": "stores into the Debug-only MACROBLOCK field last_set_offsets_loc"
+    },
+    {
+      "file": "av1/encoder/encodeframe_utils.c",
+      "line": 740,
+      "expect": "#ifndef NDEBUG",
+      "why": "mi_count increment"
+    },
+    {
+      "file": "av1/encoder/encodeframe_utils.c",
+      "line": 959,
+      "expect": "#ifndef NDEBUG",
+      "why": "mi_count increment"
+    },
+    {
+      "file": "av1/encoder/encodeframe_utils.c",
+      "line": 1703,
+      "expect": "#ifndef NDEBUG",
+      "why": "assert loop"
+    },
+    {
+      "file": "av1/common/av1_loopfilter.c",
+      "line": 668,
+      "expect": "#ifndef NDEBUG",
+      "why": "transform-edge check"
+    },
+    {
+      "file": "av1/common/av1_loopfilter.c",
+      "line": 801,
+      "expect": "#ifndef NDEBUG",
+      "why": "transform-edge check"
+    },
+    {
+      "file": "av1/common/av1_loopfilter.c",
+      "line": 830,
+      "expect": "#ifndef NDEBUG",
+      "drop_else": true,
+      "why": "chroma filter-level recheck (get_filter_level calls)"
+    },
+    {
+      "file": "av1/common/warped_motion.c",
+      "line": 244,
+      "expect": "#ifndef NDEBUG",
+      "why": "check_model_consistency call"
+    },
+    {
+      "file": "av1/encoder/encoder.c",
+      "line": 2567,
+      "expect": "#ifndef NDEBUG",
+      "why": "frame-buffer reference-count loop"
+    },
+    {
+      "file": "av1/encoder/encodeframe.c",
+      "line": 2774,
+      "expect": "#if !defined(NDEBUG) && !CONFIG_REALTIME_ONLY",
+      "condition": "#if !CONFIG_REALTIME_ONLY",
+      "why": "pyramid presence loop"
+    },
+    {
+      "file": "av1/encoder/context_tree.c",
+      "line": 178,
+      "expect": "#if !defined(NDEBUG) && !CONFIG_REALTIME_ONLY",
+      "condition": "#if !CONFIG_REALTIME_ONLY",
+      "why": "free-tree assert loops"
+    },
+    {
+      "file": "av1/common/reconintra.c",
+      "line": 1855,
+      "expect": "#if CONFIG_DEBUG",
+      "why": "CfL asserts with a get_plane_block_size call"
+    }
+  ],
+  "debug_only_fields": [
+    {
+      "record": "macroblock",
+      "field": "last_set_offsets_loc",
+      "why": "#ifndef NDEBUG member of MACROBLOCK (av1/encoder/block.h:1404)"
+    }
+  ],
+  "debug_only_exports": [
+    {
+      "function": "aom_is_pyramid_valid",
+      "why": "#ifndef NDEBUG definition (aom_dsp/pyramid.c:412); exported only with debug assertions"
+    },
+    {
+      "function": "aom_is_corner_list_valid",
+      "why": "#ifndef NDEBUG definition (aom_dsp/flow_estimation/corner_detect.c:140)"
+    }
+  ],
+  "statements": [
+    {
+      "file": "av1/encoder/partition_search.c",
+      "line": 2267,
+      "last_line": 2269,
+      "expect": "assert(x->last_set_offsets_loc.mi_row == mi_row &&",
+      "why": "assert on the Debug-only MACROBLOCK field last_set_offsets_loc"
+    }
+  ]
+}

@@ -11,6 +11,7 @@ import xml.etree.ElementTree as ET
 
 from build_aom import test_names
 from aom_subshards import passing_subshards
+import aom_manifest
 
 ROOT = Path(__file__).resolve().parents[1]
 PROGRAMS = ['test_libaom', 'test_aom_rc', 'test_intra_pred_speed']
@@ -95,8 +96,8 @@ def main():
     rust = ROOT / f'build/aom-rust-{profile}'
     args.fixtures = args.fixtures.resolve()
     platform = 'macos' if sys.platform == 'darwin' else 'linux'
-    manifest = ROOT / f'crates/aom/TRANSLATION-{platform}-{profile}.json'
-    translation = json.loads(manifest.read_text())
+    manifest = aom_manifest.PATH
+    translation = aom_manifest.view(platform, profile)
     if (json.loads((native / 'reference-profile.json').read_text())['profile'] != profile
             or digest(native / 'config/aom_config.h') != translation['generated_reference_headers']['config/aom_config.h']):
         raise SystemExit('The native reference and Rust preprocessing differ')

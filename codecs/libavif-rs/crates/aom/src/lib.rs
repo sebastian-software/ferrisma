@@ -25,27 +25,12 @@ mod jump;
 pub mod simd;
 #[cfg(feature = "port-macro-tests")]
 mod test_macros;
-#[cfg(all(not(aom_one_source_prototype), target_os = "macos", debug_assertions))]
-include!("modules-macos-debug.rs");
-#[cfg(all(not(aom_one_source_prototype), target_os = "macos", not(debug_assertions)))]
-include!("modules-macos-release.rs");
-#[cfg(all(not(aom_one_source_prototype), target_os = "linux", debug_assertions))]
-include!("modules-linux-debug.rs");
-#[cfg(all(not(aom_one_source_prototype), target_os = "linux", not(debug_assertions)))]
-include!("modules-linux-release.rs");
-// Route B phase 1 prototype (tools/aom_one_source.py): the one-source tree
-// from build/aom-one-source, selected with RUSTFLAGS="--cfg aom_one_source_prototype".
-#[cfg(aom_one_source_prototype)]
-include!(env!("AOM_ONE_SOURCE_MODULES"));
+// One owned translation for every build profile on both targets (codec ADR
+// 0063). Target differences are `cfg(target_arch)` items inside the units;
+// Debug-only C code is `cfg(debug_assertions)`.
+include!("modules.rs");
 
 /// Raw original API with one nominal Rust representation for public records.
 pub mod raw {
-    #[cfg(all(target_os = "macos", debug_assertions))]
-    include!("api-macos-debug.rs");
-    #[cfg(all(target_os = "macos", not(debug_assertions)))]
-    include!("api-macos-release.rs");
-    #[cfg(all(target_os = "linux", debug_assertions))]
-    include!("api-linux-debug.rs");
-    #[cfg(all(target_os = "linux", not(debug_assertions)))]
-    include!("api-linux-release.rs");
+    include!("api.rs");
 }

@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 import subprocess
 
+import aom_manifest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -30,8 +32,8 @@ def main():
     work.mkdir(parents=True, exist_ok=True)
     (work / 'summary.json').unlink(missing_ok=True)
     platform = 'macos' if os.uname().sysname == 'Darwin' else 'linux'
-    manifest = ROOT / f'crates/aom/TRANSLATION-{platform}-{profile}.json'
-    translation = json.loads(manifest.read_text())
+    manifest = aom_manifest.PATH
+    translation = aom_manifest.view(platform, profile)
     if (json.loads((native / 'reference-profile.json').read_text())['profile'] != profile or
             digest(native / 'config/aom_config.h') !=
             translation['generated_reference_headers']['config/aom_config.h']):

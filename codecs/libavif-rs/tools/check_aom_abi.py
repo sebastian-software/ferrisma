@@ -8,6 +8,8 @@ import subprocess
 import sys
 
 from check_abi import compiler_flags, walk
+import aom_manifest
+from merge_aom_platforms import ARCHES, project
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -20,7 +22,7 @@ def main():
     platform = 'linux' if sys.platform == 'linux' else 'macos'
     build = ROOT / f'build/aom-native-{profile}'
     entries = json.loads((build / 'library-compile-commands.json').read_text())
-    manifest = json.loads((ROOT / f'crates/aom/TRANSLATION-{platform}-{profile}.json').read_text())['units']
+    manifest = aom_manifest.view(platform, profile)['units']
     work = ROOT / f'build/aom-abi-{profile}'
     work.mkdir(exist_ok=True)
     expected, rust, excluded = [], [], []
@@ -29,9 +31,13 @@ def main():
         rust.append(f'fn probe_{index}() {{')
         source = Path(entry['file'])
         unit = manifest[index]
-        relative = Path(unit['rust']).relative_to(f'crates/aom/src/{platform}/{profile}').with_suffix('')
+        relative = Path(unit['rust']).relative_to(aom_manifest.TREE).with_suffix('')
         module = 'aom::' + '__'.join(relative.parts)
-        translated = (ROOT / unit['rust']).read_text()
+        # The one tree as this target and profile compile it (codec ADR 0063):
+        # the other target's items and, in Release, Debug-only fields removed.
+        translated = project((ROOT / unit['rust']).read_text(), ARCHES[platform])
+        if args.release:
+            translated = re.sub(r'\n *#\[cfg\(debug_assertions\)\]\n *pub \w+: [^\n]*', '', translated)
         records = re.findall(r'pub (struct|union) (\w+) \{(.*?)\n\}', translated, re.S)
         flags = compiler_flags(entry)
         ast = json.loads(subprocess.check_output(flags + ['-Xclang', '-ast-dump=json', '-fsyntax-only', source],

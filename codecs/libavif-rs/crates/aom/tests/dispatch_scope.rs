@@ -5,7 +5,7 @@
 //! `--disable-avx512` and `--disable-neon_dotprod/neon_i8mm/sve/sve2`) keep
 //! every specialization above that scope out of them. This scan fails if a
 //! regeneration ever dispatches on a higher capability or names a higher
-//! kernel, in any of the four translation profiles.
+//! kernel, on either target of the one translation (codec ADR 0063).
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -45,12 +45,18 @@ fn contains_word(text: &str, word: &str) -> bool {
 fn rtcd_tables_dispatch_nothing_above_avx2_or_neon() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
     let mut sources = Vec::new();
-    for profile in ["linux", "macos"] {
-        rtcd_sources(&root.join(profile), &mut sources);
-    }
+    rtcd_sources(&root.join("libaom"), &mut sources);
     sources.sort();
-    // aom_dsp, aom_scale and av1 for debug and release on both targets.
-    assert_eq!(sources.len(), 12, "{sources:?}");
+    // aom_dsp, aom_scale and av1; since codec ADR 0063 each unit holds the
+    // tables of both targets (and every build profile) under cfg(target_arch).
+    assert_eq!(sources.len(), 3, "{sources:?}");
+    for path in &sources {
+        let text = fs::read_to_string(path).unwrap();
+        for arch in ["aarch64", "x86_64"] {
+            let attribute = format!("#[cfg(target_arch = \"{arch}\")]");
+            assert!(text.contains(&attribute), "{}: no {arch} table", path.display());
+        }
+    }
     for path in &sources {
         let text = fs::read_to_string(path).unwrap();
         for (number, line) in text.lines().enumerate() {

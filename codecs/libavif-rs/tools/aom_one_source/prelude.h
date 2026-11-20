@@ -12,4 +12,9 @@
 _Bool ferrisma_debug_assertions(void);
 _Noreturn void ferrisma_assert_fail(const char *expression, const char *file,
                                     unsigned int line, const char *function);
+/* Debug-only C statement blocks (debug_blocks.json) are presented between
+ * these markers and become `#[cfg(debug_assertions)] { ... }`. */
+_Bool ferrisma_debug_only(void);
+#define FERRISMA_DEBUG_ONLY_BEGIN if (ferrisma_debug_only()) {
+#define FERRISMA_DEBUG_ONLY_END }
 #endif

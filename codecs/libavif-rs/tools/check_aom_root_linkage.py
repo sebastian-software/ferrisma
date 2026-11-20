@@ -11,6 +11,7 @@ import sys
 import platform
 
 from check_aom_linkage import consumer_owners, definitions
+import aom_manifest
 
 ROOT = Path(__file__).resolve().parents[1]
 FORBIDDEN = re.compile(r'lib(?:aom|dav1d|sharpyuv)(?:[.-]|$)')
@@ -106,8 +107,8 @@ def main():
     profile = 'debug' if args.debug else 'release'
     archive, build, native = args.archive.resolve(), args.consumer_build.resolve(), args.reference_build.resolve()
     native_platform = 'macos' if sys.platform == 'darwin' else 'linux'
-    manifest_path = ROOT / f'crates/aom/TRANSLATION-{native_platform}-{profile}.json'
-    translation = json.loads(manifest_path.read_text())
+    manifest_path = aom_manifest.PATH
+    translation = aom_manifest.view(native_platform, profile)
     if json.loads((native / 'reference-profile.json').read_text())['profile'] != profile:
         raise SystemExit('The original AOM and root Rust preprocessing profiles differ')
     for name, expected in translation['generated_reference_headers'].items():

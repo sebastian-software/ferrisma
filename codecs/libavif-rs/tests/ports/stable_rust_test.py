@@ -74,7 +74,7 @@ class StableTextTest(unittest.TestCase):
         self.assertNotIn('asm!', text)
 
     def test_xgetbv_becomes_the_intrinsic(self):
-        rel = 'crates/aom/src/linux/release/aom_scale/aom_scale_rtcd.rs'
+        rel = 'crates/aom/src/libaom/aom_scale/aom_scale_rtcd.rs'
         committed = stable_text(rel, XGETBV_GENERATED)
         self.assertNotIn('asm', committed.replace('_xgetbv', ''))
         self.assertIn('#[target_feature(enable = "xsave")]', committed)

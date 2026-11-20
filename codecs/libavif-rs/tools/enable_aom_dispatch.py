@@ -49,6 +49,8 @@ X86_EXTENSIONS = ('sse2', 'sse3', 'ssse3', 'sse4_1', 'avx2')
 X86_FLAGS = {'sse2': 'HAS_SSE2', 'sse3': 'HAS_SSE3', 'ssse3': 'HAS_SSSE3', 'sse4_1': 'HAS_SSE4_1', 'avx2': 'HAS_AVX2'}
 sys.path.insert(0, str(ROOT / 'tools'))
 import transpile_aom  # noqa: E402
+import aom_manifest  # noqa: E402
+from merge_aom_platforms import ARCHES, merge_unit, project  # noqa: E402
 
 CRATE = ROOT / 'crates/aom'
 OVERLAY = CRATE / ('rtcd/x86_64.pl' if LINUX else 'rtcd/arm64.pl')
@@ -57,6 +59,25 @@ RTCD_UNITS = {'config/aom_dsp_rtcd.h': 'aom_dsp/aom_dsp_rtcd.rs',
               'config/av1_rtcd.h': 'av1/common/av1_rtcd.rs',
               'config/aom_scale_rtcd.h': 'aom_scale/aom_scale_rtcd.rs'}
 EXPECT = '.expect("non-null function pointer")'
+OTHER = {'macos': 'linux', 'linux': 'macos'}
+
+
+def projected_texts(platform, record):
+    """Each unit of the one tree as `platform` compiles it (codec ADR 0063)."""
+    return {u['rust']: project((ROOT / u['rust']).read_text(), ARCHES[platform]) for u in record['units']}
+
+
+def merged_text(platform, rel, edited):
+    """The one-tree unit with `platform`'s side replaced by `edited`."""
+    other = project((ROOT / rel).read_text(), ARCHES[OTHER[platform]])
+    sides = {platform: edited, OTHER[platform]: other}
+    text, _ = merge_unit(sides['macos'], sides['linux'])
+    return text
+
+
+def unit_digests(text):
+    production = text.split('\n#[cfg(feature = "port-test-bridges")]', 1)[0]
+    return hashlib.sha256(text.encode()).hexdigest(), hashlib.sha256(production.encode()).hexdigest()
 
 
 def overlay_table(text, linux):
@@ -254,16 +275,16 @@ def check_int_aliases(linux=True):
     Linux every integer alias in its canonical form."""
     platform = 'linux' if linux else 'macos'
     bad = []
-    for profile in ['release', 'debug']:
-        for rel in RTCD_UNITS.values():
-            path = CRATE / f'src/{platform}/{profile}' / rel
-            text = path.read_text()
-            used = ' '.join(re.findall(r'^pub static mut \w+: (Option<.*?>) = None;', text, re.M | re.S))
-            others = [p.read_text() for p in sorted((CRATE / f'src/{platform}/{profile}').rglob('*.rs')) if p != path]
-            if linux and ensure_int_aliases(text, text) != text:
-                bad.append(str(path.relative_to(ROOT)))
-            elif ensure_copied_types(text, used, others, linux) != text:
-                bad.append(str(path.relative_to(ROOT)))
+    texts = projected_texts(platform, aom_manifest.load())
+    for rel in RTCD_UNITS.values():
+        path = f'{aom_manifest.TREE}/{rel}'
+        text = texts[path]
+        used = ' '.join(re.findall(r'^pub static mut \w+: (Option<.*?>) = None;', text, re.M | re.S))
+        others = [texts[p] for p in sorted(texts) if p != path]
+        if linux and ensure_int_aliases(text, text) != text:
+            bad.append(path)
+        elif ensure_copied_types(text, used, others, linux) != text:
+            bad.append(path)
     if bad:
         raise SystemExit(f'type aliases missing: {bad}')
     print(f'{platform} RTCD units: copied type aliases and records complete')
@@ -520,10 +541,11 @@ def check(linux):
                 continue
             wanted.setdefault(m.group(1), set()).add(m.group(2))
     functions = 0
-    for profile in ['release', 'debug']:
-        ref = CRATE / f'reference/{platform}/{profile}'
-        manifest_path = CRATE / f'TRANSLATION-{platform}-{profile}.json'
-        manifest = json.loads(manifest_path.read_text())
+    record = aom_manifest.load()
+    manifest_path = aom_manifest.PATH
+    for profile in ['one-source']:
+        ref = aom_manifest.reference(platform)
+        manifest = record['targets'][platform]
         with tempfile.TemporaryDirectory() as tmp:
             dispatch = transpile_aom.dispatch_headers(platform, ref, Path(tmp))
             headers = {n: (Path(tmp) / n).read_text() for n in dispatch['headers']}
@@ -531,16 +553,15 @@ def check(linux):
                 if (ref / 'dispatch' / n).read_bytes() != (Path(tmp) / n).read_bytes():
                     problems.append(f'{(ref / "dispatch" / n).relative_to(ROOT)}: differs from the regenerated header')
         if manifest.get('rtcd_dispatch') != dispatch:
-            problems.append(f'{manifest_path.relative_to(ROOT)}: rtcd_dispatch block differs')
-        if manifest_path.read_text() != json.dumps(manifest, indent=2) + '\n':
+            problems.append(f'{manifest_path.relative_to(ROOT)}: {platform} rtcd_dispatch block differs')
+        if manifest_path.read_text() != json.dumps(record, indent=2) + '\n':
             problems.append(f'{manifest_path.relative_to(ROOT)}: not in the form the tool writes')
-        units = {u['rust']: u for u in manifest['units']}
-        texts = {r: (ROOT / r).read_text() for r in units}
+        units = {u['rust']: u for u in record['units']}
         for rel, unit in units.items():
-            full = hashlib.sha256(texts[rel].encode()).hexdigest()
-            production = hashlib.sha256(texts[rel].split('\n#[cfg(feature = "port-test-bridges")]', 1)[0].encode()).hexdigest()
+            full, production = unit_digests((ROOT / rel).read_text())
             if unit['rust_sha256'] != full or unit.get('production_rust_sha256', production) != production:
                 problems.append(f'{rel}: recorded digest differs ({manifest_path.name})')
+        texts = projected_texts(platform, record)
         mentions = {r: set(re.findall(r'\b(\w+)_c\b', t)) for r, t in texts.items()}
         signatures = {}
 
@@ -551,7 +572,7 @@ def check(linux):
             return signatures[name]
         rtcd_rels = set()
         for header, unit_rel in RTCD_UNITS.items():
-            rel = f'crates/aom/src/{platform}/{profile}/{unit_rel}'
+            rel = f'{aom_manifest.TREE}/{unit_rel}'
             rtcd_rels.add(rel)
             problems += rtcd_unit_problems(rel, texts[rel], headers[header], signature)
             if linux:
@@ -576,24 +597,18 @@ def check(linux):
     if problems:
         print('\n'.join(problems))
         raise SystemExit(f'{len(problems)} differences from the output of tools/enable_aom_dispatch.py')
-    print(f'{platform}: RTCD dispatch of {functions} functions in both profiles matches the tool output')
+    print(f'{platform}: RTCD dispatch of {functions} functions in the one tree (every profile) matches the tool output')
 
 
 def rehash():
-    """Record the digests of hand-edited owned units (both macOS profiles)."""
-    for profile in ['release', 'debug']:
-        manifest_path = CRATE / f'TRANSLATION-{PLATFORM}-{profile}.json'
-        manifest = json.loads(manifest_path.read_text())
-        for unit in manifest['units']:
-            text = (ROOT / unit['rust']).read_text()
-            digest = hashlib.sha256(text.encode()).hexdigest()
-            if digest != unit['rust_sha256']:
-                print(f'rehash {unit["rust"]}')
-                unit['rust_sha256'] = digest
-                if 'production_rust_sha256' in unit:
-                    production = text.split('\n#[cfg(feature = "port-test-bridges")]', 1)[0]
-                    unit['production_rust_sha256'] = hashlib.sha256(production.encode()).hexdigest()
-        manifest_path.write_text(json.dumps(manifest, indent=2) + '\n')
+    """Record the digests of the owned units in crates/aom/TRANSLATION.json."""
+    record = aom_manifest.load()
+    for unit in record['units']:
+        full, production = unit_digests((ROOT / unit['rust']).read_text())
+        if (full, production) != (unit['rust_sha256'], unit['production_rust_sha256']):
+            print(f'rehash {unit["rust"]}')
+            unit['rust_sha256'], unit['production_rust_sha256'] = full, production
+    aom_manifest.save(record)
 
 
 def main():
@@ -631,18 +646,17 @@ def plan(report):
             base, ext = re.fullmatch(r'(\w+?)_(sse2|sse3|ssse3|sse4_1|avx2)', spec).groups()
             if base not in functions:
                 functions.append(base)
-    for profile in ['release', 'debug']:
-        ref = CRATE / f'reference/{PLATFORM}/{profile}'
-        manifest_path = CRATE / f'TRANSLATION-{PLATFORM}-{profile}.json'
-        manifest = json.loads(manifest_path.read_text())
+    record = aom_manifest.load()
+    for profile in ['one-source']:
+        ref = aom_manifest.reference(PLATFORM)
         with tempfile.TemporaryDirectory() as tmp:
             dispatch = transpile_aom.dispatch_headers(PLATFORM, ref, Path(tmp))
             headers = {n: (Path(tmp) / n).read_text() for n in dispatch['headers']}
             for n in dispatch['headers']:
                 pending[ref / 'dispatch' / n] = (Path(tmp) / n).read_bytes()
-        manifest['rtcd_dispatch'] = dispatch
-        units = {u['rust']: u for u in manifest['units']}
-        texts = {r: (ROOT / r).read_text() for r in units}
+        record['targets'][PLATFORM]['rtcd_dispatch'] = dispatch
+        units = {u['rust']: u for u in record['units']}
+        texts = projected_texts(PLATFORM, record)
         original = dict(texts)
         # Which units mention which `<name>_c`, computed once.
         mentions = {r: set(re.findall(r'\b(\w+)_c\b', t)) for r, t in texts.items()}
@@ -650,7 +664,7 @@ def plan(report):
             header = [h for h, t in headers.items() if re.search(r'\(\*' + name + r'\)\(', t)]
             if len(header) != 1:
                 raise SystemExit(f'{name}: not dispatched by the regenerated headers ({header})')
-            rtcd_rel = f'crates/aom/src/{PLATFORM}/{profile}/' + RTCD_UNITS[header[0]]
+            rtcd_rel = f'{aom_manifest.TREE}/' + RTCD_UNITS[header[0]]
             candidates = {r: texts[r] for r in units if name in mentions[r]}
             params, ret = find_signature(candidates, name)
             if LINUX:
@@ -673,12 +687,10 @@ def plan(report):
                 texts[rel] = edit_caller(texts[rel], csource, name, params, ret, report, f'{profile}:{rel}')
         for rel, unit in units.items():
             if texts[rel] != original[rel]:
-                pending[ROOT / rel] = texts[rel]
-                unit['rust_sha256'] = hashlib.sha256(texts[rel].encode()).hexdigest()
-                if 'production_rust_sha256' in unit:
-                    production = texts[rel].split('\n#[cfg(feature = "port-test-bridges")]', 1)[0]
-                    unit['production_rust_sha256'] = hashlib.sha256(production.encode()).hexdigest()
-        pending[manifest_path] = json.dumps(manifest, indent=2) + '\n'
+                merged = merged_text(PLATFORM, rel, texts[rel])
+                pending[ROOT / rel] = merged
+                unit['rust_sha256'], unit['production_rust_sha256'] = unit_digests(merged)
+        pending[aom_manifest.PATH] = json.dumps(record, indent=2) + '\n'
     return pending
 
 

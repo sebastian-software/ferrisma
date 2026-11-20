@@ -13,7 +13,7 @@ name: 'AVIF: Generate native Linux libaom profiles'
         - macros
         - dsp
         - oracles
-        default: generate
+        default: compile
       oracle_suite:
         description: Original DSP family for mode=oracles; all runs every reviewed family
         type: choice
@@ -73,6 +73,12 @@ jobs:
       env:
         RUST_BACKTRACE: '1'
       run: |
+        # Since codec ADR 0063 the libaom translation is one owned tree,
+        # produced once by tools/aom_one_source.py; the frozen
+        # tools/transpile_aom.py (ADR 0059) only reproduces the former
+        # per-profile Linux trees, which are no longer in the repository.
+        echo "generate/verify reproduce the pre-ADR-0063 Linux profiles; see codecs/libavif-rs/docs/adr/0063-*.md" >&2
+        exit 1
         if [ "${{ inputs.mode }}" = generate ]; then
           python3 tools/transpile_aom.py
           python3 tools/transpile_aom.py --release
@@ -204,11 +210,9 @@ jobs:
       with:
         name: aom-linux-generated
         path: |
-          codecs/libavif-rs/crates/aom/src/linux/
-          codecs/libavif-rs/crates/aom/src/modules-linux-*.rs
-          codecs/libavif-rs/crates/aom/src/api-linux-*.rs
-          codecs/libavif-rs/crates/aom/TRANSLATION-linux-*.json
+          codecs/libavif-rs/crates/aom/TRANSLATION.json
           codecs/libavif-rs/crates/aom/reference/linux/
+          codecs/libavif-rs/crates/aom/reference/one-source/linux/
           codecs/libavif-rs/crates/aom/src/macros-linux-*.rs
           codecs/libavif-rs/translations/aom-macros-linux-*.json
           codecs/libavif-rs/build/aom-macro-translate/*/transpile.log

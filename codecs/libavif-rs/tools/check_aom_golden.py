@@ -52,6 +52,8 @@ import sys
 import time
 import zlib
 
+import aom_manifest
+
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / 'upstream/libavif/tests/data'
 GOLDEN = ROOT / 'crates/aom/golden'
@@ -448,8 +450,8 @@ def main():
         return
 
     rust = dict(
-        translation=f'crates/aom/TRANSLATION-{native}-release.json',
-        translation_sha256=digest_file(ROOT / f'crates/aom/TRANSLATION-{native}-release.json'),
+        translation='crates/aom/TRANSLATION.json',
+        translation_sha256=digest_file(aom_manifest.PATH),
         cargo_profile='release',
         rustc=tool_version(['rustc', '--version']),
         host=dict(system=platform.platform(), machine=platform.machine()),

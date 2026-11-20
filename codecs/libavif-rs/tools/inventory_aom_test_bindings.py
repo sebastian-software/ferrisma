@@ -16,6 +16,7 @@ import sys
 
 from check_abi import compiler_flags
 from check_aom_linkage import definitions
+import aom_manifest
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -49,8 +50,7 @@ def main():
     profile = 'debug' if args.debug else 'release'
     build = (args.reference_build or ROOT / f'build/aom-native-{profile}').resolve()
     platform = 'macos' if sys.platform == 'darwin' else 'linux'
-    translation_path = ROOT / f'crates/aom/TRANSLATION-{platform}-{profile}.json'
-    manifest = json.loads(translation_path.read_text())
+    manifest = aom_manifest.view(platform, profile)
     if json.loads((build / 'reference-profile.json').read_text())['profile'] != profile:
         raise SystemExit('The native reference and selected binding profile differ')
     for name, expected in manifest['generated_reference_headers'].items():

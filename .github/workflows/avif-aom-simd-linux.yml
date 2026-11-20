@@ -91,7 +91,7 @@ jobs:
         grep -m1 -o -w -E 'sse4_1|avx2|avx512f' /proc/cpuinfo | sort -u
     - name: Compare AVIF output with SIMD, SSE4.1 and C dispatch
       run: |
-        if ! grep -q '"rtcd_dispatch"' crates/aom/TRANSLATION-linux-release.json; then
+        if ! grep -q '"rtcd_dispatch"' crates/aom/TRANSLATION.json; then
           echo "The committed Linux profiles predate x86 dispatch; skipping the AVIF identity corpus."
           exit 0
         fi
