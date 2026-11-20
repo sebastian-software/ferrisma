@@ -2084,8 +2084,12 @@ that class (`map_nan_blocks`, unchanged from 2026-11-15, the reason in its
 doc comment): on AVX2 the `aq_map` words of a request whose input puts two
 or more NaN-producing terms into one block's reduction are not compared.
 Rule O1 applies to every other word on both targets, and any difference
-outside O1 and the class fails the gate. Results are in the next
-paragraph's successor below ("Encoder selection").
+outside O1 and the class fails the gate. Result (2026-11-20): NEON 286
+requests, 1,203,950 words match, nothing excluded (the class selects 61
+requests, 2,455 blocks, but excludes words only on AVX2). AVX2 under
+Rosetta 2: 286 requests pass, 1,199,655 words match, 4,295 `aq_map` words
+of the class not compared, 46 requests differ inside it, none outside;
+O1 excludes no word on either target.
 
 **Condition (e), speed on x86-64 hardware (2026-11-20).** One run of the
 benchmark workflow on hosted x86-64 runners (run 44759716301) is recorded in

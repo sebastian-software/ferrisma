@@ -382,7 +382,7 @@ the export's one Highway function, AdaptiveQuantizationMap, is translated
 (`enc_adaptive_quantization_simd.rs`) and dispatched at
 `initial_quant_field` through `hwy::encoder_target()` (off by default), with
 parity against the original's NEON build in
-`tests/simd_encoder_aq.rs`. Nothing of this export remains. The AVX2 NaN-payload finding was settled by the owner decision of 2026-11-15 (#246, #250; ADR 0004): `aq_map` not compared on AVX2 for inputs with two or more NaN-producing terms in one block's reduction. Since 2026-11-20 (branch `v1/jxl-enc-simd-on`) the gate applies the general rule O1 instead; the two x86-64 scalar references agree on those 46 requests, so they are compared and fail on AVX2 (open, owner decision; ADR 0004). NEON passes under O1. The
+`tests/simd_encoder_aq.rs`. Nothing of this export remains. The AVX2 NaN-payload finding was settled by the owner decision of 2026-11-15 (#246, #250; ADR 0004): `aq_map` not compared on AVX2 for inputs with two or more NaN-producing terms in one block's reduction. Since 2026-11-20 (branch `v1/jxl-enc-simd-on`) the gate applies the general rule O1 to every word and, by the owner decision of 2026-11-20, keeps that class as a named exception beside it (O1 alone would compare those 46 requests: the two x86-64 scalar references agree there); both targets pass (ADR 0004). The
 `Symmetric5` it calls dispatches on its own (`convolve_symmetric5_simd`).
 <!-- end encoder aq -->
 
