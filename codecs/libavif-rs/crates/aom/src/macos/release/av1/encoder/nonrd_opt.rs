@@ -32,31 +32,11 @@ extern "C-unwind" {
         output: *mut int16_t,
         stride: core::ffi::c_int,
     );
-    fn aom_hadamard_16x16_c(
-        src_diff: *const int16_t,
-        src_stride: ptrdiff_t,
-        coeff: *mut tran_low_t,
-    );
-    fn aom_hadamard_8x8_c(
-        src_diff: *const int16_t,
-        src_stride: ptrdiff_t,
-        coeff: *mut tran_low_t,
-    );
-    fn aom_hadamard_lp_16x16_c(
-        src_diff: *const int16_t,
-        src_stride: ptrdiff_t,
-        coeff: *mut int16_t,
-    );
-    fn aom_hadamard_lp_8x8_c(
-        src_diff: *const int16_t,
-        src_stride: ptrdiff_t,
-        coeff: *mut int16_t,
-    );
-    fn aom_hadamard_lp_8x8_dual_c(
-        src_diff: *const int16_t,
-        src_stride: ptrdiff_t,
-        coeff: *mut int16_t,
-    );
+    static mut aom_hadamard_16x16: Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()>;
+    static mut aom_hadamard_8x8: Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()>;
+    static mut aom_hadamard_lp_16x16: Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut int16_t) -> ()>;
+    static mut aom_hadamard_lp_8x8: Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut int16_t) -> ()>;
+    static mut aom_hadamard_lp_8x8_dual: Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut int16_t) -> ()>;
     static mut aom_highbd_subtract_block: Option<
         unsafe extern "C-unwind" fn(
             core::ffi::c_int,
@@ -8113,7 +8093,7 @@ unsafe extern "C-unwind" fn aom_process_hadamard_lp_8x16(
                 .offset((r * bw + c << 2 as core::ffi::c_int) as isize) as *mut int16_t;
             let mut low_coeff: *mut int16_t = ((*p).coeff as *mut int16_t)
                 .offset((block << 4 as core::ffi::c_int) as isize);
-            aom_hadamard_lp_8x8_dual_c(src_diff, bw as ptrdiff_t, low_coeff);
+            aom_hadamard_lp_8x8_dual.expect("non-null function pointer")(src_diff, bw as ptrdiff_t, low_coeff);
             block += 2 as core::ffi::c_int * step;
             c += 2 as core::ffi::c_int * block_step;
         }
@@ -8274,7 +8254,7 @@ pub unsafe extern "C-unwind" fn av1_block_yrd(
             match tx_size as core::ffi::c_int {
                 2 => {
                     if use_hbd != 0 {
-                        aom_hadamard_16x16_c(src_diff, diff_stride as ptrdiff_t, coeff);
+                        aom_hadamard_16x16.expect("non-null function pointer")(src_diff, diff_stride as ptrdiff_t, coeff);
                         av1_quantize_fp.expect("non-null function pointer")(
                             coeff,
                             (16 as core::ffi::c_int * 16 as core::ffi::c_int)
@@ -8291,7 +8271,7 @@ pub unsafe extern "C-unwind" fn av1_block_yrd(
                             core::ptr::addr_of!(av1_default_iscan_fp_16x16_transpose.0).cast::<int16_t>(),
                         );
                     } else {
-                        aom_hadamard_lp_16x16_c(
+                        aom_hadamard_lp_16x16.expect("non-null function pointer")(
                             src_diff,
                             diff_stride as ptrdiff_t,
                             low_coeff,
@@ -8313,7 +8293,7 @@ pub unsafe extern "C-unwind" fn av1_block_yrd(
                 }
                 1 => {
                     if use_hbd != 0 {
-                        aom_hadamard_8x8_c(src_diff, diff_stride as ptrdiff_t, coeff);
+                        aom_hadamard_8x8.expect("non-null function pointer")(src_diff, diff_stride as ptrdiff_t, coeff);
                         av1_quantize_fp.expect("non-null function pointer")(
                             coeff,
                             (8 as core::ffi::c_int * 8 as core::ffi::c_int) as intptr_t,
@@ -8335,7 +8315,7 @@ pub unsafe extern "C-unwind" fn av1_block_yrd(
                             low_coeff = ((*p).coeff as *mut int16_t)
                                 .offset(block_offset as isize);
                         } else {
-                            aom_hadamard_lp_8x8_c(
+                            aom_hadamard_lp_8x8.expect("non-null function pointer")(
                                 src_diff,
                                 diff_stride as ptrdiff_t,
                                 low_coeff,

@@ -12,6 +12,13 @@
 // Mechanically translated from upstream/aom/av1/common/av1_rtcd.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C-unwind" {
+    fn av1_nn_fast_softmax_16_c(input_nodes: *const core::ffi::c_float, output: *mut core::ffi::c_float);
+    fn av1_nn_fast_softmax_16_sse3(input_nodes: *const core::ffi::c_float, output: *mut core::ffi::c_float);
+    fn av1_nn_predict_c(input_nodes: *const core::ffi::c_float, nn_config: *const NN_CONFIG, reduce_prec: core::ffi::c_int, output: *mut core::ffi::c_float);
+    fn av1_nn_predict_sse3(input_nodes: *const core::ffi::c_float, nn_config: *const NN_CONFIG, reduce_prec: core::ffi::c_int, output: *mut core::ffi::c_float);
+    fn av1_nn_predict_avx2(input_nodes: *const core::ffi::c_float, nn_config: *const NN_CONFIG, reduce_prec: core::ffi::c_int, output: *mut core::ffi::c_float);
+    fn av1_cnn_convolve_no_maxpool_padding_valid_c(input: *mut *const core::ffi::c_float, in_width: core::ffi::c_int, in_height: core::ffi::c_int, in_stride: core::ffi::c_int, layer_config: *const CNN_LAYER_CONFIG, output: *mut *mut core::ffi::c_float, out_stride: core::ffi::c_int, start_idx: core::ffi::c_int, cstep: core::ffi::c_int, channel_step: core::ffi::c_int);
+    fn av1_cnn_convolve_no_maxpool_padding_valid_avx2(input: *mut *const core::ffi::c_float, in_width: core::ffi::c_int, in_height: core::ffi::c_int, in_stride: core::ffi::c_int, layer_config: *const CNN_LAYER_CONFIG, output: *mut *mut core::ffi::c_float, out_stride: core::ffi::c_int, start_idx: core::ffi::c_int, cstep: core::ffi::c_int, channel_step: core::ffi::c_int);
     fn av1_interp_cubic_rate_dist_c(p1: *const core::ffi::c_double, p2: *const core::ffi::c_double, x: core::ffi::c_double, rate_dist_f: *mut core::ffi::c_double);
     fn av1_interp_cubic_rate_dist_sse2(p1: *const core::ffi::c_double, p2: *const core::ffi::c_double, x: core::ffi::c_double, rate_dist_f: *mut core::ffi::c_double);
     fn av1_round_shift_array_c(arr: *mut int32_t, size: core::ffi::c_int, bit: core::ffi::c_int);
@@ -577,6 +584,7 @@ extern "C-unwind" {
         iscan: *const int16_t,
         log_scale: core::ffi::c_int,
     );
+    fn av1_highbd_quantize_fp_sse4_1(coeff_ptr: *const tran_low_t, n_coeffs: intptr_t, zbin_ptr: *const int16_t, round_ptr: *const int16_t, quant_ptr: *const int16_t, quant_shift_ptr: *const int16_t, qcoeff_ptr: *mut tran_low_t, dqcoeff_ptr: *mut tran_low_t, dequant_ptr: *const int16_t, eob_ptr: *mut uint16_t, scan: *const int16_t, iscan: *const int16_t, log_scale: core::ffi::c_int);
     fn av1_highbd_quantize_fp_avx2(
         coeff_ptr: *const tran_low_t,
         n_coeffs: intptr_t,
@@ -612,6 +620,7 @@ extern "C-unwind" {
         width: core::ffi::c_int,
         height: core::ffi::c_int,
     );
+    fn cdef_copy_rect8_16bit_to_16bit_sse4_1(dst: *mut uint16_t, dstride: core::ffi::c_int, src: *const uint16_t, sstride: core::ffi::c_int, width: core::ffi::c_int, height: core::ffi::c_int);
     fn cdef_copy_rect8_16bit_to_16bit_avx2(
         dst: *mut uint16_t,
         dstride: core::ffi::c_int,
@@ -628,6 +637,7 @@ extern "C-unwind" {
         width: core::ffi::c_int,
         height: core::ffi::c_int,
     );
+    fn cdef_copy_rect8_8bit_to_16bit_sse4_1(dst: *mut uint16_t, dstride: core::ffi::c_int, src: *const uint8_t, sstride: core::ffi::c_int, width: core::ffi::c_int, height: core::ffi::c_int);
     fn cdef_copy_rect8_8bit_to_16bit_avx2(
         dst: *mut uint16_t,
         dstride: core::ffi::c_int,
@@ -649,6 +659,7 @@ extern "C-unwind" {
         block_width: core::ffi::c_int,
         block_height: core::ffi::c_int,
     );
+    fn cdef_filter_16_0_sse4_1(dst16: *mut core::ffi::c_void, dstride: core::ffi::c_int, in_0: *const uint16_t, pri_strength: core::ffi::c_int, sec_strength: core::ffi::c_int, dir: core::ffi::c_int, pri_damping: core::ffi::c_int, sec_damping: core::ffi::c_int, coeff_shift: core::ffi::c_int, block_width: core::ffi::c_int, block_height: core::ffi::c_int);
     fn cdef_filter_16_0_avx2(
         dst16: *mut core::ffi::c_void,
         dstride: core::ffi::c_int,
@@ -675,6 +686,7 @@ extern "C-unwind" {
         block_width: core::ffi::c_int,
         block_height: core::ffi::c_int,
     );
+    fn cdef_filter_16_1_sse4_1(dst16: *mut core::ffi::c_void, dstride: core::ffi::c_int, in_0: *const uint16_t, pri_strength: core::ffi::c_int, sec_strength: core::ffi::c_int, dir: core::ffi::c_int, pri_damping: core::ffi::c_int, sec_damping: core::ffi::c_int, coeff_shift: core::ffi::c_int, block_width: core::ffi::c_int, block_height: core::ffi::c_int);
     fn cdef_filter_16_1_avx2(
         dst16: *mut core::ffi::c_void,
         dstride: core::ffi::c_int,
@@ -701,6 +713,7 @@ extern "C-unwind" {
         block_width: core::ffi::c_int,
         block_height: core::ffi::c_int,
     );
+    fn cdef_filter_16_2_sse4_1(dst16: *mut core::ffi::c_void, dstride: core::ffi::c_int, in_0: *const uint16_t, pri_strength: core::ffi::c_int, sec_strength: core::ffi::c_int, dir: core::ffi::c_int, pri_damping: core::ffi::c_int, sec_damping: core::ffi::c_int, coeff_shift: core::ffi::c_int, block_width: core::ffi::c_int, block_height: core::ffi::c_int);
     fn cdef_filter_16_2_avx2(
         dst16: *mut core::ffi::c_void,
         dstride: core::ffi::c_int,
@@ -727,6 +740,7 @@ extern "C-unwind" {
         block_width: core::ffi::c_int,
         block_height: core::ffi::c_int,
     );
+    fn cdef_filter_16_3_sse4_1(dst16: *mut core::ffi::c_void, dstride: core::ffi::c_int, in_0: *const uint16_t, pri_strength: core::ffi::c_int, sec_strength: core::ffi::c_int, dir: core::ffi::c_int, pri_damping: core::ffi::c_int, sec_damping: core::ffi::c_int, coeff_shift: core::ffi::c_int, block_width: core::ffi::c_int, block_height: core::ffi::c_int);
     fn cdef_filter_16_3_avx2(
         dst16: *mut core::ffi::c_void,
         dstride: core::ffi::c_int,
@@ -753,6 +767,7 @@ extern "C-unwind" {
         block_width: core::ffi::c_int,
         block_height: core::ffi::c_int,
     );
+    fn cdef_filter_8_0_sse4_1(dst8: *mut core::ffi::c_void, dstride: core::ffi::c_int, in_0: *const uint16_t, pri_strength: core::ffi::c_int, sec_strength: core::ffi::c_int, dir: core::ffi::c_int, pri_damping: core::ffi::c_int, sec_damping: core::ffi::c_int, coeff_shift: core::ffi::c_int, block_width: core::ffi::c_int, block_height: core::ffi::c_int);
     fn cdef_filter_8_0_avx2(
         dst8: *mut core::ffi::c_void,
         dstride: core::ffi::c_int,
@@ -779,6 +794,7 @@ extern "C-unwind" {
         block_width: core::ffi::c_int,
         block_height: core::ffi::c_int,
     );
+    fn cdef_filter_8_1_sse4_1(dst8: *mut core::ffi::c_void, dstride: core::ffi::c_int, in_0: *const uint16_t, pri_strength: core::ffi::c_int, sec_strength: core::ffi::c_int, dir: core::ffi::c_int, pri_damping: core::ffi::c_int, sec_damping: core::ffi::c_int, coeff_shift: core::ffi::c_int, block_width: core::ffi::c_int, block_height: core::ffi::c_int);
     fn cdef_filter_8_1_avx2(
         dst8: *mut core::ffi::c_void,
         dstride: core::ffi::c_int,
@@ -805,6 +821,7 @@ extern "C-unwind" {
         block_width: core::ffi::c_int,
         block_height: core::ffi::c_int,
     );
+    fn cdef_filter_8_2_sse4_1(dst8: *mut core::ffi::c_void, dstride: core::ffi::c_int, in_0: *const uint16_t, pri_strength: core::ffi::c_int, sec_strength: core::ffi::c_int, dir: core::ffi::c_int, pri_damping: core::ffi::c_int, sec_damping: core::ffi::c_int, coeff_shift: core::ffi::c_int, block_width: core::ffi::c_int, block_height: core::ffi::c_int);
     fn cdef_filter_8_2_avx2(
         dst8: *mut core::ffi::c_void,
         dstride: core::ffi::c_int,
@@ -831,6 +848,7 @@ extern "C-unwind" {
         block_width: core::ffi::c_int,
         block_height: core::ffi::c_int,
     );
+    fn cdef_filter_8_3_sse4_1(dst8: *mut core::ffi::c_void, dstride: core::ffi::c_int, in_0: *const uint16_t, pri_strength: core::ffi::c_int, sec_strength: core::ffi::c_int, dir: core::ffi::c_int, pri_damping: core::ffi::c_int, sec_damping: core::ffi::c_int, coeff_shift: core::ffi::c_int, block_width: core::ffi::c_int, block_height: core::ffi::c_int);
     fn cdef_filter_8_3_avx2(
         dst8: *mut core::ffi::c_void,
         dstride: core::ffi::c_int,
@@ -850,6 +868,7 @@ extern "C-unwind" {
         var: *mut int32_t,
         coeff_shift: core::ffi::c_int,
     ) -> core::ffi::c_int;
+    fn cdef_find_dir_sse4_1(img: *const uint16_t, stride: core::ffi::c_int, var: *mut int32_t, coeff_shift: core::ffi::c_int) -> core::ffi::c_int;
     fn cdef_find_dir_avx2(
         img: *const uint16_t,
         stride: core::ffi::c_int,
@@ -866,6 +885,7 @@ extern "C-unwind" {
         out1: *mut core::ffi::c_int,
         out2: *mut core::ffi::c_int,
     );
+    fn cdef_find_dir_dual_sse4_1(img1: *const uint16_t, img2: *const uint16_t, stride: core::ffi::c_int, var1: *mut int32_t, var2: *mut int32_t, coeff_shift: core::ffi::c_int, out1: *mut core::ffi::c_int, out2: *mut core::ffi::c_int);
     fn cdef_find_dir_dual_avx2(
         img1: *const uint16_t,
         img2: *const uint16_t,
@@ -939,6 +959,57 @@ pub type cfl_predict_hbd_fn = Option<
     ) -> (),
 >;
 pub type TX_CLASS = uint8_t;
+pub type ACTIVATION = uint8_t;
+pub type BRANCH_COMBINE = uint8_t;
+pub type BRANCH_COPY = uint8_t;
+pub type PADDING_TYPE = uint8_t;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct NN_CONFIG {
+    pub num_inputs: core::ffi::c_int,
+    pub num_outputs: core::ffi::c_int,
+    pub num_hidden_layers: core::ffi::c_int,
+    pub num_hidden_nodes: [core::ffi::c_int; 10],
+    pub weights: [*const core::ffi::c_float; 11],
+    pub bias: [*const core::ffi::c_float; 11],
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct CNN_BRANCH_CONFIG {
+    pub input_to_branches: core::ffi::c_int,
+    pub channels_to_copy: core::ffi::c_int,
+    pub branches_to_combine: core::ffi::c_int,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct CNN_BATCHNORM_PARAMS {
+    pub bn_gamma: *const core::ffi::c_float,
+    pub bn_beta: *const core::ffi::c_float,
+    pub bn_mean: *const core::ffi::c_float,
+    pub bn_std: *const core::ffi::c_float,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct CNN_LAYER_CONFIG {
+    pub in_channels: core::ffi::c_int,
+    pub filter_width: core::ffi::c_int,
+    pub filter_height: core::ffi::c_int,
+    pub out_channels: core::ffi::c_int,
+    pub skip_width: core::ffi::c_int,
+    pub skip_height: core::ffi::c_int,
+    pub maxpool: core::ffi::c_int,
+    pub weights: *const core::ffi::c_float,
+    pub bias: *const core::ffi::c_float,
+    pub pad: PADDING_TYPE,
+    pub activation: ACTIVATION,
+    pub deconvolve: core::ffi::c_int,
+    pub branch: core::ffi::c_int,
+    pub branch_copy_type: BRANCH_COPY,
+    pub branch_combine_type: BRANCH_COMBINE,
+    pub branch_config: CNN_BRANCH_CONFIG,
+    pub bn_params: CNN_BATCHNORM_PARAMS,
+    pub output_num: core::ffi::c_int,
+}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WienerConvolveParams {
@@ -966,6 +1037,8 @@ pub static mut av1_block_error: Option<
 pub static mut av1_block_error_lp: Option<
     unsafe extern "C-unwind" fn(*const int16_t, *const int16_t, intptr_t) -> int64_t,
 > = None;
+#[no_mangle]
+pub static mut av1_cnn_convolve_no_maxpool_padding_valid: Option<unsafe extern "C-unwind" fn(*mut *const core::ffi::c_float, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const CNN_LAYER_CONFIG, *mut *mut core::ffi::c_float, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()> = None;
 #[no_mangle]
 pub static mut av1_dr_prediction_z1: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()> = None;
 #[no_mangle]
@@ -1283,6 +1356,10 @@ pub static mut av1_inv_txfm_add: Option<unsafe extern "C-unwind" fn(*const tran_
 #[no_mangle]
 pub static mut av1_lowbd_fwd_txfm: Option<unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int, *mut TxfmParam) -> ()> = None;
 #[no_mangle]
+pub static mut av1_nn_fast_softmax_16: Option<unsafe extern "C-unwind" fn(*const core::ffi::c_float, *mut core::ffi::c_float) -> ()> = None;
+#[no_mangle]
+pub static mut av1_nn_predict: Option<unsafe extern "C-unwind" fn(*const core::ffi::c_float, *const NN_CONFIG, core::ffi::c_int, *mut core::ffi::c_float) -> ()> = None;
+#[no_mangle]
 pub static mut av1_quantize_fp: Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()> = None;
 #[no_mangle]
 pub static mut av1_quantize_fp_32x32: Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()> = None;
@@ -1538,6 +1615,10 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
             as Option<
                 unsafe extern "C-unwind" fn(*const int16_t, *const int16_t, intptr_t) -> int64_t,
             >;
+    }
+    av1_cnn_convolve_no_maxpool_padding_valid = Some(av1_cnn_convolve_no_maxpool_padding_valid_c as unsafe extern "C-unwind" fn(*mut *const core::ffi::c_float, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const CNN_LAYER_CONFIG, *mut *mut core::ffi::c_float, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut *const core::ffi::c_float, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const CNN_LAYER_CONFIG, *mut *mut core::ffi::c_float, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    if flags & HAS_AVX2 != 0 {
+        av1_cnn_convolve_no_maxpool_padding_valid = Some(av1_cnn_convolve_no_maxpool_padding_valid_avx2 as unsafe extern "C-unwind" fn(*mut *const core::ffi::c_float, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const CNN_LAYER_CONFIG, *mut *mut core::ffi::c_float, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut *const core::ffi::c_float, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const CNN_LAYER_CONFIG, *mut *mut core::ffi::c_float, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
     }
     av1_dr_prediction_z1 = Some(av1_dr_prediction_z1_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
     if flags & HAS_SSE4_1 != 0 {
@@ -2840,77 +2921,12 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
                 ) -> (),
             >;
     }
-    av1_highbd_quantize_fp = Some(
-        av1_highbd_quantize_fp_c
-            as unsafe extern "C-unwind" fn(
-                *const tran_low_t,
-                intptr_t,
-                *const int16_t,
-                *const int16_t,
-                *const int16_t,
-                *const int16_t,
-                *mut tran_low_t,
-                *mut tran_low_t,
-                *const int16_t,
-                *mut uint16_t,
-                *const int16_t,
-                *const int16_t,
-                core::ffi::c_int,
-            ) -> (),
-    )
-        as Option<
-            unsafe extern "C-unwind" fn(
-                *const tran_low_t,
-                intptr_t,
-                *const int16_t,
-                *const int16_t,
-                *const int16_t,
-                *const int16_t,
-                *mut tran_low_t,
-                *mut tran_low_t,
-                *const int16_t,
-                *mut uint16_t,
-                *const int16_t,
-                *const int16_t,
-                core::ffi::c_int,
-            ) -> (),
-        >;
+    av1_highbd_quantize_fp = Some(av1_highbd_quantize_fp_c as unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t, core::ffi::c_int) -> ()>;
+    if flags & HAS_SSE4_1 != 0 {
+        av1_highbd_quantize_fp = Some(av1_highbd_quantize_fp_sse4_1 as unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t, core::ffi::c_int) -> ()>;
+    }
     if flags & HAS_AVX2 != 0 {
-        av1_highbd_quantize_fp = Some(
-            av1_highbd_quantize_fp_avx2
-                as unsafe extern "C-unwind" fn(
-                    *const tran_low_t,
-                    intptr_t,
-                    *const int16_t,
-                    *const int16_t,
-                    *const int16_t,
-                    *const int16_t,
-                    *mut tran_low_t,
-                    *mut tran_low_t,
-                    *const int16_t,
-                    *mut uint16_t,
-                    *const int16_t,
-                    *const int16_t,
-                    core::ffi::c_int,
-                ) -> (),
-        )
-            as Option<
-                unsafe extern "C-unwind" fn(
-                    *const tran_low_t,
-                    intptr_t,
-                    *const int16_t,
-                    *const int16_t,
-                    *const int16_t,
-                    *const int16_t,
-                    *mut tran_low_t,
-                    *mut tran_low_t,
-                    *const int16_t,
-                    *mut uint16_t,
-                    *const int16_t,
-                    *const int16_t,
-                    core::ffi::c_int,
-                ) -> (),
-            >;
+        av1_highbd_quantize_fp = Some(av1_highbd_quantize_fp_avx2 as unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t, core::ffi::c_int) -> ()>;
     }
     av1_highbd_upsample_intra_edge = Some(
         av1_highbd_upsample_intra_edge_c
@@ -2964,6 +2980,17 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
     }
     if flags & HAS_AVX2 != 0 {
         av1_lowbd_fwd_txfm = Some(av1_lowbd_fwd_txfm_avx2 as unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int, *mut TxfmParam) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int, *mut TxfmParam) -> ()>;
+    }
+    av1_nn_fast_softmax_16 = Some(av1_nn_fast_softmax_16_c as unsafe extern "C-unwind" fn(*const core::ffi::c_float, *mut core::ffi::c_float) -> ()) as Option<unsafe extern "C-unwind" fn(*const core::ffi::c_float, *mut core::ffi::c_float) -> ()>;
+    if flags & HAS_SSE3 != 0 {
+        av1_nn_fast_softmax_16 = Some(av1_nn_fast_softmax_16_sse3 as unsafe extern "C-unwind" fn(*const core::ffi::c_float, *mut core::ffi::c_float) -> ()) as Option<unsafe extern "C-unwind" fn(*const core::ffi::c_float, *mut core::ffi::c_float) -> ()>;
+    }
+    av1_nn_predict = Some(av1_nn_predict_c as unsafe extern "C-unwind" fn(*const core::ffi::c_float, *const NN_CONFIG, core::ffi::c_int, *mut core::ffi::c_float) -> ()) as Option<unsafe extern "C-unwind" fn(*const core::ffi::c_float, *const NN_CONFIG, core::ffi::c_int, *mut core::ffi::c_float) -> ()>;
+    if flags & HAS_SSE3 != 0 {
+        av1_nn_predict = Some(av1_nn_predict_sse3 as unsafe extern "C-unwind" fn(*const core::ffi::c_float, *const NN_CONFIG, core::ffi::c_int, *mut core::ffi::c_float) -> ()) as Option<unsafe extern "C-unwind" fn(*const core::ffi::c_float, *const NN_CONFIG, core::ffi::c_int, *mut core::ffi::c_float) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        av1_nn_predict = Some(av1_nn_predict_avx2 as unsafe extern "C-unwind" fn(*const core::ffi::c_float, *const NN_CONFIG, core::ffi::c_int, *mut core::ffi::c_float) -> ()) as Option<unsafe extern "C-unwind" fn(*const core::ffi::c_float, *const NN_CONFIG, core::ffi::c_int, *mut core::ffi::c_float) -> ()>;
     }
     av1_quantize_fp = Some(av1_quantize_fp_c as unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()>;
     if flags & HAS_SSE2 != 0 {
@@ -3022,693 +3049,89 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
     if flags & HAS_AVX2 != 0 {
         av1_wiener_convolve_add_src = Some(av1_wiener_convolve_add_src_avx2 as unsafe extern "C-unwind" fn(*const uint8_t, ptrdiff_t, *mut uint8_t, ptrdiff_t, *const int16_t, core::ffi::c_int, *const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const WienerConvolveParams) -> ()) as Option<unsafe extern "C-unwind" fn(*const uint8_t, ptrdiff_t, *mut uint8_t, ptrdiff_t, *const int16_t, core::ffi::c_int, *const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const WienerConvolveParams) -> ()>;
     }
-    cdef_copy_rect8_16bit_to_16bit = Some(
-        cdef_copy_rect8_16bit_to_16bit_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint16_t,
-                core::ffi::c_int,
-                *const uint16_t,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-            ) -> (),
-    )
-        as Option<
-            unsafe extern "C-unwind" fn(
-                *mut uint16_t,
-                core::ffi::c_int,
-                *const uint16_t,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-            ) -> (),
-        >;
-    if flags & HAS_AVX2 != 0 {
-        cdef_copy_rect8_16bit_to_16bit = Some(
-            cdef_copy_rect8_16bit_to_16bit_avx2
-                as unsafe extern "C-unwind" fn(
-                    *mut uint16_t,
-                    core::ffi::c_int,
-                    *const uint16_t,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                ) -> (),
-        )
-            as Option<
-                unsafe extern "C-unwind" fn(
-                    *mut uint16_t,
-                    core::ffi::c_int,
-                    *const uint16_t,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                ) -> (),
-            >;
+    cdef_copy_rect8_16bit_to_16bit = Some(cdef_copy_rect8_16bit_to_16bit_c as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    if flags & HAS_SSE4_1 != 0 {
+        cdef_copy_rect8_16bit_to_16bit = Some(cdef_copy_rect8_16bit_to_16bit_sse4_1 as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
     }
-    cdef_copy_rect8_8bit_to_16bit = Some(
-        cdef_copy_rect8_8bit_to_16bit_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint16_t,
-                core::ffi::c_int,
-                *const uint8_t,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-            ) -> (),
-    )
-        as Option<
-            unsafe extern "C-unwind" fn(
-                *mut uint16_t,
-                core::ffi::c_int,
-                *const uint8_t,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-            ) -> (),
-        >;
     if flags & HAS_AVX2 != 0 {
-        cdef_copy_rect8_8bit_to_16bit = Some(
-            cdef_copy_rect8_8bit_to_16bit_avx2
-                as unsafe extern "C-unwind" fn(
-                    *mut uint16_t,
-                    core::ffi::c_int,
-                    *const uint8_t,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                ) -> (),
-        )
-            as Option<
-                unsafe extern "C-unwind" fn(
-                    *mut uint16_t,
-                    core::ffi::c_int,
-                    *const uint8_t,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                ) -> (),
-            >;
+        cdef_copy_rect8_16bit_to_16bit = Some(cdef_copy_rect8_16bit_to_16bit_avx2 as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
     }
-    cdef_filter_16_0 = Some(
-        cdef_filter_16_0_c
-            as unsafe extern "C-unwind" fn(
-                *mut core::ffi::c_void,
-                core::ffi::c_int,
-                *const uint16_t,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-            ) -> (),
-    )
-        as Option<
-            unsafe extern "C-unwind" fn(
-                *mut core::ffi::c_void,
-                core::ffi::c_int,
-                *const uint16_t,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-            ) -> (),
-        >;
-    if flags & HAS_AVX2 != 0 {
-        cdef_filter_16_0 = Some(
-            cdef_filter_16_0_avx2
-                as unsafe extern "C-unwind" fn(
-                    *mut core::ffi::c_void,
-                    core::ffi::c_int,
-                    *const uint16_t,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                ) -> (),
-        )
-            as Option<
-                unsafe extern "C-unwind" fn(
-                    *mut core::ffi::c_void,
-                    core::ffi::c_int,
-                    *const uint16_t,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                ) -> (),
-            >;
+    cdef_copy_rect8_8bit_to_16bit = Some(cdef_copy_rect8_8bit_to_16bit_c as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    if flags & HAS_SSE4_1 != 0 {
+        cdef_copy_rect8_8bit_to_16bit = Some(cdef_copy_rect8_8bit_to_16bit_sse4_1 as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
     }
-    cdef_filter_16_1 = Some(
-        cdef_filter_16_1_c
-            as unsafe extern "C-unwind" fn(
-                *mut core::ffi::c_void,
-                core::ffi::c_int,
-                *const uint16_t,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-            ) -> (),
-    )
-        as Option<
-            unsafe extern "C-unwind" fn(
-                *mut core::ffi::c_void,
-                core::ffi::c_int,
-                *const uint16_t,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-            ) -> (),
-        >;
     if flags & HAS_AVX2 != 0 {
-        cdef_filter_16_1 = Some(
-            cdef_filter_16_1_avx2
-                as unsafe extern "C-unwind" fn(
-                    *mut core::ffi::c_void,
-                    core::ffi::c_int,
-                    *const uint16_t,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                ) -> (),
-        )
-            as Option<
-                unsafe extern "C-unwind" fn(
-                    *mut core::ffi::c_void,
-                    core::ffi::c_int,
-                    *const uint16_t,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                ) -> (),
-            >;
+        cdef_copy_rect8_8bit_to_16bit = Some(cdef_copy_rect8_8bit_to_16bit_avx2 as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
     }
-    cdef_filter_16_2 = Some(
-        cdef_filter_16_2_c
-            as unsafe extern "C-unwind" fn(
-                *mut core::ffi::c_void,
-                core::ffi::c_int,
-                *const uint16_t,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-            ) -> (),
-    )
-        as Option<
-            unsafe extern "C-unwind" fn(
-                *mut core::ffi::c_void,
-                core::ffi::c_int,
-                *const uint16_t,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-            ) -> (),
-        >;
-    if flags & HAS_AVX2 != 0 {
-        cdef_filter_16_2 = Some(
-            cdef_filter_16_2_avx2
-                as unsafe extern "C-unwind" fn(
-                    *mut core::ffi::c_void,
-                    core::ffi::c_int,
-                    *const uint16_t,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                ) -> (),
-        )
-            as Option<
-                unsafe extern "C-unwind" fn(
-                    *mut core::ffi::c_void,
-                    core::ffi::c_int,
-                    *const uint16_t,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                ) -> (),
-            >;
+    cdef_filter_16_0 = Some(cdef_filter_16_0_c as unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    if flags & HAS_SSE4_1 != 0 {
+        cdef_filter_16_0 = Some(cdef_filter_16_0_sse4_1 as unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
     }
-    cdef_filter_16_3 = Some(
-        cdef_filter_16_3_c
-            as unsafe extern "C-unwind" fn(
-                *mut core::ffi::c_void,
-                core::ffi::c_int,
-                *const uint16_t,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-            ) -> (),
-    )
-        as Option<
-            unsafe extern "C-unwind" fn(
-                *mut core::ffi::c_void,
-                core::ffi::c_int,
-                *const uint16_t,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-            ) -> (),
-        >;
     if flags & HAS_AVX2 != 0 {
-        cdef_filter_16_3 = Some(
-            cdef_filter_16_3_avx2
-                as unsafe extern "C-unwind" fn(
-                    *mut core::ffi::c_void,
-                    core::ffi::c_int,
-                    *const uint16_t,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                ) -> (),
-        )
-            as Option<
-                unsafe extern "C-unwind" fn(
-                    *mut core::ffi::c_void,
-                    core::ffi::c_int,
-                    *const uint16_t,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                ) -> (),
-            >;
+        cdef_filter_16_0 = Some(cdef_filter_16_0_avx2 as unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
     }
-    cdef_filter_8_0 = Some(
-        cdef_filter_8_0_c
-            as unsafe extern "C-unwind" fn(
-                *mut core::ffi::c_void,
-                core::ffi::c_int,
-                *const uint16_t,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-            ) -> (),
-    )
-        as Option<
-            unsafe extern "C-unwind" fn(
-                *mut core::ffi::c_void,
-                core::ffi::c_int,
-                *const uint16_t,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-            ) -> (),
-        >;
-    if flags & HAS_AVX2 != 0 {
-        cdef_filter_8_0 = Some(
-            cdef_filter_8_0_avx2
-                as unsafe extern "C-unwind" fn(
-                    *mut core::ffi::c_void,
-                    core::ffi::c_int,
-                    *const uint16_t,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                ) -> (),
-        )
-            as Option<
-                unsafe extern "C-unwind" fn(
-                    *mut core::ffi::c_void,
-                    core::ffi::c_int,
-                    *const uint16_t,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                ) -> (),
-            >;
+    cdef_filter_16_1 = Some(cdef_filter_16_1_c as unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    if flags & HAS_SSE4_1 != 0 {
+        cdef_filter_16_1 = Some(cdef_filter_16_1_sse4_1 as unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
     }
-    cdef_filter_8_1 = Some(
-        cdef_filter_8_1_c
-            as unsafe extern "C-unwind" fn(
-                *mut core::ffi::c_void,
-                core::ffi::c_int,
-                *const uint16_t,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-            ) -> (),
-    )
-        as Option<
-            unsafe extern "C-unwind" fn(
-                *mut core::ffi::c_void,
-                core::ffi::c_int,
-                *const uint16_t,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-            ) -> (),
-        >;
     if flags & HAS_AVX2 != 0 {
-        cdef_filter_8_1 = Some(
-            cdef_filter_8_1_avx2
-                as unsafe extern "C-unwind" fn(
-                    *mut core::ffi::c_void,
-                    core::ffi::c_int,
-                    *const uint16_t,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                ) -> (),
-        )
-            as Option<
-                unsafe extern "C-unwind" fn(
-                    *mut core::ffi::c_void,
-                    core::ffi::c_int,
-                    *const uint16_t,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                ) -> (),
-            >;
+        cdef_filter_16_1 = Some(cdef_filter_16_1_avx2 as unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
     }
-    cdef_filter_8_2 = Some(
-        cdef_filter_8_2_c
-            as unsafe extern "C-unwind" fn(
-                *mut core::ffi::c_void,
-                core::ffi::c_int,
-                *const uint16_t,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-            ) -> (),
-    )
-        as Option<
-            unsafe extern "C-unwind" fn(
-                *mut core::ffi::c_void,
-                core::ffi::c_int,
-                *const uint16_t,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-            ) -> (),
-        >;
-    if flags & HAS_AVX2 != 0 {
-        cdef_filter_8_2 = Some(
-            cdef_filter_8_2_avx2
-                as unsafe extern "C-unwind" fn(
-                    *mut core::ffi::c_void,
-                    core::ffi::c_int,
-                    *const uint16_t,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                ) -> (),
-        )
-            as Option<
-                unsafe extern "C-unwind" fn(
-                    *mut core::ffi::c_void,
-                    core::ffi::c_int,
-                    *const uint16_t,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                ) -> (),
-            >;
+    cdef_filter_16_2 = Some(cdef_filter_16_2_c as unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    if flags & HAS_SSE4_1 != 0 {
+        cdef_filter_16_2 = Some(cdef_filter_16_2_sse4_1 as unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
     }
-    cdef_filter_8_3 = Some(
-        cdef_filter_8_3_c
-            as unsafe extern "C-unwind" fn(
-                *mut core::ffi::c_void,
-                core::ffi::c_int,
-                *const uint16_t,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-            ) -> (),
-    )
-        as Option<
-            unsafe extern "C-unwind" fn(
-                *mut core::ffi::c_void,
-                core::ffi::c_int,
-                *const uint16_t,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-                core::ffi::c_int,
-            ) -> (),
-        >;
     if flags & HAS_AVX2 != 0 {
-        cdef_filter_8_3 = Some(
-            cdef_filter_8_3_avx2
-                as unsafe extern "C-unwind" fn(
-                    *mut core::ffi::c_void,
-                    core::ffi::c_int,
-                    *const uint16_t,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                ) -> (),
-        )
-            as Option<
-                unsafe extern "C-unwind" fn(
-                    *mut core::ffi::c_void,
-                    core::ffi::c_int,
-                    *const uint16_t,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                    core::ffi::c_int,
-                ) -> (),
-            >;
+        cdef_filter_16_2 = Some(cdef_filter_16_2_avx2 as unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
     }
-    cdef_find_dir = Some(
-        cdef_find_dir_c
-            as unsafe extern "C-unwind" fn(
-                *const uint16_t,
-                core::ffi::c_int,
-                *mut int32_t,
-                core::ffi::c_int,
-            ) -> core::ffi::c_int,
-    )
-        as Option<
-            unsafe extern "C-unwind" fn(
-                *const uint16_t,
-                core::ffi::c_int,
-                *mut int32_t,
-                core::ffi::c_int,
-            ) -> core::ffi::c_int,
-        >;
-    if flags & HAS_AVX2 != 0 {
-        cdef_find_dir = Some(
-            cdef_find_dir_avx2
-                as unsafe extern "C-unwind" fn(
-                    *const uint16_t,
-                    core::ffi::c_int,
-                    *mut int32_t,
-                    core::ffi::c_int,
-                ) -> core::ffi::c_int,
-        )
-            as Option<
-                unsafe extern "C-unwind" fn(
-                    *const uint16_t,
-                    core::ffi::c_int,
-                    *mut int32_t,
-                    core::ffi::c_int,
-                ) -> core::ffi::c_int,
-            >;
+    cdef_filter_16_3 = Some(cdef_filter_16_3_c as unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    if flags & HAS_SSE4_1 != 0 {
+        cdef_filter_16_3 = Some(cdef_filter_16_3_sse4_1 as unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
     }
-    cdef_find_dir_dual = Some(
-        cdef_find_dir_dual_c
-            as unsafe extern "C-unwind" fn(
-                *const uint16_t,
-                *const uint16_t,
-                core::ffi::c_int,
-                *mut int32_t,
-                *mut int32_t,
-                core::ffi::c_int,
-                *mut core::ffi::c_int,
-                *mut core::ffi::c_int,
-            ) -> (),
-    )
-        as Option<
-            unsafe extern "C-unwind" fn(
-                *const uint16_t,
-                *const uint16_t,
-                core::ffi::c_int,
-                *mut int32_t,
-                *mut int32_t,
-                core::ffi::c_int,
-                *mut core::ffi::c_int,
-                *mut core::ffi::c_int,
-            ) -> (),
-        >;
     if flags & HAS_AVX2 != 0 {
-        cdef_find_dir_dual = Some(
-            cdef_find_dir_dual_avx2
-                as unsafe extern "C-unwind" fn(
-                    *const uint16_t,
-                    *const uint16_t,
-                    core::ffi::c_int,
-                    *mut int32_t,
-                    *mut int32_t,
-                    core::ffi::c_int,
-                    *mut core::ffi::c_int,
-                    *mut core::ffi::c_int,
-                ) -> (),
-        )
-            as Option<
-                unsafe extern "C-unwind" fn(
-                    *const uint16_t,
-                    *const uint16_t,
-                    core::ffi::c_int,
-                    *mut int32_t,
-                    *mut int32_t,
-                    core::ffi::c_int,
-                    *mut core::ffi::c_int,
-                    *mut core::ffi::c_int,
-                ) -> (),
-            >;
+        cdef_filter_16_3 = Some(cdef_filter_16_3_avx2 as unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    }
+    cdef_filter_8_0 = Some(cdef_filter_8_0_c as unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    if flags & HAS_SSE4_1 != 0 {
+        cdef_filter_8_0 = Some(cdef_filter_8_0_sse4_1 as unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        cdef_filter_8_0 = Some(cdef_filter_8_0_avx2 as unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    }
+    cdef_filter_8_1 = Some(cdef_filter_8_1_c as unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    if flags & HAS_SSE4_1 != 0 {
+        cdef_filter_8_1 = Some(cdef_filter_8_1_sse4_1 as unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        cdef_filter_8_1 = Some(cdef_filter_8_1_avx2 as unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    }
+    cdef_filter_8_2 = Some(cdef_filter_8_2_c as unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    if flags & HAS_SSE4_1 != 0 {
+        cdef_filter_8_2 = Some(cdef_filter_8_2_sse4_1 as unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        cdef_filter_8_2 = Some(cdef_filter_8_2_avx2 as unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    }
+    cdef_filter_8_3 = Some(cdef_filter_8_3_c as unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    if flags & HAS_SSE4_1 != 0 {
+        cdef_filter_8_3 = Some(cdef_filter_8_3_sse4_1 as unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        cdef_filter_8_3 = Some(cdef_filter_8_3_avx2 as unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut core::ffi::c_void, core::ffi::c_int, *const uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    }
+    cdef_find_dir = Some(cdef_find_dir_c as unsafe extern "C-unwind" fn(*const uint16_t, core::ffi::c_int, *mut int32_t, core::ffi::c_int) -> core::ffi::c_int) as Option<unsafe extern "C-unwind" fn(*const uint16_t, core::ffi::c_int, *mut int32_t, core::ffi::c_int) -> core::ffi::c_int>;
+    if flags & HAS_SSE4_1 != 0 {
+        cdef_find_dir = Some(cdef_find_dir_sse4_1 as unsafe extern "C-unwind" fn(*const uint16_t, core::ffi::c_int, *mut int32_t, core::ffi::c_int) -> core::ffi::c_int) as Option<unsafe extern "C-unwind" fn(*const uint16_t, core::ffi::c_int, *mut int32_t, core::ffi::c_int) -> core::ffi::c_int>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        cdef_find_dir = Some(cdef_find_dir_avx2 as unsafe extern "C-unwind" fn(*const uint16_t, core::ffi::c_int, *mut int32_t, core::ffi::c_int) -> core::ffi::c_int) as Option<unsafe extern "C-unwind" fn(*const uint16_t, core::ffi::c_int, *mut int32_t, core::ffi::c_int) -> core::ffi::c_int>;
+    }
+    cdef_find_dir_dual = Some(cdef_find_dir_dual_c as unsafe extern "C-unwind" fn(*const uint16_t, *const uint16_t, core::ffi::c_int, *mut int32_t, *mut int32_t, core::ffi::c_int, *mut core::ffi::c_int, *mut core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*const uint16_t, *const uint16_t, core::ffi::c_int, *mut int32_t, *mut int32_t, core::ffi::c_int, *mut core::ffi::c_int, *mut core::ffi::c_int) -> ()>;
+    if flags & HAS_SSE4_1 != 0 {
+        cdef_find_dir_dual = Some(cdef_find_dir_dual_sse4_1 as unsafe extern "C-unwind" fn(*const uint16_t, *const uint16_t, core::ffi::c_int, *mut int32_t, *mut int32_t, core::ffi::c_int, *mut core::ffi::c_int, *mut core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*const uint16_t, *const uint16_t, core::ffi::c_int, *mut int32_t, *mut int32_t, core::ffi::c_int, *mut core::ffi::c_int, *mut core::ffi::c_int) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        cdef_find_dir_dual = Some(cdef_find_dir_dual_avx2 as unsafe extern "C-unwind" fn(*const uint16_t, *const uint16_t, core::ffi::c_int, *mut int32_t, *mut int32_t, core::ffi::c_int, *mut core::ffi::c_int, *mut core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*const uint16_t, *const uint16_t, core::ffi::c_int, *mut int32_t, *mut int32_t, core::ffi::c_int, *mut core::ffi::c_int, *mut core::ffi::c_int) -> ()>;
     }
     cfl_get_luma_subsampling_420_hbd = Some(cfl_get_luma_subsampling_420_hbd_c as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn>;
     if flags & HAS_SSSE3 != 0 {

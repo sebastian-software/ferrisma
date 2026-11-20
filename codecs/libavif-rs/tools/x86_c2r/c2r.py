@@ -319,7 +319,12 @@ class Printer:
             return E(n.value.replace("'", "b'", 1) + ' as i8', ('int', 'i8'), 'as', True)
         if n.type in ('double', 'float'):
             v = n.value.rstrip('fF')
-            return E(v if '.' in v or 'e' in v.lower() else v + '.0', ('flit',), const=True)
+            v = v if '.' in v or 'e' in v.lower() else v + '.0'
+            if n.value[-1] in 'fF':
+                # A `float` literal: C rounds it to single precision, and
+                # arithmetic with other floats stays single precision.
+                return E(f'{v}f32', ('float', 'f32'), const=True)
+            return E(v, ('flit',), const=True)
         raise Unsupported(f'constant {n.type} {n.value}')
 
     def x_ID(self, n):
@@ -548,6 +553,12 @@ class Printer:
         return E(f'if {c.code} {{ {a.code} }} else {{ {b.code} }}', t, 'low', a.const and b.const and c.const)
 
     def x_Assignment(self, n):
+        # `(p += s)` as an operand (avg_intrin_sse2.c loads row after row this
+        # way): a block that advances the pointer and yields its new value.
+        lhs = self.expr(n.lvalue)
+        if n.op in ('+=', '-=') and lhs.typ[0] == 'ptr' and isinstance(n.lvalue, c_ast.ID):
+            p = self.ptr_offset(lhs, self.as_int(self.expr(n.rvalue)), n.op == '-=')
+            return E(f'{{ {lhs.code} = {p.code}; {lhs.code} }}', lhs.typ, 'atom')
         raise Unsupported(f'assignment inside an expression at {n.coord}')
 
     def x_FuncCall(self, n):
@@ -1112,7 +1123,8 @@ MACRO_RET = {'_mm_extract_epi16': ('int', 'i32'), '_mm_extract_epi32': ('int', '
              '_mm_extract_epi8': ('int', 'i32'), '_mm_extract_epi64': ('int', 'i64'),
              '_mm256_extract_epi32': ('int', 'i32'), '_mm256_extract_epi16': ('int', 'i32'),
              '_mm256_extract_epi8': ('int', 'i32'), '_mm256_extracti128_si256': ('vec', '__m128i'),
-             '_mm256_extractf128_si256': ('vec', '__m128i'), '_mm_shuffle_ps': ('vec', '__m128')}
+             '_mm256_extractf128_si256': ('vec', '__m128i'), '_mm_shuffle_ps': ('vec', '__m128'),
+             '_mm256_extractf128_ps': ('vec', '__m128'), '_mm256_permute2f128_ps': ('vec', '__m256')}
 RUST_PTR = {'_mm_storeu_si32': ('ptr', ('int', 'u8'), False), '_mm_loadu_si32': ('ptr', ('int', 'u8'), True),
             '_mm_storeu_si16': ('ptr', ('int', 'u8'), False), '_mm_loadu_si16': ('ptr', ('int', 'u8'), True),
             '_mm_storeu_si64': ('ptr', ('int', 'u8'), False), '_mm_loadu_si64': ('ptr', ('int', 'u8'), True)}
@@ -1130,6 +1142,8 @@ def rename(name):
 def zero_value(t):
     if t[0] in ('int', 'lit'):
         return '0'
+    if t[0] == 'float':
+        return '0.0'
     if t[0] == 'fnptr':
         return 'None'
     if t[0] == 'arr':
@@ -1155,6 +1169,8 @@ def ftype_parse(text):
         return ('bool',)
     if re.fullmatch(r'[iu](8|16|32|64|size)', text):
         return ('int', text)
+    if text in ('f32', 'f64'):
+        return ('float', text)
     return ('struct', text)
 
 
@@ -1375,11 +1391,15 @@ def declare_aligned(text):
     return out
 
 
-def strip_declare_aligned(text):
+def strip_declare_aligned(text, keep_lines=False):
+    """Replace DECLARE_ALIGNED(n, type, decl) by `type decl`. With keep_lines
+    the line breaks inside the macro call follow the declaration, so that the
+    source keeps its line numbers and every comment its place."""
     for align, typ, name, start, end in reversed(declare_aligned(text)):
         inner = text[text.index('(', start) + 1:end - 1]
         typ, decl = inner.split(',', 1)[1].split(',', 1)
-        text = text[:start] + typ.strip() + ' ' + decl.strip() + text[end:]
+        breaks = '\n' * text[start:end].count('\n') if keep_lines else ''
+        text = text[:start] + typ.strip() + ' ' + decl.strip() + breaks + text[end:]
     return text
 
 
@@ -1416,12 +1436,29 @@ def cpp_expand(text, spec):
     src = text.split('\n')
     src = [l if not re.match(r'\s*#\s*include\b', l) else '' for l in src]
     full = '\n'.join(defs) + '\n' + '\n'.join(src)
-    args = (['cc', '-E', '-P', '-C', '-x', 'c', '-'] + [f'-D{k}={v}' for k, v in CONFIG.items() if k != '__cplusplus']
+    # No -P: the line markers place every output line on the line it comes
+    # from, so the expanded source keeps the original's line numbers whatever
+    # blank lines the preprocessor would collapse (GCC and Clang collapse
+    # differently under -P). -nostdinc: GCC otherwise pre-includes glibc's
+    # stdc-predef.h, whose comments -C would carry into the output; the
+    # sources' own #include lines are dropped above, so no header is needed.
+    args = (['cc', '-E', '-C', '-nostdinc', '-x', 'c', '-'] + [f'-D{k}={v}' for k, v in CONFIG.items() if k != '__cplusplus']
             + [f'-D{d}' for d in spec.get('defines', [])])
     r = subprocess.run(args, input=full, capture_output=True, text=True)
     if r.returncode:
         raise SystemExit(f'cpp failed: {r.stderr[:2000]}')
-    return r.stdout
+    offset = full.count('\n') - text.count('\n')  # lines of `defs` before the source
+    out, current, line = {}, None, 0
+    for row in r.stdout.split('\n'):
+        m = re.match(r'#\s*(?:line\s+)?(\d+)\s+"([^"]*)"', row)
+        if m:
+            line, current = int(m.group(1)), m.group(2)
+            continue
+        if current in ('<stdin>', '-') and line > offset:
+            out.setdefault(line - offset, []).append(row)
+        line += 1
+    last = max(out) if out else 0
+    return '\n'.join(' '.join(out.get(k, [''])) for k in range(1, last + 1)) + '\n'
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -1459,7 +1496,7 @@ def translate(config_path, work=None):
             if os.environ.get('C2R_VERBOSE'):
                 print(f'note: function-like or complex #define {dname} {value}', file=sys.stderr)
     aligned = {name: align for align, _, name, _, _ in declare_aligned(clean)}
-    clean = strip_declare_aligned(clean)
+    clean = strip_declare_aligned(clean, cfg.get('keep_lines', False))
     if cfg.get('only'):
         # File-scope invocations of function-generating macros (AOM_VAR_*, VAR_FN,
         # ...) define functions outside `only`; they are blanked before parsing.

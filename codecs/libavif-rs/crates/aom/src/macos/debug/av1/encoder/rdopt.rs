@@ -49,12 +49,7 @@ extern "C-unwind" {
     );
     static mut aom_highbd_sse: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> int64_t>;
     static mut aom_sse: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> int64_t>;
-    fn av1_nn_predict_c(
-        input_nodes: *const core::ffi::c_float,
-        nn_config: *const NN_CONFIG,
-        reduce_prec: core::ffi::c_int,
-        output: *mut core::ffi::c_float,
-    );
+    static mut av1_nn_predict: Option<unsafe extern "C-unwind" fn(*const core::ffi::c_float, *const NN_CONFIG, core::ffi::c_int, *mut core::ffi::c_float) -> ()>;
     fn av1_find_mv_refs(
         cm: *const AV1_COMMON,
         xd: *const MACROBLOCKD,
@@ -24906,7 +24901,7 @@ unsafe extern "C-unwind" fn skip_intra_modes_in_interframe(
         ) as core::ffi::c_int;
         nn_features[5 as core::ffi::c_int as usize] = (ac_q_max / ac_q)
             as core::ffi::c_float;
-        av1_nn_predict_c(
+        av1_nn_predict.expect("non-null function pointer")(
             nn_features.as_mut_ptr(),
             nn_config,
             1 as core::ffi::c_int,

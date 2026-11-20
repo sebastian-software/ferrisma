@@ -20,12 +20,7 @@ extern "C-unwind" {
         delta: core::ffi::c_int,
         bit_depth: aom_bit_depth_t,
     ) -> int16_t;
-    fn av1_nn_predict_c(
-        input_nodes: *const core::ffi::c_float,
-        nn_config: *const NN_CONFIG,
-        reduce_prec: core::ffi::c_int,
-        output: *mut core::ffi::c_float,
-    );
+    static mut av1_nn_predict: Option<unsafe extern "C-unwind" fn(*const core::ffi::c_float, *const NN_CONFIG, core::ffi::c_int, *mut core::ffi::c_float) -> ()>;
     fn aom_internal_error(
         info: *mut aom_internal_error_info,
         error: aom_codec_err_t,
@@ -47951,7 +47946,7 @@ unsafe extern "C-unwind" fn intra_mode_cnn_partition(
         f_idx_2 = f_idx_2 + 1;
         dnn_features[fresh69 as usize] = (*part_info).log_q;
     }
-    av1_nn_predict_c(
+    av1_nn_predict.expect("non-null function pointer")(
         dnn_features.as_mut_ptr(),
         dnn_config,
         1 as core::ffi::c_int,
@@ -48136,7 +48131,7 @@ unsafe extern "C-unwind" fn simple_motion_search_based_split(
         idx += 1;
     }
     let mut score: core::ffi::c_float = 0.0f32;
-    av1_nn_predict_c(
+    av1_nn_predict.expect("non-null function pointer")(
         features.as_mut_ptr(),
         nn_config,
         1 as core::ffi::c_int,
@@ -48625,7 +48620,7 @@ unsafe extern "C-unwind" fn simple_motion_search_prune_rect(
     } else {
         EXT_PARTITION_TYPES as core::ffi::c_int as core::ffi::c_int
     };
-    av1_nn_predict_c(
+    av1_nn_predict.expect("non-null function pointer")(
         features.as_mut_ptr(),
         nn_config,
         1 as core::ffi::c_int,
@@ -48930,7 +48925,7 @@ pub unsafe extern "C-unwind" fn av1_predict_max_partition(
 ) -> BLOCK_SIZE {
     let mut scores: [core::ffi::c_float; 4] = [0.0f32, 0., 0., 0.];
     let mut nn_config: *const NN_CONFIG = &raw const av1_max_part_pred_nn_config;
-    av1_nn_predict_c(features, nn_config, 1 as core::ffi::c_int, scores.as_mut_ptr());
+    av1_nn_predict.expect("non-null function pointer")(features, nn_config, 1 as core::ffi::c_int, scores.as_mut_ptr());
     let mut result: core::ffi::c_int = MAX_NUM_CLASSES_MAX_MIN_PART_PRED
         - 1 as core::ffi::c_int;
     if (*cpi).sf.part_sf.auto_max_partition_based_on_simple_motion as core::ffi::c_int
@@ -49281,7 +49276,7 @@ pub unsafe extern "C-unwind" fn av1_ml_early_term_after_split(
         return;
     }
     let mut score: core::ffi::c_float = 0.0f32;
-    av1_nn_predict_c(
+    av1_nn_predict.expect("non-null function pointer")(
         features.as_mut_ptr(),
         nn_config,
         1 as core::ffi::c_int,
@@ -49442,7 +49437,7 @@ pub unsafe extern "C-unwind" fn av1_ml_prune_rect_partition(
         return;
     }
     let mut raw_scores: [core::ffi::c_float; 3] = [0.0f32, 0., 0.];
-    av1_nn_predict_c(
+    av1_nn_predict.expect("non-null function pointer")(
         features.as_mut_ptr(),
         nn_config,
         1 as core::ffi::c_int,
@@ -49608,7 +49603,7 @@ unsafe extern "C-unwind" fn ml_prune_ab_partition(
         0.,
         0.,
     ];
-    av1_nn_predict_c(
+    av1_nn_predict.expect("non-null function pointer")(
         features.as_mut_ptr(),
         nn_config,
         1 as core::ffi::c_int,
@@ -49950,7 +49945,7 @@ pub unsafe extern "C-unwind" fn av1_ml_prune_4_partition(
     }
     if ml_model_index == 0 as core::ffi::c_int {
         let mut score: [core::ffi::c_float; 4] = [0.0f32, 0., 0., 0.];
-        av1_nn_predict_c(
+        av1_nn_predict.expect("non-null function pointer")(
             features.as_mut_ptr(),
             nn_config,
             1 as core::ffi::c_int,
@@ -50005,7 +50000,7 @@ pub unsafe extern "C-unwind" fn av1_ml_prune_4_partition(
     } else {
         let mut score_0: [core::ffi::c_float; 3] = [0.0f32, 0., 0.];
         let mut probs: [core::ffi::c_float; 3] = [0.0f32, 0., 0.];
-        av1_nn_predict_c(
+        av1_nn_predict.expect("non-null function pointer")(
             features.as_mut_ptr(),
             nn_config,
             1 as core::ffi::c_int,
@@ -50231,7 +50226,7 @@ pub unsafe extern "C-unwind" fn av1_ml_predict_breakout(
         return;
     }
     let mut score: core::ffi::c_float = 0.0f32;
-    av1_nn_predict_c(
+    av1_nn_predict.expect("non-null function pointer")(
         features.as_mut_ptr(),
         nn_config,
         1 as core::ffi::c_int,

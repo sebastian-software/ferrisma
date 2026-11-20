@@ -185,41 +185,13 @@ extern "C-unwind" {
             core::ffi::c_int,
         ) -> (),
     >;
-    fn aom_hadamard_16x16_c(
-        src_diff: *const int16_t,
-        src_stride: ptrdiff_t,
-        coeff: *mut tran_low_t,
-    );
-    fn aom_hadamard_32x32_c(
-        src_diff: *const int16_t,
-        src_stride: ptrdiff_t,
-        coeff: *mut tran_low_t,
-    );
-    fn aom_hadamard_4x4_c(
-        src_diff: *const int16_t,
-        src_stride: ptrdiff_t,
-        coeff: *mut tran_low_t,
-    );
-    fn aom_hadamard_8x8_c(
-        src_diff: *const int16_t,
-        src_stride: ptrdiff_t,
-        coeff: *mut tran_low_t,
-    );
-    fn aom_highbd_hadamard_16x16_c(
-        src_diff: *const int16_t,
-        src_stride: ptrdiff_t,
-        coeff: *mut tran_low_t,
-    );
-    fn aom_highbd_hadamard_32x32_c(
-        src_diff: *const int16_t,
-        src_stride: ptrdiff_t,
-        coeff: *mut tran_low_t,
-    );
-    fn aom_highbd_hadamard_8x8_c(
-        src_diff: *const int16_t,
-        src_stride: ptrdiff_t,
-        coeff: *mut tran_low_t,
-    );
+    static mut aom_hadamard_16x16: Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()>;
+    static mut aom_hadamard_32x32: Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()>;
+    static mut aom_hadamard_4x4: Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()>;
+    static mut aom_hadamard_8x8: Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()>;
+    static mut aom_highbd_hadamard_16x16: Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()>;
+    static mut aom_highbd_hadamard_32x32: Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()>;
+    static mut aom_highbd_hadamard_8x8: Option<unsafe extern "C-unwind" fn(*const int16_t, ptrdiff_t, *mut tran_low_t) -> ()>;
 }
 pub type ptrdiff_t = isize;
 pub type int16_t = i16;
@@ -722,16 +694,16 @@ unsafe extern "C-unwind" fn highbd_wht_fwd_txfm(
 ) {
     match tx_size as core::ffi::c_int {
         0 => {
-            aom_hadamard_4x4_c(src_diff, src_stride, coeff);
+            aom_hadamard_4x4.expect("non-null function pointer")(src_diff, src_stride, coeff);
         }
         1 => {
-            aom_highbd_hadamard_8x8_c(src_diff, src_stride, coeff);
+            aom_highbd_hadamard_8x8.expect("non-null function pointer")(src_diff, src_stride, coeff);
         }
         2 => {
-            aom_highbd_hadamard_16x16_c(src_diff, src_stride, coeff);
+            aom_highbd_hadamard_16x16.expect("non-null function pointer")(src_diff, src_stride, coeff);
         }
         3 => {
-            aom_highbd_hadamard_32x32_c(src_diff, src_stride, coeff);
+            aom_highbd_hadamard_32x32.expect("non-null function pointer")(src_diff, src_stride, coeff);
         }
         _ => {}
     };
@@ -745,16 +717,16 @@ unsafe extern "C-unwind" fn wht_fwd_txfm(
 ) {
     match tx_size as core::ffi::c_int {
         0 => {
-            aom_hadamard_4x4_c(src_diff, src_stride, coeff);
+            aom_hadamard_4x4.expect("non-null function pointer")(src_diff, src_stride, coeff);
         }
         1 => {
-            aom_hadamard_8x8_c(src_diff, src_stride, coeff);
+            aom_hadamard_8x8.expect("non-null function pointer")(src_diff, src_stride, coeff);
         }
         2 => {
-            aom_hadamard_16x16_c(src_diff, src_stride, coeff);
+            aom_hadamard_16x16.expect("non-null function pointer")(src_diff, src_stride, coeff);
         }
         3 => {
-            aom_hadamard_32x32_c(src_diff, src_stride, coeff);
+            aom_hadamard_32x32.expect("non-null function pointer")(src_diff, src_stride, coeff);
         }
         _ => {}
     };

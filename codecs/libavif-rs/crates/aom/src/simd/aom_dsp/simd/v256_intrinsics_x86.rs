@@ -14,11 +14,12 @@
 //
 // This header has no build flag of its own: upstream includes it, through
 // aom_dsp/aom_simd.h, into each file that uses libaom's portable SIMD
-// abstraction, and compiles it with that file's flag. The only such file in
-// the x86 kernel set is av1/common/x86/cdef_block_avx2.c (-mavx2), so this
-// translation takes the `defined(__AVX2__)` half of the header (v256 is
-// __m256i; the v256_intrinsics_v128.h fallback for builds without AVX2 is not
-// used) and, inside it, the branches that are active when __SSSE3__,
+// abstraction, and compiles it with that file's flag. This translation takes
+// the `defined(__AVX2__)` half of the header (v256 is __m256i), which only
+// av1/common/x86/cdef_block_avx2.c (-mavx2) sees in the x86 kernel set; the
+// v256_intrinsics_v128.h half that cdef_block_sse4.c (-msse4.1) sees is
+// translated in v256_intrinsics_v128.rs. Inside the AVX2 half it takes the
+// branches that are active when __SSSE3__,
 // __SSE4_1__ and __AVX2__ are all defined. Every function carries
 // #[target_feature(enable = "avx2")], the flag it is compiled with upstream.
 // SIMD_INLINE functions become `#[inline]` functions; macros that require an

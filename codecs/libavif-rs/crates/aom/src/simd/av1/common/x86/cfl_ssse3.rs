@@ -56,6 +56,7 @@ type cfl_subtract_average_fn = Option<unsafe extern "C-unwind" fn(*const u16, *m
 type cfl_predict_lbd_fn = Option<unsafe extern "C-unwind" fn(*const i16, *mut u8, i32, i32)>;
 type cfl_predict_hbd_fn = Option<unsafe extern "C-unwind" fn(*const i16, *mut u16, i32, i32, i32)>;
 
+// Load 32-bit integer from memory into the first element of dst.
 #[inline]
 #[target_feature(enable = "ssse3")]
 unsafe fn _mm_loadh_epi32(mem_addr: *const __m128i) -> __m128i {

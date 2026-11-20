@@ -1,0 +1,10 @@
+typedef int int8_t; typedef int int16_t; typedef int int32_t; typedef int int64_t;
+typedef int uint8_t; typedef int uint16_t; typedef int uint32_t; typedef int uint64_t;
+typedef int size_t; typedef int intptr_t; typedef int ptrdiff_t;
+typedef int __m128i; typedef int __m256i; typedef int __m128; typedef int __m256; typedef int __m128d; typedef int __m256d;
+typedef int bool;
+typedef struct NN_CONFIG NN_CONFIG;
+void av1_nn_output_prec_reduce(float *const output, int num_output);
+void av1_nn_propagate_4to1_sse3(const float *const inputs, const float *const weights, __m128 *const output);
+void av1_nn_propagate_4to4_sse3(const float *const inputs, const float *const weights, __m128 *const outputs, const int num_inputs);
+void av1_nn_propagate_4to8_sse3(const float *const inputs, const float *const weights, __m128 *const out_h, __m128 *const out_l, const int num_inputs);

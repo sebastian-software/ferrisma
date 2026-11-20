@@ -1,0 +1,44 @@
+{
+ "aligned_externs": [],
+ "comment_start": 12,
+ "consts": {
+  "NN_MAX_NODES_PER_LAYER": "i32"
+ },
+ "extern_c": [],
+ "feature": "sse3",
+ "macros": {},
+ "output": "ml_sse3.rs",
+ "prelude": "preludes/prelude_ml.h",
+ "public": [],
+ "public_all": false,
+ "replace": [
+  [
+   "const __m128 multiplier = _mm_set1_ps(A);",
+   "const __m128 multiplier = _mm_set1_ps((float)(1 << 23) / 0.69314718056f);"
+  ],
+  [
+   "const __m128i offset = _mm_set1_epi32(B * (1 << 23) - C);",
+   "const __m128i offset = _mm_set1_epi32(127 * (1 << 23) - 60801);"
+  ],
+  [
+   "__m128 sum = in_0 = approx_exp(in_0);",
+   "in_0 = approx_exp(in_0); __m128 sum = in_0;"
+  ]
+ ],
+ "rtcd": [
+  "av1_nn_predict_sse3",
+  "av1_nn_fast_softmax_16_sse3"
+ ],
+ "skip": [],
+ "source": "upstream/aom/av1/encoder/x86/ml_sse3.c",
+ "structs": {
+  "NN_CONFIG": {
+   "bias": "[*const f32; 11]",
+   "num_hidden_layers": "i32",
+   "num_hidden_nodes": "[i32; 10]",
+   "num_inputs": "i32",
+   "num_outputs": "i32",
+   "weights": "[*const f32; 11]"
+  }
+ }
+}
