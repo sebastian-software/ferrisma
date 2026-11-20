@@ -35,7 +35,7 @@ export const meta: ArdoMetaFunction = () => [
 
 /*
  * Verbatim from examples/thumbnail.rs on main (CI compiles every example with
- * `cargo test -p ferrisma --all-targets --all-features`), without its
+ * `cargo test -p ferrisma -p ferrisma-kernels --all-targets --all-features`), without its
  * argument parsing; `jpeg` holds the input file's bytes.
  */
 const RUST_EXAMPLE = `use ferrisma::pipeline::{
@@ -219,7 +219,7 @@ function Safety() {
         <p>
           The engine forbids <code>unsafe</code> code outright, and so does the color
           conversion it shares between WebP and AVIF. The JPEG and WebP ports allow it only in
-          their SIMD code, and WebP in a C interface the engine does not use. The JPEG XL and AVIF ports are translations that still carry much of
+          their SIMD code; WebP also has a C interface, which the engine does not use. The JPEG XL and AVIF ports are translations that still carry much of
           their originals' unsafe code; the engine reaches them only through small bridges in which
           every unsafe block carries a written safety argument.
         </p>
@@ -310,7 +310,8 @@ function Speed() {
         {SPEED_SUMMARY.max} times as long as the originals' SIMD builds on one thread, across{" "}
         {SPEED_SUMMARY.cells} measurements on {SPEED_SUMMARY.machines} machines;{" "}
         {SPEED_SUMMARY.countAtOrBelow} of them are at or below {SPEED_SUMMARY.atOrBelow}. The
-        slowest are WebP's lossy encoder on x86-64 and JPEG XL's lossless decode on Linux ARM64.
+        widest gaps are WebP's lossy encoder on x86-64 (up to 1.63) and JPEG XL's lossless decode
+        on Linux ARM64 (up to 1.48).
       </p>
       <p className="fx-section-link">
         <a href={path("how-it-is-built#speed")}>The full table</a>
