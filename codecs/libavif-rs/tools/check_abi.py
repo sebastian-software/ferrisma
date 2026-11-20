@@ -191,6 +191,9 @@ def main():
         f'[dependencies]\navif = {{ package = {json.dumps(rust_package)}, path = {json.dumps(str(rust_root))}, features = {json.dumps(features)} }}\n'
         '[profile.dev]\npanic = "unwind"\noverflow-checks = false\n'
         '[profile.release]\npanic = "unwind"\noverflow-checks = false\n'
+        # The workspace's dev setting for dav1d's fearless_simd kernels (root
+        # Cargo.toml): unoptimized they need megabyte stack frames.
+        '[profile.dev.package.libavif-dav1d-kernels]\nopt-level=3\n[profile.dev.package.fearless_simd]\nopt-level=3\n'
     )
     # The probe is a Rust consumer of an rlib, so it owns the runtime search
     # path for the same locally built AVM dylib that CMake consumers link.
