@@ -473,6 +473,25 @@ Still on `_c` with an original Neon variant on the still-image path: the
 `aom_highbd_{8,10,12}_variance*`, 0.3 to 1.5% at speed 6) and
 `aom_quantize_b_helper` (libaom calls only `_c`, see above).
 
+## Amendment: the variance family (2026-11-20)
+
+The variance kernels named as still on `_c` above are dispatched now, every
+function the original's Neon build dispatches (106): the 22 block variances
+`aom_variance{W}x{H}`, the 66 `aom_highbd_{8,10,12}_variance{W}x{H}`, the
+block MSEs `aom_mse{8x8,8x16,16x8,16x16}` and the 12
+`aom_highbd_{8,10,12}_mse*`, and `aom_get_var_sse_sum_8x8_quad` and
+`_16x16_dual` (`variance_neon.c`, `highbd_variance_neon.c`, hand translations
+whose function-generating macros become `macro_rules!`). `tests/simd/variance.rs`
+transcribes variance_test.cc (AvxVarianceTest, AvxMseTest, GetSseSum8x8QuadTest,
+GetSseSum16x16DualTest, AvxHBDVarianceTest, AvxHBDMseTest); a kernel harness
+against the original's `libaom.a` (60 inputs, all 106 functions) finds the
+Neon port equal to the original Neon build and the scalar port equal to the
+generic build. `variance.c`'s sub-pixel macros call `aom_variance##W##x##H##_c`
+explicitly; `enable_aom_dispatch.py` now counts such token-pasted `_c` calls
+as explicit and leaves them direct. The arm64 overlay dispatches 631 RTCD
+functions; `check_aom_simd_original.py` reports `neon` 82 of 82 and `scalar`
+82 of 82 identical to the original.
+
 ## Amendment log
 
 - 2026-11-15 — Owner decisions on #203 (non-contracting reference for both
@@ -480,3 +499,5 @@ Still on `_c` with an original Neon variant on the still-image path: the
   Earlier amendments are the dated sections above.
 - 2026-11-20 — CNN, NN and Hadamard kernels dispatched to Neon (measured
   still-image profile; #123 table corrected for Hadamard).
+- 2026-11-20 — Variance family (block variance, MSE, SSE/sum) dispatched to
+  Neon, 631 RTCD functions.

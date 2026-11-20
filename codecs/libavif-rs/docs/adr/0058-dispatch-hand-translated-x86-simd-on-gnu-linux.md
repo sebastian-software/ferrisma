@@ -323,3 +323,28 @@ single precision), a pointer `+=` used as an operand, an opt-in
 and the return types of `_mm256_extractf128_ps` and
 `_mm256_permute2f128_ps`. `assemble.py --check` reproduces all 58 files.
 
+## Amendment: the SSE4.1 level and the variance family (2026-11-20)
+
+Below AVX2 the original's x86 build runs SSE4.1 kernels the port had left on
+`_c`: `av1_highbd_quantize_fp` (`av1_highbd_quantize_sse4.c`, printed) and the
+CDEF kernels `cdef_filter_{8,16}_{0..3}`, `cdef_find_dir`,
+`cdef_find_dir_dual` and `cdef_copy_rect8_{8,16}bit_to_16bit`.
+`cdef_block_sse4.rs` is the `_sse4_1` instantiation of the
+`cdef_block_simd.h` template (hand translation, as `cdef_block_avx2.rs`);
+without `__AVX2__` its v256 comes from `v256_intrinsics_v128.h`, translated
+for the functions the template calls. The shared v64/v128 helpers now carry
+`sse4.1` instead of `avx2`: both headers test only `__SSSE3__` and
+`__SSE4_1__`, so the translated branches are those of either flag.
+
+The variance family follows the Neon one (ADR 0056, same date):
+`variance_sse2.c`, `variance_avx2.c`, `highbd_variance_avx2.c` and
+`highbd_variance_sse4.c` are printed (generating macros expanded with `cpp`)
+and dispatched, 49 functions in 67 variants. The high-bitdepth SSE2
+variances and MSEs call the NASM `aom_highbd_calc{8x8,16x16}var_sse2` and
+stay on `_c` (ADR-0044 D2); a kernel harness shows `_c` equal to the
+original's NASM-backed SSE2 for them. The x86 overlay dispatches 420 RTCD
+functions through 542 kernel assignments; `assemble.py --check` reproduces
+all 60 files. Under Rosetta (real AVX2) `--test simd` passes 264 tests,
+`check_aom_simd_original.py` reports `avx2`, `sse4.1` and `scalar` 82 of 82
+each, and the kernel harness (variance family and CDEF, 60 inputs) finds the
+port equal to the original at all three levels.
