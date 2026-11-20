@@ -1,0 +1,28 @@
+{
+ "aligned_externs": [],
+ "comment_start": 12,
+ "consts": {},
+ "extern_c": [],
+ "feature": "sse4.1",
+ "macros": {},
+ "output": "av1_highbd_quantize_sse4.rs",
+ "prelude": "preludes/prelude_hbdq.h",
+ "public": [],
+ "public_all": false,
+ "replace": [
+  [
+   "const int round1 = ROUND_POWER_OF_TWO(round_ptr[1], log_scale);",
+   "const int round1 = (round_ptr[1] + ((1 << log_scale) >> 1)) >> log_scale;"
+  ],
+  [
+   "const int round0 = ROUND_POWER_OF_TWO(round_ptr[0], log_scale);",
+   "const int round0 = (round_ptr[0] + ((1 << log_scale) >> 1)) >> log_scale;"
+  ]
+ ],
+ "rtcd": [
+  "av1_highbd_quantize_fp_sse4_1"
+ ],
+ "skip": [],
+ "source": "upstream/aom/av1/encoder/x86/av1_highbd_quantize_sse4.c",
+ "structs": {}
+}

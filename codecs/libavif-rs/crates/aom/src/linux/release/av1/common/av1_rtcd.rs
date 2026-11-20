@@ -584,6 +584,7 @@ extern "C-unwind" {
         iscan: *const int16_t,
         log_scale: core::ffi::c_int,
     );
+    fn av1_highbd_quantize_fp_sse4_1(coeff_ptr: *const tran_low_t, n_coeffs: intptr_t, zbin_ptr: *const int16_t, round_ptr: *const int16_t, quant_ptr: *const int16_t, quant_shift_ptr: *const int16_t, qcoeff_ptr: *mut tran_low_t, dqcoeff_ptr: *mut tran_low_t, dequant_ptr: *const int16_t, eob_ptr: *mut uint16_t, scan: *const int16_t, iscan: *const int16_t, log_scale: core::ffi::c_int);
     fn av1_highbd_quantize_fp_avx2(
         coeff_ptr: *const tran_low_t,
         n_coeffs: intptr_t,
@@ -2908,77 +2909,12 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
                 ) -> (),
             >;
     }
-    av1_highbd_quantize_fp = Some(
-        av1_highbd_quantize_fp_c
-            as unsafe extern "C-unwind" fn(
-                *const tran_low_t,
-                intptr_t,
-                *const int16_t,
-                *const int16_t,
-                *const int16_t,
-                *const int16_t,
-                *mut tran_low_t,
-                *mut tran_low_t,
-                *const int16_t,
-                *mut uint16_t,
-                *const int16_t,
-                *const int16_t,
-                core::ffi::c_int,
-            ) -> (),
-    )
-        as Option<
-            unsafe extern "C-unwind" fn(
-                *const tran_low_t,
-                intptr_t,
-                *const int16_t,
-                *const int16_t,
-                *const int16_t,
-                *const int16_t,
-                *mut tran_low_t,
-                *mut tran_low_t,
-                *const int16_t,
-                *mut uint16_t,
-                *const int16_t,
-                *const int16_t,
-                core::ffi::c_int,
-            ) -> (),
-        >;
+    av1_highbd_quantize_fp = Some(av1_highbd_quantize_fp_c as unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t, core::ffi::c_int) -> ()>;
+    if flags & HAS_SSE4_1 != 0 {
+        av1_highbd_quantize_fp = Some(av1_highbd_quantize_fp_sse4_1 as unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t, core::ffi::c_int) -> ()>;
+    }
     if flags & HAS_AVX2 != 0 {
-        av1_highbd_quantize_fp = Some(
-            av1_highbd_quantize_fp_avx2
-                as unsafe extern "C-unwind" fn(
-                    *const tran_low_t,
-                    intptr_t,
-                    *const int16_t,
-                    *const int16_t,
-                    *const int16_t,
-                    *const int16_t,
-                    *mut tran_low_t,
-                    *mut tran_low_t,
-                    *const int16_t,
-                    *mut uint16_t,
-                    *const int16_t,
-                    *const int16_t,
-                    core::ffi::c_int,
-                ) -> (),
-        )
-            as Option<
-                unsafe extern "C-unwind" fn(
-                    *const tran_low_t,
-                    intptr_t,
-                    *const int16_t,
-                    *const int16_t,
-                    *const int16_t,
-                    *const int16_t,
-                    *mut tran_low_t,
-                    *mut tran_low_t,
-                    *const int16_t,
-                    *mut uint16_t,
-                    *const int16_t,
-                    *const int16_t,
-                    core::ffi::c_int,
-                ) -> (),
-            >;
+        av1_highbd_quantize_fp = Some(av1_highbd_quantize_fp_avx2 as unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t, core::ffi::c_int) -> ()>;
     }
     av1_highbd_upsample_intra_edge = Some(
         av1_highbd_upsample_intra_edge_c

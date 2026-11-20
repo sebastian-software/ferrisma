@@ -464,6 +464,10 @@ pub mod av1__encoder__x86__av1_fwd_txfm_sse2;
 pub mod av1__encoder__x86__av1_highbd_quantize_avx2;
 
 #[cfg(target_arch = "x86_64")]
+#[path = "av1/encoder/x86/av1_highbd_quantize_sse4.rs"]
+pub mod av1__encoder__x86__av1_highbd_quantize_sse4;
+
+#[cfg(target_arch = "x86_64")]
 #[path = "av1/encoder/x86/av1_quantize_avx2.rs"]
 pub mod av1__encoder__x86__av1_quantize_avx2;
 

@@ -422,6 +422,7 @@ my %ported_x86 = map { $_ => 1 } qw/
   av1_highbd_inv_txfm_add_avx2
   av1_highbd_inv_txfm_add_sse4_1
   av1_highbd_quantize_fp_avx2
+  av1_highbd_quantize_fp_sse4_1
   av1_highbd_upsample_intra_edge_sse4_1
   av1_highbd_wiener_convolve_add_src_avx2
   av1_highbd_wiener_convolve_add_src_ssse3

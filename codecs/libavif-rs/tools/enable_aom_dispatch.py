@@ -272,12 +272,12 @@ def check_int_aliases(linux=True):
 def edit_rtcd_unit_linux(text, name, params, ret, order, variants, others=()):
     ftype = fn_type(params, ret)
     opt = f'Option<{ftype}>'
-    if re.search(r'pub static mut ' + name + r':', text):
-        raise SystemExit(f'{name} is already dispatched')
-    text = ensure_int_aliases(text, ftype)
-    text = ensure_copied_types(text, ftype, others)
     decl_params = ', '.join(split_top(params))
     r = f' {ret}' if ret else ''
+    if re.search(r'pub static mut ' + name + r':', text):
+        return add_variants_linux(text, name, decl_params, r, ftype, opt, variants)
+    text = ensure_int_aliases(text, ftype)
+    text = ensure_copied_types(text, ftype, others)
     anchor = 'extern "C-unwind" {\n'
     decls = ''.join(f'    fn {name}_{ext}({decl_params}){r};\n' for ext in ['c', *variants])
     text = text.replace(anchor, anchor + decls, 1)
@@ -301,6 +301,55 @@ def edit_rtcd_unit_linux(text, name, params, ret, order, variants, others=()):
             insert = m.start()
             break
     return text[:insert] + block + text[insert:]
+
+
+def statement_end(text, pos):
+    """The index after the `;` that ends the statement starting at pos
+    (parentheses, brackets and angle brackets balanced; `->` is no bracket)."""
+    depth, k = 0, pos
+    while True:
+        ch = text[k]
+        if ch in '([<':
+            depth += 1
+        elif ch in ')]>' and text[k - 1] != '-':
+            depth -= 1
+        elif ch == ';' and depth == 0:
+            return k + 1
+        k += 1
+
+
+def add_variants_linux(text, name, decl_params, r, ftype, opt, variants):
+    """A function that is already dispatched gains further x86 variants (for
+    example an SSE4.1 kernel below an existing AVX2 one): their declarations
+    follow the `_c` declaration, and the function's setup block is rewritten
+    with every variant in header order, as a first dispatch writes it. The
+    units dispatched at the freeze are rustfmt-formatted, so declarations and
+    statements may span lines."""
+    missing = [ext for ext in variants if not re.search(r'^\s*fn ' + name + '_' + ext + r'\(', text, re.M)]
+    if not missing:
+        raise SystemExit(f'{name} is already dispatched with {variants}')
+    c_decl = re.search(r'^    fn ' + name + r'_c\(', text, re.M)
+    if not c_decl:
+        raise SystemExit(f'{name}: no _c declaration to extend')
+    end = statement_end(text, c_decl.start()) + 1
+    decls = ''.join(f'    fn {name}_{ext}({decl_params}){r};\n' for ext in missing)
+    text = text[:end] + decls + text[end:]
+    block = f'    {name} = Some({name}_c as {ftype}) as {opt};\n'
+    for ext in variants:
+        block += (f'    if flags & {X86_FLAGS[ext]} != 0 {{\n'
+                  f'        {name} = Some({name}_{ext} as {ftype}) as {opt};\n'
+                  f'    }}\n')
+    setup = text.index('unsafe extern "C-unwind" fn setup_rtcd_internal() {')
+    first = re.compile(r'^    ' + name + r' = Some\(', re.M).search(text, setup)
+    if not first:
+        raise SystemExit(f'{name}: setup block not found')
+    stop = statement_end(text, first.start()) + 1
+    variant = re.compile(r'    if flags & HAS_\w+ != 0 \{\n        ' + name + r' = Some\(')
+    while variant.match(text, stop):
+        inner = statement_end(text, stop + text[stop:].index(name + ' = Some('))
+        assert text[inner:inner + 7] == '\n    }\n', text[inner:inner + 20]
+        stop = inner + 7
+    return text[:first.start()] + block + text[stop:]
 
 
 LITERAL = re.compile(r'''b?r(#*)".*?"\1|b?"(?:\\.|[^"\\])*"|b?'(?:\\.|[^'\\])'|//[^\n]*''', re.S)

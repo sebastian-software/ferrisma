@@ -531,6 +531,12 @@ def nn():
                 '// preprocessor before printing; AOMMAX(bias_val, 0) is written out.\n')
 
 
+def highbd_quantize_fp_sse4():
+    simple_file('av1/encoder/x86/av1_highbd_quantize_sse4.rs', 'av1_highbd_quantize_sse4.json',
+                'av1/encoder/x86/av1_highbd_quantize_sse4.c', 'sse4.1', '',
+                note='// ROUND_POWER_OF_TWO (aom_ports/mem.h) is written out through the config\'s `replace`.\n')
+
+
 def main():
     global OUT, WORK
     parser = argparse.ArgumentParser(description=__doc__)
@@ -555,6 +561,7 @@ def main():
         cnn()
         hadamard()
         nn()
+        highbd_quantize_fp_sse4()
         if args.check:
             bad = []
             for path in sorted(OUT.rglob('*.rs')):
