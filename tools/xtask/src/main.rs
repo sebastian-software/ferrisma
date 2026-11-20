@@ -347,6 +347,8 @@ fn codecs(args: &[String]) -> Result<()> {
                     "-p",
                     "libavif-dav1d",
                     "-p",
+                    "libavif-dav1d-kernels",
+                    "-p",
                     "libavif-sharpyuv",
                 ],
             )?;

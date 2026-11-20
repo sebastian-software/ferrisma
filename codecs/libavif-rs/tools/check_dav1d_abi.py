@@ -85,8 +85,11 @@ def main():
         rust.append('}')
     rust.append('fn main() {' + ''.join(f'probe_{index}();' for index in range(len(entries))) + '}')
     (work / 'probe.rs').write_text('\n'.join(rust) + '\n')
+    # The workspace's dev setting for dav1d's fearless_simd kernels (root
+    # Cargo.toml): unoptimized they need megabyte stack frames.
     (work / 'Cargo.toml').write_text('[package]\nname="dav1d-abi-probe"\nversion="0.0.0"\nedition="2021"\n[workspace]\n[[bin]]\nname="probe"\npath="probe.rs"\n[dependencies]\n'
-        + f'dav1d={{package="libavif-dav1d",path={json.dumps(str(ROOT / "crates/dav1d"))}}}\n')
+        + f'dav1d={{package="libavif-dav1d",path={json.dumps(str(ROOT / "crates/dav1d"))}}}\n'
+        + '[profile.dev.package.libavif-dav1d-kernels]\nopt-level=1\ndebug="line-tables-only"\n[profile.dev.package.fearless_simd]\nopt-level=1\ndebug="line-tables-only"\n')
     actual = [int(line) for line in subprocess.check_output(['cargo', 'run', '--offline', '--quiet', '--manifest-path', work / 'Cargo.toml',
                                                            '--target-dir', ROOT / 'target/dav1d-abi'], text=True).splitlines()]
     if len(actual) != len(expected):

@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-13
-- Updated: 2026-11-15
+- Updated: 2026-11-20 (the AQ SIMD gate under rule O1)
 
 ## Context
 
@@ -2048,6 +2048,57 @@ it, the other 15 happen to give the original's words (equal payloads, or a
 NaN zeroed by its sign); 4,295 `aq_map` words are not compared on AVX2,
 1,199,655 words match; NEON compares all 1,203,950 words and matches. No
 differing request lies outside the class.
+
+**Rule O1 in the gate (2026-11-20, branch `v1/jxl-enc-simd-on`).** The
+owner confirmed O1 as the general rule on 2026-11-15 (ADR-0041 section 3,
+#246, #250): for an input that contains NaN or infinity, a word is compared
+only where the original's two scalar reference builds agree after treating
+all NaNs as equal. `tests/simd_encoder_aq.rs` now applies that rule instead
+of `map_nan_blocks`: `simd_common::reference_masks` runs each request whose
+input (distance, rescale, planes or row-padding word) contains NaN or
+infinity on the scalar gate's two references for the target under test
+(`JXL_CPP_ORACLE`, `JXL_CPP_ORACLE_O3`, from `tools/check.py`) and flags
+the words where they disagree; `same_under_o1` leaves those uncompared and
+compares everything else on both targets. A request without NaN or
+infinity input excludes nothing, and references that differ in word count
+exclude nothing. The scalar oracle answers `eaq-map` without row padding
+(its HfModulation reads no sample past a row).
+
+Result. NEON (M1 Ultra, native): 286 requests, 1,203,950 words match; 183
+requests have NaN or infinity input, and the two arm64 references disagree
+on none of their words. AVX2 (x86_64-apple-darwin under Rosetta 2, AVX2
+dispatch oracle): 240 requests match (942,216 words); **46 requests differ,
+the same 46 as above, and the two x86-64 scalar references agree on every
+word of all 183 exceptional requests**, so O1 compares them and the gate
+fails. The scalar builds reduce a block in one scalar `Add` order, which
+neither optimization level changes; the AVX2 object's commuted lane
+reduction has no counterpart in them. Rule O1 therefore does not cover this
+case.
+
+**Owner decision 2026-11-20: the class stays as a named exception beside
+O1.** The class decision of 2026-11-15 stays in force as a recorded
+exception: only which NaN survives the original's SIMD reduction differs,
+NaN payloads are outside the 1.0 gate (ADR-0041 section 3), and whole-image
+encodes are byte-identical. `tests/simd_encoder_aq.rs` implements exactly
+that class (`map_nan_blocks`, unchanged from 2026-11-15, the reason in its
+doc comment): on AVX2 the `aq_map` words of a request whose input puts two
+or more NaN-producing terms into one block's reduction are not compared.
+Rule O1 applies to every other word on both targets, and any difference
+outside O1 and the class fails the gate. Result (2026-11-20): NEON 286
+requests, 1,203,950 words match, nothing excluded (the class selects 61
+requests, 2,455 blocks, but excludes words only on AVX2). AVX2 under
+Rosetta 2: 286 requests pass, 1,199,655 words match, 4,295 `aq_map` words
+of the class not compared, 46 requests differ inside it, none outside;
+O1 excludes no word on either target.
+
+**Condition (e), speed on x86-64 hardware (2026-11-20).** One run of the
+benchmark workflow on hosted x86-64 runners (run 44759716301) is recorded in
+[the x86-64 encode three-column record](../../../../docs/benchmarks/v1.0-jxl-encode-three-column-x86-64-2026-11-20.md).
+The hosted nightly run 44759505385 (Linux x86-64 hardware, at `1f6baba4`,
+the O1-only gate before the exception) passed every encoder SIMD binary
+except `simd_encoder_aq`: there 25 of 286 requests differed (Rosetta 2: 46),
+all with NaN or infinity input; whether all 25 lie inside the named class
+needs a hosted run at the exception's commit.
 <!-- end encoder aq -->
 <!-- encoder selection -->
 ## Encoder selection (2026-11-15, branch `v1/jxl-enc-select`)

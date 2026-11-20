@@ -16,6 +16,7 @@ members = [
     "codecs/libavif-rs",
     "codecs/libavif-rs/crates/aom",
     "codecs/libavif-rs/crates/dav1d",
+    "codecs/libavif-rs/crates/dav1d-kernels",
     "codecs/libavif-rs/crates/sharpyuv",
 ]
 default-members = [".", "crates/ferrisma-kernels"]
@@ -45,6 +46,23 @@ overflow-checks = false
 overflow-checks = false
 [profile.dev.package.libavif-sharpyuv]
 overflow-checks = false
+# dav1d's CDEF and inverse transforms are written on fearless_simd
+# (libavif-rs ADR 0062, "Kernels written from the algorithm"), whose generic
+# vector code is meant to be inlined and optimized. At opt-level 0 it is not:
+# every temporary keeps its own stack slot, so the AVX2 itx first pass needed
+# frames of up to 2.4 MB (dav1d's worker threads have 1 MB stacks: a silent
+# SIGSEGV). The kernels are a crate of their own so that only they (and the
+# library's own code) are optimized in dev and test; the translated decoder
+# stays at opt-level 0. opt-level 1 is enough for the frames (4 KB at most)
+# and compiles fastest; full debug info doubles the crate's compile time,
+# line tables keep backtraces (single-threaded: 205 s at opt-level 3 with
+# full debug info before the passes were shared, 38 s now).
+[profile.dev.package.libavif-dav1d-kernels]
+opt-level = 1
+debug = "line-tables-only"
+[profile.dev.package.fearless_simd]
+opt-level = 1
+debug = "line-tables-only"
 [profile.checked.package.libavif-rs]
 overflow-checks = false
 [profile.checked.package.libavif-aom]

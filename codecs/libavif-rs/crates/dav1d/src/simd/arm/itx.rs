@@ -2,59 +2,19 @@
 // Copyright © 2019, Martin Storsjo
 // All rights reserved. BSD-2-Clause; see LICENSES/ in this crate.
 
-//! `itx_dsp_init_arm` of `upstream/dav1d/src/arm/itx.h` for 8 and 16 bpc
-//! (`simd/arm64/itx16.rs`; at 16 bpc only WHT unless `bpc == 10`). At 8 bpc,
-//! under
-//! `DAV1D_ARM_CPU_FLAG_NEON` every slot gets its rebuilt kernel
-//! (`simd/arm64/itx.rs`) and `*all_simd = 1`, so the C kernels' eob tables
-//! are not initialized, as in the original. With the flag masked off the C
-//! kernels stay and `all_simd` stays 0.
+//! `itx_dsp_init_arm` of `upstream/dav1d/src/arm/itx.h` for 8 and 16 bpc,
+//! statement by statement: under `DAV1D_ARM_CPU_FLAG_NEON` the slots that
+//! the original assigns its NEON kernels get the inverse transforms written
+//! from the algorithm (`simd/itx/`): at 8 bpc the 156 slots of the header,
+//! and `*all_simd = 1`, so the C kernels' eob tables are not initialized, as in the original;
+//! at 16 bpc WHT at every bit depth and every other slot (and `all_simd`)
+//! only at 10 bits. With the flag masked off the C kernels stay and
+//! `all_simd` stays 0.
 use core::ffi::{c_int, c_void};
 
-use super::super::arm64::itx::*;
-use super::super::arm64::itx16::*;
+pub use super::super::itx::{ItxFn, ItxFn16};
 use super::super::cpu::{dav1d_get_cpu_flags, DAV1D_ARM_CPU_FLAG_NEON};
-
-/// `itxfm_fn` (src/itx.h) at 8 bpc.
-pub type ItxFn = unsafe extern "C" fn(*mut u8, isize, *mut i16, c_int);
-
-// enum RectTxfmSize and enum TxfmType (src/levels.h)
-const TX_4X4: usize = 0;
-const TX_8X8: usize = 1;
-const TX_16X16: usize = 2;
-const TX_32X32: usize = 3;
-const TX_64X64: usize = 4;
-const RTX_4X8: usize = 5;
-const RTX_8X4: usize = 6;
-const RTX_8X16: usize = 7;
-const RTX_16X8: usize = 8;
-const RTX_16X32: usize = 9;
-const RTX_32X16: usize = 10;
-const RTX_32X64: usize = 11;
-const RTX_64X32: usize = 12;
-const RTX_4X16: usize = 13;
-const RTX_16X4: usize = 14;
-const RTX_8X32: usize = 15;
-const RTX_32X8: usize = 16;
-const RTX_16X64: usize = 17;
-const RTX_64X16: usize = 18;
-const DCT_DCT: usize = 0;
-const ADST_DCT: usize = 1;
-const DCT_ADST: usize = 2;
-const ADST_ADST: usize = 3;
-const FLIPADST_DCT: usize = 4;
-const DCT_FLIPADST: usize = 5;
-const FLIPADST_FLIPADST: usize = 6;
-const ADST_FLIPADST: usize = 7;
-const FLIPADST_ADST: usize = 8;
-const IDTX: usize = 9;
-const V_DCT: usize = 10;
-const H_DCT: usize = 11;
-const V_ADST: usize = 12;
-const H_ADST: usize = 13;
-const V_FLIPADST: usize = 14;
-const H_FLIPADST: usize = 15;
-const WHT_WHT: usize = 16;
+use super::super::itx::*;
 
 /// `Dav1dInvTxfmDSPContext` (src/itx.h): `itxfm_add[N_RECT_TX_SIZES][N_TX_TYPES_PLUS_LL]`.
 #[repr(C)]
@@ -77,171 +37,36 @@ pub unsafe fn itx_dsp_init_arm_8bpc(c: *mut c_void, _bpc: c_int, all_simd: *mut 
         return;
     }
 
-    // assign_itx_fn( , 4, 4, wht_wht, WHT_WHT, neon) and, for 8 bpc,
-    // assign_itx16_fn … assign_itx1_fn ( , 64, 64, neon) (src/arm/itx.h).
+    let Some(k) = kernels_8bpc() else {
+        return;
+    };
     let t = &mut c.itxfm_add;
-    t[TX_4X4][WHT_WHT] = Some(dav1d_inv_txfm_add_wht_wht_4x4_8bpc_neon);
-    t[TX_4X4][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_4x4_8bpc_neon);
-    t[TX_4X4][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_4x4_8bpc_neon);
-    t[TX_4X4][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_4x4_8bpc_neon);
-    t[TX_4X4][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_4x4_8bpc_neon);
-    t[TX_4X4][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_4x4_8bpc_neon);
-    t[TX_4X4][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_4x4_8bpc_neon);
-    t[TX_4X4][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_4x4_8bpc_neon);
-    t[TX_4X4][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_4x4_8bpc_neon);
-    t[TX_4X4][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_4x4_8bpc_neon);
-    t[TX_4X4][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_4x4_8bpc_neon);
-    t[TX_4X4][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_4x4_8bpc_neon);
-    t[TX_4X4][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_4x4_8bpc_neon);
-    t[TX_4X4][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_4x4_8bpc_neon);
-    t[TX_4X4][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_4x4_8bpc_neon);
-    t[TX_4X4][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_4x4_8bpc_neon);
-    t[TX_4X4][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_4x4_8bpc_neon);
-    t[RTX_4X8][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_4x8_8bpc_neon);
-    t[RTX_4X8][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_4x8_8bpc_neon);
-    t[RTX_4X8][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_4x8_8bpc_neon);
-    t[RTX_4X8][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_4x8_8bpc_neon);
-    t[RTX_4X8][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_4x8_8bpc_neon);
-    t[RTX_4X8][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_4x8_8bpc_neon);
-    t[RTX_4X8][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_4x8_8bpc_neon);
-    t[RTX_4X8][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_4x8_8bpc_neon);
-    t[RTX_4X8][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_4x8_8bpc_neon);
-    t[RTX_4X8][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_4x8_8bpc_neon);
-    t[RTX_4X8][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_4x8_8bpc_neon);
-    t[RTX_4X8][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_4x8_8bpc_neon);
-    t[RTX_4X8][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_4x8_8bpc_neon);
-    t[RTX_4X8][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_4x8_8bpc_neon);
-    t[RTX_4X8][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_4x8_8bpc_neon);
-    t[RTX_4X8][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_4x8_8bpc_neon);
-    t[RTX_8X4][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_8x4_8bpc_neon);
-    t[RTX_8X4][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_8x4_8bpc_neon);
-    t[RTX_8X4][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_8x4_8bpc_neon);
-    t[RTX_8X4][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_8x4_8bpc_neon);
-    t[RTX_8X4][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_8x4_8bpc_neon);
-    t[RTX_8X4][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_8x4_8bpc_neon);
-    t[RTX_8X4][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_8x4_8bpc_neon);
-    t[RTX_8X4][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_8x4_8bpc_neon);
-    t[RTX_8X4][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_8x4_8bpc_neon);
-    t[RTX_8X4][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_8x4_8bpc_neon);
-    t[RTX_8X4][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_8x4_8bpc_neon);
-    t[RTX_8X4][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_8x4_8bpc_neon);
-    t[RTX_8X4][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_8x4_8bpc_neon);
-    t[RTX_8X4][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_8x4_8bpc_neon);
-    t[RTX_8X4][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_8x4_8bpc_neon);
-    t[RTX_8X4][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_8x4_8bpc_neon);
-    t[TX_8X8][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_8x8_8bpc_neon);
-    t[TX_8X8][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_8x8_8bpc_neon);
-    t[TX_8X8][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_8x8_8bpc_neon);
-    t[TX_8X8][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_8x8_8bpc_neon);
-    t[TX_8X8][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_8x8_8bpc_neon);
-    t[TX_8X8][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_8x8_8bpc_neon);
-    t[TX_8X8][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_8x8_8bpc_neon);
-    t[TX_8X8][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_8x8_8bpc_neon);
-    t[TX_8X8][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_8x8_8bpc_neon);
-    t[TX_8X8][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_8x8_8bpc_neon);
-    t[TX_8X8][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_8x8_8bpc_neon);
-    t[TX_8X8][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_8x8_8bpc_neon);
-    t[TX_8X8][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_8x8_8bpc_neon);
-    t[TX_8X8][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_8x8_8bpc_neon);
-    t[TX_8X8][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_8x8_8bpc_neon);
-    t[TX_8X8][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_8x8_8bpc_neon);
-    t[RTX_4X16][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_4x16_8bpc_neon);
-    t[RTX_4X16][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_4x16_8bpc_neon);
-    t[RTX_4X16][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_4x16_8bpc_neon);
-    t[RTX_4X16][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_4x16_8bpc_neon);
-    t[RTX_4X16][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_4x16_8bpc_neon);
-    t[RTX_4X16][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_4x16_8bpc_neon);
-    t[RTX_4X16][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_4x16_8bpc_neon);
-    t[RTX_4X16][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_4x16_8bpc_neon);
-    t[RTX_4X16][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_4x16_8bpc_neon);
-    t[RTX_4X16][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_4x16_8bpc_neon);
-    t[RTX_4X16][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_4x16_8bpc_neon);
-    t[RTX_4X16][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_4x16_8bpc_neon);
-    t[RTX_4X16][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_4x16_8bpc_neon);
-    t[RTX_4X16][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_4x16_8bpc_neon);
-    t[RTX_4X16][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_4x16_8bpc_neon);
-    t[RTX_4X16][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_4x16_8bpc_neon);
-    t[RTX_16X4][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_16x4_8bpc_neon);
-    t[RTX_16X4][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_16x4_8bpc_neon);
-    t[RTX_16X4][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_16x4_8bpc_neon);
-    t[RTX_16X4][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_16x4_8bpc_neon);
-    t[RTX_16X4][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_16x4_8bpc_neon);
-    t[RTX_16X4][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_16x4_8bpc_neon);
-    t[RTX_16X4][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_16x4_8bpc_neon);
-    t[RTX_16X4][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_16x4_8bpc_neon);
-    t[RTX_16X4][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_16x4_8bpc_neon);
-    t[RTX_16X4][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_16x4_8bpc_neon);
-    t[RTX_16X4][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_16x4_8bpc_neon);
-    t[RTX_16X4][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_16x4_8bpc_neon);
-    t[RTX_16X4][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_16x4_8bpc_neon);
-    t[RTX_16X4][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_16x4_8bpc_neon);
-    t[RTX_16X4][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_16x4_8bpc_neon);
-    t[RTX_16X4][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_16x4_8bpc_neon);
-    t[RTX_8X16][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_8x16_8bpc_neon);
-    t[RTX_8X16][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_8x16_8bpc_neon);
-    t[RTX_8X16][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_8x16_8bpc_neon);
-    t[RTX_8X16][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_8x16_8bpc_neon);
-    t[RTX_8X16][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_8x16_8bpc_neon);
-    t[RTX_8X16][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_8x16_8bpc_neon);
-    t[RTX_8X16][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_8x16_8bpc_neon);
-    t[RTX_8X16][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_8x16_8bpc_neon);
-    t[RTX_8X16][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_8x16_8bpc_neon);
-    t[RTX_8X16][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_8x16_8bpc_neon);
-    t[RTX_8X16][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_8x16_8bpc_neon);
-    t[RTX_8X16][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_8x16_8bpc_neon);
-    t[RTX_8X16][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_8x16_8bpc_neon);
-    t[RTX_8X16][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_8x16_8bpc_neon);
-    t[RTX_8X16][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_8x16_8bpc_neon);
-    t[RTX_8X16][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_8x16_8bpc_neon);
-    t[RTX_16X8][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_16x8_8bpc_neon);
-    t[RTX_16X8][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_16x8_8bpc_neon);
-    t[RTX_16X8][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_16x8_8bpc_neon);
-    t[RTX_16X8][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_16x8_8bpc_neon);
-    t[RTX_16X8][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_16x8_8bpc_neon);
-    t[RTX_16X8][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_16x8_8bpc_neon);
-    t[RTX_16X8][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_16x8_8bpc_neon);
-    t[RTX_16X8][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_16x8_8bpc_neon);
-    t[RTX_16X8][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_16x8_8bpc_neon);
-    t[RTX_16X8][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_16x8_8bpc_neon);
-    t[RTX_16X8][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_16x8_8bpc_neon);
-    t[RTX_16X8][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_16x8_8bpc_neon);
-    t[RTX_16X8][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_16x8_8bpc_neon);
-    t[RTX_16X8][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_16x8_8bpc_neon);
-    t[RTX_16X8][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_16x8_8bpc_neon);
-    t[RTX_16X8][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_16x8_8bpc_neon);
-    t[TX_16X16][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_16x16_8bpc_neon);
-    t[TX_16X16][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_16x16_8bpc_neon);
-    t[TX_16X16][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_16x16_8bpc_neon);
-    t[TX_16X16][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_16x16_8bpc_neon);
-    t[TX_16X16][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_16x16_8bpc_neon);
-    t[TX_16X16][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_16x16_8bpc_neon);
-    t[TX_16X16][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_16x16_8bpc_neon);
-    t[TX_16X16][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_16x16_8bpc_neon);
-    t[TX_16X16][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_16x16_8bpc_neon);
-    t[TX_16X16][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_16x16_8bpc_neon);
-    t[TX_16X16][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_16x16_8bpc_neon);
-    t[TX_16X16][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_16x16_8bpc_neon);
-    t[RTX_8X32][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_8x32_8bpc_neon);
-    t[RTX_8X32][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_8x32_8bpc_neon);
-    t[RTX_32X8][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_32x8_8bpc_neon);
-    t[RTX_32X8][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_32x8_8bpc_neon);
-    t[RTX_16X32][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_16x32_8bpc_neon);
-    t[RTX_16X32][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_16x32_8bpc_neon);
-    t[RTX_32X16][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_32x16_8bpc_neon);
-    t[RTX_32X16][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_32x16_8bpc_neon);
-    t[TX_32X32][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_32x32_8bpc_neon);
-    t[TX_32X32][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_32x32_8bpc_neon);
-    t[RTX_16X64][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_16x64_8bpc_neon);
-    t[RTX_32X64][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_32x64_8bpc_neon);
-    t[RTX_64X16][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_64x16_8bpc_neon);
-    t[RTX_64X32][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_64x32_8bpc_neon);
-    t[TX_64X64][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_64x64_8bpc_neon);
+    // assign_itx_fn( , 4, 4, wht_wht, WHT_WHT, neon);
+    k.assign_wht(t);
+
+    // assign_itx16_fn( ,  4,  4, neon) … assign_itx1_fn ( , 64, 64, neon),
+    // one call per statement of src/arm/itx.h.
+    k.assign(t, TX_4X4, ITX16);
+    k.assign(t, RTX_4X8, ITX16);
+    k.assign(t, RTX_4X16, ITX16);
+    k.assign(t, RTX_8X4, ITX16);
+    k.assign(t, TX_8X8, ITX16);
+    k.assign(t, RTX_8X16, ITX16);
+    k.assign(t, RTX_8X32, ITX2);
+    k.assign(t, RTX_16X4, ITX16);
+    k.assign(t, RTX_16X8, ITX16);
+    k.assign(t, TX_16X16, ITX12);
+    k.assign(t, RTX_16X32, ITX2);
+    k.assign(t, RTX_16X64, ITX1);
+    k.assign(t, RTX_32X8, ITX2);
+    k.assign(t, RTX_32X16, ITX2);
+    k.assign(t, TX_32X32, ITX2);
+    k.assign(t, RTX_32X64, ITX1);
+    k.assign(t, RTX_64X16, ITX1);
+    k.assign(t, RTX_64X32, ITX1);
+    k.assign(t, TX_64X64, ITX1);
     *all_simd = 1;
 }
-
-/// `itxfm_fn` (src/itx.h) at 16 bpc: `pixel` is `uint16_t`, `coef`
-/// `int32_t`, with `bitdepth_max` (`HIGHBD_DECL_SUFFIX`).
-pub type ItxFn16 = unsafe extern "C" fn(*mut u16, isize, *mut i32, c_int, c_int);
 
 /// `Dav1dInvTxfmDSPContext` (src/itx.h) at 16 bpc.
 #[repr(C)]
@@ -251,8 +76,8 @@ pub struct Dav1dInvTxfmDSPContext16 {
 
 /// Called by the translated `dav1d_itx_dsp_init_16bpc` where the original
 /// calls `itx_dsp_init_arm(c, bpc, &all_simd)` at `BITDEPTH == 16`: WHT at
-/// every bit depth, every other slot (`simd/arm64/itx16.rs`) and
-/// `*all_simd = 1` only at 10 bits, as in the original.
+/// every bit depth, every other slot and `*all_simd = 1` only at 10 bits, as
+/// in the original.
 ///
 /// # Safety
 /// `c` points to the translated 16 bpc `Dav1dInvTxfmDSPContext` being
@@ -266,171 +91,38 @@ pub unsafe fn itx_dsp_init_arm_16bpc(c: *mut c_void, bpc: c_int, all_simd: *mut 
         return;
     }
 
+    let Some(k) = kernels_16bpc() else {
+        return;
+    };
     let t = &mut c.itxfm_add;
-    // assign_itx_fn( , 4, 4, wht_wht, WHT_WHT, neon)
-    t[TX_4X4][WHT_WHT] = Some(dav1d_inv_txfm_add_wht_wht_4x4_16bpc_neon);
+    // assign_itx_fn( , 4, 4, wht_wht, WHT_WHT, neon);
+    k.assign_wht(t);
 
     // if (BITDEPTH == 16 && bpc != 10) return;
     if bpc != 10 {
         return;
     }
 
-    // assign_itx16_fn … assign_itx1_fn ( , 64, 64, neon) (src/arm/itx.h).
-    t[TX_4X4][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_4x4_16bpc_neon);
-    t[TX_4X4][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_4x4_16bpc_neon);
-    t[TX_4X4][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_4x4_16bpc_neon);
-    t[TX_4X4][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_4x4_16bpc_neon);
-    t[TX_4X4][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_4x4_16bpc_neon);
-    t[TX_4X4][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_4x4_16bpc_neon);
-    t[TX_4X4][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_4x4_16bpc_neon);
-    t[TX_4X4][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_4x4_16bpc_neon);
-    t[TX_4X4][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_4x4_16bpc_neon);
-    t[TX_4X4][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_4x4_16bpc_neon);
-    t[TX_4X4][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_4x4_16bpc_neon);
-    t[TX_4X4][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_4x4_16bpc_neon);
-    t[TX_4X4][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_4x4_16bpc_neon);
-    t[TX_4X4][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_4x4_16bpc_neon);
-    t[TX_4X4][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_4x4_16bpc_neon);
-    t[TX_4X4][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_4x4_16bpc_neon);
-    t[RTX_4X8][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_4x8_16bpc_neon);
-    t[RTX_4X8][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_4x8_16bpc_neon);
-    t[RTX_4X8][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_4x8_16bpc_neon);
-    t[RTX_4X8][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_4x8_16bpc_neon);
-    t[RTX_4X8][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_4x8_16bpc_neon);
-    t[RTX_4X8][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_4x8_16bpc_neon);
-    t[RTX_4X8][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_4x8_16bpc_neon);
-    t[RTX_4X8][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_4x8_16bpc_neon);
-    t[RTX_4X8][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_4x8_16bpc_neon);
-    t[RTX_4X8][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_4x8_16bpc_neon);
-    t[RTX_4X8][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_4x8_16bpc_neon);
-    t[RTX_4X8][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_4x8_16bpc_neon);
-    t[RTX_4X8][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_4x8_16bpc_neon);
-    t[RTX_4X8][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_4x8_16bpc_neon);
-    t[RTX_4X8][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_4x8_16bpc_neon);
-    t[RTX_4X8][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_4x8_16bpc_neon);
-    t[RTX_4X16][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_4x16_16bpc_neon);
-    t[RTX_4X16][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_4x16_16bpc_neon);
-    t[RTX_4X16][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_4x16_16bpc_neon);
-    t[RTX_4X16][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_4x16_16bpc_neon);
-    t[RTX_4X16][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_4x16_16bpc_neon);
-    t[RTX_4X16][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_4x16_16bpc_neon);
-    t[RTX_4X16][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_4x16_16bpc_neon);
-    t[RTX_4X16][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_4x16_16bpc_neon);
-    t[RTX_4X16][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_4x16_16bpc_neon);
-    t[RTX_4X16][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_4x16_16bpc_neon);
-    t[RTX_4X16][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_4x16_16bpc_neon);
-    t[RTX_4X16][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_4x16_16bpc_neon);
-    t[RTX_4X16][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_4x16_16bpc_neon);
-    t[RTX_4X16][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_4x16_16bpc_neon);
-    t[RTX_4X16][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_4x16_16bpc_neon);
-    t[RTX_4X16][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_4x16_16bpc_neon);
-    t[RTX_8X4][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_8x4_16bpc_neon);
-    t[RTX_8X4][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_8x4_16bpc_neon);
-    t[RTX_8X4][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_8x4_16bpc_neon);
-    t[RTX_8X4][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_8x4_16bpc_neon);
-    t[RTX_8X4][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_8x4_16bpc_neon);
-    t[RTX_8X4][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_8x4_16bpc_neon);
-    t[RTX_8X4][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_8x4_16bpc_neon);
-    t[RTX_8X4][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_8x4_16bpc_neon);
-    t[RTX_8X4][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_8x4_16bpc_neon);
-    t[RTX_8X4][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_8x4_16bpc_neon);
-    t[RTX_8X4][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_8x4_16bpc_neon);
-    t[RTX_8X4][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_8x4_16bpc_neon);
-    t[RTX_8X4][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_8x4_16bpc_neon);
-    t[RTX_8X4][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_8x4_16bpc_neon);
-    t[RTX_8X4][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_8x4_16bpc_neon);
-    t[RTX_8X4][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_8x4_16bpc_neon);
-    t[TX_8X8][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_8x8_16bpc_neon);
-    t[TX_8X8][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_8x8_16bpc_neon);
-    t[TX_8X8][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_8x8_16bpc_neon);
-    t[TX_8X8][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_8x8_16bpc_neon);
-    t[TX_8X8][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_8x8_16bpc_neon);
-    t[TX_8X8][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_8x8_16bpc_neon);
-    t[TX_8X8][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_8x8_16bpc_neon);
-    t[TX_8X8][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_8x8_16bpc_neon);
-    t[TX_8X8][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_8x8_16bpc_neon);
-    t[TX_8X8][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_8x8_16bpc_neon);
-    t[TX_8X8][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_8x8_16bpc_neon);
-    t[TX_8X8][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_8x8_16bpc_neon);
-    t[TX_8X8][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_8x8_16bpc_neon);
-    t[TX_8X8][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_8x8_16bpc_neon);
-    t[TX_8X8][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_8x8_16bpc_neon);
-    t[TX_8X8][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_8x8_16bpc_neon);
-    t[RTX_8X16][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_8x16_16bpc_neon);
-    t[RTX_8X16][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_8x16_16bpc_neon);
-    t[RTX_8X16][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_8x16_16bpc_neon);
-    t[RTX_8X16][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_8x16_16bpc_neon);
-    t[RTX_8X16][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_8x16_16bpc_neon);
-    t[RTX_8X16][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_8x16_16bpc_neon);
-    t[RTX_8X16][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_8x16_16bpc_neon);
-    t[RTX_8X16][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_8x16_16bpc_neon);
-    t[RTX_8X16][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_8x16_16bpc_neon);
-    t[RTX_8X16][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_8x16_16bpc_neon);
-    t[RTX_8X16][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_8x16_16bpc_neon);
-    t[RTX_8X16][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_8x16_16bpc_neon);
-    t[RTX_8X16][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_8x16_16bpc_neon);
-    t[RTX_8X16][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_8x16_16bpc_neon);
-    t[RTX_8X16][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_8x16_16bpc_neon);
-    t[RTX_8X16][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_8x16_16bpc_neon);
-    t[RTX_8X32][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_8x32_16bpc_neon);
-    t[RTX_8X32][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_8x32_16bpc_neon);
-    t[RTX_16X4][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_16x4_16bpc_neon);
-    t[RTX_16X4][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_16x4_16bpc_neon);
-    t[RTX_16X4][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_16x4_16bpc_neon);
-    t[RTX_16X4][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_16x4_16bpc_neon);
-    t[RTX_16X4][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_16x4_16bpc_neon);
-    t[RTX_16X4][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_16x4_16bpc_neon);
-    t[RTX_16X4][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_16x4_16bpc_neon);
-    t[RTX_16X4][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_16x4_16bpc_neon);
-    t[RTX_16X4][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_16x4_16bpc_neon);
-    t[RTX_16X4][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_16x4_16bpc_neon);
-    t[RTX_16X4][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_16x4_16bpc_neon);
-    t[RTX_16X4][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_16x4_16bpc_neon);
-    t[RTX_16X4][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_16x4_16bpc_neon);
-    t[RTX_16X4][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_16x4_16bpc_neon);
-    t[RTX_16X4][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_16x4_16bpc_neon);
-    t[RTX_16X4][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_16x4_16bpc_neon);
-    t[RTX_16X8][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_16x8_16bpc_neon);
-    t[RTX_16X8][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_16x8_16bpc_neon);
-    t[RTX_16X8][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_16x8_16bpc_neon);
-    t[RTX_16X8][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_16x8_16bpc_neon);
-    t[RTX_16X8][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_16x8_16bpc_neon);
-    t[RTX_16X8][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_16x8_16bpc_neon);
-    t[RTX_16X8][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_16x8_16bpc_neon);
-    t[RTX_16X8][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_16x8_16bpc_neon);
-    t[RTX_16X8][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_16x8_16bpc_neon);
-    t[RTX_16X8][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_16x8_16bpc_neon);
-    t[RTX_16X8][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_16x8_16bpc_neon);
-    t[RTX_16X8][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_16x8_16bpc_neon);
-    t[RTX_16X8][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_16x8_16bpc_neon);
-    t[RTX_16X8][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_16x8_16bpc_neon);
-    t[RTX_16X8][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_16x8_16bpc_neon);
-    t[RTX_16X8][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_16x8_16bpc_neon);
-    t[TX_16X16][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_16x16_16bpc_neon);
-    t[TX_16X16][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_16x16_16bpc_neon);
-    t[TX_16X16][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_16x16_16bpc_neon);
-    t[TX_16X16][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_16x16_16bpc_neon);
-    t[TX_16X16][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_16x16_16bpc_neon);
-    t[TX_16X16][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_16x16_16bpc_neon);
-    t[TX_16X16][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_16x16_16bpc_neon);
-    t[TX_16X16][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_16x16_16bpc_neon);
-    t[TX_16X16][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_16x16_16bpc_neon);
-    t[TX_16X16][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_16x16_16bpc_neon);
-    t[TX_16X16][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_16x16_16bpc_neon);
-    t[TX_16X16][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_16x16_16bpc_neon);
-    t[RTX_16X32][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_16x32_16bpc_neon);
-    t[RTX_16X32][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_16x32_16bpc_neon);
-    t[RTX_16X64][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_16x64_16bpc_neon);
-    t[RTX_32X8][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_32x8_16bpc_neon);
-    t[RTX_32X8][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_32x8_16bpc_neon);
-    t[RTX_32X16][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_32x16_16bpc_neon);
-    t[RTX_32X16][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_32x16_16bpc_neon);
-    t[TX_32X32][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_32x32_16bpc_neon);
-    t[TX_32X32][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_32x32_16bpc_neon);
-    t[RTX_32X64][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_32x64_16bpc_neon);
-    t[RTX_64X16][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_64x16_16bpc_neon);
-    t[RTX_64X32][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_64x32_16bpc_neon);
-    t[TX_64X64][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_64x64_16bpc_neon);
+    // assign_itx16_fn( ,  4,  4, neon) … assign_itx1_fn ( , 64, 64, neon).
+    k.assign(t, TX_4X4, ITX16);
+    k.assign(t, RTX_4X8, ITX16);
+    k.assign(t, RTX_4X16, ITX16);
+    k.assign(t, RTX_8X4, ITX16);
+    k.assign(t, TX_8X8, ITX16);
+    k.assign(t, RTX_8X16, ITX16);
+    k.assign(t, RTX_8X32, ITX2);
+    k.assign(t, RTX_16X4, ITX16);
+    k.assign(t, RTX_16X8, ITX16);
+    k.assign(t, TX_16X16, ITX12);
+    k.assign(t, RTX_16X32, ITX2);
+    k.assign(t, RTX_16X64, ITX1);
+    k.assign(t, RTX_32X8, ITX2);
+    k.assign(t, RTX_32X16, ITX2);
+    k.assign(t, TX_32X32, ITX2);
+    k.assign(t, RTX_32X64, ITX1);
+    k.assign(t, RTX_64X16, ITX1);
+    k.assign(t, RTX_64X32, ITX1);
+    k.assign(t, TX_64X64, ITX1);
     *all_simd = 1;
 }
 
@@ -457,24 +149,66 @@ mod tests {
         );
     }
 
-    /// With NEON allowed the rebuilt slots are selected, and with
-    /// `dav1d_set_cpu_flags_mask(0)` none is (the scalar path).
-    #[test]
-    fn neon_selects_the_rebuilt_kernels_and_mask_zero_keeps_c() {
+    /// The slots of the translated 8 bpc init under `mask` that differ from
+    /// the C kernels (`dav1d_set_cpu_flags_mask(0)`).
+    fn changed8(mask: u32) -> Vec<(usize, usize)> {
         use crate::b8::itx_tmpl::{dav1d_itx_dsp_init_8bpc, Dav1dInvTxfmDSPContext as Translated};
         use crate::common::cpu::{dav1d_init_cpu, dav1d_set_cpu_flags_mask};
-        let rebuilt = dav1d_inv_txfm_add_dct_dct_8x8_8bpc_neon as ItxFn as usize;
-        let _guard = crate::simd::cpu::CPU_MASK_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        let slot = |mask: u32| unsafe {
-            dav1d_init_cpu();
+        let table = |mask: u32| unsafe {
             dav1d_set_cpu_flags_mask(mask);
             let mut c: Translated = core::mem::zeroed();
             dav1d_itx_dsp_init_8bpc(&mut c, 8);
-            dav1d_set_cpu_flags_mask(!0);
-            c.itxfm_add[TX_8X8][DCT_DCT].map(|f| f as usize)
+            c.itxfm_add.map(|row| row.map(|f| f.map(|f| f as usize)))
         };
-        assert_eq!(slot(!0), Some(rebuilt));
-        assert_ne!(slot(0), Some(rebuilt));
+        unsafe { dav1d_init_cpu() };
+        let (simd, scalar) = (table(mask), table(0));
+        unsafe { dav1d_set_cpu_flags_mask(!0) };
+        (0..19)
+            .flat_map(|tx| (0..17).map(move |ty| (tx, ty)))
+            .filter(|&(tx, ty)| simd[tx][ty] != scalar[tx][ty])
+            .collect()
+    }
+
+    /// The slots of the original's NEON block (src/arm/itx.h) at 8 bpc and
+    /// at 10 bits: WHT and the `assign_itx*_fn` statements.
+    fn header_slots() -> Vec<(usize, usize)> {
+        let mut slots = vec![(TX_4X4, WHT_WHT)];
+        for (tx, types) in [
+            (TX_4X4, ITX16),
+            (RTX_4X8, ITX16),
+            (RTX_4X16, ITX16),
+            (RTX_8X4, ITX16),
+            (TX_8X8, ITX16),
+            (RTX_8X16, ITX16),
+            (RTX_8X32, ITX2),
+            (RTX_16X4, ITX16),
+            (RTX_16X8, ITX16),
+            (TX_16X16, ITX12),
+            (RTX_16X32, ITX2),
+            (RTX_16X64, ITX1),
+            (RTX_32X8, ITX2),
+            (RTX_32X16, ITX2),
+            (TX_32X32, ITX2),
+            (RTX_32X64, ITX1),
+            (RTX_64X16, ITX1),
+            (RTX_64X32, ITX1),
+            (TX_64X64, ITX1),
+        ] {
+            slots.extend(types.iter().map(|&ty| (tx, ty)));
+        }
+        slots.sort();
+        slots
+    }
+
+    /// With NEON allowed the kernels of `simd/itx/` are selected in the 156
+    /// slots of the original's header, and with `dav1d_set_cpu_flags_mask(0)`
+    /// none is (the scalar path).
+    #[test]
+    fn neon_selects_the_simd_kernels_and_mask_zero_keeps_c() {
+        let _guard = crate::simd::cpu::CPU_MASK_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        assert_eq!(header_slots().len(), 156);
+        assert_eq!(changed8(!0), header_slots());
+        assert!(changed8(0).is_empty());
     }
 
     /// The 16 bpc mirror has the translated 16 bpc context's layout.
@@ -495,32 +229,34 @@ mod tests {
         );
     }
 
-    /// At 10 bits NEON selects the rebuilt 16 bpc slots, at 12 bits only
-    /// WHT, and `dav1d_set_cpu_flags_mask(0)` keeps C.
-    #[test]
-    fn neon_selects_the_rebuilt_16bpc_kernels_and_mask_zero_keeps_c() {
+    /// The slots of the translated 16 bpc init at `bpc` under `mask` that
+    /// differ from the C kernels.
+    fn changed16(mask: u32, bpc: c_int) -> Vec<(usize, usize)> {
         use crate::b16::itx_tmpl::{dav1d_itx_dsp_init_16bpc, Dav1dInvTxfmDSPContext as Translated};
         use crate::common::cpu::{dav1d_init_cpu, dav1d_set_cpu_flags_mask};
-        let rebuilt = dav1d_inv_txfm_add_dct_dct_8x8_16bpc_neon as ItxFn16 as usize;
-        let wht = dav1d_inv_txfm_add_wht_wht_4x4_16bpc_neon as ItxFn16 as usize;
-        let _guard = crate::simd::cpu::CPU_MASK_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        let slots = |mask: u32, bpc: c_int| unsafe {
-            dav1d_init_cpu();
+        let table = |mask: u32| unsafe {
             dav1d_set_cpu_flags_mask(mask);
             let mut c: Translated = core::mem::zeroed();
             dav1d_itx_dsp_init_16bpc(&mut c, bpc);
-            dav1d_set_cpu_flags_mask(!0);
-            (
-                c.itxfm_add[TX_8X8][DCT_DCT].map(|f| f as usize),
-                c.itxfm_add[TX_4X4][WHT_WHT].map(|f| f as usize),
-            )
+            c.itxfm_add.map(|row| row.map(|f| f.map(|f| f as usize)))
         };
-        assert_eq!(slots(!0, 10), (Some(rebuilt), Some(wht)));
-        let (dct12, wht12) = slots(!0, 12);
-        assert_ne!(dct12, Some(rebuilt));
-        assert_eq!(wht12, Some(wht));
-        let (dct0, wht0) = slots(0, 10);
-        assert_ne!(dct0, Some(rebuilt));
-        assert_ne!(wht0, Some(wht));
+        unsafe { dav1d_init_cpu() };
+        let (simd, scalar) = (table(mask), table(0));
+        unsafe { dav1d_set_cpu_flags_mask(!0) };
+        (0..19)
+            .flat_map(|tx| (0..17).map(move |ty| (tx, ty)))
+            .filter(|&(tx, ty)| simd[tx][ty] != scalar[tx][ty])
+            .collect()
+    }
+
+    /// At 10 bits NEON selects the kernels of `simd/itx/` in the slots of the
+    /// header, at 12 bits only WHT, and `dav1d_set_cpu_flags_mask(0)` keeps C.
+    #[test]
+    fn neon_selects_the_simd_16bpc_kernels_and_mask_zero_keeps_c() {
+        let _guard = crate::simd::cpu::CPU_MASK_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        assert_eq!(changed16(!0, 10), header_slots());
+        assert_eq!(changed16(!0, 12), vec![(TX_4X4, WHT_WHT)]);
+        assert!(changed16(0, 10).is_empty());
+        assert!(changed16(0, 12).is_empty());
     }
 }

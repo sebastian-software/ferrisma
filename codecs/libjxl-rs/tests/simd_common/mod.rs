@@ -17,24 +17,32 @@ pub fn target() -> Target {
 pub fn oracle(requests: &[String]) -> Vec<String> {
     let path = std::env::var_os("JXL_CPP_ORACLE_SIMD")
         .expect("set JXL_CPP_ORACLE_SIMD to the NEON/AVX2 oracle (python3 tools/check.py)");
+    program_lines(std::path::Path::new(&path), requests, "SIMD oracle")
+}
+
+/// The response lines of one oracle executable for `requests`.
+fn program_lines(path: &std::path::Path, requests: &[String], what: &str) -> Vec<String> {
+    if requests.is_empty() {
+        return Vec::new();
+    }
     let mut child = Command::new(path)
         .env("ROSETTA_ADVERTISE_AVX", "1")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("start the SIMD oracle");
+        .unwrap_or_else(|e| panic!("start the {what} {}: {e}", path.display()));
     let mut input = child.stdin.take().unwrap();
     let mut lines = requests.join("\n");
     lines.push('\n');
     let feed = std::thread::spawn(move || input.write_all(lines.as_bytes()));
-    let output = child.wait_with_output().expect("wait for the SIMD oracle");
+    let output = child.wait_with_output().expect("wait for the oracle");
     let fed = feed.join().unwrap();
     // The exit status first: an oracle that dies early also breaks the
     // request pipe, and the write error alone would hide the cause (#252).
     assert!(
         output.status.success(),
-        "SIMD oracle failed ({}) after {} response lines; write: {:?}; stderr: {}",
+        "{what} failed ({}) after {} response lines; write: {:?}; stderr: {}",
         output.status,
         output.stdout.iter().filter(|&&b| b == b'\n').count(),
         fed.as_ref().err(),
@@ -43,8 +51,96 @@ pub fn oracle(requests: &[String]) -> Vec<String> {
     fed.expect("write the oracle requests");
     let text = String::from_utf8(output.stdout).unwrap();
     let lines: Vec<_> = text.lines().map(str::to_owned).collect();
-    assert_eq!(lines.len(), requests.len(), "oracle response count");
+    assert_eq!(lines.len(), requests.len(), "{what} response count");
     lines
+}
+
+/// Two words equal under D8: identical, or both binary32 NaN words.
+fn nan_equal(a: &str, b: &str) -> bool {
+    a == b
+        || matches!((a.parse::<u32>(), b.parse::<u32>()), (Ok(x), Ok(y)) if is_nan(x) && is_nan(y))
+}
+
+/// Working rule O1 (owner, 2026-11-15; ADR-0041 section 3; port ADR 0002,
+/// rule (2)) for the SIMD gates: for a request whose input contains a NaN or
+/// an infinity, a word is compared only where the original's two scalar
+/// reference builds for this target agree after treating all NaNs as equal
+/// (D8). Elsewhere the requirement is only that the port does not crash and
+/// commits no memory error, which running the request already checks.
+///
+/// The two scalar references are the ones of the scalar gate:
+/// `JXL_CPP_ORACLE` (the pinned build) and `JXL_CPP_ORACLE_O3` (the same
+/// sources at upstream's normal optimization level), which
+/// `tools/check.py` builds for the target under test and passes to the SIMD
+/// binaries. `exceptional` says whether a request's input contains a NaN or
+/// an infinity; it is computed from the input, never from a result, and a
+/// request it does not select never excludes a word.
+///
+/// Returns one entry per request: `None` (compare every word) for a request
+/// that is not exceptional, or whose references differ in their word count
+/// (fail closed); otherwise one flag per word of the references' line, set
+/// where the references disagree. `JXL_PARITY_STRICT=1` returns `None` for
+/// every request, as in the scalar gate.
+pub fn reference_masks(
+    requests: &[String],
+    exceptional: impl Fn(&str) -> bool,
+) -> Vec<Option<Vec<bool>>> {
+    if std::env::var_os("JXL_PARITY_STRICT").is_some_and(|value| value == "1") {
+        return vec![None; requests.len()];
+    }
+    let chosen: Vec<usize> = (0..requests.len())
+        .filter(|&i| exceptional(&requests[i]))
+        .collect();
+    let subset: Vec<String> = chosen.iter().map(|&i| requests[i].clone()).collect();
+    let reference = |name: &str| {
+        std::path::PathBuf::from(std::env::var_os(name).unwrap_or_else(|| {
+            panic!(
+                "set {name} to the original's scalar reference for this target \
+                 (python3 tools/check.py builds both) for the NaN rule O1"
+            )
+        }))
+    };
+    let (pinned, other) = (reference("JXL_CPP_ORACLE"), reference("JXL_CPP_ORACLE_O3"));
+    let (pinned, other) = std::thread::scope(|scope| {
+        let other = scope.spawn(|| program_lines(&other, &subset, "second scalar reference"));
+        let pinned = program_lines(&pinned, &subset, "pinned scalar reference");
+        (pinned, other.join().expect("the second scalar reference"))
+    });
+    let mut masks = vec![None; requests.len()];
+    for ((&i, a), b) in chosen.iter().zip(&pinned).zip(&other) {
+        let a: Vec<&str> = a.split_whitespace().collect();
+        let b: Vec<&str> = b.split_whitespace().collect();
+        if a.len() == b.len() {
+            masks[i] = Some(a.iter().zip(&b).map(|(x, y)| !nan_equal(x, y)).collect());
+        }
+    }
+    masks
+}
+
+/// [`same`] under rule O1: a word that `mask` flags is not compared. A
+/// mask whose length is not the observation's word count excludes nothing.
+/// Returns the compared words and the excluded words in which the port and
+/// the original differ (after D8).
+pub fn same_under_o1(
+    rust: &str,
+    cpp: &str,
+    float: impl Fn(usize) -> bool,
+    defined: impl Fn(usize) -> bool,
+    mask: Option<&[bool]>,
+) -> Result<(usize, usize), String> {
+    let words = cpp.split_whitespace().count();
+    let mask = mask.filter(|m| m.len() == words);
+    let excluded = |i: usize| mask.is_some_and(|m| m[i]);
+    let compared = same(rust, cpp, &float, |i| defined(i) && !excluded(i))?;
+    let differing = rust
+        .split_whitespace()
+        .zip(cpp.split_whitespace())
+        .enumerate()
+        .filter(|&(i, (a, b))| {
+            excluded(i) && defined(i) && !(a == b || (float(i) && nan_equal(a, b)))
+        })
+        .count();
+    Ok((compared, differing))
 }
 
 pub fn is_nan(word: u32) -> bool {

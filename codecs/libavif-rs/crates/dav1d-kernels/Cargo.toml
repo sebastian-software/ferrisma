@@ -1,0 +1,19 @@
+[package]
+name = "libavif-dav1d-kernels"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.99"
+license = "BSD-2-Clause"
+description = "dav1d's CDEF and inverse transforms written from the algorithm on fearless_simd, for libavif-dav1d"
+homepage = "https://ferrisma.dev"
+repository = "https://github.com/sebastian-software/ferrisma"
+include = ["/Cargo.toml", "/README.md", "/NOTICE.md", "/LICENSES/**", "/src/**"]
+publish = false
+
+[lib]
+name = "dav1d_kernels"
+
+[dependencies]
+# The portable vector types of the kernels (libavif-rs ADR 0062). Apache-2.0
+# OR MIT, linebender, no dependencies of its own.
+fearless_simd = "=1.2.0"

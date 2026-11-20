@@ -11,13 +11,15 @@
 //       &mask1x1) on an Image3F (rows 128-byte aligned, padded for 8-lane
 //       vectors by Image3F::Create) whose samples are the request's words
 //       and whose row padding, up to PixelsPerRow, holds the pad kind's word
-//       (0: +0.0, 1: a quiet NaN, 2: +inf, 3: -1e30): HfModulation's last
-//       vector reads one sample past each block, masked out. Prints the
-//       status and the three planes the original writes (aq_map, mask,
+//       (0: +0.0, 1: a quiet NaN, 2: +inf, 3: -1e30): a SIMD target's
+//       HfModulation reads one sample past each block, masked out. Prints
+//       the status and the three planes the original writes (aq_map, mask,
 //       mask1x1) with their sizes, every sample. The row stride is not
 //       printed: the original's follows its target's MaxVectorSize, the
 //       port's encoder planes follow the scalar one (ADR 0004, "Encoder
-//       path"); both leave at least one padding sample.
+//       path"). The SIMD builds leave at least one padding sample; the
+//       scalar builds (the references of rule O1) read none and may have
+//       none.
 #include <jxl/memory_manager.h>
 
 #include <cstddef>
@@ -74,7 +76,15 @@ bool EncoderAqSimdCommand(const std::string& command, std::istringstream& in,
     if (!created.ok()) throw std::runtime_error("encoder aq image allocation");
     jxl::Image3F opsin = std::move(created).value_();
     const size_t stride = opsin.PixelsPerRow();
+    // A SIMD target's HfModulation reads one sample past each row (masked
+    // out), so the SIMD builds need the padding. The scalar builds are the
+    // two references of rule O1 for these requests (port ADR 0004); their
+    // HfModulation reads no sample outside the row (upstream: "In SCALAR,
+    // there is no guarantee of having extra row padding"), and their rows may
+    // have none.
+#if !HWY_COMPILE_ONLY_SCALAR
     if (stride < xsize + 1) throw std::runtime_error("no row padding");
+#endif
     for (size_t c = 0; c < 3; ++c)
       for (size_t y = 0; y < ysize; ++y) {
         float* row = opsin.PlaneRow(c, y);
