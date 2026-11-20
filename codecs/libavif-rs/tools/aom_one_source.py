@@ -83,13 +83,18 @@ def one_source_text(text, changes):
                           'pub type timeval = libc::timeval;\n', text, flags=re.S)
     if count:
         changes['one-source-timeval'] = count
-    text, count = re.subn(r'pub type jmp_buf = [^;]+;', 'pub type jmp_buf = crate::platform::jmp_buf;', text)
+    text, count = re.subn(r'pub type jmp_buf = [^\n]+;', 'pub type jmp_buf = crate::platform::jmp_buf;', text)
     if count:
         changes['one-source-jmp-buf'] = count
     # C's `{0}` for the jmp_buf member of aom_internal_error_info.
-    text, count = re.subn(r'\[ferrisma_jmp_buf_element \{[^\[\]]*?\}; \d+\]', 'core::mem::zeroed()', text)
+    text, count = re.subn(r'\[ferrisma_jmp_buf_element \{[^{}]*?\}; \d+\]', 'core::mem::zeroed()', text)
     if count:
         changes['one-source-jmp-buf-zero'] = count
+    # C2Rust zero-initializes the uninitialized pthread_attr_t local of
+    # aom_thread.c with the placeholder record; libc's type is zeroed the same.
+    text, count = re.subn(r'ferrisma_pthread_\w+ \{[^{}]*\}', 'core::mem::zeroed()', text)
+    if count:
+        changes['one-source-pthread-zero'] = count
     text = re.sub(r'\n    pub type ferrisma_FILE;', '', text)
     text = re.sub(r'extern "C(?:-unwind)?" \{\n\}\n', '', text)
     return text
