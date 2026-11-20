@@ -1,4 +1,4 @@
-//! Each variant against the translated C kernels (`cdef_tmpl.c`) on the
+//! The kernels against the translated C kernels (`cdef_tmpl.c`) on the
 //! inputs of the original's checkasm test (`tests/checkasm/cdef.c`):
 //! the same buffers, fill types, strengths, dampings, directions and
 //! edges, many random draws. A development check; the gate is checkasm
@@ -63,10 +63,10 @@ fn c_kernels() -> (
 
 const SIZES: [(usize, usize); 3] = [(8, 8), (4, 8), (4, 4)];
 
-fn check_variant<V: Variant>(name: &str, draws: usize) {
+fn check_kernels(name: &str, draws: usize) {
     let (c_fb8, c_dir8, c_fb16, c_dir16) = c_kernels();
-    let fb8: [CFilter8; 3] = [filter_8bpc::<V, 8, 8>, filter_8bpc::<V, 4, 8>, filter_8bpc::<V, 4, 4>];
-    let fb16: [CFilter16; 3] = [filter_16bpc::<V, 8, 8>, filter_16bpc::<V, 4, 8>, filter_16bpc::<V, 4, 4>];
+    let fb8: [CFilter8; 3] = [filter_8bpc::<8, 8>, filter_8bpc::<4, 8>, filter_8bpc::<4, 4>];
+    let fb16: [CFilter16; 3] = [filter_16bpc::<8, 8>, filter_16bpc::<4, 8>, filter_16bpc::<4, 4>];
     let mut rng = Rng(0x2545_f491);
     for draw in 0..draws {
         for (slot, &(w, _h)) in SIZES.iter().enumerate() {
@@ -124,10 +124,10 @@ fn check_variant<V: Variant>(name: &str, draws: usize) {
             let (dir_c, dir_v) = unsafe {
                 if bitdepth_max == 0xff {
                     let src: Vec<u8> = src.iter().map(|&v| v as u8).collect();
-                    (c_dir8(src.as_ptr(), 8, &mut var_c), dir_8bpc::<V>(src.as_ptr(), 8, &mut var_v))
+                    (c_dir8(src.as_ptr(), 8, &mut var_c), dir_8bpc(src.as_ptr(), 8, &mut var_v))
                 } else {
                     let m = bitdepth_max as c_int;
-                    (c_dir16(src.as_ptr(), 16, &mut var_c, m), dir_16bpc::<V>(src.as_ptr(), 16, &mut var_v, m))
+                    (c_dir16(src.as_ptr(), 16, &mut var_c, m), dir_16bpc(src.as_ptr(), 16, &mut var_v, m))
                 }
             };
             assert_eq!((dir_c, var_c), (dir_v, var_v), "{name} dir, bitdepth_max {bitdepth_max:#x}, {src:?}");
@@ -135,33 +135,11 @@ fn check_variant<V: Variant>(name: &str, draws: usize) {
     }
 }
 
-#[cfg(target_arch = "x86_64")]
-fn have_simd() -> bool {
-    std::arch::is_x86_feature_detected!("avx2")
-}
-
-#[cfg(target_arch = "aarch64")]
-fn have_simd() -> bool {
-    true
-}
-
 #[test]
-fn v1_matches_the_c_kernels() {
-    if have_simd() {
-        check_variant::<v1_autovec::AutoVec>("v1", 3000);
-    }
-}
-
-#[test]
-fn v2_matches_the_c_kernels() {
-    if have_simd() && v2_fearless::available() {
-        check_variant::<v2_fearless::Fearless>("v2", 3000);
-    }
-}
-
-#[test]
-fn v3_matches_the_c_kernels() {
-    if have_simd() {
-        check_variant::<V3>("v3", 3000);
+fn kernels_match_the_c_kernels() {
+    if kernels::available() {
+        check_kernels("cdef", 3000);
+    } else {
+        eprintln!("cdef: level not available, skipped");
     }
 }

@@ -2,8 +2,8 @@
 // Copyright © 2018, Two Orioles, LLC
 // All rights reserved. BSD-2-Clause; see LICENSES/ in this crate.
 
-//! Variant 2: `cdef_tmpl.c` on the portable vector types of
-//! `fearless_simd` (1.2, Apache-2.0 OR MIT, stable Rust): one generic
+//! `cdef_tmpl.c` on the portable vector types of `fearless_simd` (1.2,
+//! Apache-2.0 OR MIT, stable Rust): one generic
 //! implementation, compiled for NEON on AArch64 and for its `Avx2` level
 //! (x86-64-v3) on x86-64.
 //!
@@ -20,19 +20,16 @@ use core::ffi::{c_int, c_uint};
 use fearless_simd::prelude::*;
 use fearless_simd::{i16x16, i16x8, i32x4, u16x16};
 
-use super::{
-    best_direction, DirBlock, Filtered, Padded, Params, Variant, ALT_WEIGHTS, DIAGONAL_WEIGHTS,
-    LINE_WEIGHT,
-};
+use super::{best_direction, DirBlock, Filtered, Padded, Params, ALT_WEIGHTS, DIAGONAL_WEIGHTS, LINE_WEIGHT};
 
 #[cfg(target_arch = "aarch64")]
 type Level = fearless_simd::aarch64::Neon;
 #[cfg(target_arch = "x86_64")]
 type Level = fearless_simd::x86::Avx2;
 
-/// Whether the CPU has the level this variant is compiled for (on x86-64
+/// Whether the CPU has the level these kernels are compiled for (on x86-64
 /// the library's `Avx2` needs x86-64-v3, a little more than dav1d's AVX2
-/// flag; without it the shipped kernels stay).
+/// flag; without it the C kernels stay).
 pub fn available() -> bool {
     #[cfg(target_arch = "aarch64")]
     return fearless_simd::Level::new().as_neon().is_some();
@@ -43,35 +40,41 @@ pub fn available() -> bool {
 /// The level's token.
 ///
 /// # Safety
-/// `available()` is true (the variant is installed only then).
+/// `available()` is true (the kernels are installed only then).
 #[inline(always)]
 unsafe fn level() -> Level {
     // SAFETY: the caller's contract.
     unsafe { Level::assume_supported() }
 }
 
-pub struct Fearless;
+/// The filter of `cdef_filter_block_c` for a `W`x`H` block.
+///
+/// # Safety
+/// `available()` is true.
+pub unsafe fn filter<const W: usize, const H: usize>(input: &Padded, params: &Params) -> Filtered {
+    // SAFETY: the caller's contract.
+    let simd = unsafe { level() };
+    simd.vectorize(
+        #[inline(always)]
+        || match (params.pri_strength != 0, params.sec_strength != 0) {
+            (true, true) => filter_with::<_, W, H, true, true>(simd, input, params),
+            (true, false) => filter_with::<_, W, H, true, false>(simd, input, params),
+            _ => filter_with::<_, W, H, false, true>(simd, input, params),
+        },
+    )
+}
 
-impl Variant for Fearless {
-    unsafe fn filter<const W: usize, const H: usize>(input: &Padded, params: &Params) -> Filtered {
-        let simd = level();
-        simd.vectorize(
-            #[inline(always)]
-            || match (params.pri_strength != 0, params.sec_strength != 0) {
-                (true, true) => filter::<_, W, H, true, true>(simd, input, params),
-                (true, false) => filter::<_, W, H, true, false>(simd, input, params),
-                _ => filter::<_, W, H, false, true>(simd, input, params),
-            },
-        )
-    }
-
-    unsafe fn find_dir(block: &DirBlock) -> (c_int, c_uint) {
-        let simd = level();
-        simd.vectorize(
-            #[inline(always)]
-            || find_dir(simd, block),
-        )
-    }
+/// `cdef_find_dir_c`.
+///
+/// # Safety
+/// `available()` is true.
+pub unsafe fn find_dir(block: &DirBlock) -> (c_int, c_uint) {
+    // SAFETY: the caller's contract.
+    let simd = unsafe { level() };
+    simd.vectorize(
+        #[inline(always)]
+        || find_dir_with(simd, block),
+    )
 }
 
 /// `constrain` of cdef_tmpl.c, lane by lane.
@@ -90,7 +93,7 @@ fn umin<S: Simd>(a: i16x16<S>, b: i16x16<S>) -> i16x16<S> {
 
 /// `cdef_filter_block_c`, for the strengths that are not zero.
 #[inline(always)]
-fn filter<S: Simd, const W: usize, const H: usize, const PRI: bool, const SEC: bool>(
+fn filter_with<S: Simd, const W: usize, const H: usize, const PRI: bool, const SEC: bool>(
     simd: S,
     input: &Padded,
     params: &Params,
@@ -194,9 +197,9 @@ const DIAGONAL: [i32; 16] = weights(DIAGONAL_WEIGHTS);
 const ALT: [i32; 16] = weights(ALT_WEIGHTS);
 const LINE: [i32; 16] = weights([LINE_WEIGHT; 8]);
 
-/// `cdef_find_dir_c`.
+/// `cdef_find_dir_c` at the level `S`.
 #[inline(always)]
-fn find_dir<S: Simd>(simd: S, block: &DirBlock) -> (c_int, c_uint) {
+fn find_dir_with<S: Simd>(simd: S, block: &DirBlock) -> (c_int, c_uint) {
     let rows = block.map(|row| i16x8::from_slice(simd, &row));
     let zero = i16x8::splat(simd, 0);
     // [r0 + r1, r2 + r3, r4 + r5, r6 + r7, 0, 0, 0, 0]

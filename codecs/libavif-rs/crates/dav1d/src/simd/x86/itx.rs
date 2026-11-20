@@ -4,9 +4,10 @@
 
 //! `itx_dsp_init_x86` of `upstream/dav1d/src/x86/itx.h` for x86-64, statement
 //! by statement: under `DAV1D_X86_CPU_FLAG_AVX2` every slot that the
-//! original assigns an AVX2 kernel gets the rebuilt one
-//! (`simd/x86_64/itx_avx2.rs` at 8 bpc, `simd/x86_64/itx16_avx2.rs` at 10
-//! and 12 bits); with the flags masked off the C kernels stay.
+//! original assigns an AVX2 kernel gets the inverse transform written from
+//! the algorithm (`simd/itx/`, at 8 bpc and at 10 and 12 bits), if the CPU
+//! has `fearless_simd`'s `Avx2` level (x86-64-v3; `simd/itx/mod.rs`);
+//! otherwise, and with the flags masked off, the C kernels stay.
 //!
 //! On an AVX2 machine no slot keeps a lower level in the original: the AVX2
 //! block of the header assigns every slot that its SSE2 (WHT), SSSE3 (8 bpc)
@@ -27,56 +28,12 @@
 //! the original).
 use core::ffi::{c_int, c_void};
 
+pub use super::super::itx::{ItxFn, ItxFn16};
 use super::super::cpu::{
     dav1d_get_cpu_flags, DAV1D_X86_CPU_FLAG_AVX2, DAV1D_X86_CPU_FLAG_SSE2, DAV1D_X86_CPU_FLAG_SSE41,
     DAV1D_X86_CPU_FLAG_SSSE3,
 };
-use super::super::x86_64::itx16_avx2::*;
-use super::super::x86_64::itx_avx2::*;
-
-/// `itxfm_fn` (src/itx.h) at 8 bpc.
-pub type ItxFn = unsafe extern "C" fn(*mut u8, isize, *mut i16, c_int);
-/// `itxfm_fn` (src/itx.h) at 16 bpc: `pixel` is `uint16_t`, `coef` is
-/// `int32_t`, and the last argument is `bitdepth_max`.
-pub type ItxFn16 = unsafe extern "C" fn(*mut u16, isize, *mut i32, c_int, c_int);
-
-// enum RectTxfmSize and enum TxfmType (src/levels.h)
-const TX_4X4: usize = 0;
-const TX_8X8: usize = 1;
-const TX_16X16: usize = 2;
-const TX_32X32: usize = 3;
-const TX_64X64: usize = 4;
-const RTX_4X8: usize = 5;
-const RTX_8X4: usize = 6;
-const RTX_8X16: usize = 7;
-const RTX_16X8: usize = 8;
-const RTX_16X32: usize = 9;
-const RTX_32X16: usize = 10;
-const RTX_32X64: usize = 11;
-const RTX_64X32: usize = 12;
-const RTX_4X16: usize = 13;
-const RTX_16X4: usize = 14;
-const RTX_8X32: usize = 15;
-const RTX_32X8: usize = 16;
-const RTX_16X64: usize = 17;
-const RTX_64X16: usize = 18;
-const DCT_DCT: usize = 0;
-const ADST_DCT: usize = 1;
-const DCT_ADST: usize = 2;
-const ADST_ADST: usize = 3;
-const FLIPADST_DCT: usize = 4;
-const DCT_FLIPADST: usize = 5;
-const FLIPADST_FLIPADST: usize = 6;
-const ADST_FLIPADST: usize = 7;
-const FLIPADST_ADST: usize = 8;
-const IDTX: usize = 9;
-const V_DCT: usize = 10;
-const H_DCT: usize = 11;
-const V_ADST: usize = 12;
-const H_ADST: usize = 13;
-const V_FLIPADST: usize = 14;
-const H_FLIPADST: usize = 15;
-const WHT_WHT: usize = 16;
+use super::super::itx::*;
 
 /// `Dav1dInvTxfmDSPContext` (src/itx.h): `itxfm_add[N_RECT_TX_SIZES][N_TX_TYPES_PLUS_LL]`.
 #[repr(C)]
@@ -126,192 +83,54 @@ pub unsafe fn itx_dsp_init_x86_8bpc(c: *mut c_void, _bpc: c_int, all_simd: *mut 
         return;
     }
 
-    #[cfg(dav1d_itx_pilot)]
-    let before = c.itxfm_add;
+    let Some(k) = Kernels::new_8bpc() else {
+        return;
+    };
     let t = &mut c.itxfm_add;
     // assign_itx_fn(, 4, 4, wht_wht, WHT_WHT, avx2);
-    t[TX_4X4][WHT_WHT] = Some(dav1d_inv_txfm_add_wht_wht_4x4_8bpc_avx2);
+    k.assign_wht(t);
 
     // assign_itx16_fn( ,  4,  4, avx2);
-    t[TX_4X4][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_4x4_8bpc_avx2);
-    t[TX_4X4][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_4x4_8bpc_avx2);
-    t[TX_4X4][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_4x4_8bpc_avx2);
-    t[TX_4X4][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_4x4_8bpc_avx2);
-    t[TX_4X4][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_4x4_8bpc_avx2);
-    t[TX_4X4][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_4x4_8bpc_avx2);
-    t[TX_4X4][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_4x4_8bpc_avx2);
-    t[TX_4X4][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_4x4_8bpc_avx2);
-    t[TX_4X4][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_4x4_8bpc_avx2);
-    t[TX_4X4][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_4x4_8bpc_avx2);
-    t[TX_4X4][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_4x4_8bpc_avx2);
-    t[TX_4X4][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_4x4_8bpc_avx2);
-    t[TX_4X4][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_4x4_8bpc_avx2);
-    t[TX_4X4][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_4x4_8bpc_avx2);
-    t[TX_4X4][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_4x4_8bpc_avx2);
-    t[TX_4X4][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_4x4_8bpc_avx2);
+    k.assign(t, TX_4X4, ITX16);
     // assign_itx16_fn(R,  4,  8, avx2);
-    t[RTX_4X8][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_4x8_8bpc_avx2);
-    t[RTX_4X8][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_4x8_8bpc_avx2);
-    t[RTX_4X8][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_4x8_8bpc_avx2);
-    t[RTX_4X8][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_4x8_8bpc_avx2);
-    t[RTX_4X8][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_4x8_8bpc_avx2);
-    t[RTX_4X8][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_4x8_8bpc_avx2);
-    t[RTX_4X8][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_4x8_8bpc_avx2);
-    t[RTX_4X8][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_4x8_8bpc_avx2);
-    t[RTX_4X8][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_4x8_8bpc_avx2);
-    t[RTX_4X8][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_4x8_8bpc_avx2);
-    t[RTX_4X8][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_4x8_8bpc_avx2);
-    t[RTX_4X8][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_4x8_8bpc_avx2);
-    t[RTX_4X8][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_4x8_8bpc_avx2);
-    t[RTX_4X8][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_4x8_8bpc_avx2);
-    t[RTX_4X8][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_4x8_8bpc_avx2);
-    t[RTX_4X8][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_4x8_8bpc_avx2);
+    k.assign(t, RTX_4X8, ITX16);
     // assign_itx16_fn(R,  4, 16, avx2);
-    t[RTX_4X16][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_4x16_8bpc_avx2);
-    t[RTX_4X16][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_4x16_8bpc_avx2);
-    t[RTX_4X16][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_4x16_8bpc_avx2);
-    t[RTX_4X16][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_4x16_8bpc_avx2);
-    t[RTX_4X16][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_4x16_8bpc_avx2);
-    t[RTX_4X16][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_4x16_8bpc_avx2);
-    t[RTX_4X16][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_4x16_8bpc_avx2);
-    t[RTX_4X16][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_4x16_8bpc_avx2);
-    t[RTX_4X16][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_4x16_8bpc_avx2);
-    t[RTX_4X16][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_4x16_8bpc_avx2);
-    t[RTX_4X16][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_4x16_8bpc_avx2);
-    t[RTX_4X16][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_4x16_8bpc_avx2);
-    t[RTX_4X16][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_4x16_8bpc_avx2);
-    t[RTX_4X16][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_4x16_8bpc_avx2);
-    t[RTX_4X16][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_4x16_8bpc_avx2);
-    t[RTX_4X16][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_4x16_8bpc_avx2);
+    k.assign(t, RTX_4X16, ITX16);
     // assign_itx16_fn(R,  8,  4, avx2);
-    t[RTX_8X4][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_8x4_8bpc_avx2);
-    t[RTX_8X4][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_8x4_8bpc_avx2);
-    t[RTX_8X4][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_8x4_8bpc_avx2);
-    t[RTX_8X4][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_8x4_8bpc_avx2);
-    t[RTX_8X4][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_8x4_8bpc_avx2);
-    t[RTX_8X4][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_8x4_8bpc_avx2);
-    t[RTX_8X4][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_8x4_8bpc_avx2);
-    t[RTX_8X4][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_8x4_8bpc_avx2);
-    t[RTX_8X4][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_8x4_8bpc_avx2);
-    t[RTX_8X4][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_8x4_8bpc_avx2);
-    t[RTX_8X4][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_8x4_8bpc_avx2);
-    t[RTX_8X4][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_8x4_8bpc_avx2);
-    t[RTX_8X4][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_8x4_8bpc_avx2);
-    t[RTX_8X4][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_8x4_8bpc_avx2);
-    t[RTX_8X4][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_8x4_8bpc_avx2);
-    t[RTX_8X4][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_8x4_8bpc_avx2);
+    k.assign(t, RTX_8X4, ITX16);
     // assign_itx16_fn( ,  8,  8, avx2);
-    t[TX_8X8][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_8x8_8bpc_avx2);
-    t[TX_8X8][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_8x8_8bpc_avx2);
-    t[TX_8X8][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_8x8_8bpc_avx2);
-    t[TX_8X8][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_8x8_8bpc_avx2);
-    t[TX_8X8][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_8x8_8bpc_avx2);
-    t[TX_8X8][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_8x8_8bpc_avx2);
-    t[TX_8X8][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_8x8_8bpc_avx2);
-    t[TX_8X8][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_8x8_8bpc_avx2);
-    t[TX_8X8][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_8x8_8bpc_avx2);
-    t[TX_8X8][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_8x8_8bpc_avx2);
-    t[TX_8X8][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_8x8_8bpc_avx2);
-    t[TX_8X8][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_8x8_8bpc_avx2);
-    t[TX_8X8][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_8x8_8bpc_avx2);
-    t[TX_8X8][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_8x8_8bpc_avx2);
-    t[TX_8X8][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_8x8_8bpc_avx2);
-    t[TX_8X8][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_8x8_8bpc_avx2);
+    k.assign(t, TX_8X8, ITX16);
     // assign_itx16_fn(R,  8, 16, avx2);
-    t[RTX_8X16][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_8x16_8bpc_avx2);
-    t[RTX_8X16][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_8x16_8bpc_avx2);
-    t[RTX_8X16][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_8x16_8bpc_avx2);
-    t[RTX_8X16][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_8x16_8bpc_avx2);
-    t[RTX_8X16][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_8x16_8bpc_avx2);
-    t[RTX_8X16][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_8x16_8bpc_avx2);
-    t[RTX_8X16][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_8x16_8bpc_avx2);
-    t[RTX_8X16][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_8x16_8bpc_avx2);
-    t[RTX_8X16][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_8x16_8bpc_avx2);
-    t[RTX_8X16][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_8x16_8bpc_avx2);
-    t[RTX_8X16][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_8x16_8bpc_avx2);
-    t[RTX_8X16][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_8x16_8bpc_avx2);
-    t[RTX_8X16][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_8x16_8bpc_avx2);
-    t[RTX_8X16][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_8x16_8bpc_avx2);
-    t[RTX_8X16][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_8x16_8bpc_avx2);
-    t[RTX_8X16][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_8x16_8bpc_avx2);
+    k.assign(t, RTX_8X16, ITX16);
     // assign_itx2_fn(R,  8, 32, avx2);
-    t[RTX_8X32][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_8x32_8bpc_avx2);
-    t[RTX_8X32][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_8x32_8bpc_avx2);
+    k.assign(t, RTX_8X32, ITX2);
     // assign_itx16_fn(R, 16,  4, avx2);
-    t[RTX_16X4][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_16x4_8bpc_avx2);
-    t[RTX_16X4][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_16x4_8bpc_avx2);
-    t[RTX_16X4][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_16x4_8bpc_avx2);
-    t[RTX_16X4][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_16x4_8bpc_avx2);
-    t[RTX_16X4][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_16x4_8bpc_avx2);
-    t[RTX_16X4][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_16x4_8bpc_avx2);
-    t[RTX_16X4][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_16x4_8bpc_avx2);
-    t[RTX_16X4][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_16x4_8bpc_avx2);
-    t[RTX_16X4][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_16x4_8bpc_avx2);
-    t[RTX_16X4][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_16x4_8bpc_avx2);
-    t[RTX_16X4][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_16x4_8bpc_avx2);
-    t[RTX_16X4][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_16x4_8bpc_avx2);
-    t[RTX_16X4][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_16x4_8bpc_avx2);
-    t[RTX_16X4][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_16x4_8bpc_avx2);
-    t[RTX_16X4][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_16x4_8bpc_avx2);
-    t[RTX_16X4][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_16x4_8bpc_avx2);
+    k.assign(t, RTX_16X4, ITX16);
     // assign_itx16_fn(R, 16,  8, avx2);
-    t[RTX_16X8][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_16x8_8bpc_avx2);
-    t[RTX_16X8][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_16x8_8bpc_avx2);
-    t[RTX_16X8][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_16x8_8bpc_avx2);
-    t[RTX_16X8][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_16x8_8bpc_avx2);
-    t[RTX_16X8][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_16x8_8bpc_avx2);
-    t[RTX_16X8][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_16x8_8bpc_avx2);
-    t[RTX_16X8][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_16x8_8bpc_avx2);
-    t[RTX_16X8][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_16x8_8bpc_avx2);
-    t[RTX_16X8][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_16x8_8bpc_avx2);
-    t[RTX_16X8][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_16x8_8bpc_avx2);
-    t[RTX_16X8][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_16x8_8bpc_avx2);
-    t[RTX_16X8][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_16x8_8bpc_avx2);
-    t[RTX_16X8][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_16x8_8bpc_avx2);
-    t[RTX_16X8][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_16x8_8bpc_avx2);
-    t[RTX_16X8][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_16x8_8bpc_avx2);
-    t[RTX_16X8][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_16x8_8bpc_avx2);
+    k.assign(t, RTX_16X8, ITX16);
     // assign_itx12_fn( , 16, 16, avx2);
-    t[TX_16X16][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_16x16_8bpc_avx2);
-    t[TX_16X16][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_16x16_8bpc_avx2);
-    t[TX_16X16][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_16x16_8bpc_avx2);
-    t[TX_16X16][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_16x16_8bpc_avx2);
-    t[TX_16X16][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_16x16_8bpc_avx2);
-    t[TX_16X16][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_16x16_8bpc_avx2);
-    t[TX_16X16][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_16x16_8bpc_avx2);
-    t[TX_16X16][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_16x16_8bpc_avx2);
-    t[TX_16X16][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_16x16_8bpc_avx2);
-    t[TX_16X16][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_16x16_8bpc_avx2);
-    t[TX_16X16][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_16x16_8bpc_avx2);
-    t[TX_16X16][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_16x16_8bpc_avx2);
+    k.assign(t, TX_16X16, ITX12);
     // assign_itx2_fn(R, 16, 32, avx2);
-    t[RTX_16X32][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_16x32_8bpc_avx2);
-    t[RTX_16X32][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_16x32_8bpc_avx2);
+    k.assign(t, RTX_16X32, ITX2);
     // assign_itx1_fn(R, 16, 64, avx2);
-    t[RTX_16X64][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_16x64_8bpc_avx2);
+    k.assign(t, RTX_16X64, ITX1);
     // assign_itx2_fn(R, 32,  8, avx2);
-    t[RTX_32X8][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_32x8_8bpc_avx2);
-    t[RTX_32X8][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_32x8_8bpc_avx2);
+    k.assign(t, RTX_32X8, ITX2);
     // assign_itx2_fn(R, 32, 16, avx2);
-    t[RTX_32X16][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_32x16_8bpc_avx2);
-    t[RTX_32X16][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_32x16_8bpc_avx2);
+    k.assign(t, RTX_32X16, ITX2);
     // assign_itx2_fn( , 32, 32, avx2);
-    t[TX_32X32][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_32x32_8bpc_avx2);
-    t[TX_32X32][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_32x32_8bpc_avx2);
+    k.assign(t, TX_32X32, ITX2);
     // assign_itx1_fn(R, 32, 64, avx2);
-    t[RTX_32X64][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_32x64_8bpc_avx2);
+    k.assign(t, RTX_32X64, ITX1);
     // assign_itx1_fn(R, 64, 16, avx2);
-    t[RTX_64X16][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_64x16_8bpc_avx2);
+    k.assign(t, RTX_64X16, ITX1);
     // assign_itx1_fn(R, 64, 32, avx2);
-    t[RTX_64X32][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_64x32_8bpc_avx2);
+    k.assign(t, RTX_64X32, ITX1);
     // assign_itx1_fn( , 64, 64, avx2);
-    t[TX_64X64][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_64x64_8bpc_avx2);
+    k.assign(t, TX_64X64, ITX1);
     // The original's `*all_simd = 1` of the SSSE3 block (module
-    // documentation): every slot now holds a rebuilt kernel.
+    // documentation): every slot now holds a kernel of `simd/itx/`.
     *all_simd = 1;
-
-    #[cfg(dav1d_itx_pilot)]
-    crate::simd::itx_pilot::install_8bpc(&mut c.itxfm_add, &before);
 
     // if (!(flags & DAV1D_X86_CPU_FLAG_AVX512ICL)) return; and the
     // avx512icl assignments: above the scope (module documentation).
@@ -353,357 +172,86 @@ pub unsafe fn itx_dsp_init_x86_16bpc(c: *mut c_void, bpc: c_int, all_simd: *mut 
         return;
     }
 
-    #[cfg(dav1d_itx_pilot)]
-    let before = c.itxfm_add;
+    let Some(k) = Kernels::new_16bpc() else {
+        return;
+    };
     let t = &mut c.itxfm_add;
     // assign_itx_fn(, 4, 4, wht_wht, WHT_WHT, avx2);
-    t[TX_4X4][WHT_WHT] = Some(dav1d_inv_txfm_add_wht_wht_4x4_16bpc_avx2);
+    k.assign_wht(t);
 
     if bpc == 10 {
         // assign_itx16_bpc_fn( ,  4,  4, 10, avx2);
-        t[TX_4X4][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_4x4_10bpc_avx2);
-        t[TX_4X4][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_4x4_10bpc_avx2);
-        t[TX_4X4][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_4x4_10bpc_avx2);
-        t[TX_4X4][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_4x4_10bpc_avx2);
-        t[TX_4X4][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_4x4_10bpc_avx2);
-        t[TX_4X4][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_4x4_10bpc_avx2);
-        t[TX_4X4][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_4x4_10bpc_avx2);
-        t[TX_4X4][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_4x4_10bpc_avx2);
-        t[TX_4X4][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_4x4_10bpc_avx2);
-        t[TX_4X4][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_4x4_10bpc_avx2);
-        t[TX_4X4][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_4x4_10bpc_avx2);
-        t[TX_4X4][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_4x4_10bpc_avx2);
-        t[TX_4X4][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_4x4_10bpc_avx2);
-        t[TX_4X4][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_4x4_10bpc_avx2);
-        t[TX_4X4][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_4x4_10bpc_avx2);
-        t[TX_4X4][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_4x4_10bpc_avx2);
+        k.assign(t, TX_4X4, ITX16);
         // assign_itx16_bpc_fn(R,  4,  8, 10, avx2);
-        t[RTX_4X8][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_4x8_10bpc_avx2);
-        t[RTX_4X8][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_4x8_10bpc_avx2);
-        t[RTX_4X8][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_4x8_10bpc_avx2);
-        t[RTX_4X8][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_4x8_10bpc_avx2);
-        t[RTX_4X8][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_4x8_10bpc_avx2);
-        t[RTX_4X8][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_4x8_10bpc_avx2);
-        t[RTX_4X8][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_4x8_10bpc_avx2);
-        t[RTX_4X8][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_4x8_10bpc_avx2);
-        t[RTX_4X8][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_4x8_10bpc_avx2);
-        t[RTX_4X8][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_4x8_10bpc_avx2);
-        t[RTX_4X8][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_4x8_10bpc_avx2);
-        t[RTX_4X8][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_4x8_10bpc_avx2);
-        t[RTX_4X8][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_4x8_10bpc_avx2);
-        t[RTX_4X8][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_4x8_10bpc_avx2);
-        t[RTX_4X8][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_4x8_10bpc_avx2);
-        t[RTX_4X8][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_4x8_10bpc_avx2);
+        k.assign(t, RTX_4X8, ITX16);
         // assign_itx16_bpc_fn(R,  4, 16, 10, avx2);
-        t[RTX_4X16][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_4x16_10bpc_avx2);
-        t[RTX_4X16][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_4x16_10bpc_avx2);
-        t[RTX_4X16][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_4x16_10bpc_avx2);
-        t[RTX_4X16][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_4x16_10bpc_avx2);
-        t[RTX_4X16][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_4x16_10bpc_avx2);
-        t[RTX_4X16][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_4x16_10bpc_avx2);
-        t[RTX_4X16][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_4x16_10bpc_avx2);
-        t[RTX_4X16][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_4x16_10bpc_avx2);
-        t[RTX_4X16][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_4x16_10bpc_avx2);
-        t[RTX_4X16][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_4x16_10bpc_avx2);
-        t[RTX_4X16][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_4x16_10bpc_avx2);
-        t[RTX_4X16][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_4x16_10bpc_avx2);
-        t[RTX_4X16][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_4x16_10bpc_avx2);
-        t[RTX_4X16][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_4x16_10bpc_avx2);
-        t[RTX_4X16][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_4x16_10bpc_avx2);
-        t[RTX_4X16][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_4x16_10bpc_avx2);
+        k.assign(t, RTX_4X16, ITX16);
         // assign_itx16_bpc_fn(R,  8,  4, 10, avx2);
-        t[RTX_8X4][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_8x4_10bpc_avx2);
-        t[RTX_8X4][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_8x4_10bpc_avx2);
-        t[RTX_8X4][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_8x4_10bpc_avx2);
-        t[RTX_8X4][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_8x4_10bpc_avx2);
-        t[RTX_8X4][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_8x4_10bpc_avx2);
-        t[RTX_8X4][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_8x4_10bpc_avx2);
-        t[RTX_8X4][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_8x4_10bpc_avx2);
-        t[RTX_8X4][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_8x4_10bpc_avx2);
-        t[RTX_8X4][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_8x4_10bpc_avx2);
-        t[RTX_8X4][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_8x4_10bpc_avx2);
-        t[RTX_8X4][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_8x4_10bpc_avx2);
-        t[RTX_8X4][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_8x4_10bpc_avx2);
-        t[RTX_8X4][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_8x4_10bpc_avx2);
-        t[RTX_8X4][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_8x4_10bpc_avx2);
-        t[RTX_8X4][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_8x4_10bpc_avx2);
-        t[RTX_8X4][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_8x4_10bpc_avx2);
+        k.assign(t, RTX_8X4, ITX16);
         // assign_itx16_bpc_fn( ,  8,  8, 10, avx2);
-        t[TX_8X8][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_8x8_10bpc_avx2);
-        t[TX_8X8][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_8x8_10bpc_avx2);
-        t[TX_8X8][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_8x8_10bpc_avx2);
-        t[TX_8X8][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_8x8_10bpc_avx2);
-        t[TX_8X8][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_8x8_10bpc_avx2);
-        t[TX_8X8][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_8x8_10bpc_avx2);
-        t[TX_8X8][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_8x8_10bpc_avx2);
-        t[TX_8X8][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_8x8_10bpc_avx2);
-        t[TX_8X8][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_8x8_10bpc_avx2);
-        t[TX_8X8][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_8x8_10bpc_avx2);
-        t[TX_8X8][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_8x8_10bpc_avx2);
-        t[TX_8X8][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_8x8_10bpc_avx2);
-        t[TX_8X8][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_8x8_10bpc_avx2);
-        t[TX_8X8][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_8x8_10bpc_avx2);
-        t[TX_8X8][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_8x8_10bpc_avx2);
-        t[TX_8X8][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_8x8_10bpc_avx2);
+        k.assign(t, TX_8X8, ITX16);
         // assign_itx16_bpc_fn(R,  8, 16, 10, avx2);
-        t[RTX_8X16][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_8x16_10bpc_avx2);
-        t[RTX_8X16][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_8x16_10bpc_avx2);
-        t[RTX_8X16][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_8x16_10bpc_avx2);
-        t[RTX_8X16][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_8x16_10bpc_avx2);
-        t[RTX_8X16][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_8x16_10bpc_avx2);
-        t[RTX_8X16][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_8x16_10bpc_avx2);
-        t[RTX_8X16][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_8x16_10bpc_avx2);
-        t[RTX_8X16][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_8x16_10bpc_avx2);
-        t[RTX_8X16][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_8x16_10bpc_avx2);
-        t[RTX_8X16][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_8x16_10bpc_avx2);
-        t[RTX_8X16][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_8x16_10bpc_avx2);
-        t[RTX_8X16][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_8x16_10bpc_avx2);
-        t[RTX_8X16][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_8x16_10bpc_avx2);
-        t[RTX_8X16][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_8x16_10bpc_avx2);
-        t[RTX_8X16][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_8x16_10bpc_avx2);
-        t[RTX_8X16][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_8x16_10bpc_avx2);
+        k.assign(t, RTX_8X16, ITX16);
         // assign_itx2_bpc_fn(R,  8, 32, 10, avx2);
-        t[RTX_8X32][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_8x32_10bpc_avx2);
-        t[RTX_8X32][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_8x32_10bpc_avx2);
+        k.assign(t, RTX_8X32, ITX2);
         // assign_itx16_bpc_fn(R, 16,  4, 10, avx2);
-        t[RTX_16X4][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_16x4_10bpc_avx2);
-        t[RTX_16X4][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_16x4_10bpc_avx2);
-        t[RTX_16X4][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_16x4_10bpc_avx2);
-        t[RTX_16X4][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_16x4_10bpc_avx2);
-        t[RTX_16X4][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_16x4_10bpc_avx2);
-        t[RTX_16X4][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_16x4_10bpc_avx2);
-        t[RTX_16X4][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_16x4_10bpc_avx2);
-        t[RTX_16X4][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_16x4_10bpc_avx2);
-        t[RTX_16X4][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_16x4_10bpc_avx2);
-        t[RTX_16X4][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_16x4_10bpc_avx2);
-        t[RTX_16X4][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_16x4_10bpc_avx2);
-        t[RTX_16X4][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_16x4_10bpc_avx2);
-        t[RTX_16X4][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_16x4_10bpc_avx2);
-        t[RTX_16X4][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_16x4_10bpc_avx2);
-        t[RTX_16X4][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_16x4_10bpc_avx2);
-        t[RTX_16X4][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_16x4_10bpc_avx2);
+        k.assign(t, RTX_16X4, ITX16);
         // assign_itx16_bpc_fn(R, 16,  8, 10, avx2);
-        t[RTX_16X8][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_16x8_10bpc_avx2);
-        t[RTX_16X8][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_16x8_10bpc_avx2);
-        t[RTX_16X8][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_16x8_10bpc_avx2);
-        t[RTX_16X8][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_16x8_10bpc_avx2);
-        t[RTX_16X8][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_16x8_10bpc_avx2);
-        t[RTX_16X8][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_16x8_10bpc_avx2);
-        t[RTX_16X8][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_16x8_10bpc_avx2);
-        t[RTX_16X8][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_16x8_10bpc_avx2);
-        t[RTX_16X8][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_16x8_10bpc_avx2);
-        t[RTX_16X8][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_16x8_10bpc_avx2);
-        t[RTX_16X8][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_16x8_10bpc_avx2);
-        t[RTX_16X8][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_16x8_10bpc_avx2);
-        t[RTX_16X8][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_16x8_10bpc_avx2);
-        t[RTX_16X8][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_16x8_10bpc_avx2);
-        t[RTX_16X8][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_16x8_10bpc_avx2);
-        t[RTX_16X8][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_16x8_10bpc_avx2);
+        k.assign(t, RTX_16X8, ITX16);
         // assign_itx12_bpc_fn( , 16, 16, 10, avx2);
-        t[TX_16X16][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_16x16_10bpc_avx2);
-        t[TX_16X16][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_16x16_10bpc_avx2);
-        t[TX_16X16][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_16x16_10bpc_avx2);
-        t[TX_16X16][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_16x16_10bpc_avx2);
-        t[TX_16X16][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_16x16_10bpc_avx2);
-        t[TX_16X16][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_16x16_10bpc_avx2);
-        t[TX_16X16][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_16x16_10bpc_avx2);
-        t[TX_16X16][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_16x16_10bpc_avx2);
-        t[TX_16X16][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_16x16_10bpc_avx2);
-        t[TX_16X16][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_16x16_10bpc_avx2);
-        t[TX_16X16][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_16x16_10bpc_avx2);
-        t[TX_16X16][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_16x16_10bpc_avx2);
+        k.assign(t, TX_16X16, ITX12);
         // assign_itx2_bpc_fn(R, 16, 32, 10, avx2);
-        t[RTX_16X32][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_16x32_10bpc_avx2);
-        t[RTX_16X32][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_16x32_10bpc_avx2);
+        k.assign(t, RTX_16X32, ITX2);
         // assign_itx1_bpc_fn(R, 16, 64, 10, avx2);
-        t[RTX_16X64][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_16x64_10bpc_avx2);
+        k.assign(t, RTX_16X64, ITX1);
         // assign_itx2_bpc_fn(R, 32,  8, 10, avx2);
-        t[RTX_32X8][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_32x8_10bpc_avx2);
-        t[RTX_32X8][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_32x8_10bpc_avx2);
+        k.assign(t, RTX_32X8, ITX2);
         // assign_itx2_bpc_fn(R, 32, 16, 10, avx2);
-        t[RTX_32X16][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_32x16_10bpc_avx2);
-        t[RTX_32X16][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_32x16_10bpc_avx2);
+        k.assign(t, RTX_32X16, ITX2);
         // assign_itx2_bpc_fn( , 32, 32, 10, avx2);
-        t[TX_32X32][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_32x32_10bpc_avx2);
-        t[TX_32X32][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_32x32_10bpc_avx2);
+        k.assign(t, TX_32X32, ITX2);
         // assign_itx1_bpc_fn(R, 32, 64, 10, avx2);
-        t[RTX_32X64][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_32x64_10bpc_avx2);
+        k.assign(t, RTX_32X64, ITX1);
         // assign_itx1_bpc_fn(R, 64, 16, 10, avx2);
-        t[RTX_64X16][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_64x16_10bpc_avx2);
+        k.assign(t, RTX_64X16, ITX1);
         // assign_itx1_bpc_fn(R, 64, 32, 10, avx2);
-        t[RTX_64X32][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_64x32_10bpc_avx2);
+        k.assign(t, RTX_64X32, ITX1);
         // assign_itx1_bpc_fn( , 64, 64, 10, avx2);
-        t[TX_64X64][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_64x64_10bpc_avx2);
+        k.assign(t, TX_64X64, ITX1);
 
         // The original's `*all_simd = 1` of the SSE4.1 block at 10 bits
-        // (module documentation): every slot now holds a rebuilt kernel.
+        // (module documentation): every slot now holds a kernel of `simd/itx/`.
         *all_simd = 1;
     } else {
         // assign_itx16_bpc_fn( ,  4,  4, 12, avx2);
-        t[TX_4X4][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_4x4_12bpc_avx2);
-        t[TX_4X4][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_4x4_12bpc_avx2);
-        t[TX_4X4][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_4x4_12bpc_avx2);
-        t[TX_4X4][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_4x4_12bpc_avx2);
-        t[TX_4X4][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_4x4_12bpc_avx2);
-        t[TX_4X4][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_4x4_12bpc_avx2);
-        t[TX_4X4][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_4x4_12bpc_avx2);
-        t[TX_4X4][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_4x4_12bpc_avx2);
-        t[TX_4X4][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_4x4_12bpc_avx2);
-        t[TX_4X4][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_4x4_12bpc_avx2);
-        t[TX_4X4][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_4x4_12bpc_avx2);
-        t[TX_4X4][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_4x4_12bpc_avx2);
-        t[TX_4X4][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_4x4_12bpc_avx2);
-        t[TX_4X4][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_4x4_12bpc_avx2);
-        t[TX_4X4][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_4x4_12bpc_avx2);
-        t[TX_4X4][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_4x4_12bpc_avx2);
+        k.assign(t, TX_4X4, ITX16);
         // assign_itx16_bpc_fn(R,  4,  8, 12, avx2);
-        t[RTX_4X8][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_4x8_12bpc_avx2);
-        t[RTX_4X8][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_4x8_12bpc_avx2);
-        t[RTX_4X8][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_4x8_12bpc_avx2);
-        t[RTX_4X8][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_4x8_12bpc_avx2);
-        t[RTX_4X8][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_4x8_12bpc_avx2);
-        t[RTX_4X8][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_4x8_12bpc_avx2);
-        t[RTX_4X8][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_4x8_12bpc_avx2);
-        t[RTX_4X8][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_4x8_12bpc_avx2);
-        t[RTX_4X8][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_4x8_12bpc_avx2);
-        t[RTX_4X8][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_4x8_12bpc_avx2);
-        t[RTX_4X8][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_4x8_12bpc_avx2);
-        t[RTX_4X8][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_4x8_12bpc_avx2);
-        t[RTX_4X8][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_4x8_12bpc_avx2);
-        t[RTX_4X8][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_4x8_12bpc_avx2);
-        t[RTX_4X8][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_4x8_12bpc_avx2);
-        t[RTX_4X8][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_4x8_12bpc_avx2);
+        k.assign(t, RTX_4X8, ITX16);
         // assign_itx16_bpc_fn(R,  4, 16, 12, avx2);
-        t[RTX_4X16][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_4x16_12bpc_avx2);
-        t[RTX_4X16][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_4x16_12bpc_avx2);
-        t[RTX_4X16][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_4x16_12bpc_avx2);
-        t[RTX_4X16][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_4x16_12bpc_avx2);
-        t[RTX_4X16][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_4x16_12bpc_avx2);
-        t[RTX_4X16][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_4x16_12bpc_avx2);
-        t[RTX_4X16][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_4x16_12bpc_avx2);
-        t[RTX_4X16][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_4x16_12bpc_avx2);
-        t[RTX_4X16][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_4x16_12bpc_avx2);
-        t[RTX_4X16][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_4x16_12bpc_avx2);
-        t[RTX_4X16][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_4x16_12bpc_avx2);
-        t[RTX_4X16][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_4x16_12bpc_avx2);
-        t[RTX_4X16][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_4x16_12bpc_avx2);
-        t[RTX_4X16][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_4x16_12bpc_avx2);
-        t[RTX_4X16][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_4x16_12bpc_avx2);
-        t[RTX_4X16][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_4x16_12bpc_avx2);
+        k.assign(t, RTX_4X16, ITX16);
         // assign_itx16_bpc_fn(R,  8,  4, 12, avx2);
-        t[RTX_8X4][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_8x4_12bpc_avx2);
-        t[RTX_8X4][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_8x4_12bpc_avx2);
-        t[RTX_8X4][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_8x4_12bpc_avx2);
-        t[RTX_8X4][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_8x4_12bpc_avx2);
-        t[RTX_8X4][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_8x4_12bpc_avx2);
-        t[RTX_8X4][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_8x4_12bpc_avx2);
-        t[RTX_8X4][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_8x4_12bpc_avx2);
-        t[RTX_8X4][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_8x4_12bpc_avx2);
-        t[RTX_8X4][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_8x4_12bpc_avx2);
-        t[RTX_8X4][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_8x4_12bpc_avx2);
-        t[RTX_8X4][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_8x4_12bpc_avx2);
-        t[RTX_8X4][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_8x4_12bpc_avx2);
-        t[RTX_8X4][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_8x4_12bpc_avx2);
-        t[RTX_8X4][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_8x4_12bpc_avx2);
-        t[RTX_8X4][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_8x4_12bpc_avx2);
-        t[RTX_8X4][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_8x4_12bpc_avx2);
+        k.assign(t, RTX_8X4, ITX16);
         // assign_itx16_bpc_fn( ,  8,  8, 12, avx2);
-        t[TX_8X8][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_8x8_12bpc_avx2);
-        t[TX_8X8][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_8x8_12bpc_avx2);
-        t[TX_8X8][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_8x8_12bpc_avx2);
-        t[TX_8X8][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_8x8_12bpc_avx2);
-        t[TX_8X8][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_8x8_12bpc_avx2);
-        t[TX_8X8][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_8x8_12bpc_avx2);
-        t[TX_8X8][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_8x8_12bpc_avx2);
-        t[TX_8X8][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_8x8_12bpc_avx2);
-        t[TX_8X8][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_8x8_12bpc_avx2);
-        t[TX_8X8][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_8x8_12bpc_avx2);
-        t[TX_8X8][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_8x8_12bpc_avx2);
-        t[TX_8X8][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_8x8_12bpc_avx2);
-        t[TX_8X8][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_8x8_12bpc_avx2);
-        t[TX_8X8][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_8x8_12bpc_avx2);
-        t[TX_8X8][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_8x8_12bpc_avx2);
-        t[TX_8X8][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_8x8_12bpc_avx2);
+        k.assign(t, TX_8X8, ITX16);
         // assign_itx16_bpc_fn(R,  8, 16, 12, avx2);
-        t[RTX_8X16][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_8x16_12bpc_avx2);
-        t[RTX_8X16][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_8x16_12bpc_avx2);
-        t[RTX_8X16][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_8x16_12bpc_avx2);
-        t[RTX_8X16][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_8x16_12bpc_avx2);
-        t[RTX_8X16][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_8x16_12bpc_avx2);
-        t[RTX_8X16][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_8x16_12bpc_avx2);
-        t[RTX_8X16][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_8x16_12bpc_avx2);
-        t[RTX_8X16][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_8x16_12bpc_avx2);
-        t[RTX_8X16][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_8x16_12bpc_avx2);
-        t[RTX_8X16][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_8x16_12bpc_avx2);
-        t[RTX_8X16][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_8x16_12bpc_avx2);
-        t[RTX_8X16][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_8x16_12bpc_avx2);
-        t[RTX_8X16][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_8x16_12bpc_avx2);
-        t[RTX_8X16][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_8x16_12bpc_avx2);
-        t[RTX_8X16][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_8x16_12bpc_avx2);
-        t[RTX_8X16][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_8x16_12bpc_avx2);
+        k.assign(t, RTX_8X16, ITX16);
         // assign_itx2_bpc_fn(R,  8, 32, 12, avx2);
-        t[RTX_8X32][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_8x32_12bpc_avx2);
-        t[RTX_8X32][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_8x32_12bpc_avx2);
+        k.assign(t, RTX_8X32, ITX2);
         // assign_itx16_bpc_fn(R, 16,  4, 12, avx2);
-        t[RTX_16X4][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_16x4_12bpc_avx2);
-        t[RTX_16X4][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_16x4_12bpc_avx2);
-        t[RTX_16X4][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_16x4_12bpc_avx2);
-        t[RTX_16X4][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_16x4_12bpc_avx2);
-        t[RTX_16X4][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_16x4_12bpc_avx2);
-        t[RTX_16X4][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_16x4_12bpc_avx2);
-        t[RTX_16X4][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_16x4_12bpc_avx2);
-        t[RTX_16X4][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_16x4_12bpc_avx2);
-        t[RTX_16X4][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_16x4_12bpc_avx2);
-        t[RTX_16X4][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_16x4_12bpc_avx2);
-        t[RTX_16X4][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_16x4_12bpc_avx2);
-        t[RTX_16X4][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_16x4_12bpc_avx2);
-        t[RTX_16X4][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_16x4_12bpc_avx2);
-        t[RTX_16X4][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_16x4_12bpc_avx2);
-        t[RTX_16X4][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_16x4_12bpc_avx2);
-        t[RTX_16X4][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_16x4_12bpc_avx2);
+        k.assign(t, RTX_16X4, ITX16);
         // assign_itx16_bpc_fn(R, 16,  8, 12, avx2);
-        t[RTX_16X8][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_16x8_12bpc_avx2);
-        t[RTX_16X8][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_16x8_12bpc_avx2);
-        t[RTX_16X8][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_16x8_12bpc_avx2);
-        t[RTX_16X8][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_16x8_12bpc_avx2);
-        t[RTX_16X8][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_16x8_12bpc_avx2);
-        t[RTX_16X8][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_16x8_12bpc_avx2);
-        t[RTX_16X8][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_16x8_12bpc_avx2);
-        t[RTX_16X8][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_16x8_12bpc_avx2);
-        t[RTX_16X8][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_16x8_12bpc_avx2);
-        t[RTX_16X8][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_16x8_12bpc_avx2);
-        t[RTX_16X8][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_16x8_12bpc_avx2);
-        t[RTX_16X8][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_16x8_12bpc_avx2);
-        t[RTX_16X8][H_ADST] = Some(dav1d_inv_txfm_add_adst_identity_16x8_12bpc_avx2);
-        t[RTX_16X8][H_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_identity_16x8_12bpc_avx2);
-        t[RTX_16X8][V_ADST] = Some(dav1d_inv_txfm_add_identity_adst_16x8_12bpc_avx2);
-        t[RTX_16X8][V_FLIPADST] = Some(dav1d_inv_txfm_add_identity_flipadst_16x8_12bpc_avx2);
+        k.assign(t, RTX_16X8, ITX16);
         // assign_itx12_bpc_fn( , 16, 16, 12, avx2);
-        t[TX_16X16][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_16x16_12bpc_avx2);
-        t[TX_16X16][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_16x16_12bpc_avx2);
-        t[TX_16X16][ADST_DCT] = Some(dav1d_inv_txfm_add_dct_adst_16x16_12bpc_avx2);
-        t[TX_16X16][FLIPADST_DCT] = Some(dav1d_inv_txfm_add_dct_flipadst_16x16_12bpc_avx2);
-        t[TX_16X16][H_DCT] = Some(dav1d_inv_txfm_add_dct_identity_16x16_12bpc_avx2);
-        t[TX_16X16][DCT_ADST] = Some(dav1d_inv_txfm_add_adst_dct_16x16_12bpc_avx2);
-        t[TX_16X16][ADST_ADST] = Some(dav1d_inv_txfm_add_adst_adst_16x16_12bpc_avx2);
-        t[TX_16X16][FLIPADST_ADST] = Some(dav1d_inv_txfm_add_adst_flipadst_16x16_12bpc_avx2);
-        t[TX_16X16][DCT_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_dct_16x16_12bpc_avx2);
-        t[TX_16X16][ADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_adst_16x16_12bpc_avx2);
-        t[TX_16X16][FLIPADST_FLIPADST] = Some(dav1d_inv_txfm_add_flipadst_flipadst_16x16_12bpc_avx2);
-        t[TX_16X16][V_DCT] = Some(dav1d_inv_txfm_add_identity_dct_16x16_12bpc_avx2);
+        k.assign(t, TX_16X16, ITX12);
         // assign_itx2_bpc_fn(R, 32,  8, 12, avx2);
-        t[RTX_32X8][DCT_DCT] = Some(dav1d_inv_txfm_add_dct_dct_32x8_12bpc_avx2);
-        t[RTX_32X8][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_32x8_12bpc_avx2);
+        k.assign(t, RTX_32X8, ITX2);
         // assign_itx_bpc_fn(R, 16, 32, identity_identity, IDTX, 12, avx2);
-        t[RTX_16X32][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_16x32_12bpc_avx2);
+        k.assign(t, RTX_16X32, IDENTITY);
         // assign_itx_bpc_fn(R, 32, 16, identity_identity, IDTX, 12, avx2);
-        t[RTX_32X16][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_32x16_12bpc_avx2);
+        k.assign(t, RTX_32X16, IDENTITY);
         // assign_itx_bpc_fn(, 32, 32, identity_identity, IDTX, 12, avx2);
-        t[TX_32X32][IDTX] = Some(dav1d_inv_txfm_add_identity_identity_32x32_12bpc_avx2);
+        k.assign(t, TX_32X32, IDENTITY);
     }
-
-    #[cfg(dav1d_itx_pilot)]
-    crate::simd::itx_pilot::install_16bpc(&mut c.itxfm_add, &before);
 
     // if (!(flags & DAV1D_X86_CPU_FLAG_AVX512ICL)) return; and the
     // avx512icl assignments: above the scope (module documentation).
@@ -746,32 +294,67 @@ mod tests {
         }
     }
 
-    /// With AVX2 allowed (and detected) the rebuilt kernels are selected,
-    /// in all 156 slots that the original assigns; a mask below AVX2 keeps
-    /// the C kernels (also where the original has SSE2 or SSSE3 kernels),
-    /// the same ones as `dav1d_set_cpu_flags_mask(0)`.
+    /// Whether the CPU has AVX2 and `fearless_simd`'s `Avx2` level.
+    fn level() -> bool {
+        std::arch::is_x86_feature_detected!("avx2") && fearless_simd::Level::new().as_avx2().is_some()
+    }
+
+    /// The slots in which two tables differ.
+    fn changed(a: &[[Option<usize>; 17]; 19], b: &[[Option<usize>; 17]; 19]) -> Vec<(usize, usize)> {
+        (0..19)
+            .flat_map(|tx| (0..17).map(move |ty| (tx, ty)))
+            .filter(|&(tx, ty)| a[tx][ty] != b[tx][ty])
+            .collect()
+    }
+
+    /// The slots of the original's AVX2 block (src/x86/itx.h) at 8 bpc and
+    /// at 10 bits (`assign_itx*_fn` / `assign_itx*_bpc_fn`, and WHT); at 12
+    /// bits the same without the DCT_DCT slots of 16x32 and larger.
+    fn header_slots(bpc: c_int) -> Vec<(usize, usize)> {
+        let large = if bpc == 12 { IDENTITY } else { ITX2 };
+        let mut slots = vec![(TX_4X4, WHT_WHT)];
+        for (tx, types) in [
+            (TX_4X4, ITX16),
+            (RTX_4X8, ITX16),
+            (RTX_4X16, ITX16),
+            (RTX_8X4, ITX16),
+            (TX_8X8, ITX16),
+            (RTX_8X16, ITX16),
+            (RTX_8X32, ITX2),
+            (RTX_16X4, ITX16),
+            (RTX_16X8, ITX16),
+            (TX_16X16, ITX12),
+            (RTX_16X32, large),
+            (RTX_32X8, ITX2),
+            (RTX_32X16, large),
+            (TX_32X32, large),
+        ] {
+            slots.extend(types.iter().map(|&ty| (tx, ty)));
+        }
+        if bpc != 12 {
+            for tx in [RTX_16X64, RTX_32X64, RTX_64X16, RTX_64X32, TX_64X64] {
+                slots.push((tx, DCT_DCT));
+            }
+        }
+        slots.sort();
+        slots
+    }
+
+    /// With AVX2 allowed (and the level detected) the kernels of `simd/itx/`
+    /// are selected in all 156 slots that the original assigns; a mask below
+    /// AVX2 keeps the C kernels (also where the original has SSE2 or SSSE3
+    /// kernels), the same ones as `dav1d_set_cpu_flags_mask(0)`.
     #[test]
-    fn avx2_selects_the_rebuilt_kernels_and_lower_masks_keep_c() {
+    fn avx2_selects_the_simd_kernels_and_lower_masks_keep_c() {
         let _guard = crate::simd::cpu::CPU_MASK_TEST_LOCK
             .lock()
             .unwrap_or_else(|e| e.into_inner());
-        let avx2 = std::arch::is_x86_feature_detected!("avx2");
-        let rebuilt = dav1d_inv_txfm_add_dct_dct_8x8_8bpc_avx2 as ItxFn as usize;
-        let wht = dav1d_inv_txfm_add_wht_wht_4x4_8bpc_avx2 as ItxFn as usize;
-        let all = table8(!0);
         let scalar = table8(0);
-        assert_eq!(all[TX_8X8][DCT_DCT] == Some(rebuilt), avx2);
-        assert_eq!(all[TX_4X4][WHT_WHT] == Some(wht), avx2);
-        if avx2 {
-            let changed = (0..19)
-                .flat_map(|tx| (0..17).map(move |ty| (tx, ty)))
-                .filter(|&(tx, ty)| all[tx][ty] != scalar[tx][ty])
-                .count();
-            assert_eq!(changed, 156);
-        }
+        let expected = if level() { header_slots(8) } else { vec![] };
+        assert_eq!(header_slots(8).len(), 156);
+        assert_eq!(changed(&table8(!0), &scalar), expected);
         let below = DAV1D_X86_CPU_FLAG_SSE2 | DAV1D_X86_CPU_FLAG_SSSE3 | DAV1D_X86_CPU_FLAG_SSE41;
         assert_eq!(table8(below), scalar);
-        assert_ne!(scalar[TX_8X8][DCT_DCT], Some(rebuilt));
     }
 
     /// The 16 bpc mirror and the translated context have the same layout.
@@ -802,38 +385,24 @@ mod tests {
         }
     }
 
-    /// With AVX2 allowed (and detected) the rebuilt 16 bpc kernels are
-    /// selected, in the 156 slots that the original assigns at 10 bits and
-    /// the 148 at 12 bits (the eight DCT_DCT slots of 16x32 and larger keep
-    /// C); a mask below AVX2 keeps the C kernels (also where the original
-    /// has SSE2 or SSE4.1 kernels), the same ones as
+    /// With AVX2 allowed (and the level detected) the kernels of
+    /// `simd/itx/` are selected in the 156 slots that the original assigns
+    /// at 10 bits and the 148 at 12 bits (the eight DCT_DCT slots of 16x32
+    /// and larger keep C); a mask below AVX2 keeps the C kernels (also where
+    /// the original has SSE2 or SSE4.1 kernels), the same ones as
     /// `dav1d_set_cpu_flags_mask(0)`.
     #[test]
-    fn avx2_selects_the_rebuilt_16bpc_kernels_and_lower_masks_keep_c() {
+    fn avx2_selects_the_simd_16bpc_kernels_and_lower_masks_keep_c() {
         let _guard = crate::simd::cpu::CPU_MASK_TEST_LOCK
             .lock()
             .unwrap_or_else(|e| e.into_inner());
-        let avx2 = std::arch::is_x86_feature_detected!("avx2");
         let below = DAV1D_X86_CPU_FLAG_SSE2 | DAV1D_X86_CPU_FLAG_SSSE3 | DAV1D_X86_CPU_FLAG_SSE41;
-        for (bpc, rebuilt, count) in [
-            (10, dav1d_inv_txfm_add_dct_dct_8x8_10bpc_avx2 as ItxFn16 as usize, 156),
-            (12, dav1d_inv_txfm_add_dct_dct_8x8_12bpc_avx2 as ItxFn16 as usize, 148),
-        ] {
-            let wht = dav1d_inv_txfm_add_wht_wht_4x4_16bpc_avx2 as ItxFn16 as usize;
-            let all = table16(!0, bpc);
+        for (bpc, count) in [(10, 156), (12, 148)] {
             let scalar = table16(0, bpc);
-            assert_eq!(all[TX_8X8][DCT_DCT] == Some(rebuilt), avx2);
-            assert_eq!(all[TX_4X4][WHT_WHT] == Some(wht), avx2);
-            if avx2 {
-                let changed = (0..19)
-                    .flat_map(|tx| (0..17).map(move |ty| (tx, ty)))
-                    .filter(|&(tx, ty)| all[tx][ty] != scalar[tx][ty])
-                    .count();
-                assert_eq!(changed, count);
-                assert_eq!(all[TX_32X32][DCT_DCT] == scalar[TX_32X32][DCT_DCT], bpc == 12);
-            }
+            let expected = if level() { header_slots(bpc) } else { vec![] };
+            assert_eq!(header_slots(bpc).len(), count);
+            assert_eq!(changed(&table16(!0, bpc), &scalar), expected);
             assert_eq!(table16(below, bpc), scalar);
-            assert_ne!(scalar[TX_8X8][DCT_DCT], Some(rebuilt));
         }
     }
 }

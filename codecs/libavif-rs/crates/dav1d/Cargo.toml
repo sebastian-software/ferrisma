@@ -28,11 +28,10 @@ port-test-bridges = []
 libc = "0.2.191"
 c2rust-bitfields = "0.3.0"
 
-# Experiment only (simd/cdef_pilot variant 2, simd/itx_pilot): compiled
-# only with `--cfg dav1d_cdef_pilot` or `--cfg dav1d_itx_pilot`.
-# Apache-2.0 OR MIT, linebender, no dependencies of its own.
-[target.'cfg(any(dav1d_cdef_pilot, dav1d_itx_pilot))'.dependencies]
+# The portable vector types of the CDEF and inverse-transform kernels
+# (src/simd/cdef, src/simd/itx; ADR 0062). Apache-2.0 OR MIT, linebender,
+# no dependencies of its own.
 fearless_simd = "=1.2.0"
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(libavif_rs_asan)", "cfg(dav1d_portable)", "cfg(dav1d_cdef_pilot)", "cfg(dav1d_itx_pilot)"] }
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(libavif_rs_asan)", "cfg(dav1d_portable)"] }

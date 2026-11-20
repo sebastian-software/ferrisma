@@ -1,11 +1,11 @@
-//! The pilot against the translated C kernels (`itx_tmpl.c`), slot by slot,
+//! The kernels against the translated C kernels (`itx_tmpl.c`), slot by slot,
 //! on random blocks: every coefficient the C reads is drawn from the full
 //! range the decoder stores (`cf_max` of recon_tmpl.c), so the clipping
 //! steps are reached as well. The gate is checkasm against the original's
 //! assembly and the whole-image decodes; but checkasm draws coefficients a
 //! conformant stream can have, so at 8 bpc these tests are the check that
 //! the 16-bit lanes saturate exactly where the C clips (a wrapping instead of
-//! a saturating addition passes checkasm and fails `pilot_matches_c_8bpc`).
+//! a saturating addition passes checkasm and fails `kernels_match_c_8bpc`).
 
 use super::*;
 
@@ -112,19 +112,19 @@ fn draw(rng: &mut Rng, tx: usize, tx_type: usize, pixel_max: i32, cf_max: i32) -
 
 fn check_8bpc(draws: usize) {
     let (c, _) = c_tables(10);
-    let pilot = table_8bpc();
+    let kernels = table_8bpc();
     let mut rng = Rng(0x2545_f491);
     let mut checked = 0;
     for tx in 0..19 {
         let (w, h) = SIZES[tx];
         for tx_type in 0..17 {
             let Some(c_fn) = c[tx][tx_type] else { continue };
-            let pilot_fn: ItxFn = if tx_type == WHT_WHT { wht_8bpc } else { pilot[tx][tx_type] };
+            let simd_fn: ItxFn = if tx_type == WHT_WHT { wht_8bpc } else { kernels[tx][tx_type] };
             for _ in 0..draws {
                 let (pixels, coeff, eob) = draw(&mut rng, tx, tx_type, 255, i16::MAX.into());
                 let mut outputs = [pixels.clone(), pixels].map(|p| p.into_iter().map(|v| v as u8).collect::<Vec<_>>());
                 let mut coeffs = [coeff.clone(), coeff].map(|c| c.into_iter().map(|v| v as i16).collect::<Vec<_>>());
-                for (f, (out, cf)) in [c_fn, pilot_fn].into_iter().zip(outputs.iter_mut().zip(coeffs.iter_mut())) {
+                for (f, (out, cf)) in [c_fn, simd_fn].into_iter().zip(outputs.iter_mut().zip(coeffs.iter_mut())) {
                     unsafe { f(out.as_mut_ptr(), w as isize, cf.as_mut_ptr(), eob as c_int) };
                 }
                 assert_eq!(outputs[0], outputs[1], "8 bpc {w}x{h} type {tx_type} eob {eob}: pixels");
@@ -138,7 +138,7 @@ fn check_8bpc(draws: usize) {
 
 fn check_16bpc(bpc: c_int, draws: usize) {
     let (_, c) = c_tables(bpc);
-    let pilot = table_16bpc();
+    let kernels = table_16bpc();
     let pixel_max = (1 << bpc) - 1;
     let cf_max = (128 << bpc) - 1;
     let mut rng = Rng(0x1234_5678 ^ bpc as u32);
@@ -146,12 +146,12 @@ fn check_16bpc(bpc: c_int, draws: usize) {
         let (w, h) = SIZES[tx];
         for tx_type in 0..17 {
             let Some(c_fn) = c[tx][tx_type] else { continue };
-            let pilot_fn: ItxFn16 = if tx_type == WHT_WHT { wht_16bpc } else { pilot[tx][tx_type] };
+            let simd_fn: ItxFn16 = if tx_type == WHT_WHT { wht_16bpc } else { kernels[tx][tx_type] };
             for _ in 0..draws {
                 let (pixels, coeff, eob) = draw(&mut rng, tx, tx_type, pixel_max, cf_max);
                 let mut outputs = [pixels.clone(), pixels].map(|p| p.into_iter().map(|v| v as u16).collect::<Vec<_>>());
                 let mut coeffs = [coeff.clone(), coeff];
-                for (f, (out, cf)) in [c_fn, pilot_fn].into_iter().zip(outputs.iter_mut().zip(coeffs.iter_mut())) {
+                for (f, (out, cf)) in [c_fn, simd_fn].into_iter().zip(outputs.iter_mut().zip(coeffs.iter_mut())) {
                     unsafe { f(out.as_mut_ptr(), 2 * w as isize, cf.as_mut_ptr(), eob as c_int, pixel_max) };
                 }
                 assert_eq!(outputs[0], outputs[1], "{bpc} bits {w}x{h} type {tx_type} eob {eob}: pixels");
@@ -162,33 +162,33 @@ fn check_16bpc(bpc: c_int, draws: usize) {
 }
 
 #[test]
-fn pilot_matches_c_8bpc() {
+fn kernels_match_c_8bpc() {
     if available() {
         check_8bpc(300);
     } else {
-        eprintln!("itx pilot: level not available, skipped");
+        eprintln!("itx: level not available, skipped");
     }
 }
 
 #[test]
-fn pilot_matches_c_10bpc() {
+fn kernels_match_c_10bpc() {
     if available() {
         check_16bpc(10, 300);
     } else {
-        eprintln!("itx pilot: level not available, skipped");
+        eprintln!("itx: level not available, skipped");
     }
 }
 
 #[test]
-fn pilot_matches_c_12bpc() {
+fn kernels_match_c_12bpc() {
     if available() {
         check_16bpc(12, 300);
     } else {
-        eprintln!("itx pilot: level not available, skipped");
+        eprintln!("itx: level not available, skipped");
     }
 }
 
-/// The pilot's table of `eob` to coded rows is the C's.
+/// The kernels' table of `eob` to coded rows is the C's.
 #[test]
 fn last_nonzero_rows_match_c() {
     let _ = c_tables(10);

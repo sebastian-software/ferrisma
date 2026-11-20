@@ -31,7 +31,7 @@
 //! | `sub(a, b)`       | `CLIP(a - b)`, `a`, `b` stored |
 //!
 //! Above 8 bits `V` is itself a vector of `i32` (`V::Wide` is `V`), and all
-//! of this is the C's `int` arithmetic as in the 32-bit pilot. At 8 bits the
+//! of this is the C's `int` arithmetic. At 8 bits the
 //! 8-lane passes store in `i16` lanes: the ranges below show that every
 //! stored value of the C fits there and that each operation on it is exact.
 //!

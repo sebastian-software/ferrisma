@@ -2,10 +2,10 @@
 // Copyright © 2018-2019, Two Orioles, LLC
 // All rights reserved. BSD-2-Clause; see LICENSES/ in this crate.
 
-//! Experiment (branch `v1/dav1d-itx-pilot`, not for `main`): the inverse
-//! transforms written from the algorithm with the portable vector types of
-//! `fearless_simd` (variant 2 of the CDEF pilot), one implementation for
-//! NEON and for x86-64 AVX2, at 8, 10 and 12 bits.
+//! The inverse transforms written from the algorithm (ADR 0062, "Kernels
+//! written from the algorithm") with the portable vector types of
+//! `fearless_simd`, as CDEF (`simd/cdef/`), one implementation for NEON and
+//! for x86-64 AVX2, at 8, 10 and 12 bits.
 //!
 //! - `transforms`: the 1-D transforms of `itx_1d.c` (DCT 4..64, ADST 4..16,
 //!   flipped ADST, identity, WHT) on vectors, one row or column per lane;
@@ -13,7 +13,7 @@
 //!   between them, rounding and clipping as the C does, the C's DC-only path)
 //!   and the 4x4 WHT;
 //! - this module: the DSP-table boundary (the only raw-pointer code) and the
-//!   switch.
+//!   kernels' table, from which the init mirrors fill their slots.
 //!
 //! The numerics: the C computes in `int`; the vectors compute the same
 //! expressions, so every value is the C's (including the C's rearranged
@@ -32,20 +32,24 @@
 //! addition to the pixels runs in 16-bit lanes, where that is exact
 //! (`blocks::Pixel`).
 //!
-//! So the pilot gives the C's pixels for every input. The original's
+//! So the kernels give the C's pixels for every input. The original's
 //! assembly gives them where the intermediates stay within the ranges of a
 //! conformant stream (itx_1d.c: SIMD may overflow beyond them); with
 //! coefficients over the whole `int16_t` range at 8 bpc about half of the
 //! calls differ between the original's C and its NEON or AVX2 kernels, and
-//! there the pilot follows the C, the shipped kernels the assembly.
+//! there these kernels follow the C (engine ADR-0041: a kernel written from
+//! the algorithm matches the original's SIMD on conformant input and its C
+//! on non-conformant input).
 //!
-//! The switch: the module exists only when the crate is built with
-//! `--cfg dav1d_itx_pilot`, so a normal build is the shipped port,
-//! unchanged. In such a build `DAV1D_ITX_PILOT=v2` makes the shipped init
-//! (`simd/arm/itx.rs`, `simd/x86/itx.rs`) hand every slot it has just given a
-//! SIMD kernel to the pilot instead, so the slots stay the original's
-//! selection: below NEON / AVX2, and where the original keeps C (12 bits on
-//! ARM64, the large DCT_DCT slots at 12 bits on x86-64), the C kernels stay.
+//! The installation: the init mirrors (`simd/arm/itx.rs`, `simd/x86/itx.rs`)
+//! keep the original's selection, the `assign_itx*_fn` calls of its header
+//! under its CPU flags, and fill those slots from `Kernels` (`ITX1` …
+//! `ITX16` name the slots of each macro). Below NEON / AVX2, and where the
+//! original keeps C (12 bits on ARM64 but WHT, the large DCT_DCT slots at 12
+//! bits on x86-64), the C kernels stay. On x86-64 `fearless_simd`'s `Avx2`
+//! level needs x86-64-v3, a little more than dav1d's AVX2 flag; on a CPU
+//! with the flag but without that level `Kernels::new_*` gives `None` and the
+//! C kernels stay (with `all_simd` 0, as their tables need).
 
 use core::ffi::c_int;
 use std::sync::OnceLock;
@@ -60,8 +64,8 @@ type Level = fearless_simd::aarch64::Neon;
 #[cfg(target_arch = "x86_64")]
 type Level = fearless_simd::x86::Avx2;
 
-/// Whether the CPU has the level the pilot is compiled for (on x86-64 the
-/// library's `Avx2` needs x86-64-v3; without it the shipped kernels stay).
+/// Whether the CPU has the level the kernels are compiled for (on x86-64 the
+/// library's `Avx2` needs x86-64-v3; without it the C kernels stay).
 fn available() -> bool {
     #[cfg(target_arch = "aarch64")]
     return fearless_simd::Level::new().as_neon().is_some();
@@ -72,7 +76,7 @@ fn available() -> bool {
 /// The level's token.
 ///
 /// # Safety
-/// `available()` is true (the pilot is installed only then).
+/// `available()` is true (the kernels are installed only then).
 #[inline(always)]
 unsafe fn level() -> Level {
     // SAFETY: the caller's contract.
@@ -116,8 +120,85 @@ const fn rect_tx_size(w: usize, h: usize) -> usize {
     tx
 }
 
-/// `WHT_WHT` (src/levels.h).
-const WHT_WHT: usize = 16;
+// `enum RectTxfmSize` and `enum TxfmType` (src/levels.h).
+pub const TX_4X4: usize = 0;
+pub const TX_8X8: usize = 1;
+pub const TX_16X16: usize = 2;
+pub const TX_32X32: usize = 3;
+pub const TX_64X64: usize = 4;
+pub const RTX_4X8: usize = 5;
+pub const RTX_8X4: usize = 6;
+pub const RTX_8X16: usize = 7;
+pub const RTX_16X8: usize = 8;
+pub const RTX_16X32: usize = 9;
+pub const RTX_32X16: usize = 10;
+pub const RTX_32X64: usize = 11;
+pub const RTX_64X32: usize = 12;
+pub const RTX_4X16: usize = 13;
+pub const RTX_16X4: usize = 14;
+pub const RTX_8X32: usize = 15;
+pub const RTX_32X8: usize = 16;
+pub const RTX_16X64: usize = 17;
+pub const RTX_64X16: usize = 18;
+pub const DCT_DCT: usize = 0;
+pub const ADST_DCT: usize = 1;
+pub const DCT_ADST: usize = 2;
+pub const ADST_ADST: usize = 3;
+pub const FLIPADST_DCT: usize = 4;
+pub const DCT_FLIPADST: usize = 5;
+pub const FLIPADST_FLIPADST: usize = 6;
+pub const ADST_FLIPADST: usize = 7;
+pub const FLIPADST_ADST: usize = 8;
+pub const IDTX: usize = 9;
+pub const V_DCT: usize = 10;
+pub const H_DCT: usize = 11;
+pub const V_ADST: usize = 12;
+pub const H_ADST: usize = 13;
+pub const V_FLIPADST: usize = 14;
+pub const H_FLIPADST: usize = 15;
+pub const WHT_WHT: usize = 16;
+
+/// The slots of `assign_itx1_fn` (src/arm/itx.h, src/x86/itx.h): DCT_DCT.
+pub const ITX1: &[usize] = &[DCT_DCT];
+/// The slots of `assign_itx2_fn`: and the identity.
+pub const ITX2: &[usize] = &[DCT_DCT, IDTX];
+/// The slots of `assign_itx12_fn`: and the ADST, flipped ADST and V_DCT /
+/// H_DCT combinations.
+pub const ITX12: &[usize] = &[
+    DCT_DCT,
+    IDTX,
+    ADST_DCT,
+    FLIPADST_DCT,
+    H_DCT,
+    DCT_ADST,
+    ADST_ADST,
+    FLIPADST_ADST,
+    DCT_FLIPADST,
+    ADST_FLIPADST,
+    FLIPADST_FLIPADST,
+    V_DCT,
+];
+/// The slots of `assign_itx16_fn`: every type but WHT.
+pub const ITX16: &[usize] = &[
+    DCT_DCT,
+    IDTX,
+    ADST_DCT,
+    FLIPADST_DCT,
+    H_DCT,
+    DCT_ADST,
+    ADST_ADST,
+    FLIPADST_ADST,
+    DCT_FLIPADST,
+    ADST_FLIPADST,
+    FLIPADST_FLIPADST,
+    V_DCT,
+    H_ADST,
+    H_FLIPADST,
+    V_ADST,
+    V_FLIPADST,
+];
+/// The slot of `assign_itx_fn(…, identity_identity, IDTX, …)`.
+pub const IDENTITY: &[usize] = &[IDTX];
 
 // --- the DSP-table boundary ----------------------------------------------------
 
@@ -239,18 +320,9 @@ unsafe extern "C" fn wht_16bpc(dst: *mut u16, stride: isize, coeff: *mut i32, _e
     blocks::wht_add(level(), &mut rows::<_, 4, 4>(dst, stride), coefficients(coeff, 16), bitdepth_max);
 }
 
-// --- the switch ---------------------------------------------------------------
+// --- the kernels' table -------------------------------------------------------
 
-/// Whether `DAV1D_ITX_PILOT` selects the pilot.
-fn selected() -> bool {
-    match std::env::var("DAV1D_ITX_PILOT").ok().as_deref() {
-        None => false,
-        Some("v2") => true,
-        Some(other) => panic!("DAV1D_ITX_PILOT={other}: expected v2"),
-    }
-}
-
-/// The pilot's entries of one block size, by `enum TxfmType` (WHT apart).
+/// The entries of one block size, by `enum TxfmType` (WHT apart).
 fn entries_8bpc<const W: usize, const H: usize, const SW: usize, const SH: usize>() -> [ItxFn; 16] {
     [
         itx_8bpc::<W, H, SW, SH, 0>,
@@ -294,7 +366,7 @@ fn entries_16bpc<const W: usize, const H: usize, const SW: usize, const SH: usiz
     ]
 }
 
-/// The pilot's entries, by `enum RectTxfmSize` and `enum TxfmType` (`SW`,
+/// The entries, by `enum RectTxfmSize` and `enum TxfmType` (`SW`,
 /// `SH` are min(W, 32), min(H, 32)).
 fn table_8bpc() -> [[ItxFn; 16]; 19] {
     [
@@ -344,44 +416,48 @@ fn table_16bpc() -> [[ItxFn16; 16]; 19] {
     ]
 }
 
-/// Replaces each slot of `table` that differs from `before` (the slots the
-/// shipped init has just given a SIMD kernel) by the pilot's kernel.
-/// `address` compares the function pointers.
-fn replace_changed<F: Copy>(
-    table: &mut [[Option<F>; 17]; 19],
-    before: &[[Option<F>; 17]; 19],
-    address: fn(F) -> usize,
-    pilot: impl Fn(usize, usize) -> F,
-) {
-    for (tx, (row, row_before)) in table.iter_mut().zip(before).enumerate() {
-        for (tx_type, (slot, slot_before)) in row.iter_mut().zip(row_before).enumerate() {
-            if slot.map(address) != slot_before.map(address) {
-                *slot = Some(pilot(tx, tx_type));
-            }
+/// The kernels of one pixel type (`F`: `ItxFn` or `ItxFn16`), for the init
+/// mirrors to fill the slots where the original assigns its assembly.
+pub struct Kernels<F> {
+    table: [[F; 16]; 19],
+    wht: F,
+}
+
+impl Kernels<ItxFn> {
+    /// The 8 bpc kernels, if the CPU has the level (module documentation).
+    pub fn new_8bpc() -> Option<Self> {
+        if !available() {
+            return None;
+        }
+        scan_extents();
+        Some(Kernels { table: table_8bpc(), wht: wht_8bpc })
+    }
+}
+
+impl Kernels<ItxFn16> {
+    /// The 16 bpc kernels (10 and 12 bits), if the CPU has the level.
+    pub fn new_16bpc() -> Option<Self> {
+        if !available() {
+            return None;
+        }
+        scan_extents();
+        Some(Kernels { table: table_16bpc(), wht: wht_16bpc })
+    }
+}
+
+impl<F: Copy> Kernels<F> {
+    /// `assign_itx_fn( , 4, 4, wht_wht, WHT_WHT, …)`.
+    pub fn assign_wht(&self, t: &mut [[Option<F>; 17]; 19]) {
+        t[TX_4X4][WHT_WHT] = Some(self.wht);
+    }
+
+    /// `assign_itx<n>_fn` for the block size `tx` (`enum RectTxfmSize`):
+    /// the slots `slots` (`ITX1` … `ITX16`, `IDENTITY`).
+    pub fn assign(&self, t: &mut [[Option<F>; 17]; 19], tx: usize, slots: &[usize]) {
+        for &tx_type in slots {
+            t[tx][tx_type] = Some(self.table[tx][tx_type]);
         }
     }
-}
-
-/// Called by the shipped `itx_dsp_init_*_8bpc` after it has assigned its
-/// SIMD kernels, with the table as it was before: hands those slots to the
-/// pilot when `DAV1D_ITX_PILOT=v2`.
-pub fn install_8bpc(table: &mut [[Option<ItxFn>; 17]; 19], before: &[[Option<ItxFn>; 17]; 19]) {
-    if !selected() || !available() {
-        return;
-    }
-    scan_extents();
-    let pilot = table_8bpc();
-    replace_changed(table, before, |f| f as usize, |tx, tx_type| if tx_type == WHT_WHT { wht_8bpc } else { pilot[tx][tx_type] });
-}
-
-/// As `install_8bpc`, at 16 bpc.
-pub fn install_16bpc(table: &mut [[Option<ItxFn16>; 17]; 19], before: &[[Option<ItxFn16>; 17]; 19]) {
-    if !selected() || !available() {
-        return;
-    }
-    scan_extents();
-    let pilot = table_16bpc();
-    replace_changed(table, before, |f| f as usize, |tx, tx_type| if tx_type == WHT_WHT { wht_16bpc } else { pilot[tx][tx_type] });
 }
 
 #[cfg(test)]

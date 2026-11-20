@@ -2,33 +2,22 @@
 // Copyright © 2018, Two Orioles, LLC
 // All rights reserved. BSD-2-Clause; see LICENSES/ in this crate.
 
-//! Experiment (branch `v1/dav1d-cdef-pilot`, not for `main`): CDEF written
-//! from the algorithm instead of transliterated from dav1d's assembly.
+//! CDEF written from the algorithm (ADR 0062, "Kernels written from the
+//! algorithm"): `upstream/dav1d/src/cdef_tmpl.c` on the portable vector
+//! types of `fearless_simd` (`kernels.rs`), one implementation for NEON on
+//! AArch64 and AVX2 on x86-64, at 8 and 16 bpc. It gives the C's output, and
+//! so the output of the original's assembly, which checkasm holds to the C.
 //!
-//! Three variants of the same kernels, each meant to give the output of
-//! `upstream/dav1d/src/cdef_tmpl.c` (and so of the original's assembly,
-//! which checkasm holds to the C):
+//! This module holds the DSP-table boundary (the only raw-pointer code), the
+//! padding of the C `padding` function, the parameters derived from the
+//! strengths, the direction table, and the installation: the init mirrors
+//! (`simd/arm/cdef.rs`, `simd/x86/cdef.rs`) call `install_8bpc` and
+//! `install_16bpc` where the original assigns its NEON or AVX2 kernels. On
+//! x86-64 `fearless_simd`'s `Avx2` level needs x86-64-v3 (AVX2, FMA, BMI1/2,
+//! F16C, LZCNT, MOVBE), a little more than dav1d's AVX2 flag; on a CPU with
+//! the flag but without that level the C kernels stay.
 //!
-//! - `v1_autovec`: plain Rust on fixed-size arrays, written so that LLVM
-//!   vectorizes it; no intrinsics, no `unsafe`.
-//! - `v2_fearless`: the same algorithm on the vector types of the
-//!   `fearless_simd` crate (portable across NEON and AVX2).
-//! - `v3_neon` / `v3_avx2`: the same algorithm with `core::arch`
-//!   intrinsics, one implementation per architecture.
-//!
-//! This module holds what the three share: the DSP-table boundary (the
-//! only raw-pointer code), the padding of the C `padding` function, the
-//! parameters derived from the strengths, and the direction table.
-//!
-//! The switch: the module exists only when the crate is built with
-//! `--cfg dav1d_cdef_pilot` (via `RUSTFLAGS`), so a normal build is the
-//! shipped port, unchanged. In such a build the environment variable
-//! `DAV1D_CDEF_PILOT=v1|v2|v3` picks a variant when the DSP table is
-//! initialized (after the shipped init has run); unset, the shipped kernels
-//! stay. With the CPU flags masked below NEON / AVX2 the C kernels stay as
-//! before, so the scalar gate is unaffected.
-//!
-//! The numerics, argued once: `cdef_tmpl.c` computes in `int`. The variants
+//! The numerics, argued once: `cdef_tmpl.c` computes in `int`. The kernels
 //! compute in 16-bit lanes, which is exact here:
 //! - the padded block holds pixels (0..=4095) or the C's `INT16_MIN` marker;
 //! - `|p - px|` is at most 32768 + 4095 and fits `u16` (`i16::abs_diff`);
@@ -45,12 +34,7 @@
 
 use core::ffi::{c_int, c_uint};
 
-pub mod v1_autovec;
-pub mod v2_fearless;
-#[cfg(target_arch = "aarch64")]
-pub mod v3_neon;
-#[cfg(target_arch = "x86_64")]
-pub mod v3_avx2;
+mod kernels;
 
 /// `enum CdefEdgeFlags` (src/cdef.h).
 pub const HAVE_LEFT: u32 = 1 << 0;
@@ -213,16 +197,6 @@ pub fn best_direction(cost: [u32; 8]) -> (c_int, c_uint) {
     (best_dir as c_int, (cost[best_dir] - cost[best_dir ^ 4]) >> 10)
 }
 
-/// One implementation of the kernels.
-pub trait Variant {
-    /// # Safety
-    /// On x86-64 the CPU has AVX2 (the variant is installed only then).
-    unsafe fn filter<const W: usize, const H: usize>(input: &Padded, params: &Params) -> Filtered;
-    /// # Safety
-    /// As for `filter`.
-    unsafe fn find_dir(block: &DirBlock) -> (c_int, c_uint);
-}
-
 // --- the DSP-table boundary ----------------------------------------------------
 
 /// The C `padding` (cdef_tmpl.c): reads the block's pre-filter
@@ -304,9 +278,13 @@ unsafe fn write_block<P: Pixel>(dst: *mut P, stride: isize, block: &Filtered, w:
     }
 }
 
-/// A `cdef_fn` at 8 bpc for variant `V` and block size `W`x`H`.
+/// A `cdef_fn` at 8 bpc for block size `W`x`H`.
+///
+/// # Safety
+/// The contract of a `cdef_fn` (`read_neighborhood`, `write_block`), and the
+/// CPU has the level (`kernels::available`; installed only then).
 #[cfg_attr(target_arch = "x86_64", target_feature(enable = "avx2"))]
-unsafe extern "C" fn filter_8bpc<V: Variant, const W: usize, const H: usize>(
+unsafe extern "C" fn filter_8bpc<const W: usize, const H: usize>(
     dst: *mut u8,
     stride: isize,
     left: *const [u8; 2],
@@ -320,13 +298,16 @@ unsafe extern "C" fn filter_8bpc<V: Variant, const W: usize, const H: usize>(
 ) {
     let input = read_neighborhood::<_, W, H>(dst, stride, left, top, bottom, edges);
     let params = Params::new(pri_strength, sec_strength, dir, damping, 0);
-    let output = V::filter::<W, H>(&input, &params);
+    let output = kernels::filter::<W, H>(&input, &params);
     write_block(dst, stride, &output, W, H);
 }
 
 /// A `cdef_fn` at 16 bpc.
+///
+/// # Safety
+/// As for `filter_8bpc`.
 #[cfg_attr(target_arch = "x86_64", target_feature(enable = "avx2"))]
-unsafe extern "C" fn filter_16bpc<V: Variant, const W: usize, const H: usize>(
+unsafe extern "C" fn filter_16bpc<const W: usize, const H: usize>(
     dst: *mut u16,
     stride: isize,
     left: *const [u16; 2],
@@ -342,7 +323,7 @@ unsafe extern "C" fn filter_16bpc<V: Variant, const W: usize, const H: usize>(
     let input = read_neighborhood::<_, W, H>(dst, stride, left, top, bottom, edges);
     let bitdepth_min_8 = (bitdepth_max as u32 + 1).ilog2() - 8;
     let params = Params::new(pri_strength, sec_strength, dir, damping, bitdepth_min_8);
-    let output = V::filter::<W, H>(&input, &params);
+    let output = kernels::filter::<W, H>(&input, &params);
     write_block(dst, stride, &output, W, H);
 }
 
@@ -361,78 +342,58 @@ unsafe fn read_dir_block<P: Pixel>(img: *const P, stride: isize, bitdepth_min_8:
 }
 
 /// A `cdef_dir_fn` at 8 bpc.
+///
+/// # Safety
+/// The contract of a `cdef_dir_fn` (`read_dir_block`; `var` writable), and
+/// the CPU has the level.
 #[cfg_attr(target_arch = "x86_64", target_feature(enable = "avx2"))]
-unsafe extern "C" fn dir_8bpc<V: Variant>(img: *const u8, stride: isize, var: *mut c_uint) -> c_int {
-    let (dir, variance) = V::find_dir(&read_dir_block(img, stride, 0));
+unsafe extern "C" fn dir_8bpc(img: *const u8, stride: isize, var: *mut c_uint) -> c_int {
+    let (dir, variance) = kernels::find_dir(&read_dir_block(img, stride, 0));
     *var = variance;
     dir
 }
 
 /// A `cdef_dir_fn` at 16 bpc.
+///
+/// # Safety
+/// As for `dir_8bpc`.
 #[cfg_attr(target_arch = "x86_64", target_feature(enable = "avx2"))]
-unsafe extern "C" fn dir_16bpc<V: Variant>(img: *const u16, stride: isize, var: *mut c_uint, bitdepth_max: c_int) -> c_int {
+unsafe extern "C" fn dir_16bpc(img: *const u16, stride: isize, var: *mut c_uint, bitdepth_max: c_int) -> c_int {
     let bitdepth_min_8 = (bitdepth_max as u32 + 1).ilog2() - 8;
-    let (dir, variance) = V::find_dir(&read_dir_block(img, stride, bitdepth_min_8));
+    let (dir, variance) = kernels::find_dir(&read_dir_block(img, stride, bitdepth_min_8));
     *var = variance;
     dir
 }
 
-// --- the switch ---------------------------------------------------------------
+// --- the installation -----------------------------------------------------------
 
 #[cfg(target_arch = "aarch64")]
 use super::arm::cdef::{Dav1dCdefDSPContext, Dav1dCdefDSPContext16};
 #[cfg(target_arch = "x86_64")]
 use super::x86::cdef::{Dav1dCdefDSPContext, Dav1dCdefDSPContext16};
 
-/// The variant `DAV1D_CDEF_PILOT` names, if any.
-fn selected() -> Option<&'static str> {
-    match std::env::var("DAV1D_CDEF_PILOT").ok()?.as_str() {
-        "v1" => Some("v1"),
-        "v2" => Some("v2"),
-        "v3" => Some("v3"),
-        other => panic!("DAV1D_CDEF_PILOT={other}: expected v1, v2 or v3"),
-    }
-}
-
-fn install8<V: Variant>(c: &mut Dav1dCdefDSPContext) {
-    c.dir = Some(dir_8bpc::<V>);
-    c.fb[0] = Some(filter_8bpc::<V, 8, 8>);
-    c.fb[1] = Some(filter_8bpc::<V, 4, 8>);
-    c.fb[2] = Some(filter_8bpc::<V, 4, 4>);
-}
-
-fn install16<V: Variant>(c: &mut Dav1dCdefDSPContext16) {
-    c.dir = Some(dir_16bpc::<V>);
-    c.fb[0] = Some(filter_16bpc::<V, 8, 8>);
-    c.fb[1] = Some(filter_16bpc::<V, 4, 8>);
-    c.fb[2] = Some(filter_16bpc::<V, 4, 4>);
-}
-
-#[cfg(target_arch = "aarch64")]
-type V3 = v3_neon::Neon;
-#[cfg(target_arch = "x86_64")]
-type V3 = v3_avx2::Avx2;
-
-/// Called at the end of the shipped `cdef_dsp_init_*_8bpc`, only where it
-/// installed its SIMD kernels (NEON, AVX2): replaces them by the selected
-/// variant.
+/// Called by `cdef_dsp_init_*_8bpc` where the original assigns its NEON or
+/// AVX2 kernels: the four slots get these kernels if the CPU has the level
+/// (module documentation); otherwise the C kernels stay.
 pub fn install_8bpc(c: &mut Dav1dCdefDSPContext) {
-    match selected() {
-        Some("v1") => install8::<v1_autovec::AutoVec>(c),
-        Some("v2") if v2_fearless::available() => install8::<v2_fearless::Fearless>(c),
-        Some("v3") => install8::<V3>(c),
-        _ => {}
+    if !kernels::available() {
+        return;
     }
+    c.dir = Some(dir_8bpc);
+    c.fb[0] = Some(filter_8bpc::<8, 8>);
+    c.fb[1] = Some(filter_8bpc::<4, 8>);
+    c.fb[2] = Some(filter_8bpc::<4, 4>);
 }
 
-/// As `install_8bpc`, at 16 bpc.
+/// As `install_8bpc`, at 16 bpc (every high bit depth).
 pub fn install_16bpc(c: &mut Dav1dCdefDSPContext16) {
-    match selected() {
-        Some("v1") => install16::<v1_autovec::AutoVec>(c),
-        Some("v2") if v2_fearless::available() => install16::<v2_fearless::Fearless>(c),
-        Some("v3") => install16::<V3>(c),
-        _ => {}
+    if !kernels::available() {
+        return;
     }
+    c.dir = Some(dir_16bpc);
+    c.fb[0] = Some(filter_16bpc::<8, 8>);
+    c.fb[1] = Some(filter_16bpc::<4, 8>);
+    c.fb[2] = Some(filter_16bpc::<4, 4>);
 }
 
 #[cfg(test)]
