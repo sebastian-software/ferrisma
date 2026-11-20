@@ -75,6 +75,25 @@ CODE_FILES = {"tools/xtask/src/main.rs"}
 SKIP_PREFIXES = ("docs/", "homepage/", "src/", "tests/", "examples/", "fuzz/fuzz_targets/")
 SKIP_FILES = {"tools/rename_ports.py", "scripts/bench/ci-perf/engine.py"}
 # xtask maps a codec to its *directory* in this block; directories keep their names.
+# Manual additions (documented here, applied by every run): places that build a
+# package name from parts, which no generic rule can see. Each entry applies
+# only when all the old names it needs are being renamed in this run.
+# (file, needed old names, old text, new text)
+FIXUPS = [
+    # The root-profile probe writes its own manifest with the three AVIF
+    # sub-crates as dependencies, naming them `libavif-{name}` (found by the
+    # AVIF root workflow on v1/rename-ports, 2026-11-20).
+    ("codecs/libavif-rs/tools/check_root_profile.py",
+     {"libavif-aom", "libavif-dav1d", "libavif-sharpyuv"},
+     r"""    for alias, name in [('aom', 'aom'), ('dav1d', 'dav1d'), ('sharpyuv', 'sharpyuv')]:
+        manifest += f'{alias}={{package="libavif-{name}",path={json.dumps(str(ROOT / "crates" / name))}}}\n'
+""",
+     r"""    for alias, name, package in [('aom', 'aom', 'ferrisma-libaom'), ('dav1d', 'dav1d', 'ferrisma-dav1d'),
+                                 ('sharpyuv', 'sharpyuv', 'ferrisma-libavif-sharpyuv')]:
+        manifest += f'{alias}={{package="{package}",path={json.dumps(str(ROOT / "crates" / name))}}}\n'
+"""),
+]
+
 XTASK_DIR_BLOCK = re.compile(r'root\(\)\.join\("codecs"\)\.join\(match codec\.as_str\(\) \{.*?\}\);', re.S)
 
 
@@ -187,6 +206,10 @@ def rename_code(rel: str, text: str, mapping: dict[str, str]) -> str:
         return apply(rf'((?<![\w-])(?:-p|--package)[ =])({names})((?![\w/-]))', text)
     text = apply(rf'''(["'])({names})(\1)''', text)
     text = apply(rf'((?<![\w-])(?:-p|--package)[ =])({names})((?![\w/-]))', text)
+    # Manifest fragments that tools write themselves (profile headers and
+    # `package = "..."` inside Python or shell strings).
+    text = apply(rf'(package\.)({names})(\])', text)
+    text = apply(rf'(package\s*=\s*\\?")({names})(\\?")', text)
     if rel.endswith(".draft"):
         text = apply(rf'^(\s+)({names})(\s*)$', text, re.M)
     return text
@@ -228,6 +251,9 @@ def main() -> None:
             new_text = rename_code(rel, path.read_text(), mapping)
         else:
             continue
+        for fixed, needed, old_text, new_text_part in FIXUPS:
+            if rel == fixed and needed <= set(mapping):
+                new_text = new_text.replace(old_text, new_text_part)
         if new_text != path.read_text():
             changed.append(rel)
             if not args.check:

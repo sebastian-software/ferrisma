@@ -193,7 +193,7 @@ def main():
         '[profile.release]\npanic = "unwind"\noverflow-checks = false\n'
         # The workspace's dev setting for dav1d's fearless_simd kernels (root
         # Cargo.toml): unoptimized they need megabyte stack frames.
-        '[profile.dev.package.libavif-dav1d-kernels]\nopt-level=1\ndebug="line-tables-only"\n[profile.dev.package.fearless_simd]\nopt-level=1\ndebug="line-tables-only"\n'
+        '[profile.dev.package.ferrisma-dav1d-kernels]\nopt-level=1\ndebug="line-tables-only"\n[profile.dev.package.fearless_simd]\nopt-level=1\ndebug="line-tables-only"\n'
     )
     # The probe is a Rust consumer of an rlib, so it owns the runtime search
     # path for the same locally built AVM dylib that CMake consumers link.
