@@ -348,3 +348,13 @@ all 60 files. Under Rosetta (real AVX2) `--test simd` passes 264 tests,
 `check_aom_simd_original.py` reports `avx2`, `sse4.1` and `scalar` 82 of 82
 each, and the kernel harness (variance family and CDEF, 60 inputs) finds the
 port equal to the original at all three levels.
+
+## Amendment: owner decisions of 2026-11-20 (prec_reduce, #122)
+
+ADR 0056's amendment of the same date applies on x86-64 unchanged: words of
+`av1_nn_output_prec_reduce` whose scaled value lies outside `int` (C
+undefined behavior; the GCC original yields `INT_MIN`, the translation
+saturates) are not compared with the original, only the absence of a crash
+or memory error is required, and every other word stays bit-exact. #122 is
+closed: decision D4's gate replaces libaom's own SIMD-against-C tests.
+

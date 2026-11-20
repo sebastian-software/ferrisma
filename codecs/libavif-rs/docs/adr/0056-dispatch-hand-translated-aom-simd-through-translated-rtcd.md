@@ -86,7 +86,8 @@ Each kernel file needs:
 The original test executables are built with the generic configuration and
 do not compile their Neon instantiations. Running them against Rust needs a
 test build with an Arm configuration and a complete set of the kernels each
-test file references; that remains open.
+test file references; that remains open. (Closed 2026-11-20, #122: see the
+amendment "owner decisions of 2026-11-20".)
 
 ## Consequences
 
@@ -492,6 +493,27 @@ as explicit and leaves them direct. The arm64 overlay dispatches 631 RTCD
 functions; `check_aom_simd_original.py` reports `neon` 82 of 82 and `scalar`
 82 of 82 identical to the original.
 
+## Amendment: owner decisions of 2026-11-20 (prec_reduce, #122)
+
+- **`av1_nn_output_prec_reduce` with out-of-range words.** The reduction
+  computes `(int)(x * 512 + 0.5) / 512`; where the scaled value lies outside
+  `int`, C's conversion is undefined behavior, and the builds disagree
+  (Clang's AArch64 original wraps, GCC's x86-64 original yields `INT_MIN`,
+  the translation saturates). The owner applies the O1 rule (engine
+  ADR-0041): such words are not compared with the original, and only the
+  absence of a crash or memory error is required. The rule is limited to
+  those words; every other output of `av1_nn_predict` and of the encoder
+  stays bit-exact. The kernel evidence of the CNN/NN/Hadamard amendment above
+  already excludes exactly these 73 (AArch64) and 44 (x86-64) words;
+  `tests/simd/nn_predict.rs` (`prec_reduce_out_of_range_does_not_crash`)
+  states the reason and checks that the reduction and every dispatched
+  `av1_nn_predict` survive such inputs.
+- **#122 closed.** The original's own SIMD-against-C tests are not built for
+  the port: decision D4's gate (`tools/check_aom_simd_original.py`, the
+  port's SIMD level against the original's SIMD build at the same level)
+  replaces them, together with the supplementary transcriptions in
+  `tests/simd`, which keep each original test's cases and tolerances.
+
 ## Amendment log
 
 - 2026-11-15 — Owner decisions on #203 (non-contracting reference for both
@@ -501,3 +523,5 @@ functions; `check_aom_simd_original.py` reports `neon` 82 of 82 and `scalar`
   still-image profile; #123 table corrected for Hadamard).
 - 2026-11-20 — Variance family (block variance, MSE, SSE/sum) dispatched to
   Neon, 631 RTCD functions.
+- 2026-11-20 — Owner decisions: prec_reduce out-of-range words under O1; #122 closed
+  (the D4 gate replaces libaom's SIMD-against-C tests).

@@ -162,3 +162,61 @@ fn sse3_fast_softmax_16_random_values() {
         }
     }
 }
+
+/// Owner decision of 2026-11-20 (O1 applied to `av1_nn_output_prec_reduce`,
+/// ADR 0056 and 0058 amendments of that date): an output word whose scaled
+/// value `out * 512 + 0.5` lies outside `int` is converted with undefined
+/// behavior in the original (Clang's AArch64 build wraps, GCC's x86-64 build
+/// yields INT_MIN, the translation saturates), so such words are not compared
+/// with the original; only the absence of a crash or memory error is
+/// required. Every other output word stays bit-exact (the gates and the
+/// kernel transcriptions above). This test feeds the reduction words on both
+/// sides of the `int` range and through every dispatched `av1_nn_predict`.
+#[test]
+fn prec_reduce_out_of_range_does_not_crash() {
+    use aom::av1__encoder__ml::av1_nn_output_prec_reduce;
+    let mut words = [0.0f32, 1.5, -1.5, 4.0e6, -4.0e6, 4.2e6, -4.2e6, 1.0e30, -1.0e30, f32::MAX,
+                     f32::MIN, f32::INFINITY, f32::NEG_INFINITY, f32::NAN];
+    // SAFETY: the buffer holds `words.len()` floats.
+    unsafe { av1_nn_output_prec_reduce(words.as_mut_ptr(), words.len() as i32) };
+    // In range, the reduction is the C expression (int)(x * 512 + 0.5) / 512,
+    // which truncates toward zero: -1.5 becomes -767 / 512.
+    assert_eq!(words[1].to_bits(), 1.5f32.to_bits());
+    assert_eq!(words[2].to_bits(), (-767.0f32 / 512.0).to_bits());
+    assert_eq!(words[3].to_bits(), 4.0e6f32.to_bits());
+
+    let mut weights = vec![1.0e6f32; NN_MAX_NODES_PER_LAYER * NN_MAX_NODES_PER_LAYER];
+    let bias = [1.0e6f32; NN_MAX_NODES_PER_LAYER];
+    let inputs = [1.0e6f32; NN_MAX_NODES_PER_LAYER];
+    let mut outputs = [0f32; NN_MAX_NODES_PER_LAYER];
+    let mut kernels: Vec<NnPredictFunc> = vec![av1_nn_predict_c];
+    #[cfg(target_arch = "aarch64")]
+    kernels.push(av1_nn_predict_neon);
+    #[cfg(target_arch = "x86_64")]
+    {
+        if std::arch::is_x86_feature_detected!("sse3") {
+            kernels.push(av1_nn_predict_sse3);
+        }
+        if std::arch::is_x86_feature_detected!("avx2") {
+            kernels.push(av1_nn_predict_avx2);
+        }
+    }
+    for &(num_inputs, num_outputs, num_hidden_layers, hidden) in K_SHAPES.iter() {
+        // SAFETY: NN_CONFIG is a C record of integers and pointers.
+        let mut nn_config: NN_CONFIG = unsafe { core::mem::zeroed() };
+        nn_config.num_inputs = num_inputs;
+        nn_config.num_outputs = num_outputs;
+        nn_config.num_hidden_layers = num_hidden_layers;
+        for (i, &n) in hidden.iter().enumerate() {
+            nn_config.num_hidden_nodes[i] = n;
+        }
+        for layer in 0..=num_hidden_layers as usize {
+            nn_config.weights[layer] = weights.as_mut_ptr();
+            nn_config.bias[layer] = bias.as_ptr();
+        }
+        for &kernel in &kernels {
+            // SAFETY: every layer points at full-size weight and bias tables.
+            unsafe { kernel(inputs.as_ptr(), &nn_config, 1, outputs.as_mut_ptr()) };
+        }
+    }
+}
