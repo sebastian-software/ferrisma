@@ -74,41 +74,65 @@ dependencies = [
  "ferrisma-jxl-decoder",
  "ferrisma-jxl-encoder",
  "ferrisma-kernels",
+ "ferrisma-libjpeg-turbo",
+ "ferrisma-libjxl",
+ "ferrisma-libwebp",
  "jxl-oxide",
- "libjpeg-turbo-rs",
- "libjxl-rs",
- "libwebp-rs",
  "moxcms",
+]
+
+[[package]]
+name = "ferrisma-avif-adapter"
+version = "0.0.0"
+dependencies = [
+ "ferrisma",
+ "ferrisma-libavif",
 ]
 
 [[package]]
 name = "ferrisma-avif-read"
 version = "0.0.0"
 dependencies = [
- "libavif-rs",
+ "ferrisma-libavif",
 ]
 
 [[package]]
 name = "ferrisma-avif-write"
 version = "0.0.0"
 dependencies = [
- "libavif-rs",
+ "ferrisma-libavif",
+]
+
+[[package]]
+name = "ferrisma-dav1d"
+version = "0.1.0"
+dependencies = [
+ "c2rust-bitfields",
+ "ferrisma-dav1d-kernels",
+ "libc",
+]
+
+[[package]]
+name = "ferrisma-dav1d-kernels"
+version = "0.1.0"
+dependencies = [
+ "fearless_simd",
 ]
 
 [[package]]
 name = "ferrisma-jxl-decoder"
 version = "0.1.0"
 dependencies = [
+ "ferrisma-libjxl",
  "jxl-oxide",
- "libjxl-rs",
 ]
 
 [[package]]
 name = "ferrisma-jxl-encoder"
 version = "0.1.0"
 dependencies = [
+ "ferrisma-libjxl",
  "jxl-oxide",
- "libjxl-rs",
 ]
 
 [[package]]
@@ -116,12 +140,50 @@ name = "ferrisma-kernels"
 version = "0.1.0"
 
 [[package]]
-name = "ferrisma-libavif"
-version = "0.0.0"
+name = "ferrisma-libaom"
+version = "0.1.0"
 dependencies = [
- "ferrisma",
- "libavif-rs",
+ "c2rust-bitfields",
+ "libc",
 ]
+
+[[package]]
+name = "ferrisma-libavif"
+version = "0.1.0"
+dependencies = [
+ "ferrisma-dav1d",
+ "ferrisma-libaom",
+ "ferrisma-libavif-sharpyuv",
+ "libc",
+]
+
+[[package]]
+name = "ferrisma-libavif-sharpyuv"
+version = "0.1.0"
+dependencies = [
+ "ferrisma-libwebp",
+ "ferrisma-sharpyuv",
+ "libc",
+]
+
+[[package]]
+name = "ferrisma-libjpeg-turbo"
+version = "0.1.0"
+
+[[package]]
+name = "ferrisma-libjxl"
+version = "0.1.0"
+
+[[package]]
+name = "ferrisma-libwebp"
+version = "0.1.0"
+dependencies = [
+ "ferrisma-sharpyuv",
+]
+
+[[package]]
+name = "ferrisma-sharpyuv"
+version = "0.1.0"
 
 [[package]]
 name = "ferrisma-xtask"
@@ -304,72 +366,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "libavif-aom"
-version = "0.1.0"
-dependencies = [
- "c2rust-bitfields",
- "libc",
-]
-
-[[package]]
-name = "libavif-dav1d"
-version = "0.1.0"
-dependencies = [
- "c2rust-bitfields",
- "libavif-dav1d-kernels",
- "libc",
-]
-
-[[package]]
-name = "libavif-dav1d-kernels"
-version = "0.1.0"
-dependencies = [
- "fearless_simd",
-]
-
-[[package]]
-name = "libavif-rs"
-version = "0.1.0"
-dependencies = [
- "libavif-aom",
- "libavif-dav1d",
- "libavif-sharpyuv",
- "libc",
-]
-
-[[package]]
-name = "libavif-sharpyuv"
-version = "0.1.0"
-dependencies = [
- "libc",
- "libsharpyuv-core",
- "libwebp-rs",
-]
-
-[[package]]
 name = "libc"
 version = "0.2.191"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "65cd87c9a6d60536580b316ad985726104730a5151c99845f2490428ef91240a"
-
-[[package]]
-name = "libjpeg-turbo-rs"
-version = "0.1.0"
-
-[[package]]
-name = "libjxl-rs"
-version = "0.1.0"
-
-[[package]]
-name = "libsharpyuv-core"
-version = "0.1.0"
-
-[[package]]
-name = "libwebp-rs"
-version = "0.1.0"
-dependencies = [
- "libsharpyuv-core",
-]
 
 [[package]]
 name = "moxcms"

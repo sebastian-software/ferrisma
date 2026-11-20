@@ -53,7 +53,7 @@ def instrumented_libraries(work):
         '-Zsanitizer=address', '-Zexternal-clangrt', '-Cforce-frame-pointers=yes',
         '-Lnative=' + str(runtime), '-ldylib=rustc-nightly_rt.asan',
         '-Clink-arg=-Wl,-rpath,' + str(runtime), '--cfg', 'libavif_rs_asan'])
-    subprocess.run(['cargo', 'build', '-p', 'libavif-dav1d', '--release', '--locked',
+    subprocess.run(['cargo', 'build', '-p', 'ferrisma-dav1d', '--release', '--locked',
                     '--target', 'aarch64-apple-darwin', '--target-dir', work / 'target'],
                    cwd=ROOT, env=rust_environment, check=True)
     candidate = work / 'target/aarch64-apple-darwin/release/libdav1d.a'

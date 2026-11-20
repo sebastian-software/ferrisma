@@ -50,7 +50,7 @@ def main():
             raise SystemExit(f'The native reference and Rust preprocessing differ: {name}')
     output = ROOT / f'build/aom-rust-{profile}'
     output.mkdir(parents=True, exist_ok=True)
-    cargo = ['cargo', 'build', '-p', 'libavif-aom', '--locked']
+    cargo = ['cargo', 'build', '-p', 'ferrisma-libaom', '--locked']
     if not args.debug:
         cargo.append('--release')
     subprocess.run(cargo, check=True)

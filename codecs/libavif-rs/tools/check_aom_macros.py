@@ -51,7 +51,7 @@ def main():
     for name, expected in manifest['original_headers'].items():
         if expected != provenance[name] or hashlib.sha256((source_root / name).read_bytes()).hexdigest() != expected:
             raise SystemExit(f'Modified original macro header: {name}')
-    command = ['cargo', 'build', '-p', 'libavif-aom', '--features', 'port-macro-tests',
+    command = ['cargo', 'build', '-p', 'ferrisma-libaom', '--features', 'port-macro-tests',
                '--locked', '--target-dir', work / 'target']
     if not args.debug:
         command.append('--release')

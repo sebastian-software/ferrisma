@@ -301,9 +301,9 @@ C_ENC_SCALAR=$WORK/c-bin/encode_still-scalar
 C_DEC_SCALAR=$WORK/c-bin/decode_still-scalar
 
 # 2. The port: the repository release profile, no RUSTFLAGS.
-(cd "$ROOT" && cargo build --release --locked -p libavif-rs --example encode_still)
+(cd "$ROOT" && cargo build --release --locked -p ferrisma-libavif --example encode_still)
 (cd "$ROOT" && cargo build --release --locked -p ferrisma-avif-read --example decode_still)
-(cd "$ROOT" && cargo build --release --locked -p libavif-rs --example decode_codec)
+(cd "$ROOT" && cargo build --release --locked -p ferrisma-libavif --example decode_codec)
 EXAMPLES=${CARGO_TARGET_DIR:-$ROOT/target}/release/examples
 [[ "$EXAMPLES" = /* ]] || EXAMPLES=$ROOT/$EXAMPLES
 P_ENC=$EXAMPLES/encode_still
@@ -394,8 +394,8 @@ record = {
                     "decode": "decode_still.c written by codec_avif.sh", "cflags": "-O2"},
     },
     "port": {
-        "packages": ["libavif-rs (lib avif)", "libavif-aom", "libavif-dav1d", "ferrisma-avif-read"],
-        "build": "cargo build --release --locked -p libavif-rs --example encode_still; "
+        "packages": ["libavif-rs (lib avif)", "ferrisma-libaom", "ferrisma-dav1d", "ferrisma-avif-read"],
+        "build": "cargo build --release --locked -p ferrisma-libavif --example encode_still; "
                  "cargo build --release --locked -p ferrisma-avif-read --example decode_still",
         "rustc": run("rustc", "-Vv"),
         "simd": ("AOM encoder: hand-translated Neon (macOS ARM64) or SSE2/SSE4.1/AVX2 "

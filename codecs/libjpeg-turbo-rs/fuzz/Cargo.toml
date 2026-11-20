@@ -15,7 +15,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 
-[dependencies.libjpeg-turbo-rs]
+[dependencies.ferrisma-libjpeg-turbo]
 path = ".."
 
 # Its own workspace, so that the library's and the monorepo's commands never

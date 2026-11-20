@@ -44,52 +44,52 @@
         {
           "type": "toml",
           "path": "fuzz/Cargo.lock",
-          "jsonpath": "$.package[?(@.name.value=='libsharpyuv-core' && !@.source)].version"
+          "jsonpath": "$.package[?(@.name.value=='ferrisma-sharpyuv' && !@.source)].version"
         },
         {
           "type": "toml",
           "path": "fuzz/Cargo.lock",
-          "jsonpath": "$.package[?(@.name.value=='libjpeg-turbo-rs' && !@.source)].version"
+          "jsonpath": "$.package[?(@.name.value=='ferrisma-libjpeg-turbo' && !@.source)].version"
         },
         {
           "type": "toml",
           "path": "fuzz/Cargo.lock",
-          "jsonpath": "$.package[?(@.name.value=='libwebp-rs' && !@.source)].version"
+          "jsonpath": "$.package[?(@.name.value=='ferrisma-libwebp' && !@.source)].version"
         },
         {
           "type": "toml",
           "path": "fuzz/Cargo.lock",
-          "jsonpath": "$.package[?(@.name.value=='libjxl-rs' && !@.source)].version"
+          "jsonpath": "$.package[?(@.name.value=='ferrisma-libjxl' && !@.source)].version"
         },
         {
           "type": "toml",
           "path": "fuzz/Cargo.lock",
-          "jsonpath": "$.package[?(@.name.value=='libavif-rs' && !@.source)].version"
+          "jsonpath": "$.package[?(@.name.value=='ferrisma-libavif' && !@.source)].version"
         },
         {
           "type": "toml",
           "path": "fuzz/Cargo.lock",
-          "jsonpath": "$.package[?(@.name.value=='libavif-aom' && !@.source)].version"
+          "jsonpath": "$.package[?(@.name.value=='ferrisma-libaom' && !@.source)].version"
         },
         {
           "type": "toml",
           "path": "fuzz/Cargo.lock",
-          "jsonpath": "$.package[?(@.name.value=='libavif-dav1d' && !@.source)].version"
+          "jsonpath": "$.package[?(@.name.value=='ferrisma-dav1d' && !@.source)].version"
         },
         {
           "type": "toml",
           "path": "fuzz/Cargo.lock",
-          "jsonpath": "$.package[?(@.name.value=='libavif-sharpyuv' && !@.source)].version"
+          "jsonpath": "$.package[?(@.name.value=='ferrisma-libavif-sharpyuv' && !@.source)].version"
         },
         {
           "type": "toml",
           "path": "codecs/libjpeg-turbo-rs/fuzz/Cargo.lock",
-          "jsonpath": "$.package[?(@.name.value=='libjpeg-turbo-rs' && !@.source)].version"
+          "jsonpath": "$.package[?(@.name.value=='ferrisma-libjpeg-turbo' && !@.source)].version"
         },
         {
           "type": "toml",
           "path": "codecs/libwebp-rs/fuzz/Cargo.lock",
-          "jsonpath": "$.package[?(@.name.value=='libwebp-rs' && !@.source)].version"
+          "jsonpath": "$.package[?(@.name.value=='ferrisma-libwebp' && !@.source)].version"
         }
       ]
     }

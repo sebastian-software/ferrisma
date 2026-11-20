@@ -131,7 +131,7 @@ def check_static(msrv, arch=None):
     check_docs()
     target = build_oracle.cargo_target(arch)
     run(sys.executable, "-I", ROOT / "tools/partition_test.py")
-    run("cargo", "fmt", "-p", "libwebp-rs", "--", "--check")
+    run("cargo", "fmt", "-p", "ferrisma-libwebp", "--", "--check")
     run("cargo", f"+{lint_toolchain()}", "clippy", *CARGO, *target, "--all-targets", "--all-features", "--", "-D",
         "warnings")
     if msrv:

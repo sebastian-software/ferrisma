@@ -26,7 +26,7 @@ NOTICE = re.compile(r"^(license|licence|copying|notice|patents?|authors|copyrigh
 TREE_LINE = re.compile(r"^([^ ]+) v([^ ]+)(?: .*)?$")
 EXTRA = {
     "ferrisma": ["THIRD-PARTY-NOTICES.md", "assets/icc/README.md", "assets/icc/sRGB2014.icc"],
-    "libjpeg-turbo-rs": ["README.ijg", "src/jdcolext_neon.rs", "src/jsimdcpu.rs"],
+    "ferrisma-libjpeg-turbo": ["README.ijg", "src/jdcolext_neon.rs", "src/jsimdcpu.rs"],
 }
 
 
@@ -135,7 +135,7 @@ def validate_recovered(entry: dict, source_hash: str, directory: Path, recovered
 
 def jpeg_source_review(package: dict, source_hash: str) -> str | None:
     if (package["name"], package["version"], package.get("license"), source_hash) == (
-        "libjpeg-turbo-rs", "0.1.0", "IJG AND Zlib",
+        "ferrisma-libjpeg-turbo", "0.1.0", "IJG AND Zlib",
         "f5ba795a3d447b0adcaeef7e239cf45fb5495665529c5f11c9d7de599c0afca2"):
         return "docs/license-audit.md#jpeg-source-bound-evidence"
     return None
@@ -177,7 +177,7 @@ def build(target: str, features: str, output: Path) -> int:
             for subdir in ("LICENSES", "licenses"):
                 if (directory / subdir).is_dir():
                     selected.extend(p for p in (directory / subdir).rglob("*") if p.is_file())
-            if package["name"] == "libavif-rs":
+            if package["name"] == "ferrisma-libavif":
                 selected.extend(notices(directory / "upstream/libavif", recursive=False))
         for extra in EXTRA.get(package["name"], []):
             selected.append(directory / extra)

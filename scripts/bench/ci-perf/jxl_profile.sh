@@ -76,7 +76,7 @@ CJXL=$WORK/build-simd/tools/cjxl
 DJXL=$WORK/build-simd/tools/djxl
 
 # 2. The port, as codec_jxl.sh builds it.
-(cd "$ROOT" && cargo build --release --locked -p libjxl-rs --example encode_lossy --example encode_lossless) || exit 1
+(cd "$ROOT" && cargo build --release --locked -p ferrisma-libjxl --example encode_lossy --example encode_lossless) || exit 1
 (cd "$ROOT" && cargo build --release --locked -p ferrisma-jxl-decoder --example jxl_decode_compare) || exit 1
 TARGET=${CARGO_TARGET_DIR:-$ROOT/target}
 [[ "$TARGET" = /* ]] || TARGET=$ROOT/$TARGET
@@ -108,7 +108,7 @@ cp "$CJXL" "$DJXL" "$PORT_ENC" "$PORT_ENC_LOSSLESS" "$PORT_DEC" "$OUT/bin/"
   python3 -I -c 'import json,sys; [print(e["command"]) for e in json.load(open(sys.argv[1])) if e["file"].endswith("lib/jxl/enc_ac_strategy.cc")]' \
     "$WORK/build-simd/compile_commands.json"
   echo "## port"; git -C "$ROOT" rev-parse HEAD; rustc -vV; cargo -V
-  echo "cargo build --release --locked -p libjxl-rs --example encode_lossy --example encode_lossless"
+  echo "cargo build --release --locked -p ferrisma-libjxl --example encode_lossy --example encode_lossless"
   echo "cargo build --release --locked -p ferrisma-jxl-decoder --example jxl_decode_compare"
   echo "RUSTFLAGS=${RUSTFLAGS:-<unset>} CARGO_ENCODED_RUSTFLAGS=${CARGO_ENCODED_RUSTFLAGS:-<unset>}"
   sed -n '/^\[profile.release\]/,/^\[/p' "$ROOT/Cargo.toml"

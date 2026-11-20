@@ -341,15 +341,15 @@ fn codecs(args: &[String]) -> Result<()> {
                     "--offline",
                     "--release",
                     "-p",
-                    "libavif-rs",
+                    "ferrisma-libavif",
                     "-p",
-                    "libavif-aom",
+                    "ferrisma-libaom",
                     "-p",
-                    "libavif-dav1d",
+                    "ferrisma-dav1d",
                     "-p",
-                    "libavif-dav1d-kernels",
+                    "ferrisma-dav1d-kernels",
                     "-p",
-                    "libavif-sharpyuv",
+                    "ferrisma-libavif-sharpyuv",
                 ],
             )?;
         }
@@ -364,7 +364,7 @@ fn codecs(args: &[String]) -> Result<()> {
                     "--offline",
                     "--release",
                     "-p",
-                    "libavif-dav1d",
+                    "ferrisma-dav1d",
                     "--all-targets",
                     "--features",
                     "port-test-bridges",
@@ -380,7 +380,7 @@ fn codecs(args: &[String]) -> Result<()> {
                     "--profile",
                     "checked",
                     "-p",
-                    "libavif-sharpyuv",
+                    "ferrisma-libavif-sharpyuv",
                     "--test",
                     "cross_port",
                 ],
@@ -405,7 +405,7 @@ fn codecs(args: &[String]) -> Result<()> {
                     "--locked",
                     "--offline",
                     "-p",
-                    "libavif-sharpyuv",
+                    "ferrisma-libavif-sharpyuv",
                 ],
                 &["python3", "tools/check_sharpyuv.py"],
                 &[
@@ -415,7 +415,7 @@ fn codecs(args: &[String]) -> Result<()> {
                     "--locked",
                     "--offline",
                     "-p",
-                    "libavif-sharpyuv",
+                    "ferrisma-libavif-sharpyuv",
                     "--test",
                     "cross_port",
                 ],
@@ -427,9 +427,9 @@ fn codecs(args: &[String]) -> Result<()> {
         return Ok(());
     }
     let package = match codec.as_str() {
-        "jpeg" => "libjpeg-turbo-rs",
-        "webp" => "libwebp-rs",
-        _ => "libjxl-rs",
+        "jpeg" => "ferrisma-libjpeg-turbo",
+        "webp" => "ferrisma-libwebp",
+        _ => "ferrisma-libjxl",
     };
     if !tests_only {
         run(
