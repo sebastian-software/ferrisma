@@ -5,7 +5,9 @@
 //! original built for the same single Highway target (`JXL_CPP_ORACLE_SIMD`),
 //! through the `eaq-*` requests of tools/oracle/encoder_aq_simd.cc. Every
 //! word the original writes is compared bit for bit, except that any NaN
-//! equals any NaN (decision D8). The requests go through the public
+//! equals any NaN (decision D8) and that, for a request with NaN or
+//! infinity input, a word is compared only where the original's two scalar
+//! reference builds agree (rule O1, ADR-0041 section 3). The requests go through the public
 //! InitialQuantField with the encoder's dispatch point
 //! (`hwy::encoder_target`) forced to the SIMD target; the family also shows
 //! that the scalar path gives different words for some of its requests, so
@@ -19,7 +21,7 @@ use jxl::jxl::base::status::status_code;
 use jxl::jxl::enc_adaptive_quantization::initial_quant_field;
 use jxl::jxl::hwy;
 use jxl::jxl::image::{Image3F, ImageF};
-use simd_common::{next, same, special_words};
+use simd_common::{next, special_words};
 use std::fmt::Write as _;
 use std::sync::{Mutex, MutexGuard};
 
@@ -307,72 +309,38 @@ fn simd_adaptive_quantization_map_matches_the_original_target() {
     check_map_through_dispatch(&requests);
 }
 
-/// Owner decision 2026-11-15 (#246, #250; ADR 0004, "Encoder path:
-/// `enc_adaptive_quantization`"): on AVX2 the `aq_map` words of a request
-/// are not compared when the request's input puts two or more NaNs into the
-/// reduction of one block, GammaModulation's `SumOfLanes` over the block's
-/// 8x8 window: which of two NaNs survives there is the compiler's operand
-/// choice in the original's object, and FastLog2f then reads the surviving
-/// bits as an integer, so the original's own result is not defined by its
-/// source. `mask` and `mask1x1` of those requests, every word of every
-/// other request, and every word on NEON stay compared.
-///
-/// The class is computed from the input, never from a result: for each
-/// block of the rect, the window's pixels (rect origin + 8 * block + 0..8;
-/// columns past the image width hold the request's row-padding word) give
-/// GammaModulation's two terms `r = (Y + 0.16) - X` and `g = (Y + 0.16) + X`
-/// in f32; a term is counted when it is a NaN or +infinity (whose
-/// RatioOfDerivativesOfCubicRootToSimpleGamma is inf / inf, a NaN). The
-/// count includes NaN terms with the sign bit set, which ZeroIfNegative
-/// turns into zero: the sign of a NaN the arithmetic produces is itself the
-/// operand (or default-NaN) choice of the target, so the boundary is the
-/// source's "two or more NaN-producing terms", not a target's NaN sign.
-fn map_nan_blocks(request: &str) -> usize {
+/// Whether an `eaq-map` request's input contains a NaN or an infinity (the
+/// exceptional inputs of rule O1): a word of the distance, the rescale or
+/// the planes, or the row-padding word (pad kinds 1 and 2, a quiet NaN and
+/// +inf), which the export's last vector of a row reads.
+fn map_input_exceptional(request: &str) -> bool {
     let mut args = request.split_whitespace();
     assert_eq!(args.next(), Some("eaq-map"));
-    let _distance = float(&mut args);
-    let _rescale = float(&mut args);
-    let xsize: usize = number(&mut args);
-    let ysize: usize = number(&mut args);
-    let x0: usize = number(&mut args);
-    let y0: usize = number(&mut args);
-    let rxs: usize = number(&mut args);
-    let rys: usize = number(&mut args);
+    let distance = float(&mut args);
+    let rescale = float(&mut args);
+    let _sizes: [usize; 6] = std::array::from_fn(|_| number(&mut args));
     let pad_kind: usize = number(&mut args);
-    let pad = f32::from_bits(PAD_WORDS[pad_kind]);
-    let planes: Vec<Vec<f32>> = (0..3)
-        .map(|_| (0..xsize * ysize).map(|_| float(&mut args)).collect())
-        .collect();
-    let at = |c: usize, x: usize, y: usize| {
-        assert!(y < ysize, "the window stays inside the image rows");
-        if x < xsize {
-            planes[c][y * xsize + x]
-        } else {
-            pad
-        }
-    };
-    let producing = |t: f32| t.is_nan() || t == f32::INFINITY;
-    let mut blocks = 0;
-    for by in 0..rys.div_ceil(8) {
-        for bx in 0..rxs.div_ceil(8) {
-            let mut terms = 0;
-            for dy in 0..8 {
-                for dx in 0..8 {
-                    let (px, py) = (x0 + 8 * bx + dx, y0 + 8 * by + dy);
-                    let iny = at(1, px, py) + 0.16f32;
-                    let inx = at(0, px, py);
-                    terms += usize::from(producing(iny - inx)) + usize::from(producing(iny + inx));
-                }
-            }
-            blocks += usize::from(terms >= 2);
-        }
-    }
-    blocks
+    !distance.is_finite()
+        || !rescale.is_finite()
+        || !f32::from_bits(PAD_WORDS[pad_kind]).is_finite()
+        || args.any(|word| !f32::from_bits(word.parse().unwrap()).is_finite())
 }
 
 /// Runs the requests with the scalar and then the SIMD encoder selection,
 /// asserts that the scalar path differs somewhere, and compares the SIMD
-/// observations with the original's target under the owner decision's class.
+/// observations with the original's target under rule O1
+/// (`simd_common::reference_masks`, ADR-0041 section 3, #246): for a
+/// request with NaN or infinity input, a word is compared only where the
+/// original's two scalar reference builds for this target agree after
+/// treating all NaNs as equal; every word of every other request is
+/// compared. The same rule applies on NEON and AVX2.
+///
+/// Background: on AVX2, requests that put two or more NaNs into one block's
+/// GammaModulation reduction (`SumOfLanes` over the 8x8 window) give
+/// `aq_map` words that depend on which NaN survives, the compiler's operand
+/// choice in the original's object, read as an integer by FastLog2f. The
+/// owner's decision of 2026-11-15 first excluded that class by name; the
+/// general rule O1 replaces it.
 fn check_map_through_dispatch(requests: &[String]) {
     let _lock = dispatch_lock();
     hwy::set_encoder_simd_for_test(Some(false));
@@ -389,44 +357,29 @@ fn check_map_through_dispatch(requests: &[String]) {
         "eaq-map: the scalar path differs in {differing} of {} requests",
         requests.len()
     );
-    let avx2 = simd_common::target().name() == "AVX2";
     let originals = simd_common::oracle(requests);
-    let (mut words, mut selected, mut excluded_words) = (0usize, 0usize, 0usize);
-    let (mut selected_differing, mut selected_blocks) = (0usize, 0usize);
-    for ((request, rust), cpp) in requests.iter().zip(&simd).zip(&originals) {
-        let blocks = map_nan_blocks(request);
-        // The aq_map words: "Q <status> P <xsize> <ysize> <words>".
-        let fields: Vec<&str> = rust.split_whitespace().collect();
-        let map_words = if fields.len() > 4 {
-            fields[3].parse::<usize>().unwrap() * fields[4].parse::<usize>().unwrap()
-        } else {
-            0
-        };
-        let in_class = blocks > 0;
-        if in_class {
-            selected += 1;
-            selected_blocks += blocks;
-            selected_differing += usize::from(same(rust, cpp, all_float, all_defined).is_err());
-        }
-        let excluded = |i: usize| avx2 && in_class && (5..5 + map_words).contains(&i);
-        if avx2 && in_class {
-            excluded_words += map_words;
-        }
-        words += same(rust, cpp, all_float, |i| !excluded(i)).unwrap_or_else(|e| {
-            panic!(
-                "eaq-map: {e} (owner-decision class: {in_class}, {blocks} blocks)\nrequest: {request}"
-            )
-        });
+    let masks = simd_common::reference_masks(requests, map_input_exceptional);
+    let exceptional = requests.iter().filter(|r| map_input_exceptional(r)).count();
+    let (mut words, mut masked_requests, mut masked_words, mut masked_differing) = (0, 0, 0, 0);
+    for (((request, rust), cpp), mask) in requests.iter().zip(&simd).zip(&originals).zip(&masks) {
+        let flagged = mask
+            .as_ref()
+            .map_or(0, |m| m.iter().filter(|&&f| f).count());
+        let (compared, differ) =
+            simd_common::same_under_o1(rust, cpp, all_float, all_defined, mask.as_deref())
+                .unwrap_or_else(|e| {
+                    panic!("eaq-map: {e} (O1 words not compared: {flagged})\nrequest: {request}")
+                });
+        words += compared;
+        masked_requests += usize::from(flagged > 0);
+        masked_words += flagged;
+        masked_differing += differ;
     }
-    assert!(
-        selected > 0,
-        "the owner decision's class selects no request of this domain"
-    );
     println!(
-        "eaq-map on {}: {} requests, {words} words matched; the class of two or more NaN-producing \
-         terms in one block's reduction selects {selected} requests ({selected_blocks} blocks), of \
-         which {selected_differing} differ from the original; aq_map words not compared on this \
-         target: {excluded_words} (owner decision 2026-11-15, AVX2 only)",
+        "eaq-map on {}: {} requests, {words} words matched; NaN rule O1: {exceptional} requests \
+         with NaN or infinity input, {masked_requests} of them with words where the two scalar \
+         references disagree ({masked_words} words not compared, of which {masked_differing} \
+         differ between the port and the original)",
         simd_common::target().name(),
         requests.len()
     );
