@@ -47,6 +47,7 @@ use crate::simd::aom_dsp__x86__synonyms::*;
 use crate::simd::aom_dsp__x86__synonyms_avx2::*;
 use core::arch::x86_64::*;
 
+// 128-bit xmmwords are written as [ ... ] with the MSB on the left.
 // 256-bit ymmwords are written as two xmmwords, [ ... ][ ... ] with the MSB
 // on the left.
 // A row of, say, 16-bit pixels with values p0, p1, p2, ..., p14, p15 will be

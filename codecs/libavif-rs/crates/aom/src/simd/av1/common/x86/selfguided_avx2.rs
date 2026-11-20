@@ -50,6 +50,7 @@ use crate::simd::av1__common__x86__selfguided_sse4::{
 };
 use core::arch::x86_64::*;
 
+// Load 8 bytes from the possibly-misaligned pointer p, extend each byte to
 // 32-bit precision and return them in an AVX2 register.
 #[inline]
 #[target_feature(enable = "avx2")]
