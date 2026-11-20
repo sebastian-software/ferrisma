@@ -234,7 +234,15 @@ than dav1d's AVX2 flag (AVX2, BMI1/2 and the OS's YMM state): on a CPU with
 the flag but without that level these two families keep the C kernels (and
 `all_simd` 0), where the removed ports ran; no other family changes. The
 "Kernels" paragraph above stays for the other families; whether they move
-to the same form is a separate decision.
+to the same form is a separate decision. The crate is compiled with
+`opt-level = 1` in the `dev` profile (workspace `Cargo.toml`, with the
+reason there): `fearless_simd`'s generic code relies on inlining and
+optimization, and at opt-level 0 the AVX2 inverse transforms need stack
+frames of up to 2.4 MB, more than the 1 MB of dav1d's worker threads (a
+silent SIGSEGV in the debug API check of run 44691276520), and the crate's
+debug compile takes 12 GB and minutes longer. Debug assertions, the debug
+translation (`cfg(debug_assertions)`) and `overflow-checks = false` stay as
+they are; `release` and `checked` are unaffected.
 
 **Gate (engine ADR-0041, ADR-0044 D2).**
 
