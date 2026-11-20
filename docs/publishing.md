@@ -85,6 +85,17 @@ the size of its tracked `src`, `tests` and `examples` (1.69 versus 1.73 MB)
 barely changed; the earlier figure could not be reproduced, today's is the
 measured one (195 files, 2.2 MiB unpacked, 1.1 MiB of it `tests/fixtures`).
 
+**Packaged again on 2026-11-20** (`main` at `61e20ecf`, the same
+`cargo package --no-verify --exclude-lockfile --offline` per package; leaves
+also verified, that is built from the extracted package:
+`libsharpyuv-core`, `ferrisma-kernels`, `libjpeg-turbo-rs`, `libjxl-rs`).
+All 14 package; sizes that moved: `libjxl-rs` 938.8 KiB, `libavif-aom`
+16.8 MiB, `libavif-dav1d` 3.3 MiB, `libjpeg-turbo-rs` 319.2 KiB, `libwebp-rs`
+798.7 KiB, the AVIF bridges 11.2 and 14.6 KiB, `ferrisma-jxl-decoder`
+15.4 KiB, `ferrisma-jxl-encoder` 19.8 KiB, and `ferrisma` **1.6 MiB**
+(244 files; 606.9 KiB and 195 files on 2026-11-14). `cargo publish --dry-run`
+stops every package at `publish = false`, as intended.
+
 Packages within one order level do not depend on each other. The JPEG XL
 encoder bridge `ferrisma-jxl-encoder` is at level 4: it depends only on
 `libjxl-rs` and must be published before `ferrisma`.
@@ -107,7 +118,7 @@ has to decide.
 | --- | --- | --- | --- |
 | 1 | JPEG port's package name is taken on crates.io (#207) | **Decided, not yet renamed** (owner, 2026-11-15): all four ports take the `ferrisma-` prefix with the originals' exact names (section 1) | The rename; names for the AVIF sub-crates and `libsharpyuv-core`; the collision with the internal `crates/ferrisma-libavif` |
 | 2 | `libavif-aom` exceeds the 10 MiB upload limit (#208) | Proven: 16.6 MiB. **Decided** (owner, 2026-11-15): consolidation step (b), then measure again; no split crates, no release-only shipping (section 2) | Codec: step (b) and the new measurement; owner: above about 9 MiB, step (c) before publication or a limit request |
-| 3 | AVIF packages need profile settings dependents do not inherit (#209) | Reproduced with outside consumers: no overflow failure found in the default `dev` profile; `panic = "abort"` is a compile-time error; the documented block works for dependents. **Decided** (owner, 2026-11-15): option (a) (section 3) | The README block, with the rename (the package names in it change); codec owners: the AOM kernel tier and the debug translation with overflow checks on |
+| 3 | AVIF packages need profile settings dependents do not inherit (#209) | Reproduced with outside consumers: no overflow failure found in the default `dev` profile; `panic = "abort"` is a compile-time error; the documented block works for dependents. **Decided** (owner, 2026-11-15): option (a) (section 3). **New on 2026-11-20:** with the dav1d kernel rollout, a dependent's default `dev` build crashes on x86-64 (kernels at opt-level 0); a `build.rs` guard is proposed (section 3) | The README block, with the rename (the package names in it change); codec owners: the AOM kernel tier and the debug translation with overflow checks on |
 | 4 | Exact `libc` and `c2rust-bitfields` pins | Fixed on `main` since `aba85c54`: caret requirements, same minimum, `Cargo.lock` unchanged | Codec owners: ABI checks against a newer `libc` (not run) |
 | 5 | Versions (the AVIF bridges are 0.0.0) | **Decided** (owner, 2026-11-15, O3): one shared version for all packages (section 5) | Owner: the first version number |
 | 6 | License review gates | **Decided** (owner, 2026-11-15): the #136 policy is confirmed; the documented self-review is accepted for 1.0, without an independent legal review before 1.0; the scope of the patent grants for the translated ports stays named as not assessed (section 6) | After the rename: regenerate the inventory and bundles, re-bind the JPEG evidence |
@@ -245,6 +256,39 @@ has not been asked. **Not done yet:** step (b) and the new measurement.
 
 The recommendation of 2026-11-14 (ask crates.io for a per-crate limit first,
 keep the per-platform split as the fallback) is replaced by this decision.
+
+**Measured again on 2026-11-20** (`main` at `61e20ecf`, `cargo package
+--no-verify --exclude-lockfile --offline -p libavif-aom`): 808 files,
+210.4 MiB unpacked, **16.8 MiB compressed** (17,597,959 bytes). Nothing in
+the package can be left out without changing what a build runs: every one of
+the 4 × 166 translated files is named by its profile's `modules-*.rs`, and
+the rest is `simd` (0.6 MB compressed), `lib.rs`, the four module and API
+indexes, the README, the notices and the licenses. A trimmed `include`
+cannot reach 10 MiB.
+
+What the trees share, from the extracted package (gzip `-6` of each
+`diff -r -U0`): macOS debug against release 196 KB, Linux debug against
+release 212 KB, macOS release against Linux release 640 KB. A merged
+translation per platform (step (b)) would therefore weigh about the release
+tree plus its debug differences, about 4.5 MB each, and the package about
+9.7 MB, **about 9.3 MiB** with `simd`, before any merge markup: under the
+limit, above the owner's 9 MiB threshold. Merging the platforms as well
+(step (c)) would add about 0.6 MB to one tree, about 5.6 MB in all. The
+whole `src` compresses to 2.6 MiB with `xz -9e` and to 2.0 MiB with
+`zstd -19 --long`: the redundancy is across files, which gzip's 32 KiB
+window cannot see.
+
+Options and their consequences (the owner's rules: translated code changes
+only through committed tools, O8 and port ADR 0059):
+
+| Option | Package | Code behavior | Cost and risk |
+| --- | --- | --- | --- |
+| Leave files out (`include`) | 16.8 MiB | unchanged | Not possible: every file is used by a supported target and profile |
+| (b) merge debug and release per platform (decided) | about 9.3 MiB, estimate | unchanged if the merge only adds `#[cfg(debug_assertions)]` around the differing items | A committed merge tool, re-run of the AOM golden, kernel and ABI tiers on both profiles; about 0.7 MiB headroom, shrinking as owned kernels grow |
+| (c) merge the platforms too | about 5.6 MB, estimate | unchanged under the same condition (`#[cfg(target_os)]`) | Same tool, larger; touches `tools/import_aom_linux.py` and the Linux translation workflow |
+| Limit request at crates.io | 16.8 MiB | unchanged | Outside Git; every dependent downloads 16.8 MiB; a new request when it grows |
+| Ship the translations compressed and expand them in `build.rs` | about 2–3 MiB | unchanged | An opaque archive in the package instead of reviewable source, a decompressor build dependency, about 100 MB written to `OUT_DIR` per build; docs.rs and auditors see no source. Not recommended |
+| Split crates per platform or profile | 4.7–8.8 MiB each | unchanged | Rejected by the owner on 2026-11-15 |
 `libavif-rs` (4.6 MiB) and `libavif-dav1d` (2.6 MiB) are below the limit.
 
 ### 3. Consumer profile requirements of the AVIF packages (#209)
@@ -370,6 +414,38 @@ overflow-checks = false
 [profile.dev.package.libavif-sharpyuv]
 overflow-checks = false
 ```
+
+**The kernels' optimization level (2026-11-20).** The dav1d kernel rollout
+(branch `v1/dav1d-kernel-rollout`, not on `main` yet) moves dav1d's CDEF and
+inverse transforms into a new package, `libavif-dav1d-kernels`, on
+fearless_simd, and sets `opt-level = 1` for it and for `fearless_simd` in the
+root `dev` profile: at opt-level 0 the AVX2 inverse transform needed stack
+frames of up to 2.4 MB on dav1d's 1 MB worker stacks (a SIGSEGV). Like the
+overflow overrides, a dependent does not inherit that. Unlike them, Cargo
+does tell a library's build script what the dependent chose: `OPT_LEVEL` in
+`build.rs` follows the dependent's profile including per-package overrides
+(measured on stable 1.98.1 and the pinned nightly; `CARGO_CFG_OVERFLOW_CHECKS`
+does not, it is unset on stable and wrong on nightly, so the overflow
+setting still cannot be checked). Reproduced with a consumer outside the
+workspace that depends on `libavif-rs` from that branch (`d522dd15`), with
+no profile of its own, through the port's dav1d over the 59 AVIF files of
+the libavif test data. On x86-64 (AVX2, Linux under Rosetta) with 1 and 8
+threads: **7 runs crashed with SIGSEGV, all with 8 threads** (the gain-map,
+two-target and 1x5-grid files), 99 decoded, 12 rejected with a typed error.
+With the two lines below in the consumer's manifest: 106 decoded, 12
+rejected, no crash. On macOS ARM64 with 1, 4 and 8 threads no run crashed
+either way (53 decoded, 6 rejected per thread count). The first x86-64
+build, with 4 jobs in an 8 GB VM, also failed to compile the kernels at
+opt-level 0 without a diagnostic (most likely out of memory); with 2 jobs it
+built. Proposed for the kernels package (a dav1d crate,
+so not changed here): a `build.rs` that stops the build at `OPT_LEVEL=0`
+with the profile lines to add, and `/build.rs` in its `include` list. A
+prototype gave exactly that error for a default `dev` build and for a
+`release` profile set to `opt-level = 0`, and built and decoded the same 53
+files once the consumer added the two lines. This turns a crash at run time
+into a build error with the fix; it does not make the code independent of
+the profile. Code that is independent of it (kernels whose frames stay small
+unoptimized, or larger worker stacks) is a codec change.
 
 ### 4. Exact pins
 
