@@ -255,7 +255,17 @@ macOS jobs past their timeouts (CI 44728440108, avif-dav1d 44728445301).
 Shared, it compiles in 33 s in release and 29 to 38 s in dev
 single-threaded (from 77 s and 205 s), for 1 to 2 % more instructions per
 decode. The tests and gates of the kernels stay in `libavif-dav1d`,
-against the translated C.
+against the translated C. The dev setting is a compile-time speedup only;
+correctness does not depend on it: a consumer compiles the crate with its
+own profile (Cargo's default dev profile: opt-level 0), and there the
+kernels' stack stays bounded too. The 1-D transform, its lanes and the
+transform types are chosen with `if const`, so only the chosen branch is
+lowered without optimization, and each computing statement of a 1-D
+transform runs in a region of its own (`own_frame!`, `simd.vectorize`):
+inlined when optimized, a call with a small frame of its own when not. The
+largest frame of the crate at opt-level 0 went from 1,753,088 bytes
+(x86-64, the 64-point DCT on 16 lanes; a SIGSEGV on dav1d's 1 MB threads
+in a consumer, 7 of 118 decodes with 8 threads) to 106,496.
 
 **Gate (engine ADR-0041, ADR-0044 D2).**
 
@@ -2125,6 +2135,28 @@ against the assembly, itx 8 bpc 3.57 (ARM64) and 4.39 (x86-64), CDEF 1.46
 and 2.66. The cdylib: 2,568,288 bytes on ARM64 and 3,352,456 on x86-64
 (+0.39 and +0.28 MB over the removed ports). The CI native-adapters package
 set builds cold in 1:55 with three jobs (main 1:30).
+
+**2026-11-20, the kernels at a consumer's opt-level 0** (`e80d0713`,
+`adcde4dc`; decision paragraph above). The release-chain consumer (the
+port by path, Cargo's default dev profile, the 59 libavif test AVIFs)
+decodes without a crash at opt-level 0: ARM64 at 1, 4 and 8 threads 159
+decoded, 18 typed failures, 0 crashes; x86-64 (Colima) at 1 and 8 threads
+106, 12, 0 (7 SIGSEGV before). Gates at `adcde4dc` as in the entries
+before; ARM64: checkasm 17 groups x 11 seeds, seeds 1-100 400 of 400,
+whole images 994 of 994 at `neon` and scalar, 1,711 of 1,711 release and
+debug, API 83 and 82, ABI 12,157 checks 0 differences, tier-1; x86-64 the
+same at `avx2` (ABI 12,284 checks). Instructions per decode against the
+old port, q60 stills: ARM64 +11.3 to +14.2 %, x86-64 +10.4 to +14.5 %, as
+before; per call itx 8 bpc 3.57 (ARM64) and 4.36 (x86-64), CDEF 1.46 and
+2.66. The cdylib: 2,492,480 bytes (ARM64), 3,461,928 (x86-64). One
+scalar whole-image run at `e80d0713` on x86-64 had a single SIGSEGV of the
+portable port on suite stream 00000641 (which uses no kernel of this
+crate); 30 reruns of that stream and the full run at `adcde4dc` were
+clean. A first form
+with plain closures (`e80d0713`) left some out of line on x86-64 without
+the AVX2 features (itx 8 bpc 7.38 times the assembly per call, +65 %
+instructions per 8-bit decode); regions keep the features. The kernels
+crate compiles single-threaded in 28 s (release) and 27 s (dev).
 
 ## Review when
 
