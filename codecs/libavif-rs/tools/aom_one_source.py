@@ -109,6 +109,11 @@ def one_source_text(text, changes):
         text, count = re.subn(r'^( *)(pub ' + item['field'] + r': )', r'\1#[cfg(debug_assertions)]\n\1\2', text, flags=re.M)
         if count:
             changes['one-source-debug-only-field'] = count
+    for item in DEBUG_BLOCKS.get('debug_only_records', []):
+        text, count = re.subn(r'^((?:#\[derive\([^)]*\)\]\n)?(?:#\[repr\(C\)\]\n)?pub struct ' + item['record'] + r' \{)',
+                              r'#[cfg(debug_assertions)]\n\1', text, flags=re.M)
+        if count:
+            changes['one-source-debug-only-record'] = count
     for item in DEBUG_BLOCKS['debug_only_exports']:
         text, count = re.subn(r'#\[no_mangle\]\n(pub unsafe extern "C-unwind" fn ' + item['function'] + r'\()',
                               r'#[cfg_attr(debug_assertions, no_mangle)]\n\1', text)

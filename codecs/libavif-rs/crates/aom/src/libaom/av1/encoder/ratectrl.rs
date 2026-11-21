@@ -1679,6 +1679,7 @@ pub struct macroblock {
     pub pix_to_bottom_edge: core::ffi::c_int,
     pub pix_to_right_edge: core::ffi::c_int,
 }
+#[cfg(debug_assertions)]
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct SetOffsetsLoc {

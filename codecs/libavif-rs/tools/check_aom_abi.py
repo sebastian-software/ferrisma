@@ -38,6 +38,8 @@ def main():
         translated = project((ROOT / unit['rust']).read_text(), ARCHES[platform])
         if args.release:
             translated = re.sub(r'\n *#\[cfg\(debug_assertions\)\]\n *pub \w+: [^\n]*', '', translated)
+            translated = re.sub(r'#\[cfg\(debug_assertions\)\]\n(?:#\[[^\n]*\]\n)*pub (?:struct|union) \w+ \{.*?\n\}\n',
+                                '', translated, flags=re.S)
         records = re.findall(r'pub (struct|union) (\w+) \{(.*?)\n\}', translated, re.S)
         flags = compiler_flags(entry)
         ast = json.loads(subprocess.check_output(flags + ['-Xclang', '-ast-dump=json', '-fsyntax-only', source],

@@ -1947,6 +1947,7 @@ pub struct RD_SEARCH_MACROBLOCK_CONTEXT {
     pub ta: [TXFM_CONTEXT; 32],
     pub tl: [TXFM_CONTEXT; 32],
 }
+#[cfg(debug_assertions)]
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct SetOffsetsLoc {

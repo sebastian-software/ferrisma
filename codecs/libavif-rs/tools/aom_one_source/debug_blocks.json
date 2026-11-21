@@ -114,5 +114,11 @@
       "expect": "assert(x->last_set_offsets_loc.mi_row == mi_row &&",
       "why": "assert on the Debug-only MACROBLOCK field last_set_offsets_loc"
     }
+  ],
+  "debug_only_records": [
+    {
+      "record": "SetOffsetsLoc",
+      "why": "#ifndef NDEBUG typedef (av1/encoder/block.h:869), the type of last_set_offsets_loc"
+    }
   ]
 }

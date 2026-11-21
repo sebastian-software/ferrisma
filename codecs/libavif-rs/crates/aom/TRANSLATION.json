@@ -22,7 +22,7 @@
       "include/time.h": "631045c4ff7463e96cd8fa0d602851027bf433db91006f334d3d4dee8163a78f",
       "include/unistd.h": "abeff92bbe8bd445b322e0f1e2aa5b2cc94c124cc47e90c32f44875cd441ebfd"
     },
-    "debug_blocks_sha256": "c566b5d3fe7e99c69b6d03543170b7907ee21b535500bdb517427849f1a2cd4e",
+    "debug_blocks_sha256": "6ccb31d7b14d56dc569eff5e80af7a782fbe51aa41cef89094aa396e455141fc",
     "config_overrides": {
       "CONFIG_DEBUG": "1",
       "HAVE_FEXCEPT": "1"
@@ -54,7 +54,7 @@
         "x86_64_only": 849
       },
       "bytes": {
-        "shared": 53537007,
+        "shared": 53538232,
         "shared_whitespace": 0,
         "pairs": 2533166,
         "aarch64_only": 282727,
@@ -74,12 +74,12 @@
       },
       "units": 166,
       "units_identical": 156,
-      "output_tree_bytes": 56622385,
-      "output_tree_gzip9": 4333600,
-      "macos_tree_bytes": 55140781,
-      "macos_tree_gzip9": 4294357,
-      "linux_tree_bytes": 54938630,
-      "linux_tree_gzip9": 4294810
+      "output_tree_bytes": 56623610,
+      "output_tree_gzip9": 4333966,
+      "macos_tree_bytes": 55142006,
+      "macos_tree_gzip9": 4294615,
+      "linux_tree_bytes": 54939855,
+      "linux_tree_gzip9": 4295087
     },
     "verify": {
       "macos": {
@@ -2913,8 +2913,8 @@
     {
       "source": "upstream/aom/av1/av1_cx_iface.c",
       "rust": "crates/aom/src/libaom/av1/av1_cx_iface.rs",
-      "rust_sha256": "db295dd967f584756555d9d75df46aba98384e430790d5dfbe37e3907125940c",
-      "production_rust_sha256": "db295dd967f584756555d9d75df46aba98384e430790d5dfbe37e3907125940c",
+      "rust_sha256": "0191b7cdc20dae3f732b7fa9b9b9bda60c2a872d54b5e02894f2241bd11b7886",
+      "production_rust_sha256": "0191b7cdc20dae3f732b7fa9b9b9bda60c2a872d54b5e02894f2241bd11b7886",
       "raw_sha256": {
         "macos": "034524d695282a6bf4f79d2836f176277d2542b17fd4c67489834ae79e971b0b",
         "linux": "9898da8ada54365bdba49fa89c2b1a27eed485b95c395bb586f8cc959586e816"
@@ -2935,6 +2935,7 @@
           "current-rust-variadic-argument-method": 167,
           "unaligned-external-highbd-validation-load": 1,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 10,
           "one-source-platform-shim": 10,
           "one-source-placeholder-record": 4,
@@ -2956,6 +2957,7 @@
           "sysv-array-decayed-control-va-list": 1,
           "unaligned-external-highbd-validation-load": 1,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 10,
           "one-source-platform-shim": 10,
           "one-source-placeholder-record": 4,
@@ -2966,8 +2968,8 @@
     {
       "source": "upstream/aom/av1/encoder/aq_complexity.c",
       "rust": "crates/aom/src/libaom/av1/encoder/aq_complexity.rs",
-      "rust_sha256": "c802dee558ffcb8216c6ae9f581be593dc8a2784712f7a50bbbe67bc1db9598e",
-      "production_rust_sha256": "c802dee558ffcb8216c6ae9f581be593dc8a2784712f7a50bbbe67bc1db9598e",
+      "rust_sha256": "ce6cc377f8bcd9967d298876904d676e1090d7df14f5e677ccd276e889a29efc",
+      "production_rust_sha256": "ce6cc377f8bcd9967d298876904d676e1090d7df14f5e677ccd276e889a29efc",
       "raw_sha256": {
         "macos": "d4c6f94588f1676c2dbda7b8a5d7ec20b3f190a791d7b4cc0d1679f3379f2dd5",
         "linux": "77a806bb7094395f5d0e1fabc422927bd98a77d1382fb3b01c4dea8e2bea04fd"
@@ -2981,6 +2983,7 @@
           "unwinding-codec-and-callback-abi": 52,
           "system-and-vmaf-c-abi-declarations": 2,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-placeholder-record": 3,
           "one-source-jmp-buf": 1
         },
@@ -2992,6 +2995,7 @@
           "unwinding-codec-and-callback-abi": 52,
           "system-and-vmaf-c-abi-declarations": 2,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-placeholder-record": 3,
           "one-source-jmp-buf": 1
         }
@@ -3000,8 +3004,8 @@
     {
       "source": "upstream/aom/av1/encoder/aq_cyclicrefresh.c",
       "rust": "crates/aom/src/libaom/av1/encoder/aq_cyclicrefresh.rs",
-      "rust_sha256": "87e94eca55f25276a895311fa1e1d71cca5c2452324e6653781776bf36fb3f9d",
-      "production_rust_sha256": "87e94eca55f25276a895311fa1e1d71cca5c2452324e6653781776bf36fb3f9d",
+      "rust_sha256": "b0914e7e75b89145d103d1c1f8c829366ceb29efb23cd03a4352406be246b834",
+      "production_rust_sha256": "b0914e7e75b89145d103d1c1f8c829366ceb29efb23cd03a4352406be246b834",
       "raw_sha256": {
         "macos": "696c96f8f267bcd5bb6d504feaf99393c71cfc1c9ede482c7ee9c90a2da13bcc",
         "linux": "b2fc80a3fc93b367797e4206c7432bc25eec9c6beda2a29ee5ad733c810bedee"
@@ -3016,6 +3020,7 @@
           "unwinding-codec-and-callback-abi": 75,
           "system-and-vmaf-c-abi-declarations": 4,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 6,
           "one-source-platform-shim": 6,
           "one-source-placeholder-record": 3,
@@ -3030,6 +3035,7 @@
           "unwinding-codec-and-callback-abi": 75,
           "system-and-vmaf-c-abi-declarations": 4,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 6,
           "one-source-platform-shim": 6,
           "one-source-placeholder-record": 3,
@@ -3040,8 +3046,8 @@
     {
       "source": "upstream/aom/av1/encoder/aq_variance.c",
       "rust": "crates/aom/src/libaom/av1/encoder/aq_variance.rs",
-      "rust_sha256": "2147d1963beda2fc0cd9679b4cd582fd90ce0d7404ba94c7c142e68978bda262",
-      "production_rust_sha256": "2147d1963beda2fc0cd9679b4cd582fd90ce0d7404ba94c7c142e68978bda262",
+      "rust_sha256": "6e927b3e976bfdc5d5607b1884cddff4db63e456d6faba9449ab45804fc59dba",
+      "production_rust_sha256": "6e927b3e976bfdc5d5607b1884cddff4db63e456d6faba9449ab45804fc59dba",
       "raw_sha256": {
         "macos": "9819581c4575bb78a211d33574f707912bd5b46fd7516da23fdc447acee9b7ce",
         "linux": "66e04d9a3258d26c18facc81a44976ef50372956fc2c7cb535158eaccf3d51f9"
@@ -3057,6 +3063,7 @@
           "unwinding-codec-and-callback-abi": 58,
           "system-and-vmaf-c-abi-declarations": 6,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 2,
           "one-source-platform-shim": 2,
           "one-source-placeholder-record": 3,
@@ -3072,6 +3079,7 @@
           "unwinding-codec-and-callback-abi": 58,
           "system-and-vmaf-c-abi-declarations": 6,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 2,
           "one-source-platform-shim": 2,
           "one-source-placeholder-record": 3,
@@ -3082,8 +3090,8 @@
     {
       "source": "upstream/aom/av1/encoder/allintra_vis.c",
       "rust": "crates/aom/src/libaom/av1/encoder/allintra_vis.rs",
-      "rust_sha256": "e631cf8251852151ebdef7d5103a354f0980bf2d6d18c6d1ce9cddf546bc74fb",
-      "production_rust_sha256": "e631cf8251852151ebdef7d5103a354f0980bf2d6d18c6d1ce9cddf546bc74fb",
+      "rust_sha256": "30475f68d341575da70c0281870ac5741937fbff592dea622288e1f1e7538c82",
+      "production_rust_sha256": "30475f68d341575da70c0281870ac5741937fbff592dea622288e1f1e7538c82",
       "raw_sha256": {
         "macos": "1d9b6bbca5bb08a9ac64ed195daf01d12790fa71ee9a9adba27230cd4c0dad63",
         "linux": "67865d1f4cce75ae50e034de94153c0391cbdffc5f9afef5c6bc0e673c4232a7"
@@ -3099,6 +3107,7 @@
           "unwinding-codec-and-callback-abi": 88,
           "system-and-vmaf-c-abi-declarations": 17,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 16,
           "one-source-platform-shim": 16,
           "one-source-placeholder-record": 3,
@@ -3114,6 +3123,7 @@
           "unwinding-codec-and-callback-abi": 88,
           "system-and-vmaf-c-abi-declarations": 17,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 16,
           "one-source-platform-shim": 16,
           "one-source-placeholder-record": 3,
@@ -3206,8 +3216,8 @@
     {
       "source": "upstream/aom/av1/encoder/av1_quantize.c",
       "rust": "crates/aom/src/libaom/av1/encoder/av1_quantize.rs",
-      "rust_sha256": "b66c8d60c1f491d7de30460b865835c71324e534c20623f8bb671fcca327c7ed",
-      "production_rust_sha256": "21475c1976e08e6050148f1b96b4c513f8dacb94676d8b6e56690acf339f7c75",
+      "rust_sha256": "ec30111f3f09c2017642a6099719c488a1fe5eb9fab31a40959f942ebcc7f185",
+      "production_rust_sha256": "40d83fa906154f25258387b262229dc06de3583f1bfb2fbe78d3f4249b33d0b7",
       "raw_sha256": {
         "macos": "6ecb76d5f1aefe6adb2021e338e1f79f2234fa4d377fca43e2cc2b435d182387",
         "linux": "8293be6ad235a07665d428d5dc784e394859ac69ac386ebdb0c5eb86aba35e64"
@@ -3221,6 +3231,7 @@
           "unwinding-codec-and-callback-abi": 116,
           "system-and-vmaf-c-abi-declarations": 4,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 8,
           "one-source-platform-shim": 8,
           "one-source-placeholder-record": 3,
@@ -3234,6 +3245,7 @@
           "unwinding-codec-and-callback-abi": 116,
           "system-and-vmaf-c-abi-declarations": 4,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 8,
           "one-source-platform-shim": 8,
           "one-source-placeholder-record": 3,
@@ -3244,8 +3256,8 @@
     {
       "source": "upstream/aom/av1/encoder/bitstream.c",
       "rust": "crates/aom/src/libaom/av1/encoder/bitstream.rs",
-      "rust_sha256": "2ae88b469ac18c63e1179db4a53b81be77f119d0a6a34185ff09e37ca5c5ebf2",
-      "production_rust_sha256": "2ae88b469ac18c63e1179db4a53b81be77f119d0a6a34185ff09e37ca5c5ebf2",
+      "rust_sha256": "dd609b398349dc748449f731375e7cbe0f199bac15c70fd1f43e0de70c230c93",
+      "production_rust_sha256": "dd609b398349dc748449f731375e7cbe0f199bac15c70fd1f43e0de70c230c93",
       "raw_sha256": {
         "macos": "30fced0285ad3ecec8676246ddf80143780a0ad6a9264a4d6a4e4a70ae9b9429",
         "linux": "989b259c2c31123f784ca55475f1415b5d921523b3a2003348df0a63b2ffbaa5"
@@ -3262,6 +3274,7 @@
           "unwinding-codec-and-callback-abi": 301,
           "system-and-vmaf-c-abi-declarations": 7,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 203,
           "one-source-platform-shim": 203,
           "one-source-placeholder-record": 3,
@@ -3278,6 +3291,7 @@
           "unwinding-codec-and-callback-abi": 301,
           "system-and-vmaf-c-abi-declarations": 7,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 203,
           "one-source-platform-shim": 203,
           "one-source-placeholder-record": 3,
@@ -3316,8 +3330,8 @@
     {
       "source": "upstream/aom/av1/encoder/compound_type.c",
       "rust": "crates/aom/src/libaom/av1/encoder/compound_type.rs",
-      "rust_sha256": "fe1446888e36f7f0ae74d4dcfa0c2ec893d203efc97b9abb0fa78cc144aaf342",
-      "production_rust_sha256": "fe1446888e36f7f0ae74d4dcfa0c2ec893d203efc97b9abb0fa78cc144aaf342",
+      "rust_sha256": "631d33efd9d29f776dc9745a42ded99143a8407495ed5bef671f3e9e550a1223",
+      "production_rust_sha256": "631d33efd9d29f776dc9745a42ded99143a8407495ed5bef671f3e9e550a1223",
       "raw_sha256": {
         "macos": "5d4dd05c183e72168dfe1ab3a6847fd4c738e0ef2807a93e3788727ba5790cc8",
         "linux": "b32fbbb869a63f66a75070d1664f6410b7b1f59fc9ea002ec0abf19ea9fa062c"
@@ -3333,6 +3347,7 @@
           "unwinding-codec-and-callback-abi": 125,
           "system-and-vmaf-c-abi-declarations": 6,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 36,
           "one-source-platform-shim": 36,
           "one-source-placeholder-record": 3,
@@ -3348,6 +3363,7 @@
           "unwinding-codec-and-callback-abi": 125,
           "system-and-vmaf-c-abi-declarations": 6,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 36,
           "one-source-platform-shim": 36,
           "one-source-placeholder-record": 3,
@@ -3358,8 +3374,8 @@
     {
       "source": "upstream/aom/av1/encoder/context_tree.c",
       "rust": "crates/aom/src/libaom/av1/encoder/context_tree.rs",
-      "rust_sha256": "224205179da2bcd1c688f281dcc7ed8bc4258921026103b45aaeeb074c8bcf06",
-      "production_rust_sha256": "224205179da2bcd1c688f281dcc7ed8bc4258921026103b45aaeeb074c8bcf06",
+      "rust_sha256": "90511da02cc629f895a4af1ddda099d2a2384c532992dd946177524ad0272b8b",
+      "production_rust_sha256": "90511da02cc629f895a4af1ddda099d2a2384c532992dd946177524ad0272b8b",
       "raw_sha256": {
         "macos": "1dea44b99f0d1b0e61ccc1c956913a5e91038722cfcd5102737b9b6bbb4b2845",
         "linux": "4175e2dc413e12bd4e5dc6e4c3ce2664717d11e955cb09f201774f0de1be007e"
@@ -3375,6 +3391,7 @@
           "system-and-vmaf-c-abi-declarations": 5,
           "one-source-debug-only-block": 1,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 15,
           "one-source-platform-shim": 15,
           "one-source-placeholder-record": 3,
@@ -3391,6 +3408,7 @@
           "system-and-vmaf-c-abi-declarations": 5,
           "one-source-debug-only-block": 1,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 15,
           "one-source-platform-shim": 15,
           "one-source-placeholder-record": 3,
@@ -3426,8 +3444,8 @@
     {
       "source": "upstream/aom/av1/encoder/encodeframe.c",
       "rust": "crates/aom/src/libaom/av1/encoder/encodeframe.rs",
-      "rust_sha256": "fec56455e7cdc115d13488d78029e3243236d98b82965fd8f33b17356c66e7a9",
-      "production_rust_sha256": "fec56455e7cdc115d13488d78029e3243236d98b82965fd8f33b17356c66e7a9",
+      "rust_sha256": "91529883cdf59a9aabc729e28486d98f4c631f1dfcae89782e93ff604ed72f0b",
+      "production_rust_sha256": "91529883cdf59a9aabc729e28486d98f4c631f1dfcae89782e93ff604ed72f0b",
       "raw_sha256": {
         "macos": "2cbfe6ee3fa851f56912e0cdd7c3d5387a1f3f6038a647b84d4b153907fca313",
         "linux": "d1f2cea7cec56a0c2720ede7fe93a20128cf376d2db4a006d2783f20cba274a5"
@@ -3445,6 +3463,7 @@
           "c-boolean-integer-conversion": 2,
           "one-source-debug-only-block": 1,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 54,
           "one-source-platform-shim": 54,
           "one-source-placeholder-record": 3,
@@ -3462,6 +3481,7 @@
           "c-boolean-integer-conversion": 2,
           "one-source-debug-only-block": 1,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 54,
           "one-source-platform-shim": 54,
           "one-source-placeholder-record": 3,
@@ -3472,8 +3492,8 @@
     {
       "source": "upstream/aom/av1/encoder/encodeframe_utils.c",
       "rust": "crates/aom/src/libaom/av1/encoder/encodeframe_utils.rs",
-      "rust_sha256": "f162d079390be031b5c19c3af6fa08eabdaf1b0b50e01afc86da1451f4389703",
-      "production_rust_sha256": "f162d079390be031b5c19c3af6fa08eabdaf1b0b50e01afc86da1451f4389703",
+      "rust_sha256": "b4d62225882c694c382dc1e4f060cdc64a9c102a5eac7f9f72b9a734218d4fcc",
+      "production_rust_sha256": "b4d62225882c694c382dc1e4f060cdc64a9c102a5eac7f9f72b9a734218d4fcc",
       "raw_sha256": {
         "macos": "baeeef3c2dbab39d01300e7053f8dd71cc8faca845220319c963cef6e17507e6",
         "linux": "8fea482c55dff0e8c77d2f8b64aabde9d4c38569c93f171988077e4f57f13b71"
@@ -3490,6 +3510,7 @@
           "system-and-vmaf-c-abi-declarations": 9,
           "one-source-debug-only-block": 3,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 51,
           "one-source-platform-shim": 51,
           "one-source-placeholder-record": 3,
@@ -3506,6 +3527,7 @@
           "system-and-vmaf-c-abi-declarations": 9,
           "one-source-debug-only-block": 3,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 51,
           "one-source-platform-shim": 51,
           "one-source-placeholder-record": 3,
@@ -3516,8 +3538,8 @@
     {
       "source": "upstream/aom/av1/encoder/encodemb.c",
       "rust": "crates/aom/src/libaom/av1/encoder/encodemb.rs",
-      "rust_sha256": "1975e997f67a85071a4981dd0adaf5cb75050b64a42caff0254f7f180f3f559a",
-      "production_rust_sha256": "1975e997f67a85071a4981dd0adaf5cb75050b64a42caff0254f7f180f3f559a",
+      "rust_sha256": "323d3ed77d6269f6acc94a9842b60f11f9ed2d711f9d63ef765113a113585164",
+      "production_rust_sha256": "323d3ed77d6269f6acc94a9842b60f11f9ed2d711f9d63ef765113a113585164",
       "raw_sha256": {
         "macos": "a416833a024c8166afb6167f8452eeeb6af50ba8dd5cb430ba2a81503dadc235",
         "linux": "0f02861f5805faa587c411f80f1368481ff564baa06981ecbd29920f4a40a17e"
@@ -3531,6 +3553,7 @@
           "unwinding-codec-and-callback-abi": 121,
           "system-and-vmaf-c-abi-declarations": 4,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 39,
           "one-source-platform-shim": 39,
           "one-source-placeholder-record": 3,
@@ -3544,6 +3567,7 @@
           "unwinding-codec-and-callback-abi": 121,
           "system-and-vmaf-c-abi-declarations": 4,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 39,
           "one-source-platform-shim": 39,
           "one-source-placeholder-record": 3,
@@ -3554,8 +3578,8 @@
     {
       "source": "upstream/aom/av1/encoder/encodemv.c",
       "rust": "crates/aom/src/libaom/av1/encoder/encodemv.rs",
-      "rust_sha256": "224209b1eb689cdd58bfe94af999b7f2f52567334412abce57819fc05f442cdc",
-      "production_rust_sha256": "224209b1eb689cdd58bfe94af999b7f2f52567334412abce57819fc05f442cdc",
+      "rust_sha256": "b9f850114fb06a8d0092696832188bf2b4224490b1c10fae68811dd064c8f9ee",
+      "production_rust_sha256": "b9f850114fb06a8d0092696832188bf2b4224490b1c10fae68811dd064c8f9ee",
       "raw_sha256": {
         "macos": "8afb854e6bf5613fa0566bb3f77f92a9f1f85d717dd318e13f2dc65b6f3d8641",
         "linux": "0b2163ad013da03135f8c5998b4757b9748950a4d10da6c1268e4e6d57ad0385"
@@ -3570,6 +3594,7 @@
           "unwinding-codec-and-callback-abi": 70,
           "system-and-vmaf-c-abi-declarations": 3,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 17,
           "one-source-platform-shim": 17,
           "one-source-placeholder-record": 3,
@@ -3584,6 +3609,7 @@
           "unwinding-codec-and-callback-abi": 70,
           "system-and-vmaf-c-abi-declarations": 3,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 17,
           "one-source-platform-shim": 17,
           "one-source-placeholder-record": 3,
@@ -3594,8 +3620,8 @@
     {
       "source": "upstream/aom/av1/encoder/encode_strategy.c",
       "rust": "crates/aom/src/libaom/av1/encoder/encode_strategy.rs",
-      "rust_sha256": "1160455e565df113a02a601846cdc9b49815efe5d5d8d9692705cc3701bc840f",
-      "production_rust_sha256": "1160455e565df113a02a601846cdc9b49815efe5d5d8d9692705cc3701bc840f",
+      "rust_sha256": "27029ec538e504a3b3eee9055d72927e67f290afca617ed9bbc78c7860fe8acd",
+      "production_rust_sha256": "27029ec538e504a3b3eee9055d72927e67f290afca617ed9bbc78c7860fe8acd",
       "raw_sha256": {
         "macos": "687124b335018945c9e2324ad7241ae6f7392fc2a68fd5acab36b738bcde5d71",
         "linux": "db55ec83d721b5c637dba72060331973724c00d2652a17b707fecbac67522031"
@@ -3611,6 +3637,7 @@
           "system-and-vmaf-c-abi-declarations": 6,
           "c-boolean-integer-conversion": 1,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 15,
           "one-source-platform-shim": 15,
           "one-source-placeholder-record": 3,
@@ -3626,6 +3653,7 @@
           "system-and-vmaf-c-abi-declarations": 6,
           "c-boolean-integer-conversion": 1,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 15,
           "one-source-platform-shim": 15,
           "one-source-placeholder-record": 3,
@@ -3636,8 +3664,8 @@
     {
       "source": "upstream/aom/av1/encoder/encoder.c",
       "rust": "crates/aom/src/libaom/av1/encoder/encoder.rs",
-      "rust_sha256": "bc21e8a57e9252e56482887aabfda20da53c43c29051b3b2e0ddcc552e630cef",
-      "production_rust_sha256": "bc21e8a57e9252e56482887aabfda20da53c43c29051b3b2e0ddcc552e630cef",
+      "rust_sha256": "f243355398d583c3a1ab6b29bf85062682992391b9be6cfe8be023f8ab538c11",
+      "production_rust_sha256": "f243355398d583c3a1ab6b29bf85062682992391b9be6cfe8be023f8ab538c11",
       "raw_sha256": {
         "macos": "2a89fd8d18902db0f70fc5ff1f477350887ecf882635db2d107b974e9dfa9d54",
         "linux": "e8a298c370b4ab05549cdda53fee9606b58da5c2d599dd19ae8a5362aee7a7a1"
@@ -3655,6 +3683,7 @@
           "c-boolean-integer-conversion": 2,
           "one-source-debug-only-block": 1,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 97,
           "one-source-platform-shim": 97,
           "one-source-placeholder-record": 3,
@@ -3672,6 +3701,7 @@
           "c-boolean-integer-conversion": 2,
           "one-source-debug-only-block": 1,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 97,
           "one-source-platform-shim": 97,
           "one-source-placeholder-record": 3,
@@ -3682,8 +3712,8 @@
     {
       "source": "upstream/aom/av1/encoder/encoder_utils.c",
       "rust": "crates/aom/src/libaom/av1/encoder/encoder_utils.rs",
-      "rust_sha256": "048dbcc2fec7dc0ec910490dd5c681b6a3cf3a7435500d66f4206dc8d13c82b1",
-      "production_rust_sha256": "048dbcc2fec7dc0ec910490dd5c681b6a3cf3a7435500d66f4206dc8d13c82b1",
+      "rust_sha256": "ad58210409b7eeda1f7139932c4037bc522ccffd630bc693a5c2050e86af2e25",
+      "production_rust_sha256": "ad58210409b7eeda1f7139932c4037bc522ccffd630bc693a5c2050e86af2e25",
       "raw_sha256": {
         "macos": "0deb97a8cee61fce246d9ae2cba694d48de6a682d9961ad0cd8716481cbc9a6d",
         "linux": "ef5348484cb2f490e645a832d7b98d4a0ec9d0f94f56f32f6dd11087187666ce"
@@ -3698,6 +3728,7 @@
           "unwinding-codec-and-callback-abi": 98,
           "system-and-vmaf-c-abi-declarations": 11,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 16,
           "one-source-platform-shim": 16,
           "one-source-placeholder-record": 3,
@@ -3712,6 +3743,7 @@
           "unwinding-codec-and-callback-abi": 98,
           "system-and-vmaf-c-abi-declarations": 11,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 16,
           "one-source-platform-shim": 16,
           "one-source-placeholder-record": 3,
@@ -3722,8 +3754,8 @@
     {
       "source": "upstream/aom/av1/encoder/encodetxb.c",
       "rust": "crates/aom/src/libaom/av1/encoder/encodetxb.rs",
-      "rust_sha256": "c1c46d381543ab5a88b238c427891330803cdb9da73ad533f38ebd0bd06ddac3",
-      "production_rust_sha256": "c1c46d381543ab5a88b238c427891330803cdb9da73ad533f38ebd0bd06ddac3",
+      "rust_sha256": "f7a9061dd2482748043e9fe0c311d8cdf602dbf9f3c239938716c5860c3c65df",
+      "production_rust_sha256": "f7a9061dd2482748043e9fe0c311d8cdf602dbf9f3c239938716c5860c3c65df",
       "raw_sha256": {
         "macos": "774cf8792c56a4f0d306b3cde1c4fb7ca06222aade7ef2eb994ab1e0cd445140",
         "linux": "4242522135c33b2d8e6833f2ac93b4cbc6dd77e731d3e938680a380d743ffef8"
@@ -3739,6 +3771,7 @@
           "unwinding-codec-and-callback-abi": 111,
           "system-and-vmaf-c-abi-declarations": 5,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 34,
           "one-source-platform-shim": 34,
           "one-source-placeholder-record": 3,
@@ -3754,6 +3787,7 @@
           "unwinding-codec-and-callback-abi": 111,
           "system-and-vmaf-c-abi-declarations": 5,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 34,
           "one-source-platform-shim": 34,
           "one-source-placeholder-record": 3,
@@ -3764,8 +3798,8 @@
     {
       "source": "upstream/aom/av1/encoder/ethread.c",
       "rust": "crates/aom/src/libaom/av1/encoder/ethread.rs",
-      "rust_sha256": "6e5ca855097d7aca3913a553e87829291eec7093fafc825ce1b36b1b0f7fde4c",
-      "production_rust_sha256": "6e5ca855097d7aca3913a553e87829291eec7093fafc825ce1b36b1b0f7fde4c",
+      "rust_sha256": "9b4f8b444a482d61b6dd744489c85a0db1dd6bb348d45211e75dd74a3e9d7eb4",
+      "production_rust_sha256": "9b4f8b444a482d61b6dd744489c85a0db1dd6bb348d45211e75dd74a3e9d7eb4",
       "raw_sha256": {
         "macos": "76096b772a5d2e90a1b0c6269a2e9d11567e4990319243194f52b063300e21e8",
         "linux": "8b1dc858d3aafe53a43339d60a50a6974cc9170cb5033d4b4bd30942cd2b8708"
@@ -3782,6 +3816,7 @@
           "unwinding-codec-and-callback-abi": 216,
           "system-and-vmaf-c-abi-declarations": 14,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 88,
           "one-source-platform-shim": 88,
           "one-source-placeholder-record": 5,
@@ -3799,6 +3834,7 @@
           "unwinding-codec-and-callback-abi": 216,
           "system-and-vmaf-c-abi-declarations": 14,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 88,
           "one-source-platform-shim": 88,
           "one-source-placeholder-record": 5,
@@ -3860,8 +3896,8 @@
     {
       "source": "upstream/aom/av1/encoder/firstpass.c",
       "rust": "crates/aom/src/libaom/av1/encoder/firstpass.rs",
-      "rust_sha256": "7bc12fd9df60534eeaf1bfcbced88f84e680abfd5ac6c8766cd4b495e04144a9",
-      "production_rust_sha256": "7bc12fd9df60534eeaf1bfcbced88f84e680abfd5ac6c8766cd4b495e04144a9",
+      "rust_sha256": "98f01774a53d2203a8a01848249c67ea4369fbcf311861411c5c0b5139c108e7",
+      "production_rust_sha256": "98f01774a53d2203a8a01848249c67ea4369fbcf311861411c5c0b5139c108e7",
       "raw_sha256": {
         "macos": "87f87e7628b8b97737bc8acb42dde1554d3b238bd2473679cff866066512a428",
         "linux": "b392d381a281a4e0b971e056469f62bb9f0514fbef79da4325ea994dc907dec5"
@@ -3877,6 +3913,7 @@
           "unwinding-codec-and-callback-abi": 149,
           "system-and-vmaf-c-abi-declarations": 16,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 20,
           "one-source-platform-shim": 21,
           "one-source-placeholder-record": 3,
@@ -3892,6 +3929,7 @@
           "unwinding-codec-and-callback-abi": 149,
           "system-and-vmaf-c-abi-declarations": 16,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 20,
           "one-source-platform-shim": 21,
           "one-source-placeholder-record": 3,
@@ -3934,8 +3972,8 @@
     {
       "source": "upstream/aom/av1/encoder/global_motion_facade.c",
       "rust": "crates/aom/src/libaom/av1/encoder/global_motion_facade.rs",
-      "rust_sha256": "74ee1856a9365e0573948379b90cf8a2d1da35d552cf7e090dac7bdfffd286b0",
-      "production_rust_sha256": "74ee1856a9365e0573948379b90cf8a2d1da35d552cf7e090dac7bdfffd286b0",
+      "rust_sha256": "091b6c478d268b5d2ebe46c7d7db3950986b3836c6069169d3c7293728220838",
+      "production_rust_sha256": "091b6c478d268b5d2ebe46c7d7db3950986b3836c6069169d3c7293728220838",
       "raw_sha256": {
         "macos": "6295e810bf630c00afc7d445a9848037d5e1a19ac2908b17fd13d0cdc0d81088",
         "linux": "bfe95978482d7b1a6eab729f8a2a5576922637531bf7bbc27408f091348e3afb"
@@ -3952,6 +3990,7 @@
           "unwinding-codec-and-callback-abi": 69,
           "system-and-vmaf-c-abi-declarations": 6,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 8,
           "one-source-platform-shim": 8,
           "one-source-placeholder-record": 3,
@@ -3968,6 +4007,7 @@
           "unwinding-codec-and-callback-abi": 69,
           "system-and-vmaf-c-abi-declarations": 6,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 8,
           "one-source-platform-shim": 8,
           "one-source-placeholder-record": 3,
@@ -3978,8 +4018,8 @@
     {
       "source": "upstream/aom/av1/encoder/gop_structure.c",
       "rust": "crates/aom/src/libaom/av1/encoder/gop_structure.rs",
-      "rust_sha256": "105eeefb24c7721b122d2587069676afc0287fd91742770a437ed54bc90c56a8",
-      "production_rust_sha256": "105eeefb24c7721b122d2587069676afc0287fd91742770a437ed54bc90c56a8",
+      "rust_sha256": "f6d86858b4a5067185ccae55ad9bbdb77fdabe0171c92a36b2d76f0cb4114d83",
+      "production_rust_sha256": "f6d86858b4a5067185ccae55ad9bbdb77fdabe0171c92a36b2d76f0cb4114d83",
       "raw_sha256": {
         "macos": "0a0603795e55be6133b205a7396d9e6553836c255786e67d5d5a9721c8e1e0b3",
         "linux": "82e8db1d7ab5653559988def3e3d446bb4daad27019dd047f0e395b82709cf15"
@@ -3994,6 +4034,7 @@
           "system-and-vmaf-c-abi-declarations": 3,
           "c-boolean-integer-conversion": 1,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 11,
           "one-source-platform-shim": 11,
           "one-source-placeholder-record": 3,
@@ -4008,6 +4049,7 @@
           "system-and-vmaf-c-abi-declarations": 3,
           "c-boolean-integer-conversion": 1,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 11,
           "one-source-platform-shim": 11,
           "one-source-placeholder-record": 3,
@@ -4094,8 +4136,8 @@
     {
       "source": "upstream/aom/av1/encoder/interp_search.c",
       "rust": "crates/aom/src/libaom/av1/encoder/interp_search.rs",
-      "rust_sha256": "1f40a287c74b59f846a76271c59ab5a09580407600c442633535857d3b0175ae",
-      "production_rust_sha256": "1f40a287c74b59f846a76271c59ab5a09580407600c442633535857d3b0175ae",
+      "rust_sha256": "4be83de8aa390313098b7f9bc4bfeb12fcfd0bba509fe6ab31ad9f325357c189",
+      "production_rust_sha256": "4be83de8aa390313098b7f9bc4bfeb12fcfd0bba509fe6ab31ad9f325357c189",
       "raw_sha256": {
         "macos": "aae4733bb82809951f09622b0a50126beb84ad14509ba638620aebbe56afdf09",
         "linux": "174618bc0af54a7b48050606f9141509fa2722934d8ff7574aae4073f7071fbc"
@@ -4110,6 +4152,7 @@
           "unwinding-codec-and-callback-abi": 102,
           "system-and-vmaf-c-abi-declarations": 4,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 37,
           "one-source-platform-shim": 37,
           "one-source-placeholder-record": 3,
@@ -4124,6 +4167,7 @@
           "unwinding-codec-and-callback-abi": 102,
           "system-and-vmaf-c-abi-declarations": 4,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 37,
           "one-source-platform-shim": 37,
           "one-source-placeholder-record": 3,
@@ -4134,8 +4178,8 @@
     {
       "source": "upstream/aom/av1/encoder/level.c",
       "rust": "crates/aom/src/libaom/av1/encoder/level.rs",
-      "rust_sha256": "3692f1d590010867e2da5fe4661e533f2364a5f341f55339070b064ac48566bf",
-      "production_rust_sha256": "3692f1d590010867e2da5fe4661e533f2364a5f341f55339070b064ac48566bf",
+      "rust_sha256": "853dd5724e0175dff9a9cecd4eb46dc1594341cff7dc63f0925d43a3fd30d98d",
+      "production_rust_sha256": "853dd5724e0175dff9a9cecd4eb46dc1594341cff7dc63f0925d43a3fd30d98d",
       "raw_sha256": {
         "macos": "e7ee6896bab27679e5870bcf4df629210c5f6ca4809123d0c2582995dce3da0a",
         "linux": "4b3556b84a7c6a7613cffcb127aeba0e084fe8bc81b40f7027fb496a919a175f"
@@ -4151,6 +4195,7 @@
           "unwinding-codec-and-callback-abi": 74,
           "system-and-vmaf-c-abi-declarations": 3,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 17,
           "one-source-platform-shim": 17,
           "one-source-placeholder-record": 3,
@@ -4166,6 +4211,7 @@
           "unwinding-codec-and-callback-abi": 74,
           "system-and-vmaf-c-abi-declarations": 3,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 17,
           "one-source-platform-shim": 17,
           "one-source-placeholder-record": 3,
@@ -4208,8 +4254,8 @@
     {
       "source": "upstream/aom/av1/encoder/mcomp.c",
       "rust": "crates/aom/src/libaom/av1/encoder/mcomp.rs",
-      "rust_sha256": "ae1e755ace2a83df5a1e40fa3ff6f8cc72903052f2dd8e5346d9f885da4ab90b",
-      "production_rust_sha256": "ae1e755ace2a83df5a1e40fa3ff6f8cc72903052f2dd8e5346d9f885da4ab90b",
+      "rust_sha256": "72f64414821f8b365e528050619f9053a567c64e7ad3564e21fb436dea99c0c9",
+      "production_rust_sha256": "72f64414821f8b365e528050619f9053a567c64e7ad3564e21fb436dea99c0c9",
       "raw_sha256": {
         "macos": "a2a37a4371292192b0cdf7d868fcc0517ce79c2ac8e51312e88f6231d61aed73",
         "linux": "fadbfecd9247913c5f74fb4b663e7374998a63d34d19de7cad02d9ea763bb72d"
@@ -4227,6 +4273,7 @@
           "unwinding-codec-and-callback-abi": 165,
           "system-and-vmaf-c-abi-declarations": 4,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 28,
           "one-source-platform-shim": 28,
           "one-source-placeholder-record": 3,
@@ -4244,6 +4291,7 @@
           "unwinding-codec-and-callback-abi": 165,
           "system-and-vmaf-c-abi-declarations": 4,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 28,
           "one-source-platform-shim": 28,
           "one-source-placeholder-record": 3,
@@ -4278,8 +4326,8 @@
     {
       "source": "upstream/aom/av1/encoder/motion_search_facade.c",
       "rust": "crates/aom/src/libaom/av1/encoder/motion_search_facade.rs",
-      "rust_sha256": "7e2f4300a29e9b9215acc1f06e5300b0e485a24d90f81d646a0df825a17afa2c",
-      "production_rust_sha256": "7e2f4300a29e9b9215acc1f06e5300b0e485a24d90f81d646a0df825a17afa2c",
+      "rust_sha256": "06aca1aa563426642dcef14967ccfdafbcc2508cc65843a56e0b7a05f61762cf",
+      "production_rust_sha256": "06aca1aa563426642dcef14967ccfdafbcc2508cc65843a56e0b7a05f61762cf",
       "raw_sha256": {
         "macos": "1cfda559f9f2970672ccbea2c105d6c408ee7da01da32ec524a62a6eed2648f9",
         "linux": "4ff52f3d8d0f23a3fdedce95664de4d96301e94571d848ff80560e2a12c8d7e7"
@@ -4297,6 +4345,7 @@
           "unwinding-codec-and-callback-abi": 101,
           "system-and-vmaf-c-abi-declarations": 5,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 26,
           "one-source-platform-shim": 26,
           "one-source-placeholder-record": 3,
@@ -4314,6 +4363,7 @@
           "unwinding-codec-and-callback-abi": 101,
           "system-and-vmaf-c-abi-declarations": 5,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 26,
           "one-source-platform-shim": 26,
           "one-source-placeholder-record": 3,
@@ -4324,8 +4374,8 @@
     {
       "source": "upstream/aom/av1/encoder/mv_prec.c",
       "rust": "crates/aom/src/libaom/av1/encoder/mv_prec.rs",
-      "rust_sha256": "322af117c1930919eef4b2a8c0255660874616d63fadba6ed4bdbba09c50c6c0",
-      "production_rust_sha256": "322af117c1930919eef4b2a8c0255660874616d63fadba6ed4bdbba09c50c6c0",
+      "rust_sha256": "f45fe16bf20feb88c2f58c2693ee995ba56dee0f0b6a36f2b434584f13ea67f7",
+      "production_rust_sha256": "f45fe16bf20feb88c2f58c2693ee995ba56dee0f0b6a36f2b434584f13ea67f7",
       "raw_sha256": {
         "macos": "5badb3b89f80b26bf006cbe12ffb65781b341f25117d0922840452f2528183fe",
         "linux": "35fb2a27f0db4a149bbd9e50b720a29702a2b6a6f0fb331ede2f16c1d3c1de59"
@@ -4342,6 +4392,7 @@
           "unwinding-codec-and-callback-abi": 77,
           "system-and-vmaf-c-abi-declarations": 4,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 20,
           "one-source-platform-shim": 20,
           "one-source-placeholder-record": 3,
@@ -4358,6 +4409,7 @@
           "unwinding-codec-and-callback-abi": 77,
           "system-and-vmaf-c-abi-declarations": 4,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 20,
           "one-source-platform-shim": 20,
           "one-source-placeholder-record": 3,
@@ -4368,8 +4420,8 @@
     {
       "source": "upstream/aom/av1/encoder/palette.c",
       "rust": "crates/aom/src/libaom/av1/encoder/palette.rs",
-      "rust_sha256": "dae776203ac8ab9e26c7da2f92376e8f71c6d2a64df091c34624519bf076725b",
-      "production_rust_sha256": "dae776203ac8ab9e26c7da2f92376e8f71c6d2a64df091c34624519bf076725b",
+      "rust_sha256": "e55c056e0eaf4b7cb3bd1d5612ba3544b0c81c60171e52ebfcd065910ad47c63",
+      "production_rust_sha256": "e55c056e0eaf4b7cb3bd1d5612ba3544b0c81c60171e52ebfcd065910ad47c63",
       "raw_sha256": {
         "macos": "b50a097d22df064fa8f3b023a6cb0f789d54f0f9083d25d9dfca393c86d7bbfa",
         "linux": "41c808b035eeb2d16dc468f7f29325d522a4e6277c2949c119e31d28edb484d6"
@@ -4384,6 +4436,7 @@
           "unwinding-codec-and-callback-abi": 111,
           "system-and-vmaf-c-abi-declarations": 8,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 52,
           "one-source-platform-shim": 52,
           "one-source-placeholder-record": 3,
@@ -4398,6 +4451,7 @@
           "unwinding-codec-and-callback-abi": 111,
           "system-and-vmaf-c-abi-declarations": 8,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 52,
           "one-source-platform-shim": 52,
           "one-source-placeholder-record": 3,
@@ -4408,8 +4462,8 @@
     {
       "source": "upstream/aom/av1/encoder/partition_search.c",
       "rust": "crates/aom/src/libaom/av1/encoder/partition_search.rs",
-      "rust_sha256": "18f6a18392b212f148770a6f21b57311c26aee3fd25bbb68a998b00135bd1f5d",
-      "production_rust_sha256": "18f6a18392b212f148770a6f21b57311c26aee3fd25bbb68a998b00135bd1f5d",
+      "rust_sha256": "2b93e86e28d6d308fa3758a182bd844d4c41aa7a1dabecf436b973002a32135f",
+      "production_rust_sha256": "2b93e86e28d6d308fa3758a182bd844d4c41aa7a1dabecf436b973002a32135f",
       "raw_sha256": {
         "macos": "4a32624e9b3070d55e24c78d0d2bce73abc8d07e740b2fd6a7f5cd4b52a1fc3b",
         "linux": "a2f1dab86f6f494b5ed110f71843a1e8ea6c5a540c4d2607758a4545a6639b93"
@@ -4428,6 +4482,7 @@
           "c-boolean-integer-conversion": 2,
           "one-source-debug-only-block": 2,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 102,
           "one-source-platform-shim": 102,
           "one-source-placeholder-record": 3,
@@ -4446,6 +4501,7 @@
           "c-boolean-integer-conversion": 2,
           "one-source-debug-only-block": 2,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 102,
           "one-source-platform-shim": 102,
           "one-source-placeholder-record": 3,
@@ -4456,8 +4512,8 @@
     {
       "source": "upstream/aom/av1/encoder/partition_strategy.c",
       "rust": "crates/aom/src/libaom/av1/encoder/partition_strategy.rs",
-      "rust_sha256": "a079ac81d768d224f278f97b87f7a464dbc2bf0f244ea8e0a3e31aa09b0fb88e",
-      "production_rust_sha256": "a079ac81d768d224f278f97b87f7a464dbc2bf0f244ea8e0a3e31aa09b0fb88e",
+      "rust_sha256": "6c122cd2ae046e4cfd08c9bbde4700dec5f0f1423639e305b5587f4213a2eeee",
+      "production_rust_sha256": "6c122cd2ae046e4cfd08c9bbde4700dec5f0f1423639e305b5587f4213a2eeee",
       "raw_sha256": {
         "macos": "79841e48d893bff7cb9221f61417e6cb86777060a1edefd3d6aaee66cf49fe9b",
         "linux": "4cd6f011bc99fa4b0e50e8a5a520d981cb868ee27c65369dc06652a1690af01f"
@@ -4475,6 +4531,7 @@
           "unwinding-codec-and-callback-abi": 111,
           "system-and-vmaf-c-abi-declarations": 11,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 39,
           "one-source-platform-shim": 39,
           "one-source-placeholder-record": 3,
@@ -4492,6 +4549,7 @@
           "unwinding-codec-and-callback-abi": 111,
           "system-and-vmaf-c-abi-declarations": 11,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 39,
           "one-source-platform-shim": 39,
           "one-source-placeholder-record": 3,
@@ -4502,8 +4560,8 @@
     {
       "source": "upstream/aom/av1/encoder/pass2_strategy.c",
       "rust": "crates/aom/src/libaom/av1/encoder/pass2_strategy.rs",
-      "rust_sha256": "fa4eaebc4fb3fecc46c3d9c55e91c771deaaeae8efb38db0cde3492bf431a764",
-      "production_rust_sha256": "fa4eaebc4fb3fecc46c3d9c55e91c771deaaeae8efb38db0cde3492bf431a764",
+      "rust_sha256": "c069c9eaed4847c810263e17fda98f4c4beba41a873651cb6f66ed992d5c9fd4",
+      "production_rust_sha256": "c069c9eaed4847c810263e17fda98f4c4beba41a873651cb6f66ed992d5c9fd4",
       "raw_sha256": {
         "macos": "738cc1aab576d3c96207521593bf764440ff7ad258b55b2db8d55a1afd3c5c43",
         "linux": "d1343a29ff0815591d3dad895587c95874937bf6ab373dbe4028ea3722517cbc"
@@ -4518,6 +4576,7 @@
           "unwinding-codec-and-callback-abi": 147,
           "system-and-vmaf-c-abi-declarations": 9,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 20,
           "one-source-platform-shim": 20,
           "one-source-placeholder-record": 3,
@@ -4532,6 +4591,7 @@
           "unwinding-codec-and-callback-abi": 147,
           "system-and-vmaf-c-abi-declarations": 9,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 20,
           "one-source-platform-shim": 20,
           "one-source-placeholder-record": 3,
@@ -4542,8 +4602,8 @@
     {
       "source": "upstream/aom/av1/encoder/pickcdef.c",
       "rust": "crates/aom/src/libaom/av1/encoder/pickcdef.rs",
-      "rust_sha256": "0ba8c892bda17be914420ba12fa67c3073c1bbd725a55fc226d23d66ee2295d3",
-      "production_rust_sha256": "0ba8c892bda17be914420ba12fa67c3073c1bbd725a55fc226d23d66ee2295d3",
+      "rust_sha256": "d264b11fc622f9adfdaf3a7634537ea7313e94a2c18a987f05a230a76f4e9d4a",
+      "production_rust_sha256": "d264b11fc622f9adfdaf3a7634537ea7313e94a2c18a987f05a230a76f4e9d4a",
       "raw_sha256": {
         "macos": "30eaa461f4462c166b458faf8922eb46d2719672479bc242bdf7ed85eabdaa8f",
         "linux": "0b2752b9ba5f333930c13ddc9404ee5febf62eae1005f5a455d494eb330bc793"
@@ -4559,6 +4619,7 @@
           "unwinding-codec-and-callback-abi": 78,
           "system-and-vmaf-c-abi-declarations": 5,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 21,
           "one-source-platform-shim": 21,
           "one-source-placeholder-record": 3,
@@ -4574,6 +4635,7 @@
           "unwinding-codec-and-callback-abi": 78,
           "system-and-vmaf-c-abi-declarations": 5,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 21,
           "one-source-platform-shim": 21,
           "one-source-placeholder-record": 3,
@@ -4584,8 +4646,8 @@
     {
       "source": "upstream/aom/av1/encoder/picklpf.c",
       "rust": "crates/aom/src/libaom/av1/encoder/picklpf.rs",
-      "rust_sha256": "df4ec07b54e9de0848e843665f54b121b0008aa315e06c9cfbaf92af4c78f2a7",
-      "production_rust_sha256": "df4ec07b54e9de0848e843665f54b121b0008aa315e06c9cfbaf92af4c78f2a7",
+      "rust_sha256": "6773198f50fd813512e5487b77c208032c61f1fd8f1c3769ae0319f6c5401ab8",
+      "production_rust_sha256": "6773198f50fd813512e5487b77c208032c61f1fd8f1c3769ae0319f6c5401ab8",
       "raw_sha256": {
         "macos": "08e8d79df8328332b63af70d4caef0c8717e12fff30c713edb4e723bc38ea4f2",
         "linux": "152a9f0f5b7120875aff0d6df0188a821e50b84dfc1957285417587a243dfb1d"
@@ -4600,6 +4662,7 @@
           "system-and-vmaf-c-abi-declarations": 3,
           "c-boolean-integer-conversion": 1,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 6,
           "one-source-platform-shim": 6,
           "one-source-placeholder-record": 3,
@@ -4614,6 +4677,7 @@
           "system-and-vmaf-c-abi-declarations": 3,
           "c-boolean-integer-conversion": 1,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 6,
           "one-source-platform-shim": 6,
           "one-source-placeholder-record": 3,
@@ -4624,8 +4688,8 @@
     {
       "source": "upstream/aom/av1/encoder/pickrst.c",
       "rust": "crates/aom/src/libaom/av1/encoder/pickrst.rs",
-      "rust_sha256": "cd1483469d1b2414bc6cd752c51988f418143559796ef5f91feb5fb527f4f99e",
-      "production_rust_sha256": "cd1483469d1b2414bc6cd752c51988f418143559796ef5f91feb5fb527f4f99e",
+      "rust_sha256": "f73dd5ffce951a875f5feec4197ac1610e6a072a14980a8a748be34016fcdb05",
+      "production_rust_sha256": "f73dd5ffce951a875f5feec4197ac1610e6a072a14980a8a748be34016fcdb05",
       "raw_sha256": {
         "macos": "3b73e6294ab89fcae00b1a2455584991b61487991212f1d041e19c21af6671a6",
         "linux": "d2f4f51215f56350512227539f8da598529773168a9215272450103e69ee2a4e"
@@ -4641,6 +4705,7 @@
           "unwinding-codec-and-callback-abi": 118,
           "system-and-vmaf-c-abi-declarations": 4,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 22,
           "one-source-platform-shim": 22,
           "one-source-placeholder-record": 3,
@@ -4656,6 +4721,7 @@
           "unwinding-codec-and-callback-abi": 118,
           "system-and-vmaf-c-abi-declarations": 4,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 22,
           "one-source-platform-shim": 22,
           "one-source-placeholder-record": 3,
@@ -4666,8 +4732,8 @@
     {
       "source": "upstream/aom/av1/encoder/ratectrl.c",
       "rust": "crates/aom/src/libaom/av1/encoder/ratectrl.rs",
-      "rust_sha256": "bf2ea12880ac641a6bca90c6c3d2ae207be195d5b50a78ddfb2ff84d22a565ee",
-      "production_rust_sha256": "bf2ea12880ac641a6bca90c6c3d2ae207be195d5b50a78ddfb2ff84d22a565ee",
+      "rust_sha256": "49d30e35dae7c945074e7c0810bc1ca3a57c8da8b39d027513cafc90d82fb60e",
+      "production_rust_sha256": "49d30e35dae7c945074e7c0810bc1ca3a57c8da8b39d027513cafc90d82fb60e",
       "raw_sha256": {
         "macos": "22d7e0556cc36bef9ad50a8a7715345bcb3f35829cd837c82022fd90287b74ad",
         "linux": "93ffeaa7deaa49a432d916a353ebcb69d41c693ee229c9ef19df0a7cf9475e0b"
@@ -4683,6 +4749,7 @@
           "unwinding-codec-and-callback-abi": 156,
           "system-and-vmaf-c-abi-declarations": 12,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 44,
           "one-source-platform-shim": 44,
           "one-source-placeholder-record": 4,
@@ -4698,6 +4765,7 @@
           "unwinding-codec-and-callback-abi": 156,
           "system-and-vmaf-c-abi-declarations": 12,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 44,
           "one-source-platform-shim": 44,
           "one-source-placeholder-record": 4,
@@ -4708,8 +4776,8 @@
     {
       "source": "upstream/aom/av1/encoder/rd.c",
       "rust": "crates/aom/src/libaom/av1/encoder/rd.rs",
-      "rust_sha256": "3c0726a980fcdd753475cb9bac80740c675d2b8dc002b698d143384e28455415",
-      "production_rust_sha256": "3c0726a980fcdd753475cb9bac80740c675d2b8dc002b698d143384e28455415",
+      "rust_sha256": "003eeca202c71f47a0b98783db9519d07d7a26544731be7fdfd0e7fc65224615",
+      "production_rust_sha256": "003eeca202c71f47a0b98783db9519d07d7a26544731be7fdfd0e7fc65224615",
       "raw_sha256": {
         "macos": "361ffdecef87453ea2eaed39041f980c773ab9f2c03c8c334abd35755ef47eea",
         "linux": "2de9d2905be564f7783852d92e4e4a6dcdb87dd6140eb3ee27c38a3cab2732dd"
@@ -4726,6 +4794,7 @@
           "unwinding-codec-and-callback-abi": 112,
           "system-and-vmaf-c-abi-declarations": 10,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 17,
           "one-source-platform-shim": 17,
           "one-source-placeholder-record": 4,
@@ -4742,6 +4811,7 @@
           "unwinding-codec-and-callback-abi": 113,
           "system-and-vmaf-c-abi-declarations": 10,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 17,
           "one-source-platform-shim": 17,
           "one-source-placeholder-record": 4,
@@ -4752,8 +4822,8 @@
     {
       "source": "upstream/aom/av1/encoder/rdopt.c",
       "rust": "crates/aom/src/libaom/av1/encoder/rdopt.rs",
-      "rust_sha256": "482c7f3f6bcc8d923a44cac119570cbb4a13f802acd3b419fb920067f59d93e3",
-      "production_rust_sha256": "482c7f3f6bcc8d923a44cac119570cbb4a13f802acd3b419fb920067f59d93e3",
+      "rust_sha256": "d65986096127b2e77a071fbfcc3085900287440eefe2fb0e40fee97dd1197a11",
+      "production_rust_sha256": "d65986096127b2e77a071fbfcc3085900287440eefe2fb0e40fee97dd1197a11",
       "raw_sha256": {
         "macos": "a953f7914934d34dd06a96fcb3adfc99c05a6cff55ec7dea6f30718580e5533b",
         "linux": "9352ebc812af11ed248db694053e60465ea98720b0d59cfb29e772cfe5b93ab9"
@@ -4771,6 +4841,7 @@
           "unwinding-codec-and-callback-abi": 308,
           "system-and-vmaf-c-abi-declarations": 12,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 136,
           "one-source-platform-shim": 136,
           "one-source-placeholder-record": 3,
@@ -4788,6 +4859,7 @@
           "unwinding-codec-and-callback-abi": 308,
           "system-and-vmaf-c-abi-declarations": 12,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 136,
           "one-source-platform-shim": 136,
           "one-source-placeholder-record": 3,
@@ -4798,8 +4870,8 @@
     {
       "source": "upstream/aom/av1/encoder/nonrd_pickmode.c",
       "rust": "crates/aom/src/libaom/av1/encoder/nonrd_pickmode.rs",
-      "rust_sha256": "23af36b6814a0499ea9a29e7174c107e38d8ef5e686a1f2d16e7531d2c7812aa",
-      "production_rust_sha256": "23af36b6814a0499ea9a29e7174c107e38d8ef5e686a1f2d16e7531d2c7812aa",
+      "rust_sha256": "4a6a0dd820cfa7a7e827ee4baba87da17e08ef8c102b70ed9d8f5a7a08673243",
+      "production_rust_sha256": "4a6a0dd820cfa7a7e827ee4baba87da17e08ef8c102b70ed9d8f5a7a08673243",
       "raw_sha256": {
         "macos": "e3fff110e647bef3a51e9bd88aa55dad6fe92d1602134755062c579f5804e30c",
         "linux": "56e4c8f37f9cb42a5be399bf8671b0fefd7351f84e8d7f1eb66819b7b5fbf2a7"
@@ -4819,6 +4891,7 @@
           "c-boolean-integer-conversion": 2,
           "packed-byte-enum-assignment-cast": 1,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 50,
           "one-source-platform-shim": 50,
           "one-source-placeholder-record": 3,
@@ -4838,6 +4911,7 @@
           "c-boolean-integer-conversion": 2,
           "packed-byte-enum-assignment-cast": 1,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 50,
           "one-source-platform-shim": 50,
           "one-source-placeholder-record": 3,
@@ -4848,8 +4922,8 @@
     {
       "source": "upstream/aom/av1/encoder/nonrd_opt.c",
       "rust": "crates/aom/src/libaom/av1/encoder/nonrd_opt.rs",
-      "rust_sha256": "cce3186a817cde360bc531174cc8d0b6fce0fdd452b3f42870a5d820bb24d54e",
-      "production_rust_sha256": "cce3186a817cde360bc531174cc8d0b6fce0fdd452b3f42870a5d820bb24d54e",
+      "rust_sha256": "017fca94ff729d2897735876bc0d925bf7c4b4dfb81061a72b7e0e8868113b08",
+      "production_rust_sha256": "017fca94ff729d2897735876bc0d925bf7c4b4dfb81061a72b7e0e8868113b08",
       "raw_sha256": {
         "macos": "63af0a82104d7eaf15ec0598a2a6a8a25eb2fd5d7fff14cc303f80ac2a7b539b",
         "linux": "d5e8538ef7bab7feac622680531c7029b864450a82c07a6ad748ef00e032f88e"
@@ -4867,6 +4941,7 @@
           "unwinding-codec-and-callback-abi": 84,
           "system-and-vmaf-c-abi-declarations": 3,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 18,
           "one-source-platform-shim": 18,
           "one-source-placeholder-record": 3,
@@ -4884,6 +4959,7 @@
           "unwinding-codec-and-callback-abi": 84,
           "system-and-vmaf-c-abi-declarations": 3,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 18,
           "one-source-platform-shim": 18,
           "one-source-placeholder-record": 3,
@@ -4964,8 +5040,8 @@
     {
       "source": "upstream/aom/av1/encoder/speed_features.c",
       "rust": "crates/aom/src/libaom/av1/encoder/speed_features.rs",
-      "rust_sha256": "89f7b9f4d990d13e02f107dbdf79e8f267397aa3a36571b36bee9793d9dc4d73",
-      "production_rust_sha256": "89f7b9f4d990d13e02f107dbdf79e8f267397aa3a36571b36bee9793d9dc4d73",
+      "rust_sha256": "acdc0987b745d9d50235a534a6ca1331b6aa2435af16bb83f9c6c757a28a4ce3",
+      "production_rust_sha256": "acdc0987b745d9d50235a534a6ca1331b6aa2435af16bb83f9c6c757a28a4ce3",
       "raw_sha256": {
         "macos": "ab0ac2d7087ea055d0c90d413134f2ed9aceda3bf0efcb14cb528271d94fc6fa",
         "linux": "d41f833269887ed2c56d0fa4052410b8a6fe3179e7509ef1b88e6862c6a667e3"
@@ -4981,6 +5057,7 @@
           "unwinding-codec-and-callback-abi": 87,
           "system-and-vmaf-c-abi-declarations": 3,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 10,
           "one-source-platform-shim": 10,
           "one-source-placeholder-record": 3,
@@ -4996,6 +5073,7 @@
           "unwinding-codec-and-callback-abi": 87,
           "system-and-vmaf-c-abi-declarations": 3,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 10,
           "one-source-platform-shim": 10,
           "one-source-placeholder-record": 3,
@@ -5006,8 +5084,8 @@
     {
       "source": "upstream/aom/av1/encoder/superres_scale.c",
       "rust": "crates/aom/src/libaom/av1/encoder/superres_scale.rs",
-      "rust_sha256": "c93ada6eb616b5e536a2083ca5e5c47d06f0075a5e915a67d80806dc68823205",
-      "production_rust_sha256": "c93ada6eb616b5e536a2083ca5e5c47d06f0075a5e915a67d80806dc68823205",
+      "rust_sha256": "22588895015d6be85ea37650e5117161afa89ebe99b70a5a9d6fcc069b3dca94",
+      "production_rust_sha256": "22588895015d6be85ea37650e5117161afa89ebe99b70a5a9d6fcc069b3dca94",
       "raw_sha256": {
         "macos": "2438c5eda42d13735db4b92c1db216a9f4abcb3269b14ad6e4d1b2d6660b5f80",
         "linux": "2321718bfb4c8cba3d2499402cd9ccd3758c4d7460017a27adf166f1ff2fb650"
@@ -5022,6 +5100,7 @@
           "unwinding-codec-and-callback-abi": 67,
           "system-and-vmaf-c-abi-declarations": 3,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 19,
           "one-source-platform-shim": 19,
           "one-source-placeholder-record": 3,
@@ -5036,6 +5115,7 @@
           "unwinding-codec-and-callback-abi": 67,
           "system-and-vmaf-c-abi-declarations": 3,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 19,
           "one-source-platform-shim": 19,
           "one-source-placeholder-record": 3,
@@ -5046,8 +5126,8 @@
     {
       "source": "upstream/aom/av1/encoder/svc_layercontext.c",
       "rust": "crates/aom/src/libaom/av1/encoder/svc_layercontext.rs",
-      "rust_sha256": "7e4f022def7d465431ab2c8e2686abd25311684497dc11277e36b6e346f5b930",
-      "production_rust_sha256": "7e4f022def7d465431ab2c8e2686abd25311684497dc11277e36b6e346f5b930",
+      "rust_sha256": "a2b013a85e86b1d8dd4981ce450ecbc77d9c2d2cf34fa680379ccddcd49187af",
+      "production_rust_sha256": "a2b013a85e86b1d8dd4981ce450ecbc77d9c2d2cf34fa680379ccddcd49187af",
       "raw_sha256": {
         "macos": "de5d7c60bc41bc0ae53dca119300a7502e4a178669517b628cae1b318557246b",
         "linux": "c5121ab5bc59e7415990a948554eab2feea01b46a000bbeff495f82b2faa306c"
@@ -5061,6 +5141,7 @@
           "unwinding-codec-and-callback-abi": 70,
           "system-and-vmaf-c-abi-declarations": 3,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 7,
           "one-source-platform-shim": 7,
           "one-source-placeholder-record": 3,
@@ -5074,6 +5155,7 @@
           "unwinding-codec-and-callback-abi": 70,
           "system-and-vmaf-c-abi-declarations": 3,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 7,
           "one-source-platform-shim": 7,
           "one-source-placeholder-record": 3,
@@ -5084,8 +5166,8 @@
     {
       "source": "upstream/aom/av1/encoder/temporal_filter.c",
       "rust": "crates/aom/src/libaom/av1/encoder/temporal_filter.rs",
-      "rust_sha256": "7ed07f5dce4f132dd426119bfcf902950915d11fd3d75d4617ccf72fcfea789a",
-      "production_rust_sha256": "7ed07f5dce4f132dd426119bfcf902950915d11fd3d75d4617ccf72fcfea789a",
+      "rust_sha256": "7d658b24b8ce840af1f8fc4e382b4b7e177681ec8f18a2f46fbf6e2934b5df23",
+      "production_rust_sha256": "7d658b24b8ce840af1f8fc4e382b4b7e177681ec8f18a2f46fbf6e2934b5df23",
       "raw_sha256": {
         "macos": "ece0cadd9a4c43c362a9cee46d23dd7d15ca8ef04cd5104084d3f990d3c2337e",
         "linux": "2a242efce3ae4c5a22849457a4786cba29259b67c29c4b754166b7ccac5fbd8c"
@@ -5103,6 +5185,7 @@
           "unwinding-codec-and-callback-abi": 98,
           "system-and-vmaf-c-abi-declarations": 9,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 19,
           "one-source-platform-shim": 19,
           "one-source-placeholder-record": 3,
@@ -5120,6 +5203,7 @@
           "unwinding-codec-and-callback-abi": 98,
           "system-and-vmaf-c-abi-declarations": 9,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 19,
           "one-source-platform-shim": 19,
           "one-source-placeholder-record": 3,
@@ -5130,8 +5214,8 @@
     {
       "source": "upstream/aom/av1/encoder/tokenize.c",
       "rust": "crates/aom/src/libaom/av1/encoder/tokenize.rs",
-      "rust_sha256": "b846f120d710e452d24327db8d552f0dada13b48fddf05e223245a5ac38686b5",
-      "production_rust_sha256": "b846f120d710e452d24327db8d552f0dada13b48fddf05e223245a5ac38686b5",
+      "rust_sha256": "1de97da25cb90168818f164067d2a94a6a3aba420246dd88855ed5fc161ceac0",
+      "production_rust_sha256": "1de97da25cb90168818f164067d2a94a6a3aba420246dd88855ed5fc161ceac0",
       "raw_sha256": {
         "macos": "17911e6c58535e977a881e1fdcc10b77528cb2272adf5f301f90372c2ead90d2",
         "linux": "bb07ef442ae343b308e97e8ab3a959c77dc05bc58399d65d6089a5097ddf3cde"
@@ -5146,6 +5230,7 @@
           "unwinding-codec-and-callback-abi": 62,
           "system-and-vmaf-c-abi-declarations": 3,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 33,
           "one-source-platform-shim": 33,
           "one-source-placeholder-record": 3,
@@ -5160,6 +5245,7 @@
           "unwinding-codec-and-callback-abi": 62,
           "system-and-vmaf-c-abi-declarations": 3,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 33,
           "one-source-platform-shim": 33,
           "one-source-placeholder-record": 3,
@@ -5170,8 +5256,8 @@
     {
       "source": "upstream/aom/av1/encoder/tpl_model.c",
       "rust": "crates/aom/src/libaom/av1/encoder/tpl_model.rs",
-      "rust_sha256": "67dc26419f887531fa20955b2da0a6c48112a0e711cc58a1d185ed7e40b8f54e",
-      "production_rust_sha256": "67dc26419f887531fa20955b2da0a6c48112a0e711cc58a1d185ed7e40b8f54e",
+      "rust_sha256": "56ea5f443d92418d28bffaf661807a4dc1bdcc78b80356db3e40fc52258a5afe",
+      "production_rust_sha256": "56ea5f443d92418d28bffaf661807a4dc1bdcc78b80356db3e40fc52258a5afe",
       "raw_sha256": {
         "macos": "f9aca07289e99f7dae180ece6e667ead57fa2a0fed7419c12ae94fc97c123428",
         "linux": "9a897c434546f7d1b918966bc89a3e712929550e346c5a5a06a7f0d52aa911ae"
@@ -5189,6 +5275,7 @@
           "unwinding-codec-and-callback-abi": 174,
           "system-and-vmaf-c-abi-declarations": 14,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 40,
           "one-source-platform-shim": 40,
           "one-source-placeholder-record": 3,
@@ -5206,6 +5293,7 @@
           "unwinding-codec-and-callback-abi": 174,
           "system-and-vmaf-c-abi-declarations": 14,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 40,
           "one-source-platform-shim": 40,
           "one-source-placeholder-record": 3,
@@ -5216,8 +5304,8 @@
     {
       "source": "upstream/aom/av1/encoder/tx_search.c",
       "rust": "crates/aom/src/libaom/av1/encoder/tx_search.rs",
-      "rust_sha256": "b2a14966ef069ac7c1f6012e6e46988324cf927efa987c24e8ef6307c9fba6df",
-      "production_rust_sha256": "b2a14966ef069ac7c1f6012e6e46988324cf927efa987c24e8ef6307c9fba6df",
+      "rust_sha256": "692c205af87a008d20800273e0f899308b4c43dcc19d2f8dca3b791608c8d376",
+      "production_rust_sha256": "692c205af87a008d20800273e0f899308b4c43dcc19d2f8dca3b791608c8d376",
       "raw_sha256": {
         "macos": "a9a73c56b7e4ee63876b1fba8d6468c0c7b87a3cbea3c3a37cdad67a9b1477c0",
         "linux": "dbd3a2f5c05fd3941060286c8a338de9ed91fa5cc7fa92bddee3bb5d1336966f"
@@ -5236,6 +5324,7 @@
           "unwinding-codec-and-callback-abi": 175,
           "system-and-vmaf-c-abi-declarations": 9,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 76,
           "one-source-platform-shim": 76,
           "one-source-placeholder-record": 3,
@@ -5254,6 +5343,7 @@
           "unwinding-codec-and-callback-abi": 176,
           "system-and-vmaf-c-abi-declarations": 9,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 76,
           "one-source-platform-shim": 76,
           "one-source-placeholder-record": 3,
@@ -5264,8 +5354,8 @@
     {
       "source": "upstream/aom/av1/encoder/txb_rdopt.c",
       "rust": "crates/aom/src/libaom/av1/encoder/txb_rdopt.rs",
-      "rust_sha256": "4a432f557e99d60b43cbb2e4735460a9a3839d86e235cabaf03ca0301c10e474",
-      "production_rust_sha256": "4a432f557e99d60b43cbb2e4735460a9a3839d86e235cabaf03ca0301c10e474",
+      "rust_sha256": "419356e0e886a98f3b1fb0469e13bfbc8d6304c0df6bcc324f10f89b8e371013",
+      "production_rust_sha256": "419356e0e886a98f3b1fb0469e13bfbc8d6304c0df6bcc324f10f89b8e371013",
       "raw_sha256": {
         "macos": "3a71bde534e1222c9477704d48b642ccbe777186dc7f23087c726bf5f2d5a04e",
         "linux": "1d080a62e0eda94b136a4425abb432b289eb2c8e45e1898158bc8184ceb759d7"
@@ -5281,6 +5371,7 @@
           "unwinding-codec-and-callback-abi": 90,
           "system-and-vmaf-c-abi-declarations": 3,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 14,
           "one-source-platform-shim": 14,
           "one-source-placeholder-record": 3,
@@ -5296,6 +5387,7 @@
           "unwinding-codec-and-callback-abi": 90,
           "system-and-vmaf-c-abi-declarations": 3,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 14,
           "one-source-platform-shim": 14,
           "one-source-placeholder-record": 3,
@@ -5306,8 +5398,8 @@
     {
       "source": "upstream/aom/av1/encoder/intra_mode_search.c",
       "rust": "crates/aom/src/libaom/av1/encoder/intra_mode_search.rs",
-      "rust_sha256": "0219050b7dc1f4fcce0ada6faa38a49b8bd1eb36b082ac3c0388825cec88f1ba",
-      "production_rust_sha256": "0219050b7dc1f4fcce0ada6faa38a49b8bd1eb36b082ac3c0388825cec88f1ba",
+      "rust_sha256": "72671e4d7448aba330357cd33618f7dd99b081d11ce919bae9abcb40a29b4f56",
+      "production_rust_sha256": "72671e4d7448aba330357cd33618f7dd99b081d11ce919bae9abcb40a29b4f56",
       "raw_sha256": {
         "macos": "bb4ee6d7c507e57c4f90b12762bbddb082f008be9ba5f7ff434cbb24b20d15a9",
         "linux": "4ac450bee59d680f51cce3477fa4acd66d9d9210011893533084edab5c894532"
@@ -5326,6 +5418,7 @@
           "unwinding-codec-and-callback-abi": 144,
           "system-and-vmaf-c-abi-declarations": 7,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 57,
           "one-source-platform-shim": 57,
           "one-source-placeholder-record": 3,
@@ -5344,6 +5437,7 @@
           "unwinding-codec-and-callback-abi": 144,
           "system-and-vmaf-c-abi-declarations": 7,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 57,
           "one-source-platform-shim": 57,
           "one-source-placeholder-record": 3,
@@ -5372,8 +5466,8 @@
     {
       "source": "upstream/aom/av1/encoder/var_based_part.c",
       "rust": "crates/aom/src/libaom/av1/encoder/var_based_part.rs",
-      "rust_sha256": "e5f68cf0a38baf5613ac6ec40d19237ef0ec4200043667796936b3c018f510da",
-      "production_rust_sha256": "e5f68cf0a38baf5613ac6ec40d19237ef0ec4200043667796936b3c018f510da",
+      "rust_sha256": "f4827f916bfcad4bac860b0c5a748408b8adead66cf32e4b04a300c82ef5b909",
+      "production_rust_sha256": "f4827f916bfcad4bac860b0c5a748408b8adead66cf32e4b04a300c82ef5b909",
       "raw_sha256": {
         "macos": "35321350c968475ec212d6debe91cf212f02b343dd7a58a19be56cac8a595754",
         "linux": "35e32e044516a34948941e7c765dd314042b1068f098621e91333eec3f08a6fa"
@@ -5389,6 +5483,7 @@
           "unwinding-codec-and-callback-abi": 110,
           "system-and-vmaf-c-abi-declarations": 4,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 15,
           "one-source-platform-shim": 15,
           "one-source-placeholder-record": 3,
@@ -5404,6 +5499,7 @@
           "unwinding-codec-and-callback-abi": 110,
           "system-and-vmaf-c-abi-declarations": 4,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-debug-assertions": 15,
           "one-source-platform-shim": 15,
           "one-source-placeholder-record": 3,
@@ -5414,8 +5510,8 @@
     {
       "source": "upstream/aom/av1/encoder/av1_noise_estimate.c",
       "rust": "crates/aom/src/libaom/av1/encoder/av1_noise_estimate.rs",
-      "rust_sha256": "ffbd6656ee992496e2bf7b0f92107448393d22e6da185393a9062382a63813a3",
-      "production_rust_sha256": "ffbd6656ee992496e2bf7b0f92107448393d22e6da185393a9062382a63813a3",
+      "rust_sha256": "99136816648f6e041cf104526e76dbbdbf3e56e1c862ecb235a1cd8727aaf5e1",
+      "production_rust_sha256": "99136816648f6e041cf104526e76dbbdbf3e56e1c862ecb235a1cd8727aaf5e1",
       "raw_sha256": {
         "macos": "1e077ba9182244434eaee0c96c0c75cb907b4fcb563bcc978cda8f2a6fb2bee3",
         "linux": "e3137a2a7595038c33eca1e8d3ea07826f8cbfd26315e35c511fd479dbbf01d3"
@@ -5428,6 +5524,7 @@
           "original-c-record-field-alignment": 27,
           "unwinding-codec-and-callback-abi": 48,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-placeholder-record": 3,
           "one-source-jmp-buf": 1
         },
@@ -5438,6 +5535,7 @@
           "original-c-record-field-alignment": 27,
           "unwinding-codec-and-callback-abi": 48,
           "one-source-debug-only-field": 1,
+          "one-source-debug-only-record": 1,
           "one-source-placeholder-record": 3,
           "one-source-jmp-buf": 1
         }
