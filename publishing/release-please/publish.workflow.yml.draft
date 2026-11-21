@@ -159,7 +159,8 @@ jobs:
         run: |
           cargo package --locked \
             -p ferrisma-sharpyuv -p ferrisma-kernels -p ferrisma-libjpeg-turbo \
-            -p ferrisma-libjxl -p ferrisma-libaom -p ferrisma-dav1d -p ferrisma-libwebp \
+            -p ferrisma-libjxl -p ferrisma-libaom -p ferrisma-dav1d-kernels -p ferrisma-dav1d \
+            -p ferrisma-libwebp \
             -p ferrisma-libavif-sharpyuv -p ferrisma-libavif -p ferrisma-avif-read \
             -p ferrisma-avif-write -p ferrisma-jxl-decoder \
             -p ferrisma-jxl-encoder -p ferrisma
@@ -176,6 +177,7 @@ jobs:
             ferrisma-libjpeg-turbo
             ferrisma-libjxl
             ferrisma-libaom
+            ferrisma-dav1d-kernels
             ferrisma-dav1d
             ferrisma-libwebp
             ferrisma-libavif-sharpyuv

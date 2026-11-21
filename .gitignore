@@ -15,3 +15,6 @@
 /homepage/.react-router/
 /homepage/app/routes/guide/
 /homepage/app/routes/codecs/
+
+# Python bytecode left by the license tools and their tests
+scripts/__pycache__/
