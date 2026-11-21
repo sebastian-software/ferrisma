@@ -182,70 +182,22 @@ What a rename touches (the library target name `jpeg` stays, so no Rust
 
 ### 2. `libavif-aom` and the upload limit (#208)
 
-`cargo package --no-verify -p libavif-aom` on 2026-11-14: 765 files,
-207.7 MiB unpacked, **16.6 MiB compressed**. The `include` list already
-packages only `Cargo.toml`, `build.rs`, `README.md`, `NOTICE.md`,
-`LICENSES/` and `src/`; tests, examples, golden outputs, references and the
-`TRANSLATION-*.json` records stay out. Compressed size by part (gzip of each
-subtree of the extracted package):
+**Resolved on 2026-11-21 by one owned translation** (libavif-rs
+[ADR 0063](../codecs/libavif-rs/docs/adr/0063-translate-libaom-once-into-one-owned-source.md),
+owner route B of 2026-11-20). `crates/aom/src` held libaom four times
+(`{macos,linux}/{debug,release}`); it now holds one tree, `src/libaom`, whose
+target differences are `cfg(target_arch)` items and whose Debug-only code is
+`cfg(debug_assertions)`.
 
-| Part | Unpacked | Compressed |
-| --- | ---: | ---: |
-| `src/macos/debug` | 52.4 MiB | 4.3 MiB |
-| `src/macos/release` | 50.7 MiB | 4.1 MiB |
-| `src/linux/debug` | 52.3 MiB | 4.3 MiB |
-| `src/linux/release` | 50.3 MiB | 4.2 MiB |
-| `src/simd` (owned kernels) | 3.2 MiB | 0.4 MiB |
-| everything else | < 0.1 MiB | < 0.1 MiB |
+| `cargo package --no-verify -p libavif-aom` | Files | Unpacked | Compressed |
+| --- | ---: | ---: | ---: |
+| before (origin/main b591ccf4 era, four trees) | 823 | 211.2 MiB | 16.9 MiB |
+| after (one tree) | 319 | 59.6 MiB | **4.8 MiB** |
 
-`src/lib.rs` selects one of the four translations by target OS and
-`debug_assertions`, so a dependent's dev build on macOS needs
-`macos/debug` and its release build `macos/release`. Leaving any of them
-out breaks a build profile on a supported target: **no `include` trimming is
-safe**. The trees are not duplicates (37 of 166 files identical between
-debug and release on macOS, 3 between macOS and Linux), and gzip `-9` saves
-only 0.3 MiB.
-
-Options:
-
-- **Limit increase.** The Cargo reference states the 10 MiB limit and no
-  procedure. crates.io administrators raise the limit per crate on request
-  (help@crates.io; the usual practice, not confirmed from an official page
-  on 2026-11-14). Not asked. Cost: none in the repository; the
-  crate stays a 16.6 MiB download for every dependent, and growth (more
-  owned SIMD kernels) needs a new request.
-- **One crate per platform** (`…-macos`, `…-linux`, each with both
-  profiles, behind target-specific dependencies of a small `libavif-aom`
-  facade): about 8.8 MiB each with today's sources, about 1.2 MiB under the
-  limit. The translations address each other through 1,935 `crate::` paths
-  per profile and through the shared `simd`, `jump` and `platform` modules,
-  so each platform crate must hold the whole module tree plus those shared
-  modules; the facade re-exports `raw`. Touches the aom manifest and
-  `lib.rs`, four `modules-*.rs`/`api-*.rs` pairs, `tools/transpile_aom.py`
-  (frozen, ADR 0059), `tools/enable_aom_dispatch.py`,
-  `tools/import_aom_linux.py`, `tools/root_production.py`,
-  `tools/update_production_selection.py`, two translation workflows, and the
-  release lists. Needs a codec ADR.
-- **One crate per platform and profile:** about 4.7 MiB each (with `simd`), comfortable
-  headroom, four crates plus the facade; same tooling cost, more manifests.
-- **Ship one profile:** use the release translation for every build profile
-  (about 8.7 MiB). Changes which translation a debug build runs, against
-  ADR 0048's focused debug acceptance; a codec decision, not packaging.
-
-**Decision (owner, 2026-11-15):** solve the size by consolidation.
-Consolidation step (b), merging the debug and release translations of each
-platform (the consolidation plan named in libavif-rs
-[ADR 0060](../codecs/libavif-rs/docs/adr/0060-build-the-translations-on-stable-rust.md);
-step (a), stable Rust, is done), comes first; its expected size is about
-8.8 MiB, an estimate, not a measurement. Then the package is measured again.
-If it is above about 9 MiB, the owner chooses between step (c) before the
-first publication and a limit request to crates.io. No per-platform split
-crates and no shipping of one profile only (the options above). crates.io
-has not been asked. **Not done yet:** step (b) and the new measurement.
-
-The recommendation of 2026-11-14 (ask crates.io for a per-crate limit first,
-keep the per-platform split as the fallback) is replaced by this decision.
-`libavif-rs` (4.6 MiB) and `libavif-dav1d` (2.6 MiB) are below the limit.
+The crate is below the 10 MiB crates.io limit; no limit request is needed.
+The earlier options (a limit increase, per-platform crates, shipping one
+profile) and the consolidation steps (b) and (c) of the 2026-11-15 decision
+are superseded by this result.
 
 ### 3. Consumer profile requirements of the AVIF packages (#209)
 
