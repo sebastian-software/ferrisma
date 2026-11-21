@@ -57,13 +57,13 @@ one adapter. Since 2026-11-15 every format has one reader and one writer
 
 | Feature | Provides | Backend | Default role | Toolchain | Extra prerequisites | Proposed tier (ADR-0040) |
 | --- | --- | --- | --- | --- | --- | --- |
-| `jpeg-read` | JPEG input | workspace `libjpeg-turbo-rs` | only JPEG reader | stable 1.99 | none | Stable |
-| `webp-read` | still WebP input | workspace `libwebp-rs` | only WebP reader | stable 1.99 | none | Stable |
-| `webp-write` | still WebP output | workspace `libwebp-rs` | only WebP writer | stable 1.99 | none | Stable |
-| `jpeg-xl-read` | JPEG XL input | workspace `libjxl-rs` via `ferrisma-jxl-decoder` | only JPEG XL reader (since 2026-11-15; this name selected `jxl-oxide` before, and the workspace reader was `jpeg-xl-own-read`) | stable 1.99 | none | Stable as capability |
+| `jpeg-read` | JPEG input | workspace `ferrisma-libjpeg-turbo` | only JPEG reader | stable 1.99 | none | Stable |
+| `webp-read` | still WebP input | workspace `ferrisma-libwebp` | only WebP reader | stable 1.99 | none | Stable |
+| `webp-write` | still WebP output | workspace `ferrisma-libwebp` | only WebP writer | stable 1.99 | none | Stable |
+| `jpeg-xl-read` | JPEG XL input | workspace `ferrisma-libjxl` via `ferrisma-jxl-decoder` | only JPEG XL reader (since 2026-11-15; this name selected `jxl-oxide` before, and the workspace reader was `jpeg-xl-own-read`) | stable 1.99 | none | Stable as capability |
 | `avif-read` | still AVIF input | workspace libavif/AOM via `ferrisma-avif-read` | only AVIF reader | stable 1.99 | native macOS ARM64 or GNU Linux x86-64 | Experimental |
 | `avif-write` | AVIF output | workspace libavif/AOM via `ferrisma-avif-write` | only AVIF writer (since 2026-11-15; this name selected `rav1e` 0.8 + `avif-serialize` before, and the workspace writer was `avif-own-write`) | stable 1.99 | native macOS ARM64 or GNU Linux x86-64 | Experimental until it builds on stable (working decision 2026-11-15) |
-| `jpeg-xl-write` | JPEG XL output: lossy d1.0 (default) or lossless | workspace `libjxl-rs`: public encoder through `ferrisma-jxl-encoder` (lossy), fixed-profile entry point (lossless) | only JPEG XL writer; in `cli` since 2026-11-12 | stable 1.99 | none | Experimental |
+| `jpeg-xl-write` | JPEG XL output: lossy d1.0 (default) or lossless | workspace `ferrisma-libjxl`: public encoder through `ferrisma-jxl-encoder` (lossy), fixed-profile entry point (lossless) | only JPEG XL writer; in `cli` since 2026-11-12 | stable 1.99 | none | Experimental |
 | `icc` | rendered-ICC → sRGB conversion | `moxcms` 0.9 | needed for `UseRenderedIcc` / `--use-rendered-icc` | stable 1.99 | none | Stable |
 | `cli` | the `ferrisma` binary | `jpeg-read`, `webp-read`, `jpeg-xl-read`, `avif-read`, `avif-write`, `webp-write`, `jpeg-xl-write`, `icc` | — | stable 1.99 | native macOS ARM64 or GNU Linux x86-64 | Stable command line, experimental backends |
 
@@ -92,12 +92,12 @@ with a changelog entry, and the new minimum is then at least three months old
 | Package group | `rust-version` | What forces it | Checked at exactly that version by |
 | --- | --- | --- | --- |
 | `ferrisma` (every feature, `cli` included), `ferrisma-kernels`, `ferrisma-jxl-decoder`, `ferrisma-jxl-encoder`, `ferrisma-avif-read`, `ferrisma-avif-write`, `ferrisma-xtask` | 1.99 | the AVIF port's C-variadic functions (the product's one number; the bridges and kernels are used only through the engine) | CI `minimum-rust` (`cargo +1.99.0`, GNU Linux x86-64): check and test of `ferrisma` and `ferrisma-kernels` with `cli`, check of the non-AVIF set, the bridges and `ferrisma-xtask` |
-| `libavif-rs`, `libavif-aom`, `libavif-dav1d` | 1.99 | C-variadic function definitions | through the engine's `cli` in `minimum-rust` |
-| `libavif-sharpyuv` | 1.95 | unchanged with the AVIF port | not checked separately at 1.95 |
-| `libwebp-rs` | 1.95 | x86 SIMD calls `__cpuid_count` without an `unsafe` block, rejected with `E0133` by 1.93, accepted by 1.95 | `check.py --msrv` (codec PR job, `webp-check.yml`) |
-| `libjpeg-turbo-rs` | 1.93 | x86 SIMD calls `_mm_sfence` without an `unsafe` block, rejected with `E0133` by 1.88, accepted by 1.93 | `check.py --msrv` (codec PR job), `jpeg-check.yml` `msrv` |
-| `libjxl-rs` | 1.94 | the AArch64 half-precision conversions use `vcvt_f16_f32` and `vcvt_f32_f16` with the `float16x4_t` type instead of inline assembly (ADR-0044), stable since 1.94.0, `E0658` on 1.93; raised from the measured floor 1.88 on 2026-11-16 (owner decision; 1.94.0 was released on 2026-03-05) | `check.py --msrv` (codec PR job, `jxl-check.yml`); the codec PR job also runs the port's no-oracle tests at this version |
-| `libsharpyuv-core` | 1.88 | lowest installed toolchain tested; edition 2024 allows nothing below 1.85 | CI `workspace` (check and Clippy) |
+| `ferrisma-libavif`, `ferrisma-libaom`, `ferrisma-dav1d` | 1.99 | C-variadic function definitions | through the engine's `cli` in `minimum-rust` |
+| `ferrisma-libavif-sharpyuv` | 1.95 | unchanged with the AVIF port | not checked separately at 1.95 |
+| `ferrisma-libwebp` | 1.95 | x86 SIMD calls `__cpuid_count` without an `unsafe` block, rejected with `E0133` by 1.93, accepted by 1.95 | `check.py --msrv` (codec PR job, `webp-check.yml`) |
+| `ferrisma-libjpeg-turbo` | 1.93 | x86 SIMD calls `_mm_sfence` without an `unsafe` block, rejected with `E0133` by 1.88, accepted by 1.93 | `check.py --msrv` (codec PR job), `jpeg-check.yml` `msrv` |
+| `ferrisma-libjxl` | 1.94 | the AArch64 half-precision conversions use `vcvt_f16_f32` and `vcvt_f32_f16` with the `float16x4_t` type instead of inline assembly (ADR-0044), stable since 1.94.0, `E0658` on 1.93; raised from the measured floor 1.88 on 2026-11-16 (owner decision; 1.94.0 was released on 2026-03-05) | `check.py --msrv` (codec PR job, `jxl-check.yml`); the codec PR job also runs the port's no-oracle tests at this version |
+| `ferrisma-sharpyuv` | 1.88 | lowest installed toolchain tested; edition 2024 allows nothing below 1.85 | CI `workspace` (check and Clippy) |
 
 Evidence (2026-11-15, macOS ARM64, with the installed toolchains 1.88, 1.93,
 1.95; none in between): `cargo +<version> check --locked -p <package>
@@ -106,11 +106,11 @@ Evidence (2026-11-15, macOS ARM64, with the installed toolchains 1.88, 1.93,
 and `aarch64-unknown-linux-gnu`, and the next lower installed toolchain
 fails where the table names a cause. `cargo +<version> test --locked -p <package> --profile checked` without the
 C/C++ oracle, natively and for `x86_64-apple-darwin` under Rosetta 2
-(`ROSETTA_ADVERTISE_AVX=1` except for `libjxl-rs`, as its `check.py` does),
+(`ROSETTA_ADVERTISE_AVX=1` except for `ferrisma-libjxl`, as its `check.py` does),
 with and without default features for JPEG and WebP: JPEG 96 and 95 tests
-(x86-64: 114 and 95), WebP 410 and 367 (x86-64: 376 and 368), `libjxl-rs`
-x86-64 436, all passed; `libsharpyuv-core` has no tests of its own (its
-cross-port tests run through `libavif-sharpyuv`). `libjxl-rs` on AArch64:
+(x86-64: 114 and 95), WebP 410 and 367 (x86-64: 376 and 368), `ferrisma-libjxl`
+x86-64 436, all passed; `ferrisma-sharpyuv` has no tests of its own (its
+cross-port tests run through `ferrisma-libavif-sharpyuv`). `ferrisma-libjxl` on AArch64:
 444 passed and one failed, `patches::selected_original_alpha_max_retains_comparison_result`
 (a signaling-NaN alpha: the port should keep `kSmallAlpha` as libjxl's
 `std::max` does and returns the NaN instead). It fails identically with
@@ -125,17 +125,17 @@ Versions 1.85 to 1.87, 1.89 to 1.92 and 1.94 were not tested. The `rust`
 job checks each feature alone (`cargo check --no-default-features
 --features <feature>`) on the pinned nightly.
 
-`libjxl-rs` at 1.94 (2026-11-16, macOS ARM64, after replacing its
+`ferrisma-libjxl` at 1.94 (2026-11-16, macOS ARM64, after replacing its
 half-precision inline assembly): `cargo +1.94.0 check --locked --all-targets
 --all-features` passes, and with 1.94 (1.94.1) also for
 `x86_64-unknown-linux-gnu` and `x86_64-apple-darwin`; `cargo +1.93 check
 --lib` fails with `E0658` (`stdarch_neon_f16`) at the ten uses of
 `float16x4_t`, `vcvt_f16_f32` and `vcvt_f32_f16`; `cargo +1.94 test --locked
--p libjxl-rs --profile checked` without the oracle passes 449 tests natively.
+-p ferrisma-libjxl --profile checked` without the oracle passes 449 tests natively.
 x86-64 was checked, not run (Rosetta 2 unavailable that day); the port's
 x86-64 code did not change with the raise.
 
-The `libjxl-rs` difference is fixed since 2026-11-16: LLVM 20 to 22 (Rust
+The `ferrisma-libjxl` difference is fixed since 2026-11-16: LLVM 20 to 22 (Rust
 1.88 to 1.98) lower the port's `std::max` compare-and-select to AArch64
 `FMAXNM` when the other operand is known not to be a NaN (a constant), and
 the port now spells out the unordered case (libjxl-rs ADR 0002, "Results
@@ -600,20 +600,20 @@ used. Every place in the workspace that selects code at run time:
 | Component | Run-time selection | Above-scope code in the tree | v1.0 default | Opt-in | Upstream equivalent of the default |
 | --- | --- | --- | --- | --- | --- |
 | Engine kernels (`crates/ferrisma-kernels`) | `src/dispatch.rs` `supports`/`detect_machine`; `src/lib.rs` `select` | `Avx512` (`dispatch.rs` `mod avx512`, `lanes.rs`); `Sve2` detected only | `Avx2` / `Neon` (`DEFAULT_CEILING`); reason `DefaultCeiling` when capped | `kernel_level_ceiling = Some(KernelLevel::Avx512)`, `--kernel-level=avx512`, `Kernels::with_ceiling(IsaLevel::Avx512)` | first-party |
-| skcms in `libjxl-rs` (ICC transforms) | `src/skcms/transform.rs` `cpu_type` and `engine` | SKX engine, `src/skcms/transform_x86.rs` `run_program_skx` (AVX-512F/DQ/CD/BW/VL) | HSW (AVX2/F16C) on AVX-512 CPUs; baseline NEON on AArch64 | Cargo feature `libjxl-rs/skcms-skx` | skcms built with `-DSKCMS_DISABLE_SKX` |
-| `libjxl-rs` decoder outside skcms | `src/jxl/hwy/mod.rs` `decoder_default_target` (`Target::detect()` when `DECODER_SELECTS_SIMD`), applied only inside decoder entry points (port ADR 0004, "Scope of the selection") | none: only `HWY_NEON` and `HWY_AVX2` are translated, and `Target::detect` never selects AVX-512 or SVE | NEON on AArch64 since 2026-11-14; AVX2 on x86-64 since `7b48bc81` (AVX2 output can differ between CPU vendors exactly as the original's AVX2 build does); the encoder runs scalar on every target | none for callers; tests use `set_decoder_simd_for_test` and, in oracle builds, `JXL_DECODER_TARGET=scalar` | Highway dispatch with every target above `HWY_NEON`/`HWY_AVX2` in `HWY_DISABLED_TARGETS` |
+| skcms in `ferrisma-libjxl` (ICC transforms) | `src/skcms/transform.rs` `cpu_type` and `engine` | SKX engine, `src/skcms/transform_x86.rs` `run_program_skx` (AVX-512F/DQ/CD/BW/VL) | HSW (AVX2/F16C) on AVX-512 CPUs; baseline NEON on AArch64 | Cargo feature `libjxl-rs/skcms-skx` | skcms built with `-DSKCMS_DISABLE_SKX` |
+| `ferrisma-libjxl` decoder outside skcms | `src/jxl/hwy/mod.rs` `decoder_default_target` (`Target::detect()` when `DECODER_SELECTS_SIMD`), applied only inside decoder entry points (port ADR 0004, "Scope of the selection") | none: only `HWY_NEON` and `HWY_AVX2` are translated, and `Target::detect` never selects AVX-512 or SVE | NEON on AArch64 since 2026-11-14; AVX2 on x86-64 since `7b48bc81` (AVX2 output can differ between CPU vendors exactly as the original's AVX2 build does); the encoder runs scalar on every target | none for callers; tests use `set_decoder_simd_for_test` and, in oracle builds, `JXL_DECODER_TARGET=scalar` | Highway dispatch with every target above `HWY_NEON`/`HWY_AVX2` in `HWY_DISABLED_TARGETS` |
 | AOM (`libavif-rs/crates/aom`) | translated RTCD: `x86_simd_caps()` (generated `src/linux/*/…_rtcd.rs`, reports `HAS_AVX512`), `aom_arm_cpu_caps()` (`src/simd/aom_ports/aarch64_cpudetect.rs`, reports DotProd and I8MM) | none: no AVX-512, DotProd, I8MM or SVE kernel is translated, and the RTCD generator runs with `--disable-avx512` and `--disable-neon_dotprod/neon_i8mm/sve/sve2`, so no table entry dispatches on those flags (`tests/dispatch_scope.rs`) | SSE2/SSE4.1/AVX2; Neon | none (nothing to opt into; `AOM_SIMD_CAPS`/`AOM_SIMD_CAPS_MASK` only lower the selection) | CMake `-DENABLE_AVX512=0` (x86-64); `-DENABLE_NEON_DOTPROD=0 -DENABLE_NEON_I8MM=0 -DENABLE_SVE=0 -DENABLE_SVE2=0` (arm64); at run time `AOM_SIMD_CAPS_MASK=0x1ff` (x86-64) or `0x3` (arm64) |
 | dav1d (`libavif-rs/crates/dav1d`) | owned `dav1d_init_cpu` (`src/simd/cpu.rs`: NEON on AArch64; CPUID/XCR0 through `core::arch` on x86-64, as `src/x86/cpu.c`) and the dispatch of `tools/enable_dav1d_dispatch.py` (libavif-rs ADR 0062); no assembly | none: DotProd/I8MM/SVE are not reported, no AVX-512 kernel is rebuilt | NEON for msac, the inverse transforms, loop filter, CDEF, intra prediction and loop restoration; AVX2 for msac (its SSE2 entry points as in the original), the inverse transforms, loop filter, CDEF and intra prediction; CDEF and the inverse transforms are written from the algorithm on `fearless_simd` (since 2026-11-20), whose `Avx2` level needs x86-64-v3, so an AVX2 CPU without it runs C there; C for the rest; SSSE3/SSE4.1 (CPUs without AVX2) are a stated gap | `dav1d_set_cpu_flags_mask(0)` selects C | the original with its assembly, restricted with `dav1d_set_cpu_flags_mask` (NEON `0x1`, AVX2 `0x2f`) |
 | SharpYUV (`libavif-rs/crates/sharpyuv`, `crates/libsharpyuv-core`) | CPU query translated, SIMD conversion disabled | none | scalar | — | — |
-| `libwebp-rs` | `src/dsp/cpu.rs` `vp8_get_cpu_info` | none (libwebp has nothing above `kAVX2`/`kNEON`) | up to AVX2 / NEON | — | — |
-| `libjpeg-turbo-rs` | `src/jsimdcpu.rs` `jpeg_simd_cpu_support` | none (libjpeg-turbo has nothing above AVX2/NEON) | up to AVX2 / NEON | — | — |
+| `ferrisma-libwebp` | `src/dsp/cpu.rs` `vp8_get_cpu_info` | none (libwebp has nothing above `kAVX2`/`kNEON`) | up to AVX2 / NEON | — | — |
+| `ferrisma-libjpeg-turbo` | `src/jsimdcpu.rs` `jpeg_simd_cpu_support` | none (libjpeg-turbo has nothing above AVX2/NEON) | up to AVX2 / NEON | — | — |
 | rav1e 0.8.1 (third-party; until 2026-11-15 the `avif-write` encoder with `asm`; no longer in any build of this repository) | `src/cpu_features/x86.rs` in the crate | AVX-512 and AVX512ICL assembly | **not capped by Ferrisma**: AVX-512 hosts ran its AVX-512 assembly | — | set `RAV1E_CPU_TARGET=avx2` in the process environment to cap it |
 | moxcms 0.9.1 (third-party, `icc`) | crate-internal | `avx512` feature, not enabled | up to AVX2 / NEON | — | — |
 | jxl-oxide 0.12.6 (third-party; a test-only dev-dependency since 2026-11-15, not linked into the engine) | crate-internal | none (its detection stops at AVX2/FMA/SSE4.1/NEON) | up to AVX2 / NEON | — | — |
 
 Comparisons against an original (D4) must use the original with the switch
 in the last column. The skcms reference tools (`tools/skcms_transform_reference.py`,
-`tools/default_cms_reference.py`) and `tools/check.py` build `libjxl-rs` with
+`tools/default_cms_reference.py`) and `tools/check.py` build `ferrisma-libjxl` with
 `--all-features`, which includes `skcms-skx`, so on an AVX-512 host they keep
 comparing SKX against the unchanged original's SKX; the default HSW selection
 is compared on AVX2 hosts. On hosts without AVX-512 (all local hosts,
@@ -639,7 +639,7 @@ and resized-output hashes equal to those of an AVX2 runner.
 [ADR-0044](adr/0044-no-assembly-acceleration-through-rust-intrinsics.md)
 D3). Where an original's SIMD build executes an instruction whose result
 depends on the CPU vendor, the port executes the same instruction: the AVX2
-paths of `libjxl-rs` use `rcpps` (`_mm256_rcp_ps`) as libjxl's AVX2 build
+paths of `ferrisma-libjxl` use `rcpps` (`_mm256_rcp_ps`) as libjxl's AVX2 build
 does. On one machine port and original give the same bytes; on an Intel and
 an AMD machine (or under Rosetta 2) the AVX2 output of the JPEG XL decoder
 can differ, as the original's does. The scalar path does not depend on the

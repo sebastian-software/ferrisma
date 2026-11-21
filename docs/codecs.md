@@ -10,16 +10,16 @@ and the M1 acceptance gates still apply. For the current pipeline, see [status](
 | --- | --- | --- |
 | Engine | `ferrisma` | repository root |
 | SIMD kernels | `ferrisma-kernels` | `crates/ferrisma-kernels` |
-| Shared SharpYUV conversion | `libsharpyuv-core` | `crates/libsharpyuv-core` |
+| Shared SharpYUV conversion | `ferrisma-sharpyuv` | `crates/libsharpyuv-core` |
 | AVIF encoder adapter | `ferrisma-libavif` | `crates/ferrisma-libavif` |
 | AVIF input adapter | `ferrisma-avif-read` | `crates/ferrisma-avif-read` |
 | AVIF output boundary | `ferrisma-avif-write` | `crates/ferrisma-avif-write` |
 | JPEG XL input adapter (default reader) | `ferrisma-jxl-decoder` | `crates/ferrisma-jxl-decoder` |
-| JPEG | `libjpeg-turbo-rs` | `codecs/libjpeg-turbo-rs` |
-| WebP | `libwebp-rs` | `codecs/libwebp-rs` |
-| JPEG XL | `libjxl-rs` | `codecs/libjxl-rs` |
+| JPEG | `ferrisma-libjpeg-turbo` | `codecs/libjpeg-turbo-rs` |
+| WebP | `ferrisma-libwebp` | `codecs/libwebp-rs` |
+| JPEG XL | `ferrisma-libjxl` | `codecs/libjxl-rs` |
 | Tooling | `ferrisma-xtask` (invoked as `cargo xtask`) | `tools/xtask` |
-| AVIF, AOM, dav1d, SharpYUV | `libavif-rs`, `libavif-aom`, `libavif-dav1d`, `libavif-sharpyuv` | `codecs/libavif-rs` |
+| AVIF, AOM, dav1d, SharpYUV | `ferrisma-libavif`, `ferrisma-libaom`, `ferrisma-dav1d`, `ferrisma-libavif-sharpyuv` | `codecs/libavif-rs` |
 
 ## Setup
 
@@ -57,7 +57,7 @@ explicitly. This is a verifier exception, not another workspace or dependency gr
 The engine builds on Rust 1.99 or later with every feature; enabling an AVIF
 feature reaches generated libavif/AOM code and requires native macOS ARM64 or
 GNU Linux x86-64. The handwritten ports declare and check their own lower
-floors: `libjxl-rs` 1.94, `libjpeg-turbo-rs` 1.93, `libwebp-rs` 1.95
+floors: `ferrisma-libjxl` 1.94, `ferrisma-libjpeg-turbo` 1.93, `ferrisma-libwebp` 1.95
 ([minimum Rust versions](supported-matrix.md#minimum-rust-versions)).
 
 Engine Clippy selects `ferrisma` and `ferrisma-kernels` with `--no-deps` when

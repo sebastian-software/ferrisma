@@ -173,8 +173,8 @@ python3 tools/verify_upstream.py
 python3 tools/generate_licenses.py --check
 python3 tools/build_sharpyuv.py
 python3 tools/build_sharpyuv.py --debug
-cargo build -p libavif-sharpyuv --locked --release
-cargo build -p libavif-sharpyuv --locked
+cargo build -p ferrisma-libavif-sharpyuv --locked --release
+cargo build -p ferrisma-libavif-sharpyuv --locked
 python3 tools/check_sharpyuv.py
 python3 tools/check_sharpyuv.py --debug
 python3 tools/check_sharpyuv_abi.py
@@ -371,7 +371,7 @@ Arm, ADR 0058 on x86-64) and the golden outputs (ADR 0059) have their own
 checks; the last two run in the pull-request tier:
 
 ```sh
-cargo test --release -p libavif-aom --test simd
+cargo test --release -p ferrisma-libaom --test simd
 python3 tools/check_aom_simd_identity.py
 python3 tools/check_aom_golden.py
 ```

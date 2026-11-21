@@ -71,8 +71,8 @@ Run from `codecs/libjpeg-turbo-rs`:
 ```sh
 git submodule update --init upstream/libjpeg-turbo
 cargo fetch --locked
-cargo build -p libjpeg-turbo-rs --locked
-cargo test -p libjpeg-turbo-rs --locked
+cargo build -p ferrisma-libjpeg-turbo --locked
+cargo test -p ferrisma-libjpeg-turbo --locked
 ```
 
 Rust artifacts go to the monorepo root `target/`. The check script uses

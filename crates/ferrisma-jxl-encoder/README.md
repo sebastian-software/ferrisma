@@ -1,6 +1,6 @@
 # ferrisma-jxl-encoder
 
-A narrow, safe JPEG XL write bridge to the encoder of `libjxl-rs`, the
+A narrow, safe JPEG XL write bridge to the encoder of `ferrisma-libjxl`, the
 Ferrisma workspace's mechanical Rust port of libjxl. It is the lossy backend
 of the experimental `jpeg-xl-write` feature of
 [`ferrisma`](https://crates.io/crates/ferrisma)

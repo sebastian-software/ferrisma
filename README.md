@@ -39,12 +39,12 @@ The pinned nightly in `rust-toolchain.toml` is for development only
 
 The four codec ports share the Cargo workspace, but importing them does not
 automatically select them as engine backends. Ferrisma reads JPEG and WebP
-through the workspace `libjpeg-turbo-rs` and `libwebp-rs` ports, JPEG XL through
+through the workspace `ferrisma-libjpeg-turbo` and `ferrisma-libwebp` ports, JPEG XL through
 the workspace libjxl-rs reference decoder (the only JPEG XL reader since
 2026-11-15; `jxl-oxide` remains only as a test cross-check), and AVIF through the workspace libavif/AOM reader; it writes AVIF
 through the workspace libavif/AOM encoder (the only AVIF writer since
 2026-11-15; `rav1e` was removed), and still WebP through the workspace
-`libwebp-rs` encoder ([ADR-0032](docs/adr/0032-jpeg-xl-workspace-decoder-input.md),
+`ferrisma-libwebp` encoder ([ADR-0032](docs/adr/0032-jpeg-xl-workspace-decoder-input.md),
 [ADR-0037](docs/adr/0037-selectable-workspace-avif-encoder.md)). These two
 defaults changed on 2026-11-12; the owner confirmed them on 2026-11-13
 ([ADR-0041](docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md) D1).
