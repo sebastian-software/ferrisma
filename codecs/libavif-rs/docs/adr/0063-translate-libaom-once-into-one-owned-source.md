@@ -121,8 +121,46 @@ ADR-0041 O8).
   either target runs the original's Debug checks.
 - Equivalence: see "Verification". The golden outputs, expected values and
   tolerances were not changed.
+- `crates/aom/tests/dispatch_scope.rs` scans 3 RTCD units instead of 12: the
+  count was the inventory of files the scan covers (three units in each of the
+  four former trees), not an output. Each of the three units now holds the
+  tables of both targets and every profile, and the test also requires both
+  `cfg(target_arch)` tables in each, so it covers the same tables as before
+  (accepted by the coordinator, 2026-11-21).
 
 ## Verification
 
-Filled in from the gate runs of this change (orchestration evidence
-`aom-one-source`).
+At 47ee0e91 (the tree of this decision), on macOS ARM64 natively and on GNU
+Linux x86-64 in the Colima `dav1dx86` container (Rosetta, AVX2; the SIGSEGV
+trap preloaded, no trap fired). Scripts and logs: orchestration evidence
+`aom-one-source` (`scripts/gates*.sh`, `macos-47ee0e91`, `macos2-47ee0e91`,
+`x86-47ee0e91`).
+
+| Gate | macOS ARM64 | x86-64 GNU Linux |
+| --- | --- | --- |
+| `check_translation.py` (4 target/profile views) | pass | pass |
+| `enable_aom_dispatch.py --check` / `--linux --check` | 631 functions | 420 functions |
+| `stable_rust.py --check` | pass | pass |
+| `cargo test --test simd`, `release` and `checked` | 164/164 each | 265/265 each |
+| `check_aom_golden.py` | 62/62, 62 C-confirmed | 62/62, 62 C-confirmed |
+| `check_aom_simd_identity.py` | 76/76 | 76/76 |
+| `check_aom_simd_original.py` | `neon` 82/82, `scalar` 82/82 | `avx2`, `sse4.1`, `scalar` 82/82 each |
+| `check_aom_abi.py`, Debug | 17,555 records, 198,757 checks, 0 differences | 0 differences |
+| `check_aom_abi.py --release` | 17,506 records, 198,463 checks, 0 differences | 0 differences |
+| `check_aom_linkage.py` Debug / Release | 2,728 / 2,726 globals | 2,728 / 2,726 globals |
+| `check_aom_focused_debug.py` (ADR 0048) | 69/69 | 69/69 |
+| `check_aom_unaligned_input.py` Debug and Release | 24/24 each | 24/24 each with `AOM_SIMD_CAPS_MASK=0`; see below |
+
+The two Debug-only exports account for the two extra Debug globals, as in the
+original's Debug archive.
+
+On x86-64 the unaligned-input check compares the port's archive, which
+dispatches SIMD at run time, with the generic C reference. With SSE2 enabled
+the 10-bit zero-sample encode differs from generic C, and equals libaom's own
+AVX2 build (`build_aom.py --simd avx2`) byte for byte in every case tried
+(10, 12 and 8 bit, both address parities). With the dispatch off the port
+equals generic C in all 24 cases. This is the original's SIMD behavior, which
+engine ADR-0041 compares SIMD with; the check's reference choice is an open
+item for the check, not for this decision.
+
+The complete original Release suites (ADR 0048) are not yet run for this tree.
