@@ -143,6 +143,7 @@ trap preloaded, no trap fired). Scripts and logs: orchestration evidence
 | `stable_rust.py --check` | pass | pass |
 | `cargo test --test simd`, `release` and `checked` | 164/164 each | 265/265 each |
 | `check_aom_golden.py` | 62/62, 62 C-confirmed | 62/62, 62 C-confirmed |
+| `cargo test -p ferrisma-libaom` (all tests, dev) | 170 passed | 271 passed |
 | `check_aom_simd_identity.py` | 76/76 | 76/76 |
 | `check_aom_simd_original.py` | `neon` 82/82, `scalar` 82/82 | `avx2`, `sse4.1`, `scalar` 82/82 each |
 | `check_aom_abi.py`, Debug | 17,555 records, 198,757 checks, 0 differences | 0 differences |
