@@ -1,5 +1,18 @@
 # Preserve byte-aligned high-bit-depth input validation
 
+> **2026-11-21: the supplemental caller has two references.** Engine
+> [ADR-0041](../../../../docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md)
+> compares the port's scalar path with the original's scalar build and its SIMD
+> path with the original's SIMD build on the same target. The port's archive
+> dispatches SIMD at run time, so comparing it only with the generic C build
+> failed on x86-64 (`10-0-0`), where the port equals libaom's own AVX2 build.
+> `tools/check_aom_unaligned_input.py` now runs every case twice: with RTCD
+> dispatch on against the original's SIMD build of the same target and profile
+> (`build_aom.py --library-only --simd avx2` on x86-64 GNU Linux, `--simd neon`
+> on macOS ARM64), and with `AOM_SIMD_CAPS_MASK=0` against the unchanged
+> generic C build, as before. Both must be byte-identical; the check covers the
+> earlier comparison and adds the SIMD one.
+
 [ADR 0048](0048-require-complete-release-and-focused-debug-aom-acceptance.md)
 supersedes the full Debug acceptance requirement below. The correction and
 focused alignment regression checks remain required.
