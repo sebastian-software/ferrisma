@@ -50,7 +50,7 @@ crates.io").
 | 1 | `ferrisma-kernels` | 0.1.0 | MIT OR Apache-2.0 | no | 1.99 | yes | 18.3 KiB | Engine SIMD kernels (unconditional dependency) |
 | 1 | JPEG port, today `libjpeg-turbo-rs` | 0.1.0 | IJG AND Zlib | no | 1.93 | yes | 318.9 KiB | `jpeg-read` |
 | 1 | `libjxl-rs` | 0.1.0 | BSD-3-Clause AND MIT AND (Apache-2.0 WITH LLVM-exception) | no | 1.94 | yes | 868.2 KiB | `jpeg-xl-read`, `jpeg-xl-write` |
-| 1 | `libavif-aom` | 0.1.0 | BSD-2-Clause AND BSD-3-Clause AND MIT | no (since 2026-11-15) | 1.99 | yes | **16.6 MiB** | AVIF encode/decode |
+| 1 | `ferrisma-libaom` | 0.1.0 | BSD-2-Clause AND BSD-3-Clause AND MIT | no (since 2026-11-15) | 1.99 | yes | 4.8 MiB (one source, 2026-11-21) | AVIF encode/decode |
 | 1 | `libavif-dav1d` | 0.1.0 | BSD-2-Clause | no (since 2026-11-15) | 1.99 | yes | 2.6 MiB | Normal dependency of `libavif-rs`; stays in the chain (its removal, decided 2026-11-15, is paused since 2026-11-16: [ADR-0031](adr/0031-workspace-libavif-input-experiment.md)) |
 | 2 | `libwebp-rs` | 0.1.0 | BSD-3-Clause | no | 1.95 | yes | 796.9 KiB | `webp-read`, `webp-write` |
 | 2 | `libavif-sharpyuv` | 0.1.0 | BSD-3-Clause | no | 1.95 | yes | 21.8 KiB | SharpYUV C ABI for libavif |
@@ -117,7 +117,7 @@ has to decide.
 | # | Blocker | State | Waits for |
 | --- | --- | --- | --- |
 | 1 | JPEG port's package name is taken on crates.io (#207) | **Renamed** (2026-11-20, `tools/rename_ports.py --sub-crates`): the four ports and the sub-crates take the `ferrisma-` prefix, the internal adapter is `ferrisma-avif-adapter` (section 1) | Prose of other documents; license inventory and bundles (blocker 6) |
-| 2 | `libavif-aom` exceeds the 10 MiB upload limit (#208) | Proven: 16.6 MiB. **Decided** (owner, 2026-11-15): consolidation step (b), then measure again; no split crates, no release-only shipping (section 2) | Codec: step (b) and the new measurement; owner: above about 9 MiB, step (c) before publication or a limit request |
+| 2 | `ferrisma-libaom` exceeded the 10 MiB upload limit (#208) | **Resolved** 2026-11-21: one owned translation (libavif-rs ADR 0063), 16.9 MiB to 4.8 MiB (section 2) | none |
 | 3 | AVIF packages need profile settings dependents do not inherit (#209) | Reproduced with outside consumers: no overflow failure found in the default `dev` profile; `panic = "abort"` is a compile-time error; the documented block works for dependents. **Decided** (owner, 2026-11-15): option (a) (section 3). The dav1d kernels' opt-level-0 crash found on 2026-11-20 is fixed in the code (section 3). The block is in the README since 2026-11-20 | Codec owners: the AOM kernel tier and the debug translation with overflow checks on |
 | 4 | Exact `libc` and `c2rust-bitfields` pins | Fixed on `main` since `aba85c54`: caret requirements, same minimum, `Cargo.lock` unchanged | Codec owners: ABI checks against a newer `libc` (not run) |
 | 5 | Versions (the AVIF bridges are 0.0.0) | **Decided** (owner, 2026-11-15, O3): one shared version for all packages (section 5) | Owner: the first version number |
