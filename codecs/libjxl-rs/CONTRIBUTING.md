@@ -201,11 +201,11 @@ that `.github/workflows/jxl-check.yml` runs.
 Focused checks:
 
 ```sh
-cargo test -p libjxl-rs --locked --offline --test bitstream
-cargo test -p libjxl-rs --locked --offline --test headers
+cargo test -p ferrisma-libjxl --locked --offline --test bitstream
+cargo test -p ferrisma-libjxl --locked --offline --test headers
 cmake -S tools/oracle -B target/oracle -DCMAKE_BUILD_TYPE=Release
 cmake --build target/oracle --target jxl_oracle --parallel 4
-cargo test -p libjxl-rs --locked --offline --profile checked --features cpp-oracle --test parity -- --nocapture
+cargo test -p ferrisma-libjxl --locked --offline --profile checked --features cpp-oracle --test parity -- --nocapture
 ```
 
 Set `JXL_CPP_ORACLE` to an absolute path when using a separately built oracle.

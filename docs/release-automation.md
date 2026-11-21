@@ -508,7 +508,16 @@ Nothing below needs GitHub or crates.io credentials.
    engine's five `=` pins: A and B clean (exit 0), with and without
    `--key-by-package`; Release Please dropped the `=` of all five pins on
    the first release and the post-step restored them; with
-   `--without-post-step` A and B each report 20 findings (exit 1).
+   `--without-post-step` A and B each report 20 findings (exit 1). Results on
+   2026-11-21, after the rename (`main` at `4265cdfd` plus
+   `ferrisma-dav1d-kernels` in both drafts): the first run of A found 3
+   stale versions, `ferrisma-sharpyuv` in `codecs/libwebp-rs/fuzz/Cargo.lock`
+   (that lockfile names the SharpYUV core since the rename refreshed it, and
+   neither draft carried its jsonpath). With the jsonpath added to both
+   drafts: A and B clean (exit 0), with and without `--key-by-package`; A
+   proposes 0.1.0 for all seventeen members on the first release, the kernels
+   crate included; `--without-post-step` A and B each report 20 findings
+   (exit 1).
 
 3. Validate the drafts against the Release Please schema (`schemas/config.json`
    and `schemas/manifest.json` at v17.6.0 and at `main`), for example with Ajv
@@ -534,7 +543,7 @@ State on 2026-11-14; the evidence is in [publishing](publishing.md#blockers-befo
 
 | # | Blocker | State | Waits for | Issue |
 | --- | --- | --- | --- | --- |
-| 1 | The JPEG port's package name `libjpeg-turbo-rs` belongs to an unrelated crates.io crate; both drafts, the workflow list and the lockfile jsonpaths use today's names and must follow a rename. | Decided (owner, 2026-11-15): the four ports become `ferrisma-libjpeg-turbo`, `ferrisma-libwebp`, `ferrisma-libjxl`, `ferrisma-libavif`; not yet renamed | The rename, then both drafts, the workflow list and the jsonpaths | #207 |
+| 1 | The JPEG port's package name `libjpeg-turbo-rs` belonged to an unrelated crates.io crate. | **Renamed on 2026-11-20** (`tools/rename_ports.py --sub-crates`, merged at `4265cdfd`): every package now carries the `ferrisma-` prefix (names in [publishing](publishing.md#1-the-jpeg-ports-package-name-207)); both drafts, the workflow list and the jsonpaths follow, and `ferrisma-dav1d-kernels` was added to them on 2026-11-21 | Nobody | #207 |
 | 2 | `libavif-aom` is 16.6 MiB compressed, above crates.io's 10 MiB limit. | Decided (owner, 2026-11-15): consolidation step (b), then measure; above about 9 MiB the owner chooses between step (c) and a limit request; no split crates | Codec: step (b) | #208 |
 | 3 | AVIF packages and the dependent's build profile. | Decided (owner, 2026-11-15): option (a), `unwind` required, overflow overrides recommended | The README block with the rename; codec owners: an AOM test run with overflow checks | #209 |
 | 4 | Exact `libc = "=0.2.191"` and `c2rust-bitfields = "=0.3.0"` pins. | Fixed on branch `v1/release-plumbing`: caret requirements, same minimum, lockfile unchanged | Codec owners: ABI checks against a newer `libc` | #209 |

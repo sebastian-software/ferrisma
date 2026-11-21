@@ -165,7 +165,7 @@ From `codecs/libjxl-rs`, with the source initialized as described in
 [CONTRIBUTING.md](CONTRIBUTING.md):
 
 ```sh
-cargo test -p libjxl-rs --locked --offline
+cargo test -p ferrisma-libjxl --locked --offline
 python3 tools/check.py
 ```
 

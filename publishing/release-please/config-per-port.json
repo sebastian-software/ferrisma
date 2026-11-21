@@ -32,6 +32,7 @@
       "components": [
         "ferrisma-libavif",
         "ferrisma-libaom",
+        "ferrisma-dav1d-kernels",
         "ferrisma-dav1d",
         "ferrisma-libavif-sharpyuv"
       ],
@@ -106,6 +107,11 @@
           "type": "toml",
           "path": "/fuzz/Cargo.lock",
           "jsonpath": "$.package[?(@.name.value=='ferrisma-sharpyuv' && !@.source)].version"
+        },
+        {
+          "type": "toml",
+          "path": "/codecs/libwebp-rs/fuzz/Cargo.lock",
+          "jsonpath": "$.package[?(@.name.value=='ferrisma-sharpyuv' && !@.source)].version"
         }
       ]
     },
@@ -166,6 +172,16 @@
           "type": "toml",
           "path": "/fuzz/Cargo.lock",
           "jsonpath": "$.package[?(@.name.value=='ferrisma-libaom' && !@.source)].version"
+        }
+      ]
+    },
+    "codecs/libavif-rs/crates/dav1d-kernels": {
+      "component": "ferrisma-dav1d-kernels",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "/fuzz/Cargo.lock",
+          "jsonpath": "$.package[?(@.name.value=='ferrisma-dav1d-kernels' && !@.source)].version"
         }
       ]
     },

@@ -74,6 +74,11 @@
         {
           "type": "toml",
           "path": "fuzz/Cargo.lock",
+          "jsonpath": "$.package[?(@.name.value=='ferrisma-dav1d-kernels' && !@.source)].version"
+        },
+        {
+          "type": "toml",
+          "path": "fuzz/Cargo.lock",
           "jsonpath": "$.package[?(@.name.value=='ferrisma-dav1d' && !@.source)].version"
         },
         {
@@ -90,6 +95,11 @@
           "type": "toml",
           "path": "codecs/libwebp-rs/fuzz/Cargo.lock",
           "jsonpath": "$.package[?(@.name.value=='ferrisma-libwebp' && !@.source)].version"
+        },
+        {
+          "type": "toml",
+          "path": "codecs/libwebp-rs/fuzz/Cargo.lock",
+          "jsonpath": "$.package[?(@.name.value=='ferrisma-sharpyuv' && !@.source)].version"
         }
       ]
     }

@@ -55,7 +55,7 @@ engine ADR-0044 D2 the kernels live in `src/simd/` and are dispatched by
 `tools/enable_dav1d_dispatch.py` (list in `dispatch.txt`): libavif-rs ADR
 0062. CDEF and the inverse transforms are written from the C algorithm on
 the portable vector types of `fearless_simd`, one implementation for NEON
-and AVX2, in the crate `libavif-dav1d-kernels` (`../dav1d-kernels`,
+and AVX2, in the crate `ferrisma-dav1d-kernels` (`../dav1d-kernels`,
 optimized in dev builds as well; installed and tested from `src/simd/cdef/`
 and `src/simd/itx/`); the entropy decoder
 (msac), the loop filter, intra prediction and loop restoration are rebuilt

@@ -67,7 +67,7 @@ recorded runs (compilers, CMake, GoogleTest, libargparse) is in the docstring of
 `tools/check_abi.py`.
 
 ```sh
-cargo build -p libavif-rs --release --locked
+cargo build -p ferrisma-libavif --release --locked
 python3 tools/build_aom.py --jobs 1 --library-only
 python3 tools/build.py baseline --fetch-deps --aom-reference-build build/aom-native-release
 python3 tools/run_tests.py build/baseline-aom-reference

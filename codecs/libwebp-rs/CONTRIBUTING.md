@@ -62,7 +62,7 @@ python3 tools/check.py
 The script uses the shared root lockfile and runs Cargo offline, so fetch
 dependencies first. Rust build artifacts live in the root `target/`; oracle
 artifacts remain in this component’s `build/`. This verifies the upstream pins and license copies, the module skeleton and the
-local documentation links, then runs `cargo fmt -p libwebp-rs -- --check`,
+local documentation links, then runs `cargo fmt -p ferrisma-libwebp -- --check`,
 `cargo +<tools/lint-toolchain> clippy --locked --offline --all-targets --all-features -- -D warnings` (the repository's pinned lint version) and `cargo test` in the
 dev, release and `checked` profiles. The `checked` profile inherits release
 optimizations and keeps overflow checks and debug assertions enabled, because

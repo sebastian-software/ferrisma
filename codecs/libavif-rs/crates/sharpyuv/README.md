@@ -43,7 +43,7 @@ differential tests are new.
 
 Supported validation targets are macOS ARM64 and Linux x86-64. Other targets,
 SIMD implementations, safe API design, and optimization remain separate work.
-Build with `cargo build -p libavif-sharpyuv --locked --release`; the root package
+Build with `cargo build -p ferrisma-libavif-sharpyuv --locked --release`; the root package
 still has its own narrower target support. Registry publication is disabled.
 
 The BSD-3-Clause license, original authors, and separate patent grant are

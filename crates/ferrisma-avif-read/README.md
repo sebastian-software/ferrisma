@@ -1,6 +1,6 @@
 # ferrisma-avif-read
 
-A narrow, safe AVIF reader over `libavif-rs`, the Ferrisma workspace's
+A narrow, safe AVIF reader over `ferrisma-libavif`, the Ferrisma workspace's
 mechanical Rust port of libavif (with its libaom and dav1d translations).
 It is the backend of the `avif-read` feature of
 [`ferrisma`](https://crates.io/crates/ferrisma) and is not meant to be used on
