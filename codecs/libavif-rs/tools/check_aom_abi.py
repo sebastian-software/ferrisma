@@ -110,7 +110,7 @@ def main():
     rust.append('fn main() {' + ''.join(f'probe_{index}();' for index in range(len(entries))) + '}')
     (work / 'probe.rs').write_text('\n'.join(rust) + '\n')
     (work / 'Cargo.toml').write_text('[package]\nname="aom-abi-probe"\nversion="0.0.0"\nedition="2021"\n[workspace]\n[profile.dev]\noverflow-checks=false\n[profile.release]\noverflow-checks=false\n[[bin]]\nname="probe"\npath="probe.rs"\n[dependencies]\n'
-        + f'aom={{package="libavif-aom",path={json.dumps(str(ROOT / "crates/aom"))}}}\n')
+        + f'aom={{package="ferrisma-libaom",path={json.dumps(str(ROOT / "crates/aom"))}}}\n')
     command = ['cargo', 'run', '--offline', '--quiet', '--manifest-path', work / 'Cargo.toml',
                '--target-dir', ROOT / 'target/aom-abi']
     if args.release:

@@ -3,12 +3,12 @@
 version = 4
 
 [[package]]
+name = "ferrisma-libjxl"
+version = "0.1.0"
+
+[[package]]
 name = "jxl-decode-bench"
 version = "0.0.0"
 dependencies = [
- "libjxl-rs",
+ "ferrisma-libjxl",
 ]
-
-[[package]]
-name = "libjxl-rs"
-version = "0.1.0"

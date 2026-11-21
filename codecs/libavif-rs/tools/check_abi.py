@@ -65,7 +65,7 @@ def main():
                if "avif_obj.dir" in entry["command"]]
     manifest = {unit["source"]: unit for unit in json.loads((ROOT / "TRANSLATION.json").read_text())["units"]}
     features = [feature for feature in args.features.split(",") if feature]
-    rust_package, rust_root, rust_profile = 'libavif-rs', ROOT, 'release'
+    rust_package, rust_root, rust_profile = 'ferrisma-libavif', ROOT, 'release'
     profile = "-".join(feature for feature in ["mini", "extended-pixi", "avm"] if feature in features)
     if profile:
         manifest.update({unit["source"]: unit for unit in json.loads((ROOT / "translations" / f"{profile}.json").read_text())["units"]})
@@ -193,7 +193,7 @@ def main():
         '[profile.release]\npanic = "unwind"\noverflow-checks = false\n'
         # The workspace's dev setting for dav1d's fearless_simd kernels (root
         # Cargo.toml): unoptimized they need megabyte stack frames.
-        '[profile.dev.package.libavif-dav1d-kernels]\nopt-level=1\ndebug="line-tables-only"\n[profile.dev.package.fearless_simd]\nopt-level=1\ndebug="line-tables-only"\n'
+        '[profile.dev.package.ferrisma-dav1d-kernels]\nopt-level=1\ndebug="line-tables-only"\n[profile.dev.package.fearless_simd]\nopt-level=1\ndebug="line-tables-only"\n'
     )
     # The probe is a Rust consumer of an rlib, so it owns the runtime search
     # path for the same locally built AVM dylib that CMake consumers link.

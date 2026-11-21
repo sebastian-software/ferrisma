@@ -1,5 +1,5 @@
 [package]
-name = "libavif-rs"
+name = "ferrisma-libavif"
 version = "0.1.0"
 edition = "2021"
 # C-variadic definitions and core::ffi::VaList are stable since 1.99 (port ADR 0060).
@@ -20,9 +20,9 @@ crate-type = ["staticlib", "rlib", "cdylib"]
 
 [dependencies]
 libc = "0.2.191"
-libavif-sharpyuv = { path = "crates/sharpyuv", version = "0.1.0" }
-libavif-dav1d = { path = "crates/dav1d", version = "0.1.0" }
-libavif-aom = { path = "crates/aom", version = "0.1.0" }
+ferrisma-libavif-sharpyuv = { path = "crates/sharpyuv", version = "0.1.0" }
+ferrisma-dav1d = { path = "crates/dav1d", version = "0.1.0" }
+ferrisma-libaom = { path = "crates/aom", version = "0.1.0" }
 
 [features]
 default = []

@@ -85,6 +85,17 @@ the size of its tracked `src`, `tests` and `examples` (1.69 versus 1.73 MB)
 barely changed; the earlier figure could not be reproduced, today's is the
 measured one (195 files, 2.2 MiB unpacked, 1.1 MiB of it `tests/fixtures`).
 
+**Packaged again on 2026-11-20** (`main` at `61e20ecf`, the same
+`cargo package --no-verify --exclude-lockfile --offline` per package; leaves
+also verified, that is built from the extracted package:
+`libsharpyuv-core`, `ferrisma-kernels`, `libjpeg-turbo-rs`, `libjxl-rs`).
+All 14 package; sizes that moved: `libjxl-rs` 938.8 KiB, `libavif-aom`
+16.8 MiB, `libavif-dav1d` 3.3 MiB, `libjpeg-turbo-rs` 319.2 KiB, `libwebp-rs`
+798.7 KiB, the AVIF bridges 11.2 and 14.6 KiB, `ferrisma-jxl-decoder`
+15.4 KiB, `ferrisma-jxl-encoder` 19.8 KiB, and `ferrisma` **1.6 MiB**
+(244 files; 606.9 KiB and 195 files on 2026-11-14). `cargo publish --dry-run`
+stops every package at `publish = false`, as intended.
+
 Packages within one order level do not depend on each other. The JPEG XL
 encoder bridge `ferrisma-jxl-encoder` is at level 4: it depends only on
 `libjxl-rs` and must be published before `ferrisma`.
@@ -105,9 +116,9 @@ has to decide.
 
 | # | Blocker | State | Waits for |
 | --- | --- | --- | --- |
-| 1 | JPEG port's package name is taken on crates.io (#207) | **Decided, not yet renamed** (owner, 2026-11-15): all four ports take the `ferrisma-` prefix with the originals' exact names (section 1) | The rename; names for the AVIF sub-crates and `libsharpyuv-core`; the collision with the internal `crates/ferrisma-libavif` |
+| 1 | JPEG port's package name is taken on crates.io (#207) | **Renamed** (2026-11-20, `tools/rename_ports.py --sub-crates`): the four ports and the sub-crates take the `ferrisma-` prefix, the internal adapter is `ferrisma-avif-adapter` (section 1) | Prose of other documents; license inventory and bundles (blocker 6) |
 | 2 | `libavif-aom` exceeds the 10 MiB upload limit (#208) | Proven: 16.6 MiB. **Decided** (owner, 2026-11-15): consolidation step (b), then measure again; no split crates, no release-only shipping (section 2) | Codec: step (b) and the new measurement; owner: above about 9 MiB, step (c) before publication or a limit request |
-| 3 | AVIF packages need profile settings dependents do not inherit (#209) | Reproduced with outside consumers: no overflow failure found in the default `dev` profile; `panic = "abort"` is a compile-time error; the documented block works for dependents. **Decided** (owner, 2026-11-15): option (a) (section 3) | The README block, with the rename (the package names in it change); codec owners: the AOM kernel tier and the debug translation with overflow checks on |
+| 3 | AVIF packages need profile settings dependents do not inherit (#209) | Reproduced with outside consumers: no overflow failure found in the default `dev` profile; `panic = "abort"` is a compile-time error; the documented block works for dependents. **Decided** (owner, 2026-11-15): option (a) (section 3). The dav1d kernels' opt-level-0 crash found on 2026-11-20 is fixed in the code (section 3). The block is in the README since 2026-11-20 | Codec owners: the AOM kernel tier and the debug translation with overflow checks on |
 | 4 | Exact `libc` and `c2rust-bitfields` pins | Fixed on `main` since `aba85c54`: caret requirements, same minimum, `Cargo.lock` unchanged | Codec owners: ABI checks against a newer `libc` (not run) |
 | 5 | Versions (the AVIF bridges are 0.0.0) | **Decided** (owner, 2026-11-15, O3): one shared version for all packages (section 5) | Owner: the first version number |
 | 6 | License review gates | **Decided** (owner, 2026-11-15): the #136 policy is confirmed; the documented self-review is accepted for 1.0, without an independent legal review before 1.0; the scope of the patent grants for the translated ports stays named as not assessed (section 6) | After the rename: regenerate the inventory and bundles, re-bind the JPEG evidence |
@@ -141,20 +152,26 @@ brand. The names are:
 | `libjxl-rs` | `ferrisma-libjxl` |
 | `libavif-rs` | `ferrisma-libavif` |
 
-All four were free on crates.io on 2026-11-15. **Not renamed yet:** every
-manifest, lockfile and document still uses today's names. Still to do with
-the rename:
+All four were free on crates.io on 2026-11-15. **Renamed on 2026-11-20**
+(branch `v1/rename-ports`) by `python3 tools/rename_ports.py --sub-crates`;
+the owner approved the sub-crate names and the adapter's new name that day:
 
-- **Names for the sub-crates** (`libavif-aom`, `libavif-dav1d`,
-  `libavif-sharpyuv`, `libsharpyuv-core`): to be proposed in the same
-  scheme; not decided.
-- **The collision with `crates/ferrisma-libavif`.** That internal package
-  (the ADR-0024 compatibility adapter, `publish = false`, see "Stay
-  internal" above) already has the name `ferrisma-libavif`. It must be
-  renamed or removed before the libavif port takes the name; whether it is
-  still needed is to be checked.
-- The rename scope below, which was listed for the JPEG port alone, applies
-  to all four ports and the sub-crates.
+| Package before | Package now |
+| --- | --- |
+| `libavif-aom` | `ferrisma-libaom` |
+| `libavif-dav1d` | `ferrisma-dav1d` |
+| `libavif-dav1d-kernels` | `ferrisma-dav1d-kernels` |
+| `libavif-sharpyuv` | `ferrisma-libavif-sharpyuv` |
+| `libsharpyuv-core` | `ferrisma-sharpyuv` |
+| `ferrisma-libavif` (internal ADR-0024 adapter, `crates/ferrisma-libavif`) | `ferrisma-avif-adapter` |
+
+Directories and library target names stay (`jpeg`, `webp`, `jxl`, `avif`,
+`aom`, `dav1d`, `dav1d_kernels`, `sharpyuv`; `libsharpyuv_core` and
+`ferrisma_libavif` are now pinned in their manifests), so no Rust `use`
+changes. The engine's decoder identifiers (`--jxl-decoder=libjxl-rs`,
+`pipeline` names) are API values, not package names, and stay. The tables,
+sizes and dated evidence on this page keep the names they were measured
+with; read them through the two tables above.
 
 The recommendation of 2026-11-14 (rename only the JPEG port to
 `ferrisma-libjpeg-turbo`, the other ports keep `lib*-rs`) is replaced by the
@@ -198,6 +215,10 @@ The crate is below the 10 MiB crates.io limit; no limit request is needed.
 The earlier options (a limit increase, per-platform crates, shipping one
 profile) and the consolidation steps (b) and (c) of the 2026-11-15 decision
 are superseded by this result.
+The measurement of 2026-11-20 on `main` at `61e20ecf` (808 files,
+210.4 MiB unpacked, 16.8 MiB compressed) and the options weighed then are in
+the Git history of this file.
+`libavif-rs` (4.6 MiB) and `libavif-dav1d` (2.6 MiB) are below the limit.
 
 ### 3. Consumer profile requirements of the AVIF packages (#209)
 
@@ -299,10 +320,10 @@ Options and their cost:
 required (it is enforced at compile time), and the four overflow overrides
 are recommended, not required. Removing the unwind requirement is a
 candidate for after 1.0, together with consolidation step (c). (b) is not
-started. **Not done yet:** the block goes into the `ferrisma` README and
-the supported matrix with the rename (#207), because the package names in it
-change; the codec owners' run of the AOM kernel tier and the debug
-translation with overflow checks on is open. The block, with today's names:
+started. Since the rename (2026-11-20) the block, with the new names, is in
+the [`ferrisma` README](../README.md#build-profile-for-the-avif-features);
+the supported matrix does not repeat it yet. The block as it stood before
+the rename:
 
 ```toml
 # Required by the AVIF features (avif-read, avif-write, cli): the
@@ -322,6 +343,31 @@ overflow-checks = false
 [profile.dev.package.libavif-sharpyuv]
 overflow-checks = false
 ```
+
+**The kernels' optimization level (2026-11-20, resolved the same day).**
+The dav1d kernel rollout moved dav1d's CDEF and inverse transforms into a
+package of their own (`libavif-dav1d-kernels`, now `ferrisma-dav1d-kernels`)
+on fearless_simd, with `opt-level = 1` for it and for `fearless_simd` in
+the root `dev` profile. A dependent does not inherit that. Reproduced with a
+consumer outside the workspace that depended on `libavif-rs` from
+`v1/dav1d-kernel-rollout` (`d522dd15`), with no profile of its own, over the
+59 AVIF files of the libavif test data through the port's dav1d: on x86-64
+(AVX2, Linux under Rosetta) with 1 and 8 threads, **7 runs crashed with
+SIGSEGV, all with 8 threads**; with the two `opt-level` lines, none. The
+cause was stack frames of up to 1.75 MB at opt-level 0 on dav1d's 1 MB
+worker stacks. macOS ARM64 did not crash.
+
+**Fixed in the code, not in the profile** (`e80d0713`, `adcde4dc`, merged
+to `main` in `8e86ae17`; libavif-rs ADR 0062): the transforms are selected
+with `if const` and each computing statement runs in a frame of its own
+when unoptimized, so the crate's largest frame at opt-level 0 is about
+104 KiB on x86-64. The same consumer then decoded without a crash at
+opt-level 0 (ADR 0062: x86-64 106 decoded, 12 typed failures, 0 crashes;
+ARM64 159, 18, 0). The `build.rs` guard proposed earlier that day (a library's
+build script does see the dependent's `OPT_LEVEL`, though not its overflow
+setting) is therefore not needed and was not added. The root profile's
+`opt-level = 1` for the kernels is a compile-time setting only; the README
+block lists it as optional.
 
 ### 4. Exact pins
 
@@ -458,15 +504,16 @@ Run from a clean checkout of the release commit, with the pinned toolchain.
 6. Log in (`cargo login`) and publish in order, one level at a time:
 
    ```sh
-   cargo publish -p libsharpyuv-core
+   cargo publish -p ferrisma-sharpyuv
    cargo publish -p ferrisma-kernels
-   cargo publish -p <renamed JPEG port>
-   cargo publish -p libjxl-rs
-   cargo publish -p libavif-aom
-   cargo publish -p libavif-dav1d
-   cargo publish -p libwebp-rs
-   cargo publish -p libavif-sharpyuv
-   cargo publish -p libavif-rs
+   cargo publish -p ferrisma-libjpeg-turbo
+   cargo publish -p ferrisma-libjxl
+   cargo publish -p ferrisma-libaom
+   cargo publish -p ferrisma-dav1d-kernels
+   cargo publish -p ferrisma-dav1d
+   cargo publish -p ferrisma-libwebp
+   cargo publish -p ferrisma-libavif-sharpyuv
+   cargo publish -p ferrisma-libavif
    cargo publish -p ferrisma-avif-read
    cargo publish -p ferrisma-avif-write
    cargo publish -p ferrisma-jxl-decoder

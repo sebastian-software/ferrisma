@@ -51,7 +51,7 @@ for unit in sorted((source / 'sharpyuv').glob('*.c')):
     subprocess.run(compiler + common + ['-Dmalloc=sharp_test_malloc', '-Dfree=sharp_test_free',
         '-c', str(unit), '-o', str(target)], check=True, env=environment)
     objects.append(str(target))
-command = ['cargo', 'rustc', '-p', 'libavif-sharpyuv', '--locked', '--release', '--lib',
+command = ['cargo', 'rustc', '-p', 'ferrisma-libavif-sharpyuv', '--locked', '--release', '--lib',
            '--crate-type', 'staticlib', '--target-dir', str(work / 'target'), '--', '--cfg', 'sharpyuv_test_allocator']
 rust_environment = environment.copy()
 # LLVM 16 is needed only by the C compiler. Rust must load its own LLVM 23.

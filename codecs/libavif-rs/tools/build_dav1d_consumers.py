@@ -28,7 +28,7 @@ def main():
     build = ROOT / f'build/dav1d-reference-{profile}'
     output = ROOT / (f'build/dav1d-rust-{profile}' + ('-portable' if args.portable else ''))
     tests = json.loads((build / 'meson-info/intro-tests.json').read_text())
-    cargo = ['cargo', 'build', '-p', 'libavif-dav1d', '--locked']
+    cargo = ['cargo', 'build', '-p', 'ferrisma-dav1d', '--locked']
     if not args.debug:
         cargo.append('--release')
     environment = os.environ.copy()

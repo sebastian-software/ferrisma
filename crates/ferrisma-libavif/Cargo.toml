@@ -1,5 +1,5 @@
 [package]
-name = "ferrisma-libavif"
+name = "ferrisma-avif-adapter"
 version = "0.0.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
@@ -18,10 +18,14 @@ cli = ["ferrisma/jpeg-read", "ferrisma/webp-read", "ferrisma/jpeg-xl-read", "fer
 ferrisma = { path = "../..", default-features = false, features = ["avif-write"] }
 
 [dev-dependencies]
-libavif-rs = { path = "../../codecs/libavif-rs", version = "0.1.0" }
+ferrisma-libavif = { path = "../../codecs/libavif-rs", version = "0.1.0" }
 ferrisma = { path = "../..", default-features = false, features = ["jpeg-read"] }
 
 [[bin]]
 name = "ferrisma-libavif"
 path = "src/bin/ferrisma-libavif.rs"
 required-features = ["cli"]
+
+[lib]
+# The library keeps its name across the package rename (#207).
+name = "ferrisma_libavif"

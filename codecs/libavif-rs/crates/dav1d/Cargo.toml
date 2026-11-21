@@ -1,5 +1,5 @@
 [package]
-name = "libavif-dav1d"
+name = "ferrisma-dav1d"
 version = "0.1.0"
 edition = "2021"
 # C-variadic definitions and core::ffi::VaList are stable since 1.99 (port ADR 0060).
@@ -30,7 +30,7 @@ c2rust-bitfields = "0.3.0"
 
 # CDEF and the inverse transforms written from the algorithm on fearless_simd
 # (ADR 0062), installed by src/simd/{arm,x86}/{cdef,itx}.rs.
-libavif-dav1d-kernels = { path = "../dav1d-kernels", version = "0.1.0" }
+ferrisma-dav1d-kernels = { path = "../dav1d-kernels", version = "0.1.0" }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(libavif_rs_asan)", "cfg(dav1d_portable)"] }

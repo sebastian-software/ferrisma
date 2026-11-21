@@ -29,21 +29,21 @@ bench = false
 
 # This is a separate workspace, so preserve the root workspace's generated
 # AVIF arithmetic exceptions here as well, including cargo-fuzz's release build.
-[profile.dev.package.libavif-rs]
+[profile.dev.package.ferrisma-libavif]
 overflow-checks = false
-[profile.dev.package.libavif-aom]
+[profile.dev.package.ferrisma-libaom]
 overflow-checks = false
-[profile.dev.package.libavif-dav1d]
+[profile.dev.package.ferrisma-dav1d]
 overflow-checks = false
-[profile.dev.package.libavif-sharpyuv]
+[profile.dev.package.ferrisma-libavif-sharpyuv]
 overflow-checks = false
-[profile.release.package.libavif-rs]
+[profile.release.package.ferrisma-libavif]
 overflow-checks = false
-[profile.release.package.libavif-aom]
+[profile.release.package.ferrisma-libaom]
 overflow-checks = false
-[profile.release.package.libavif-dav1d]
+[profile.release.package.ferrisma-dav1d]
 overflow-checks = false
-[profile.release.package.libavif-sharpyuv]
+[profile.release.package.ferrisma-libavif-sharpyuv]
 overflow-checks = false
 
 [workspace]

@@ -156,7 +156,7 @@ def main():
     msac_kernels = MSAC_KERNELS.get(args.simd, {})
     if msac_simd:
         bridges = ROOT / 'build/dav1d-bridges-target'
-        subprocess.run(['cargo', 'build', '-p', 'libavif-dav1d', '--locked', '--features', 'port-test-bridges',
+        subprocess.run(['cargo', 'build', '-p', 'ferrisma-dav1d', '--locked', '--features', 'port-test-bridges',
                         '--target-dir', bridges, *([] if args.debug else ['--release'])], check=True, cwd=ROOT)
         candidate = bridges / ('debug' if args.debug else 'release') / ('libdav1d.dylib' if darwin else 'libdav1d.so')
     symbol_command = ['nm', '-gU', library] if darwin else ['nm', '-D', '--defined-only', library]

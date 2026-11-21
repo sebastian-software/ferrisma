@@ -133,15 +133,16 @@ def main():
     manifest = ('[package]\nname="libavif-native-root-profile"\nversion="0.0.0"\nedition="2021"\n'
                 '[workspace]\n[lib]\nname="avif"\npath="lib.rs"\n'
                 'crate-type=["staticlib","rlib","cdylib"]\n[dependencies]\nlibc="=0.2.191"\n')
-    for alias, name in [('aom', 'aom'), ('dav1d', 'dav1d'), ('sharpyuv', 'sharpyuv')]:
-        manifest += f'{alias}={{package="libavif-{name}",path={json.dumps(str(ROOT / "crates" / name))}}}\n'
+    for alias, name, package in [('aom', 'aom', 'ferrisma-libaom'), ('dav1d', 'dav1d', 'ferrisma-dav1d'),
+                                 ('sharpyuv', 'sharpyuv', 'ferrisma-libavif-sharpyuv')]:
+        manifest += f'{alias}={{package="{package}",path={json.dumps(str(ROOT / "crates" / name))}}}\n'
     manifest += ('[features]\ndefault=[]\nmini=[]\nextended-pixi=[]\nlibgav1=[]\nrav1e=[]\nsvt=[]\nlibyuv=[]\navm=[]\n'
                  '[profile.dev]\noverflow-checks=false\npanic="unwind"\n'
                  '[profile.release]\noverflow-checks=false\npanic="unwind"\n'
                  # The workspace's dev setting for dav1d's fearless_simd
                  # kernels (root Cargo.toml): unoptimized they need megabyte
                  # stack frames.
-                 '[profile.dev.package.libavif-dav1d-kernels]\nopt-level=1\ndebug="line-tables-only"\n[profile.dev.package.fearless_simd]\nopt-level=1\ndebug="line-tables-only"\n')
+                 '[profile.dev.package.ferrisma-dav1d-kernels]\nopt-level=1\ndebug="line-tables-only"\n[profile.dev.package.fearless_simd]\nopt-level=1\ndebug="line-tables-only"\n')
     (work / 'Cargo.toml').write_text(manifest)
     # Bind translated ELF globals locally when an independent C oracle is also
     # loaded by a differential consumer. This supplies no codec implementation.

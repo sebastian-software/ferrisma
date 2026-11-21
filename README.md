@@ -67,6 +67,38 @@ every accepted and rejected input, output option, backend, Cargo feature and
 toolchain, with the test behind each claim. **[Documentation guide](docs/README.md)** maps the
 architecture, development instructions, decisions, and recorded experiments.
 
+## Build profile for the AVIF features
+
+Cargo applies profiles only from the root manifest of a build, so a crate
+that depends on `ferrisma` with `avif-read`, `avif-write` or `cli` should copy
+this block into its own workspace root (owner decision of 2026-11-15,
+[publishing](docs/publishing.md#3-consumer-profile-requirements-of-the-avif-packages-209)):
+
+```toml
+# Required by the AVIF features: the libaom port maps C's longjmp error
+# recovery to unwinding. `panic = "abort"` is a compile-time error.
+[profile.dev]
+panic = "unwind"
+[profile.release]
+panic = "unwind"
+# Recommended: build the translated AVIF code as its evidence was recorded
+# (no overflow checks); repeat for every profile with overflow checks.
+[profile.dev.package.ferrisma-libavif]
+overflow-checks = false
+[profile.dev.package.ferrisma-libaom]
+overflow-checks = false
+[profile.dev.package.ferrisma-dav1d]
+overflow-checks = false
+[profile.dev.package.ferrisma-libavif-sharpyuv]
+overflow-checks = false
+# Optional, compile time only: the fearless_simd kernels build faster
+# optimized; their stack and results do not depend on it.
+[profile.dev.package.ferrisma-dav1d-kernels]
+opt-level = 1
+[profile.dev.package.fearless_simd]
+opt-level = 1
+```
+
 ## Try the experimental CLI
 
 From a checkout with Rust installed:

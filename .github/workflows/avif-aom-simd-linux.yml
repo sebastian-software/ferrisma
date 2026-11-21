@@ -51,7 +51,7 @@ jobs:
         grep -m1 'model name' /proc/cpuinfo
         grep -m1 -o -w -E 'sse4_1|avx2|avx512f' /proc/cpuinfo | sort -u
     - name: Compare the SIMD kernels with their C functions
-      run: cargo test -p libavif-aom --locked --profile ${{ matrix.profile }} --test simd
+      run: cargo test -p ferrisma-libaom --locked --profile ${{ matrix.profile }} --test simd
     defaults:
       run:
         working-directory: codecs/libavif-rs
@@ -69,7 +69,7 @@ jobs:
     - name: Record the runner CPU
       run: grep -m1 'model name' /proc/cpuinfo
     - name: Compare the SIMD kernels with their C functions
-      run: cargo test -p libavif-aom --locked --test simd
+      run: cargo test -p ferrisma-libaom --locked --test simd
     defaults:
       run:
         working-directory: codecs/libavif-rs

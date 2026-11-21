@@ -1,5 +1,5 @@
 [package]
-name = "libwebp-rs"
+name = "ferrisma-libwebp"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.95"
@@ -12,7 +12,7 @@ include = ["/Cargo.toml", "/README.md", "/LICENSE", "/PATENTS", "/AUTHORS", "/do
 publish = false
 
 [dependencies]
-libsharpyuv-core = { path = "../../crates/libsharpyuv-core", version = "0.1.0" }
+ferrisma-sharpyuv = { path = "../../crates/libsharpyuv-core", version = "0.1.0" }
 
 [lib]
 name = "webp"

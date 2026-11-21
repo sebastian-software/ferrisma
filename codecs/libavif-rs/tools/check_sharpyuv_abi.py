@@ -23,7 +23,7 @@ def main():
         str(ROOT / 'tests/sharpyuv/abi.c'), '-L' + str(reference), '-lsharpyuv', '-Wl,-rpath,' + str(reference), '-o', str(executable)]
     subprocess.run(command, check=True)
     native = json.loads(subprocess.check_output([executable], text=True))
-    command = ['cargo', 'run', '-p', 'libavif-sharpyuv', '--locked', '--example', 'layout']
+    command = ['cargo', 'run', '-p', 'ferrisma-libavif-sharpyuv', '--locked', '--example', 'layout']
     if not args.debug:
         command.append('--release')
     result = subprocess.run(command, cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)

@@ -121,7 +121,7 @@ def check_static(msrv):
     check_docs()
     # The tiers, partitions and hosted plan of the test stage (ADR-0027).
     run("python3", "tools/check_test.py")
-    run("cargo", "fmt", "-p", "libjxl-rs", "--", "--check")
+    run("cargo", "fmt", "-p", "ferrisma-libjxl", "--", "--check")
     run("cargo", f"+{lint_toolchain()}", "clippy", "--locked", "--offline", "--all-targets", "--all-features", "--", "-D", "warnings")
     if msrv:
         run("cargo", f"+{rust_version()}", "check", "--locked", "--offline", "--all-targets", "--all-features")
@@ -152,7 +152,7 @@ def check_attribute_context():
     else:
         print("Attribute-context check skipped: no x86-64 build on this host", flush=True)
         return
-    build = ["cargo", "build", "--locked", "--offline", "--release", "-p", "libjxl-rs"]
+    build = ["cargo", "build", "--locked", "--offline", "--release", "-p", "ferrisma-libjxl"]
     for name in CODEGEN_EXAMPLES:
         build += ["--example", name]
     if target is not None:

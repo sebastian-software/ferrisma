@@ -171,7 +171,7 @@ def check_static(msrv, arch):
     check_docs()
     target = cargo_target(arch)
     run(sys.executable, "-I", ROOT / "tools/partition_test.py")
-    run("cargo", "fmt", "-p", "libjpeg-turbo-rs", "--", "--check")
+    run("cargo", "fmt", "-p", "ferrisma-libjpeg-turbo", "--", "--check")
     run("cargo", f"+{lint_toolchain()}", "clippy", *CARGO, *target, "--all-targets", "--all-features", "--", "-D",
         "warnings")
     run("cargo", f"+{lint_toolchain()}", "clippy", *CARGO, *target, "--all-targets", "--no-default-features",

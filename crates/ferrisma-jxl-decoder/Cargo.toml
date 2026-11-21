@@ -11,7 +11,7 @@ include = ["/Cargo.toml", "/README.md", "/LICENSE-MIT", "/LICENSE-APACHE", "/src
 publish = false
 
 [dependencies]
-libjxl-rs = { path = "../../codecs/libjxl-rs", version = "0.1.0" }
+ferrisma-libjxl = { path = "../../codecs/libjxl-rs", version = "0.1.0" }
 
 [dev-dependencies]
 # Comparison-only dependency of this wrapper (the benchmark's context column);

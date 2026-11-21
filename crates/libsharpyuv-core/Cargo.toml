@@ -1,5 +1,5 @@
 [package]
-name = "libsharpyuv-core"
+name = "ferrisma-sharpyuv"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.88"
@@ -12,3 +12,7 @@ publish = false
 
 [features]
 default = []
+
+[lib]
+# The library keeps its name across the package rename (#207).
+name = "libsharpyuv_core"

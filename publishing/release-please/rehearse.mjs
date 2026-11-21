@@ -35,7 +35,7 @@ if (
 // `preserve-exact-pins.mjs` every release must report the lost `=` pins.
 const postStep = option !== "--without-post-step";
 // `--key-by-package` rehearses the proposed manifest fix in memory: every
-// renamed first-party dependency (`webp = { package = "libwebp-rs", … }`) is
+// renamed first-party dependency (`webp = { package = "ferrisma-libwebp", … }`) is
 // keyed by its package name instead. The library target names (`webp`, `jxl`,
 // `sharpyuv`, `dav1d`, `aom`) are unchanged, so Rust sources would not change;
 // only `dep:` feature references would.
@@ -340,12 +340,12 @@ if (shape === "shared") {
   report("first release (Release-As: 0.1.0 on a commit touching every published package)", first, Object.fromEntries(everyPublished.map((n) => [n, "0.1.0"])));
   reportRawPins("exact pins", first);
   const released = setManifestAfterRelease(first.files, packages, config);
-  const fix = await propose(released, [{ message: "fix(webp): reject a truncated VP8L header", files: touch(packages, "libwebp-rs") }], true);
-  report("fix in libwebp-rs only", fix, { "libwebp-rs": "0.1.1", "libjxl-rs": "0.1.0", "libjpeg-turbo-rs": "0.1.0" });
-  const feat = await propose(released, [{ message: "feat(jxl): admit the lossless effort 2 profile", files: touch(packages, "libjxl-rs") }], true);
-  report("feature in libjxl-rs only", feat, { "libjxl-rs": "0.2.0", "libwebp-rs": "0.1.0", "libjpeg-turbo-rs": "0.1.0" });
+  const fix = await propose(released, [{ message: "fix(webp): reject a truncated VP8L header", files: touch(packages, "ferrisma-libwebp") }], true);
+  report("fix in libwebp-rs only", fix, { "ferrisma-libwebp": "0.1.1", "ferrisma-libjxl": "0.1.0", "ferrisma-libjpeg-turbo": "0.1.0" });
+  const feat = await propose(released, [{ message: "feat(jxl): admit the lossless effort 2 profile", files: touch(packages, "ferrisma-libjxl") }], true);
+  report("feature in libjxl-rs only", feat, { "ferrisma-libjxl": "0.2.0", "ferrisma-libwebp": "0.1.0", "ferrisma-libjpeg-turbo": "0.1.0" });
   const engine = await propose(released, [{ message: "feat(pipeline)!: make TransformOptions non-exhaustive", files: touch(packages, "ferrisma") }], true);
-  report("breaking engine change", engine, { ferrisma: "0.2.0", "ferrisma-kernels": "0.2.0", "libwebp-rs": "0.1.0", "libjxl-rs": "0.1.0" });
+  report("breaking engine change", engine, { ferrisma: "0.2.0", "ferrisma-kernels": "0.2.0", "ferrisma-libwebp": "0.1.0", "ferrisma-libjxl": "0.1.0" });
 }
 
 if (warnings.length) {

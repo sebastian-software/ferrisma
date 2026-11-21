@@ -90,7 +90,7 @@ def main():
     if not args.fetch_deps:
         command.append('-DFETCHCONTENT_FULLY_DISCONNECTED=ON')
     if args.implementation == 'rust':
-        run(['cargo', 'build', '-p', 'libavif-sharpyuv', '--locked', '--release'])
+        run(['cargo', 'build', '-p', 'ferrisma-libavif-sharpyuv', '--locked', '--release'])
         target = Path(os.environ.get('CARGO_TARGET_DIR', ROOT.parents[1] / 'target'))
         command += ['-DSHARPYUV_RS_ARCHIVE=' + str(target / 'release/libsharpyuv.a')]
         # Reuse the exact sources fetched by the original native reference,

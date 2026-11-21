@@ -25,7 +25,7 @@ def main():
     build = ROOT / f'build/aom-native-{profile}'
     work = ROOT / f'build/aom-inlines-{profile}'
     work.mkdir(parents=True, exist_ok=True)
-    command = ['cargo', 'build', '-p', 'libavif-aom', '--features', 'port-test-bridges',
+    command = ['cargo', 'build', '-p', 'ferrisma-libaom', '--features', 'port-test-bridges',
                '--locked', '--target-dir', work / 'target']
     if not args.debug:
         command.append('--release')

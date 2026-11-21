@@ -71,7 +71,7 @@ PROBE_SCALAR="$SCALAR/probes/wp9/bench"
 CJPEG="$ORACLE/libjpeg-turbo/cjpeg-static"
 [[ -x "$PROBE" && -x "$PROBE_SCALAR" && -x "$CJPEG" ]] || { echo "oracle probe or cjpeg missing" >&2; exit 1; }
 
-cargo build --release --locked -p libjpeg-turbo-rs --example bench
+cargo build --release --locked -p ferrisma-libjpeg-turbo --example bench
 TARGET=${CARGO_TARGET_DIR:-$ROOT/target}
 BENCH="$TARGET/release/examples/bench"
 

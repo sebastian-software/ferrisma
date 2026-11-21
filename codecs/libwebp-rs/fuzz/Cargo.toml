@@ -18,7 +18,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 
-[dependencies.libwebp-rs]
+[dependencies.ferrisma-libwebp]
 path = ".."
 
 # Its own workspace, so that the library's commands never pick it up.

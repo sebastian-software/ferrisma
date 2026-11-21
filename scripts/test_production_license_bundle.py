@@ -76,7 +76,7 @@ checksum = "def"
                 BUNDLE.validate_recovered(entry, "package", root, root)
 
     def test_source_bound_jpeg_review_does_not_cover_changes(self):
-        package = {"name": "libjpeg-turbo-rs", "version": "0.1.0", "license": "IJG AND Zlib"}
+        package = {"name": "ferrisma-libjpeg-turbo", "version": "0.1.0", "license": "IJG AND Zlib"}
         source = "f5ba795a3d447b0adcaeef7e239cf45fb5495665529c5f11c9d7de599c0afca2"
         self.assertIsNotNone(BUNDLE.jpeg_source_review(package, source))
         self.assertIsNone(BUNDLE.jpeg_source_review(package, "changed"))

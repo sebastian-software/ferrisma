@@ -158,9 +158,9 @@ jobs:
       - name: Package and verify the whole chain before the first upload
         run: |
           cargo package --locked \
-            -p libsharpyuv-core -p ferrisma-kernels -p libjpeg-turbo-rs \
-            -p libjxl-rs -p libavif-aom -p libavif-dav1d -p libwebp-rs \
-            -p libavif-sharpyuv -p libavif-rs -p ferrisma-avif-read \
+            -p ferrisma-sharpyuv -p ferrisma-kernels -p ferrisma-libjpeg-turbo \
+            -p ferrisma-libjxl -p ferrisma-libaom -p ferrisma-dav1d -p ferrisma-libwebp \
+            -p ferrisma-libavif-sharpyuv -p ferrisma-libavif -p ferrisma-avif-read \
             -p ferrisma-avif-write -p ferrisma-jxl-decoder \
             -p ferrisma-jxl-encoder -p ferrisma
 
@@ -171,15 +171,15 @@ jobs:
       - uses: sebastian-software/project-infra/.github/actions/publish-crates@c97d8db475ce5abb7e7ab7b0ac22e249346b9fab # v0.3.0
         with:
           crates: |
-            libsharpyuv-core
+            ferrisma-sharpyuv
             ferrisma-kernels
-            libjpeg-turbo-rs
-            libjxl-rs
-            libavif-aom
-            libavif-dav1d
-            libwebp-rs
-            libavif-sharpyuv
-            libavif-rs
+            ferrisma-libjpeg-turbo
+            ferrisma-libjxl
+            ferrisma-libaom
+            ferrisma-dav1d
+            ferrisma-libwebp
+            ferrisma-libavif-sharpyuv
+            ferrisma-libavif
             ferrisma-avif-read
             ferrisma-avif-write
             ferrisma-jxl-decoder

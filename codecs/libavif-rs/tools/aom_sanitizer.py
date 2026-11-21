@@ -72,7 +72,7 @@ def instrumented_libraries():
             '-Zsanitizer=address', '-Zexternal-clangrt', '-Cforce-frame-pointers=yes',
             '-Lnative=' + str(runtime), '-ldylib=rustc-nightly_rt.asan',
             '-Clink-arg=-Wl,-rpath,' + str(runtime), '--cfg', 'libavif_rs_asan'])
-        subprocess.run(['cargo', 'build', '-p', 'libavif-aom', '--release', '--locked',
+        subprocess.run(['cargo', 'build', '-p', 'ferrisma-libaom', '--release', '--locked',
                         '--target', 'aarch64-apple-darwin', '--target-dir', work / 'target'],
                        cwd=ROOT, env=rust_environment, check=True)
         record = dict(key=key, original_translation_units=len(entries),

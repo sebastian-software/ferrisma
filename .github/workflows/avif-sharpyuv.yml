@@ -76,8 +76,8 @@ jobs:
       run: |
         python3 tools/build_sharpyuv.py
         python3 tools/build_sharpyuv.py --debug
-        cargo build -p libavif-sharpyuv --locked --release
-        cargo build -p libavif-sharpyuv --locked
+        cargo build -p ferrisma-libavif-sharpyuv --locked --release
+        cargo build -p ferrisma-libavif-sharpyuv --locked
     - name: Exact API, ABI, and allocation comparisons
       run: |
         python3 tools/check_sharpyuv.py
