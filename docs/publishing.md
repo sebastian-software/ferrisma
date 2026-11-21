@@ -197,7 +197,7 @@ What a rename touches (the library target name `jpeg` stays, so no Rust
 - Not affected: no workflow under `.github/workflows` passes the package
   name; the crate's `jpeg` target and the engine sources.
 
-### 2. `libavif-aom` and the upload limit (#208)
+### 2. `ferrisma-libaom` and the upload limit (#208)
 
 **Resolved on 2026-11-21 by one owned translation** (libavif-rs
 [ADR 0063](../codecs/libavif-rs/docs/adr/0063-translate-libaom-once-into-one-owned-source.md),
