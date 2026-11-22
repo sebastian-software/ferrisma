@@ -8,7 +8,8 @@ name: v1.0 CI performance
 # one thread, and that build with all threads.
 # Runs only on throwaway bench/** branches or by hand; no secrets. A pushed
 # head commit whose message contains "[bench codecs-only]" skips the engine
-# matrix.
+# matrix; "[bench decoders]" runs only the AVIF decoder comparison
+# (docs/benchmarks/v1.0-decoders-2026-11-22.md) on the x86-64 Linux runners.
 on:
   push:
     branches: ["bench/**"]
@@ -55,7 +56,7 @@ jobs:
 
   engine:
     needs: corpus
-    if: ${{ !contains(github.event.head_commit.message, '[bench codecs-only]') }}
+    if: ${{ !contains(github.event.head_commit.message, '[bench codecs-only]') && !contains(github.event.head_commit.message, '[bench decoders]') }}
     strategy:
       fail-fast: false
       matrix:
@@ -121,6 +122,7 @@ jobs:
 
   codec:
     needs: corpus
+    if: ${{ !contains(github.event.head_commit.message, '[bench decoders]') }}
     strategy:
       fail-fast: false
       matrix:
@@ -165,5 +167,47 @@ jobs:
         if: always()
         with:
           name: codec-${{ matrix.codec }}-${{ matrix.runner }}
+          path: bench/out/
+          retention-days: 30
+
+  decoders:
+    needs: corpus
+    if: ${{ contains(github.event.head_commit.message, '[bench decoders]') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, blacksmith-4vcpu-ubuntu-2404]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    env:
+      INPUTS: ${{ github.workspace }}/bench/inputs
+      WORK: ${{ github.workspace }}/bench/work
+      OUT: ${{ github.workspace }}/bench/out
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: corpus
+          path: bench/inputs/corpus
+      - name: Install tools
+        run: bash scripts/bench/ci-perf/setup.sh avif
+      - name: Record the host before
+        run: bash scripts/bench/ci-perf/host.sh before
+      - name: Make masters
+        run: CORPUS="$INPUTS/corpus" SIZES="12 24" bash scripts/bench/ci-perf/make_masters.sh
+      - name: Build and time the AVIF decoders
+        run: JOBS=$(getconf _NPROCESSORS_ONLN) REPS=11 bash scripts/bench/ci-perf/decoders_avif.sh
+      - name: Record the host after
+        if: always()
+        run: bash scripts/bench/ci-perf/host.sh after
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: decoders-avif-${{ matrix.runner }}
           path: bench/out/
           retention-days: 30

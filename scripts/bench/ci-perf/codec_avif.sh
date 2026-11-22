@@ -4,7 +4,7 @@
 # translates: libavif 1.4.2, libaom 3.15.2 and dav1d 1.5.4.
 #
 #   INPUTS=dir [SIZES="12 24"] [ENCODE_SIZES="12"] [WORK=dir] [OUT=dir] \
-#     [REPS=7] [WARMUPS=1] [JOBS=n] bash scripts/bench/ci-perf/codec_avif.sh
+#     [REPS=7] [WARMUPS=1] [JOBS=n] [AVIF_BUILD_ONLY=1] bash scripts/bench/ci-perf/codec_avif.sh
 #
 # Platforms: the port compiles only on macOS ARM64 and GNU Linux x86-64 with
 # the pinned nightly (rust-toolchain.toml). On any other platform (notably
@@ -408,6 +408,10 @@ record = {
 }
 Path(out).write_text(json.dumps(record, indent=2) + "\n")
 EOF
+
+# AVIF_BUILD_ONLY=1 stops here: the builds, the drivers and avif-build.json
+# only (scripts/bench/ci-perf/decoders_avif.sh times its own decode plans).
+[[ "${AVIF_BUILD_ONLY:-0}" == 1 ]] && exit 0
 
 # 3. Inputs: BMP masters for the encoders, reference AVIF from the original.
 for size in "${SIZE_LIST[@]}"; do
