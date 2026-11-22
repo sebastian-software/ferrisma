@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import xml.etree.ElementTree as ET
 
+import aom_manifest
 from build_aom import test_names
 from plan_aom_release import source_pair
 
@@ -114,8 +115,7 @@ def main():
     expected_hashes = {'c_executable_sha256': digest(native / 'test_aom_rc'),
         'rust_executable_sha256': digest(rust / 'test_aom_rc'),
         'config_sha256': digest(native / 'config/aom_config.h'),
-        'translation_manifest_sha256': digest(ROOT / ('crates/aom/TRANSLATION-' +
-            ('macos' if args.runner.startswith('macos-') else 'linux') + '-release.json'))}
+        'translation_manifest_sha256': digest(aom_manifest.PATH)}
     if any(identity.get(key) != value for key, value in expected_hashes.items()):
         raise ValueError('Recovery must use the exact failed frozen binaries and configuration')
     names = test_names((native / 'test_aom_rc-inventory.txt').read_text())

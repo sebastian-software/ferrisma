@@ -33,6 +33,7 @@ import subprocess
 import sys
 import xml.etree.ElementTree as ET
 
+import aom_manifest
 from aom_reference import PREFIX, reference_archive
 from build_aom import library_entries, test_names
 from check_abi import compiler_flags
@@ -283,10 +284,10 @@ def main():
     (work / 'summary.json').unlink(missing_ok=True)
     archive = (args.rust_archive or ROOT.parents[1] / f'target/{profile}/libaom.a').resolve()
     platform = 'macos' if sys.platform == 'darwin' else 'linux'
-    manifest = ROOT / f'crates/aom/TRANSLATION-{platform}-{profile}.json'
-    translation = json.loads(manifest.read_text())
+    manifest = aom_manifest.PATH
+    translation = aom_manifest.view(platform, profile)
     reference = json.loads((build / 'reference-profile.json').read_text())
-    if reference['profile'] != profile or translation['preprocessing_profile'] != profile:
+    if reference['profile'] != profile or translation['build_profile'] != profile:
         raise SystemExit('The native reference and Rust profile differ')
     for name, expected in translation['generated_reference_headers'].items():
         if hashlib.sha256((build / name).read_bytes()).hexdigest() != expected:

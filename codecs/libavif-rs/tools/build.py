@@ -10,6 +10,8 @@ import subprocess
 import shlex
 import sys
 
+import aom_manifest
+
 ROOT = Path(__file__).resolve().parents[1]
 DEPENDENCIES = {
     "googletest": ("https://github.com/google/googletest.git", "52eb8108c5bdec04579160ae17225d66034bd723"),
@@ -112,7 +114,7 @@ def main():
         from build_aom import LIBRARY_UNITS, library_entries
         reference = json.loads((args.aom_reference_build / 'reference-profile.json').read_text())
         reference_platform = 'macos' if sys.platform == 'darwin' else 'linux'
-        translation = json.loads((ROOT / f'crates/aom/TRANSLATION-{reference_platform}-{profile}.json').read_text())
+        translation = aom_manifest.view(reference_platform, profile)
         if (reference['profile'] != profile or reference['library_translation_units'] != LIBRARY_UNITS
                 or '-ffp-contract=off' not in shlex.split(reference['c_flags'])
                 or not (args.aom_reference_build / 'libaom.a').is_file()):

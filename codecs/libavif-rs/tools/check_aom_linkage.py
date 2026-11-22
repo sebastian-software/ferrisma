@@ -8,6 +8,7 @@ import re
 import subprocess
 import sys
 
+import aom_manifest
 from build_aom import library_entries
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -86,7 +87,7 @@ def main():
     profile = 'debug' if args.debug else 'release'
     original = (args.reference_build or ROOT / f'build/aom-native-{profile}').resolve()
     platform = 'macos' if sys.platform == 'darwin' else 'linux'
-    translation = json.loads((ROOT / f'crates/aom/TRANSLATION-{platform}-{profile}.json').read_text())
+    translation = aom_manifest.view(platform, profile)
     if (json.loads((original / 'reference-profile.json').read_text())['profile'] != profile
             or hashlib.sha256((original / 'config/aom_config.h').read_bytes()).hexdigest()
             != translation['generated_reference_headers']['config/aom_config.h']):

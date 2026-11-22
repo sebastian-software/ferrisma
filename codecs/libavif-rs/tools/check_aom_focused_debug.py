@@ -34,7 +34,7 @@ def verify_focused_debug(root):
                 or hashlib.sha256(binary.read_bytes()).hexdigest() != report['identity'][f'{side}_executable_sha256']):
             raise ValueError('Focused Debug XML or original binary changed')
     target = 'macos' if sys.platform == 'darwin' else 'linux'
-    manifest = root / f'crates/aom/TRANSLATION-{target}-debug.json'
+    manifest = root / 'crates/aom/TRANSLATION.json'
     if hashlib.sha256(manifest.read_bytes()).hexdigest() != report['identity']['translation_manifest_sha256']:
         raise ValueError('Focused Debug translation differs from the current source')
     return report

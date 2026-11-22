@@ -52,33 +52,50 @@ if dav1d.exists():
             raise SystemExit(f'Incomplete portable dav1d source instantiations: {name}')
     print(f'All {len(expected)} portable dav1d source instantiations are represented in {len(names)} platform/build profiles')
 aom = ROOT / 'crates/aom'
-if (aom / 'TRANSLATION-macos-debug.json').exists():
+if (aom / 'TRANSLATION.json').exists():
+    # One owned tree for every profile on both targets (codec ADR 0063); each
+    # target/profile view is what that build compiles.
+    import aom_manifest
     reference = json.loads((ROOT / 'crates/aom/reference/macos-debug.json').read_text())
     expected = {name.replace('<generated>/', 'generated/') for name in reference['library_sources']}
-    for path in sorted(aom.glob('TRANSLATION-*.json')):
-        record = json.loads(path.read_text())
-        platform, profile = path.stem.removeprefix('TRANSLATION-').split('-')
-        actual = []
-        for unit in record['units']:
-            if NONLOCAL_CALL.search((ROOT / unit['rust']).read_text()):
-                raise SystemExit(f'Unmapped libc nonlocal error transfer: {unit["rust"]}')
-            source = Path(unit['source'])
-            prefix = 'upstream/aom' if source.is_relative_to('upstream/aom') else f'crates/aom/reference/{platform}/{profile}'
-            actual.append(str(source.relative_to(prefix)))
-        for correction, expected_count in [('scoped-nonlocal-error-targets', 32),
-                                            ('typed-nonlocal-error-transfer', 1),
-                                            ('unaligned-external-highbd-validation-load', 1)]:
-            if sum(unit['corrections'].get(correction, 0) for unit in record['units']) != expected_count:
-                raise SystemExit(f'Incomplete libaom translation correction: {path}: {correction}')
-        if set(actual) != expected or len(actual) != len(expected):
-            raise SystemExit(f'Incomplete portable libaom source closure: {path}')
-        for name, digest in record['generated_reference_headers'].items():
-            header = aom / f'reference/{platform}/{profile}' / name
-            if hashlib.sha256(header.read_bytes()).hexdigest() != digest:
-                raise SystemExit(f'Generated libaom reference header changed: {header}')
-        config = (aom / f'reference/{platform}/{profile}/config/aom_config.h').read_text()
-        for setting in ['CONFIG_AV1_ENCODER 1', 'CONFIG_AV1_DECODER 1', 'CONFIG_AV1_HIGHBITDEPTH 1',
-                        'CONFIG_MULTITHREAD 1', 'CONFIG_REALTIME_ONLY 0', 'CONFIG_TUNE_VMAF 0']:
-            if f'#define {setting}\n' not in config:
-                raise SystemExit(f'Incomplete libaom configuration: {path}: {setting}')
-    print(f'All {len(expected)} complete portable libaom translation units are represented in {len(list(aom.glob("TRANSLATION-*.json")))} profiles')
+    record = aom_manifest.load()
+    for unit in record['units']:
+        if NONLOCAL_CALL.search((ROOT / unit['rust']).read_text()):
+            raise SystemExit(f'Unmapped libc nonlocal error transfer: {unit["rust"]}')
+        if not unit['rust'].startswith(aom_manifest.TREE + '/'):
+            raise SystemExit(f'libaom unit outside the one tree: {unit["rust"]}')
+    views = 0
+    for platform in aom_manifest.PLATFORMS:
+        for profile in aom_manifest.PROFILES:
+            view = aom_manifest.view(platform, profile, record)
+            label = f'{aom_manifest.PATH.name} ({platform}/{profile})'
+            actual = []
+            for unit in view['units']:
+                source = Path(unit['source'])
+                prefix = 'upstream/aom' if source.is_relative_to('upstream/aom') else 'crates/aom/reference/one-source'
+                actual.append(str(source.relative_to(prefix)))
+            for correction, expected_count in [('scoped-nonlocal-error-targets', 32),
+                                                ('typed-nonlocal-error-transfer', 1),
+                                                ('unaligned-external-highbd-validation-load', 1)]:
+                if sum(unit['corrections'].get(correction, 0) for unit in view['units']) != expected_count:
+                    raise SystemExit(f'Incomplete libaom translation correction: {label}: {correction}')
+            if set(actual) != expected or len(actual) != len(expected):
+                raise SystemExit(f'Incomplete portable libaom source closure: {label}')
+            for name, digest in view['generated_reference_headers'].items():
+                header = aom / f'reference/{platform}/{profile}' / name
+                if hashlib.sha256(header.read_bytes()).hexdigest() != digest:
+                    raise SystemExit(f'Original libaom reference header changed: {header}')
+            for name, digest in view['presentation_headers'].items():
+                header = aom_manifest.reference(platform) / name
+                if hashlib.sha256(header.read_bytes()).hexdigest() != digest:
+                    raise SystemExit(f'Prepared libaom header changed: {header}')
+            for config in [aom / f'reference/{platform}/{profile}/config/aom_config.h',
+                           aom_manifest.reference(platform) / 'config/aom_config.h']:
+                text = config.read_text()
+                for setting in ['CONFIG_AV1_ENCODER 1', 'CONFIG_AV1_DECODER 1', 'CONFIG_AV1_HIGHBITDEPTH 1',
+                                'CONFIG_MULTITHREAD 1', 'CONFIG_REALTIME_ONLY 0', 'CONFIG_TUNE_VMAF 0']:
+                    if f'#define {setting}\n' not in text:
+                        raise SystemExit(f'Incomplete libaom configuration: {config}: {setting}')
+            views += 1
+    print(f'All {len(expected)} complete portable libaom translation units are in the one tree, '
+          f'checked for {views} target/profile views')

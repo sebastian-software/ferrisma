@@ -28,6 +28,8 @@ import sys
 
 from build_aom import reference_build
 
+import aom_manifest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 MACOS = sys.platform == 'darwin' and platform.machine() == 'arm64'
@@ -66,8 +68,8 @@ def main():
     work.mkdir(parents=True, exist_ok=True)
     (work / 'summary.json').unlink(missing_ok=True)
     platform_name = 'macos' if MACOS else 'linux'
-    manifest = ROOT / f'crates/aom/TRANSLATION-{platform_name}-{profile}.json'
-    translation = json.loads(manifest.read_text())
+    manifest = aom_manifest.PATH
+    translation = aom_manifest.view(platform_name, profile)
     if (json.loads((native / 'reference-profile.json').read_text())['profile'] != profile or
             digest(native / 'config/aom_config.h') !=
             translation['generated_reference_headers']['config/aom_config.h']):

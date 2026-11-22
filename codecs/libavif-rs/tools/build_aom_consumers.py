@@ -28,6 +28,7 @@ import shlex
 import subprocess
 import sys
 
+import aom_manifest
 from build_aom import library_entries
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -42,7 +43,7 @@ def main():
     profile = 'debug' if args.debug else 'release'
     build = (args.reference_build or ROOT / f'build/aom-native-{profile}').resolve()
     platform = 'macos' if sys.platform == 'darwin' else 'linux'
-    manifest = json.loads((ROOT / f'crates/aom/TRANSLATION-{platform}-{profile}.json').read_text())
+    manifest = aom_manifest.view(platform, profile)
     if json.loads((build / 'reference-profile.json').read_text())['profile'] != profile:
         raise SystemExit('The native reference and Rust profile differ')
     for name, expected in manifest['generated_reference_headers'].items():

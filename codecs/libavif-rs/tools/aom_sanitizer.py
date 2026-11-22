@@ -37,9 +37,9 @@ def instrumented_libraries():
     reference = work / 'libaom-reference.a'
     candidate = work / 'target/aarch64-apple-darwin/release/libaom.a'
     record_path = work / 'build.json'
-    files = ['provenance/aom-source.json', 'crates/aom/TRANSLATION-macos-release.json',
+    files = ['provenance/aom-source.json', 'crates/aom/TRANSLATION.json',
              'crates/aom/src/lib.rs', 'crates/aom/src/platform.rs', 'crates/aom/src/jump.rs',
-             'crates/aom/src/modules-macos-release.rs', 'crates/aom/src/api-macos-release.rs',
+             'crates/aom/src/modules.rs', 'crates/aom/src/api.rs',
              'crates/aom/build.rs', 'crates/aom/Cargo.toml', 'Cargo.toml', '../../Cargo.toml', '../../Cargo.lock', '../../rust-toolchain.toml',
              'build/aom-native-release/library-compile-commands.json', 'tools/aom_sanitizer.py']
     key = hashlib.sha256(json.dumps({name: digest(ROOT / name) for name in files}, sort_keys=True).encode()
