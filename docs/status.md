@@ -203,8 +203,9 @@ sized like the originals' own) and are fixed on `main`.
   identical with the AVX2 oracle), and the hosted run of that state,
   [43656118559](https://github.com/sebastian-software/ferrisma/actions/runs/43656118559)
   (`JXL: Checks` at `7b48bc81`), which completed with every job successful
-  (#96, closed). The encoder's SIMD default of 2026-11-16 has no hosted
-  x86-64 run yet.
+  (#96, closed). The encoder's SIMD default passed its first scheduled
+  nightly on `main`, [44890912987](https://github.com/sebastian-software/ferrisma/actions/runs/44890912987) at `e85ad0b9` (56 encoder
+  SIMD tests against the AVX2 oracle, 0 failed; see the quality gate guide).
 - **AOM:** no workflow runs the comparison with the original's SIMD build
   (`tools/check_aom_simd_original.py`), so no hosted run of it exists.
   Locally its `avx2`, `sse4.1` and `scalar` levels run under QEMU emulation

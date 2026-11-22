@@ -115,9 +115,19 @@ or sized as their own callers do; both are fixed on `main`. Since then:
   details below).
 - libjxl-rs's decoder passed on hosted Linux x86-64 with its AVX2 default
   (run [43656118559](https://github.com/sebastian-software/ferrisma/actions/runs/43656118559)
-  at `7b48bc81`; every job successful, the sanitized shards included). The
-  encoder's SIMD path, selected by default since 2026-11-16, has no hosted
-  x86-64 run yet.
+  at `7b48bc81`; every job successful, the sanitized shards included).
+- The scheduled nightly [44890912987](https://github.com/sebastian-software/ferrisma/actions/runs/44890912987) on `main` at `e85ad0b9`
+  (2026-11-21; `codecs/libwebp-rs`, `codecs/libjxl-rs` and their workflows
+  are unchanged up to `6896c2ef`) passed both families on `ubuntu-latest`.
+  libwebp-rs: the three `release-simd` partition jobs ran `avx2`, `sse41` and
+  `sse2` in the dev, release and checked profiles, 377 tests each, 3,393
+  passed, 0 failed, `wp10_dsp` included. libjxl-rs: the four ordinary-oracle
+  shards passed 1,176 tests, 0 failed (2 diagnostics ignored by design), among
+  them every SIMD test against the AVX2 dispatch-build oracle, 34 decoder and
+  56 encoder tests, and the three row tests that failed in #252. It is the
+  first scheduled nightly on `main` with the encoder's SIMD path (merged on
+  2026-11-20, after `JXL: Checks` run 44775790284 on its branch). The logs were read for
+  these counts (#252).
 - #252 does not record a libjpeg-turbo-rs result.
 - No workflow in `.github/workflows` runs the AOM SIMD-against-original gate
   (`tools/check_aom_simd_original.py`), so no hosted run of it exists. Its
@@ -209,10 +219,12 @@ python3 tools/check.py --stage test --oracle --arch x86_64
   [43698564297](https://github.com/sebastian-software/ferrisma/actions/runs/43698564297))
   and 2026-11-16 (run
   [43840953408](https://github.com/sebastian-software/ferrisma/actions/runs/43840953408));
-  their logs were not read for test counts. The earlier `avx2` failure (#252) was the
+  their logs were not read for test counts. The nightly of 2026-11-21 (run
+  [44890912987](https://github.com/sebastian-software/ferrisma/actions/runs/44890912987),
+  `main` at `e85ad0b9`) was read: the full x86-64 gate, three levels by three
+  profiles, 3,393 passed, 0 failed. The earlier `avx2` failure (#252) was the
   `wp10/dsp` probe passing misaligned rows to libwebp's SSE2 predictors,
-  not libwebp or the port. The SIMD status page on `main` still says that
-  no hosted rerun had finished; it predates this run.
+  not libwebp or the port.
 - **Accepted by the owner on 2026-11-15 (O7, ADR-0041):** the narrowed
   test domains of the `release-simd` comparison, under the single
   exception of ADR-0041 section 2 (only where libwebp itself is undefined,
