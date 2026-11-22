@@ -90,6 +90,24 @@ class RtcdUnitCheckTest(unittest.TestCase):
         missing = UNIT.replace('    fn foo_sse2(a: *const uint8_t, n: core::ffi::c_int) -> int64_t;\n', '')
         self.assertTrue(any('foo_sse2' in p for p in problems(missing)))
 
+    def test_a_missing_variant_is_shown_as_a_diff(self):
+        block = f'    if flags & HAS_AVX2 != 0 {{\n        foo = Some(foo_avx2 as {FTYPE}) as Option<{FTYPE}>;\n    }}\n'
+        report = '\n'.join(problems(UNIT.replace(block, '')))
+        self.assertIn(f'+if flags & HAS_AVX2 != 0 {{ foo = Some(foo_avx2 as {FTYPE}) as Option<{FTYPE}>; }}', report)
+        self.assertIn('(tool output)', report)
+
+    def test_the_wrapped_c2rust_form_shows_no_diff_lines(self):
+        line = f'    foo = Some(foo_c as {FTYPE}) as Option<{FTYPE}>;\n'
+        body = UNIT.split('fn setup_rtcd_internal() {\n', 1)[1].rsplit('}\n', 1)[0]
+        expected = dispatch.expected_setup(HEADER, lambda name: FTYPE)
+        self.assertEqual(dispatch.setup_diff('unit.rs', body.replace(line, WRAPPED), expected), '')
+
+    def test_a_pointer_global_of_another_type_shows_both_types(self):
+        other = UNIT.replace(f'pub static mut foo: Option<{FTYPE}>', 'pub static mut foo: Option<unsafe extern "C-unwind" fn() -> ()>')
+        report = '\n'.join(problems(other))
+        self.assertIn('committed:   Option<unsafe extern "C-unwind" fn() -> ()>', report)
+        self.assertIn(f'tool output: Option<{FTYPE}>', report)
+
     def test_an_unknown_header_statement_is_refused(self):
         with self.assertRaises(SystemExit):
             dispatch.header_setup(HEADER.replace('    (void)flags;\n', '    flags = 0;\n'))

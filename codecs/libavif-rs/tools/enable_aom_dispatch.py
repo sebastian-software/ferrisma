@@ -33,8 +33,13 @@ statement from the regenerated header (whitespace and trailing commas aside,
 so the setup C2Rust emitted at the freeze compares like the tool's); that no
 other unit still calls or takes the address of a dispatched `_c` function
 where the tool would rewrite it; the recorded digests of every unit; and on
-Linux the integer and copied type aliases. CI runs both platforms.
+Linux the integer and copied type aliases. CI runs both platforms. Each
+difference is printed with a unified diff from the committed text to the
+tool's output: the setup statement by statement (in the tool's spelling where
+the two agree up to whitespace), a caller unit as its platform projection, a
+dispatch header or the manifest as text.
 """
+import difflib
 import hashlib
 import json
 import re
@@ -457,6 +462,52 @@ def normalized(text):
     return re.sub(r',([)>\]}])', r'\1', text)
 
 
+DIFF_LINES = 120
+
+
+def text_diff(label, committed, expected):
+    """A unified diff from the committed text to the tool's, cut after
+    DIFF_LINES lines, indented under its problem line."""
+    lines = list(difflib.unified_diff(committed.splitlines(), expected.splitlines(),
+                                      f'{label} (committed)', f'{label} (tool output)', lineterm=''))
+    if len(lines) > DIFF_LINES:
+        lines = lines[:DIFF_LINES] + [f'... {len(lines) - DIFF_LINES} more diff lines']
+    return ''.join(f'\n    {line}' for line in lines)
+
+
+def setup_statements(body):
+    """The statements of a Rust setup_rtcd_internal body, each on one line
+    with its whitespace collapsed: `let`, an assignment, or an `if` block
+    with its one assignment."""
+    statements, k = [], 0
+    while True:
+        while k < len(body) and body[k].isspace():
+            k += 1
+        if k >= len(body):
+            return statements
+        if body.startswith('if ', k):
+            brace = body.index('{', k)
+            inner = statement_end(body, brace + 1)
+            end = body.index('}', inner) + 1
+        else:
+            end = statement_end(body, k)
+        statement = re.sub(r'\s+', ' ', body[k:end])
+        # rustfmt's wrapping, undone: `Some( x, )` reads `Some(x)`.
+        statement = re.sub(r',? ([)>\]])', r'\1', re.sub(r'([(<\[]) ', r'\1', statement))
+        statements.append(statement)
+        k = end
+
+
+def setup_diff(label, committed_body, expected_body):
+    """The diff of two setup bodies, statement by statement; a committed
+    statement that equals an expected one up to whitespace and trailing
+    commas is shown in the tool's spelling, so only real differences show."""
+    expected = setup_statements(expected_body)
+    spelling = {normalized(s): s for s in expected}
+    committed = [spelling.get(normalized(s), s) for s in setup_statements(committed_body)]
+    return text_diff(label, '\n'.join(committed), '\n'.join(expected))
+
+
 HEADER_SETUP = re.compile(r'static void setup_rtcd_internal\(void\)\n\{\n(.*?)\n\}\n', re.S)
 HEADER_ASSIGN = re.compile(r'^\s*(?:if \(flags & (HAS_\w+)\) )?(\w+) = (\w+);$')
 RUST_SETUP = 'unsafe extern "C-unwind" fn setup_rtcd_internal() {'
@@ -504,8 +555,10 @@ def rtcd_unit_problems(rel, text, header_text, signature):
         return [f'{rel}: no setup_rtcd_internal']
     start += len(RUST_SETUP) + 1
     end = text.index('\n}\n', start) + 1
-    if normalized(text[start:end]) != normalized(expected_setup(header_text, signature)):
-        problems.append(f'{rel}: setup_rtcd_internal differs from the regenerated header')
+    expected = expected_setup(header_text, signature)
+    if normalized(text[start:end]) != normalized(expected):
+        problems.append(f'{rel}: setup_rtcd_internal differs from the regenerated header'
+                        + setup_diff(f'{rel}: setup_rtcd_internal', text[start:end], expected))
     statics = dict(re.findall(r'^#\[no_mangle\]\npub static mut (\w+): (Option<.*?>) = None;$', text, re.M | re.S))
     every = set(re.findall(r'^pub static mut (\w+): Option<', text, re.M))
     for name in sorted(every - set(dispatched)):
@@ -515,7 +568,10 @@ def rtcd_unit_problems(rel, text, header_text, signature):
         if name not in statics:
             problems.append(f'{rel}: no #[no_mangle] pointer global for {name}')
         elif normalized(statics[name]) != normalized(f'Option<{ftype}>'):
-            problems.append(f'{rel}: pointer global {name} has another type')
+            committed = re.sub(r'\s+', ' ', statics[name])
+            problems.append(f'{rel}: pointer global {name} has another type\n'
+                            f'    committed:   {committed}\n'
+                            f'    tool output: Option<{ftype}>')
         for implementation in dict.fromkeys(i for _, n, i in setup if n == name):
             if len(re.findall(r'^\s*fn ' + implementation + r'\(', text, re.M)) != 1:
                 problems.append(f'{rel}: no single declaration of {implementation}')
@@ -550,12 +606,19 @@ def check(linux):
             dispatch = transpile_aom.dispatch_headers(platform, ref, Path(tmp))
             headers = {n: (Path(tmp) / n).read_text() for n in dispatch['headers']}
             for n in dispatch['headers']:
-                if (ref / 'dispatch' / n).read_bytes() != (Path(tmp) / n).read_bytes():
-                    problems.append(f'{(ref / "dispatch" / n).relative_to(ROOT)}: differs from the regenerated header')
+                committed, regenerated = (ref / 'dispatch' / n).read_bytes(), (Path(tmp) / n).read_bytes()
+                if committed != regenerated:
+                    label = (ref / 'dispatch' / n).relative_to(ROOT)
+                    problems.append(f'{label}: differs from the regenerated header'
+                                    + text_diff(str(label), committed.decode(), regenerated.decode()))
         if manifest.get('rtcd_dispatch') != dispatch:
-            problems.append(f'{manifest_path.relative_to(ROOT)}: {platform} rtcd_dispatch block differs')
+            problems.append(f'{manifest_path.relative_to(ROOT)}: {platform} rtcd_dispatch block differs'
+                            + text_diff(f'{platform} rtcd_dispatch', json.dumps(manifest.get('rtcd_dispatch'), indent=2),
+                                        json.dumps(dispatch, indent=2)))
         if manifest_path.read_text() != json.dumps(record, indent=2) + '\n':
-            problems.append(f'{manifest_path.relative_to(ROOT)}: not in the form the tool writes')
+            problems.append(f'{manifest_path.relative_to(ROOT)}: not in the form the tool writes'
+                            + text_diff(str(manifest_path.relative_to(ROOT)), manifest_path.read_text(),
+                                        json.dumps(record, indent=2) + '\n'))
         units = {u['rust']: u for u in record['units']}
         for rel, unit in units.items():
             full, production = unit_digests((ROOT / rel).read_text())
@@ -588,8 +651,10 @@ def check(linux):
                 if rel in rtcd_rels or name not in mentions[rel]:
                     continue
                 csource = (ROOT / unit['source']).read_text()
-                if edit_caller(texts[rel], csource, name, params, ret, report, rel) != texts[rel]:
-                    problems.append(f'{profile}:{rel}: still calls or takes the address of {name}_c')
+                rewritten = edit_caller(texts[rel], csource, name, params, ret, report, rel)
+                if rewritten != texts[rel]:
+                    problems.append(f'{profile}:{rel}: still calls or takes the address of {name}_c'
+                                    + text_diff(f'{rel} ({platform} projection)', texts[rel], rewritten))
     try:
         check_int_aliases(linux)
     except SystemExit as error:
