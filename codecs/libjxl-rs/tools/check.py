@@ -210,6 +210,19 @@ def cross_processor(arch, build):
     return [f"-DCMAKE_APPLE_SILICON_PROCESSOR={arch}"]
 
 
+def require_processor(arch, build):
+    """Fail unless the configured cross build recorded the target processor.
+
+    O9 holds only while CMake honors cross_processor's switch: a build that
+    still records the host's arm64 compiles skcms without its HSW and SKX
+    engines and passes silently. Checked after each configure step.
+    """
+    recorded = [path.read_text() for path in build.glob("CMakeFiles/*/CMakeSystem.cmake")]
+    if not recorded or any(f'set(CMAKE_SYSTEM_PROCESSOR "{arch}")' not in text for text in recorded):
+        raise SystemExit(f"{build}: CMake did not record CMAKE_SYSTEM_PROCESSOR {arch} (O9, port ADR 0004)")
+    print(f"{build.name}: CMAKE_SYSTEM_PROCESSOR is {arch} (O9)", flush=True)
+
+
 # --toolchain: the Rust toolchain of the oracle and test stages (port ADR 0002,
 # "Results that depend on the Rust compiler", 2026-11-15). None keeps
 # rust-toolchain.toml's pinned nightly and Cargo's default target directory.
@@ -260,6 +273,8 @@ def build_reference_variant(target):
     run("cmake", "-S", "tools/oracle", "-B", build, "-DCMAKE_BUILD_TYPE=Release",
         "-DORACLE_SANITIZERS=OFF", "-DORACLE_REFERENCE_PINS=OFF", *cross_arguments(target, build),
         f"-DORACLE_RUST_TARGET_DIR={rust_target_dir()}")
+    if target is not None:
+        require_processor(target.split("-")[0], build)
     run("cmake", "--build", build, "--target", "jxl_oracle", "--parallel", "4")
     return build / "jxl_oracle"
 
@@ -270,6 +285,8 @@ def build_oracle(sanitizers, target=None):
     run("cmake", "-S", "tools/oracle", "-B", build, "-DCMAKE_BUILD_TYPE=Release",
         f"-DORACLE_SANITIZERS={'ON' if sanitizers else 'OFF'}", "-DORACLE_REFERENCE_PINS=ON",
         *cross_arguments(target, build), f"-DORACLE_RUST_TARGET_DIR={rust_target_dir()}")
+    if target is not None:
+        require_processor(target.split("-")[0], build)
     run("cmake", "--build", build, "--target", "jxl_oracle", "--parallel", "4")
     variant = build_reference_variant(target)
     from skcms_fitting_reference import build_private as build_fitting_private
@@ -306,6 +323,8 @@ def build_simd_oracle(rust_target=None):
     cross = (["-DCMAKE_OSX_ARCHITECTURES=x86_64", *cross_processor("x86_64", build)]
              if machine == "x86_64" and platform.machine() != "x86_64" else [])
     run("cmake", "-S", "tools/oracle", "-B", build, "-DCMAKE_BUILD_TYPE=Release", f"-DORACLE_HWY_TARGET={target}", *cross)
+    if cross:
+        require_processor("x86_64", build)
     run("cmake", "--build", build, "--target", "jxl_oracle", "--parallel", "4")
     return {"JXL_CPP_ORACLE_SIMD": str(build / "jxl_oracle")}
 

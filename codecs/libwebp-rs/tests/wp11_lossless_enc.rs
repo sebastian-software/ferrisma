@@ -108,6 +108,111 @@ fn population(rng: &mut Rng, size: usize) -> Vec<u32> {
     counts
 }
 
+/// The sizes `VP8LHistogramAdd` passes to `VP8LAddVector` and
+/// `VP8LAddVectorEq`: `NUM_DISTANCE_CODES` (40) and `NUM_LITERAL_CODES +
+/// NUM_LENGTH_CODES` (280) plus a color cache of 0 or 2 to 2048 entries.
+const HISTOGRAM_SIZES: [usize; 13] = [
+    40, 280, 282, 284, 288, 296, 312, 344, 408, 536, 792, 1304, 2328,
+];
+
+/// The lengths the encoder passes to `VP8LExtraCost`: the 24 length and the
+/// 40 distance prefixes.
+const EXTRA_COST_LENGTHS: [usize; 2] = [24, 40];
+
+/// The sizes of the `release-simd` comparison (ADR 0008, owner decision O7):
+/// every size from `*_min` in steps of `*_step` is in the domain of the
+/// variant that upstream's `VP8LEncDspInit` selects at the level of the run,
+/// and no other size is.
+struct SimdDomain {
+    add_min: usize,
+    add_step: usize,
+    extra_min: usize,
+    extra_step: usize,
+}
+
+/// The domain of the variants upstream v1.6.0 selects for `LIBWEBP_SIMD_LEVEL`
+/// on this host, derived from the level and the host, not from the port's
+/// dispatch. The exclusions, each upstream's own:
+///
+/// - `ExtraCost_C` (`src/dsp/lossless_enc.c:576-584`, selected at `sse2` and
+///   on AArch64, where `VP8LEncDspInitNEON` keeps it) asserts an even length (line 579) and reads `population[4]`
+///   and `population[5]` for every length (line 578), out of bounds of a
+///   population shorter than 6: even lengths from 6.
+/// - `ExtraCost_SSE41` (`src/dsp/lossless_enc_sse41.c:35-50`, selected at
+///   `sse41` and `avx2`; there is no AVX2 variant) asserts a length that is a
+///   multiple of 8 (line 38) and reads `a[4]` to `a[7]` for every length
+///   (line 37), out of bounds of a population shorter than 8: multiples of 8
+///   from 8.
+/// - `AddVector_C` and `AddVectorEq_C` (`src/dsp/lossless_enc.c:588-599`,
+///   selected on AArch64, where `VP8LEncDspInitNEON` in
+///   `src/dsp/lossless_enc_neon.c:136-142` sets neither) are
+///   defined for every size.
+/// - `AddVector_SSE2` and `AddVectorEq_SSE2` (`src/dsp/lossless_enc_sse2.c:184`
+///   and `:233`, selected at `sse2` and `sse41`) assert a size of at least 16
+///   and an even size (lines 192-193 and 240-241); a smaller size reads and
+///   writes 16 entries beyond the vectors in the first pass of their
+///   `do`-`while` loop: even sizes from 16.
+/// - `AddVector_AVX2` and `AddVectorEq_AVX2` (`src/dsp/lossless_enc_avx2.c:181`
+///   and `:230`, selected at `avx2`) assert a size of at least 32 and an even
+///   size (lines 189-190 and 237-238), with the same first pass of 32
+///   entries: even sizes from 32.
+///
+/// The levels follow `VP8LEncDspInit` (`src/dsp/lossless_enc.c:753-768`):
+/// SSE4.1 only with SSE2, AVX2 only with SSE4.1, each where the host reports
+/// it and `LIBWEBP_SIMD_LEVEL` lets it (`tools/oracle/probe_support/simd_level.c`).
+fn simd_domain() -> SimdDomain {
+    let c = SimdDomain {
+        add_min: 0,
+        add_step: 1,
+        extra_min: 6,
+        extra_step: 2,
+    };
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    {
+        let level = std::env::var("LIBWEBP_SIMD_LEVEL").unwrap_or_default();
+        let sse2 = std::arch::is_x86_feature_detected!("sse2");
+        let sse41 = sse2
+            && std::arch::is_x86_feature_detected!("sse4.1")
+            && matches!(level.as_str(), "" | "avx2" | "sse41");
+        let avx2 = sse41
+            && std::arch::is_x86_feature_detected!("avx2")
+            && matches!(level.as_str(), "" | "avx2");
+        let (add_min, add_step) = if avx2 {
+            (32, 2)
+        } else if sse2 {
+            (16, 2)
+        } else {
+            (c.add_min, c.add_step)
+        };
+        let (extra_min, extra_step) = if sse41 {
+            (8, 8)
+        } else {
+            (c.extra_min, c.extra_step)
+        };
+        SimdDomain {
+            add_min,
+            add_step,
+            extra_min,
+            extra_step,
+        }
+    }
+    #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+    c
+}
+
+/// One `addvec` observation of `size` random entries per vector.
+fn add_vectors(rng: &mut Rng, size: usize, script: &mut String, expected: &mut Fields) {
+    let a: Vec<u32> = (0..size).map(|_| rng.u32()).collect();
+    let mut b: Vec<u32> = (0..size).map(|_| rng.u32()).collect();
+    writeln!(script, "addvec {} {}", hex32(&a), hex32(&b)).unwrap();
+    let mut sum = vec![0_u32; size];
+    vp8l_add_vector(&a, &b, &mut sum, size as i32);
+    vp8l_add_vector_eq(&a, &mut b, size as i32);
+    *expected = std::mem::take(expected)
+        .with("sum", hex32(&sum))
+        .with("sum_eq", hex32(&b));
+}
+
 #[test]
 fn lossless_encoder_dsp_matches_the_c_functions() {
     let Some(oracle) = Oracle::locate("lossless_encoder_dsp_matches_the_c_functions") else {
@@ -116,19 +221,11 @@ fn lossless_encoder_dsp_matches_the_c_functions() {
     let mut rng = Rng(0xd5b0_11e5);
     let mut script = String::new();
     let mut expected = Fields::new();
-    // Against `release-simd` (ADR 0008) the histogram sums and the extra cost
-    // run on the sizes the encoder passes, which are the domain that upstream's
-    // SIMD variants assert: `AddVector_SSE2` and `AddVectorEq_SSE2` need an even
-    // size of at least 16 (`_AVX2` at least 32), and `ExtraCost_SSE41` a
-    // length that is a multiple of 8. The histogram sizes are
-    // `NUM_DISTANCE_CODES` (40) and `NUM_LITERAL_CODES + NUM_LENGTH_CODES`
-    // (280) plus a color cache of 0 or 2 to 2048 entries; the extra costs run
-    // over the 24 length and the 40 distance prefixes. Against the scalar
-    // reference the C functions run on every size.
+    // The histogram sums and the extra cost run on every size against the
+    // scalar reference; against `release-simd` they run on exactly the sizes
+    // that upstream's selected variant is defined for ([`simd_domain`]), after
+    // the other functions.
     let simd = oracle.simd();
-    const HISTOGRAM_SIZES: [usize; 13] = [
-        40, 280, 282, 284, 288, 296, 312, 344, 408, 536, 792, 1304, 2328,
-    ];
 
     // Tables.
     script.push_str("tables\n");
@@ -247,27 +344,58 @@ fn lossless_encoder_dsp_matches_the_c_functions() {
         vp8l_bundle_color_map(&bytes, width, xbits, &mut dst);
         expected = expected.with("bundle", hex32(&dst));
 
-        let length = if simd {
-            [24, 40][rng.below(2) as usize]
-        } else {
-            [24, 40, 8, 12, 2 * (3 + rng.below(29) as i32)][rng.below(5) as usize]
-        };
-        let pop = population(&mut rng, length as usize);
-        writeln!(script, "extra {length} {}", hex32(&pop)).unwrap();
-        expected = expected.with("extra", vp8l_extra_cost(&pop, length));
+        if !simd {
+            let length = [24, 40, 8, 12, 2 * (3 + rng.below(29) as i32)][rng.below(5) as usize];
+            let pop = population(&mut rng, length as usize);
+            writeln!(script, "extra {length} {}", hex32(&pop)).unwrap();
+            expected = expected.with("extra", vp8l_extra_cost(&pop, length));
 
-        let size = if simd {
-            HISTOGRAM_SIZES[rng.below(HISTOGRAM_SIZES.len() as u64) as usize]
-        } else {
-            rng.below(300) as usize
-        };
-        let a: Vec<u32> = (0..size).map(|_| rng.u32()).collect();
-        let mut b: Vec<u32> = (0..size).map(|_| rng.u32()).collect();
-        writeln!(script, "addvec {} {}", hex32(&a), hex32(&b)).unwrap();
-        let mut sum = vec![0_u32; size];
-        vp8l_add_vector(&a, &b, &mut sum, size as i32);
-        vp8l_add_vector_eq(&a, &mut b, size as i32);
-        expected = expected.with("sum", hex32(&sum)).with("sum_eq", hex32(&b));
+            let size = rng.below(300) as usize;
+            add_vectors(&mut rng, size, &mut script, &mut expected);
+        }
+    }
+
+    if simd {
+        let domain = simd_domain();
+        let mut rng = Rng(0x5eed_a11d);
+        let mut lengths: Vec<usize> = (domain.extra_min..=domain.extra_min + 512)
+            .step_by(domain.extra_step)
+            .collect();
+        lengths.extend(EXTRA_COST_LENGTHS);
+        for _ in 0..40 {
+            lengths.push(
+                domain.extra_min
+                    + domain.extra_step * rng.below(4096 / domain.extra_step as u64) as usize,
+            );
+        }
+        let lengths_count = lengths.len();
+        for length in lengths {
+            let pop = population(&mut rng, length);
+            writeln!(script, "extra {length} {}", hex32(&pop)).unwrap();
+            expected = expected.with("extra", vp8l_extra_cost(&pop, length as i32));
+        }
+        let mut sizes: Vec<usize> = (domain.add_min..=domain.add_min + 160)
+            .step_by(domain.add_step)
+            .collect();
+        sizes.extend(HISTOGRAM_SIZES);
+        for _ in 0..40 {
+            sizes.push(
+                domain.add_min
+                    + domain.add_step * rng.below(4096 / domain.add_step as u64) as usize,
+            );
+        }
+        eprintln!(
+            "release-simd domain: {} extra-cost lengths (from {}, step {}), {} vector sizes (from {}, step {})",
+            lengths_count,
+            domain.extra_min,
+            domain.extra_step,
+            sizes.len(),
+            domain.add_min,
+            domain.add_step
+        );
+        for size in sizes {
+            add_vectors(&mut rng, size, &mut script, &mut expected);
+        }
     }
 
     // Entropies.
