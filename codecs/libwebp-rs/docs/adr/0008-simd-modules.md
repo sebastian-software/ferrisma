@@ -272,3 +272,24 @@ Ferrisma's measurements ask for tuning beyond the mechanical port.
 - 2026-11-22 — The `release-simd` record of `tests/wp11_lossless_enc.rs`
   widened from the encoder's sizes to every size upstream's selected
   variant is defined for, per level and architecture (O7, condition 1).
+- 2026-11-22 — Owner decision on the gradient unfilter with the previous
+  row as the output row (`prev == out`) in `tests/wp4_filters.rs`:
+  "Unerreichbarkeit beweisen" (prove it unreachable). C defines that form
+  (`WebPUnfilterFunc` has no `restrict`; `src/dsp/dsp.h` warns that the
+  pointers may alias), upstream's `GradientUnfilter_SSE2` gives other bytes
+  there than `GradientUnfilter_C`, and upstream's callers never pass it, so
+  condition 1 (upstream undefined) does not cover the exclusion and no
+  exception to O7 is granted. Instead the form is proven unreachable through
+  the port's API: the `compile_fail` doctest of `webp_unfilters` (a shared
+  `prev` and an exclusive `out` cannot be one row in safe Rust) and
+  `tests/wp4_unfilter_aliasing.rs` (the alpha decoder in
+  `src/dec/alpha_dec.rs` and `src/dec/vp8l_dec.rs` is the only caller and
+  takes both rows from the halves of one `split_at_mut`; source guards on
+  the callers, the dispatch to the SIMD entry points and their `unsafe`;
+  decodes through both callers with a debug assertion in `webp_unfilters`
+  that the rows do not overlap). The exclusion stays only in the
+  `release-simd` comparison on x86, with that reason in the test code; the
+  scalar comparison with `release` and the AArch64 `release-simd`
+  comparison (upstream keeps the C gradient unfilter there) keep the full
+  domain. This settles the `prev == out` item of the narrowed domains listed
+  under condition 1.
