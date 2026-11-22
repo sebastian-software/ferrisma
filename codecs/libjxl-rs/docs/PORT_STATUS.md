@@ -144,7 +144,9 @@ dequantization, IDCT, XYB and output kernels as SIMD (ADR 0004 evidence).
 The other Highway exports remain open (issues #96, #231). The row adapters of the oracle now hand the stages
 128-byte aligned rows, as libjxl's pipelines do; the misaligned rows made the
 AVX2 oracle fault on hosted x86-64 hardware (issue #252, ADR 0004 evidence).
-The fix is verified on AArch64 only; x86-64 cannot run on the local machine.
+Hosted Linux x86-64 confirms the fix: in nightly [44890912987](https://github.com/sebastian-software/ferrisma/actions/runs/44890912987) on `main` at
+`e85ad0b9` the Gaborish, chroma/YCbCr and EPF row tests pass against the AVX2
+oracle, as does every other SIMD test of the ordinary-oracle shards.
 <!-- render stages -->
 Render stages of ADR 0004 Plan item 1 (2026-11-13): the SIMD XYB and
 FromLinear stages (`stage_xyb_simd.rs`, `stage_from_linear_simd.rs`, all six
