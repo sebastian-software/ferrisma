@@ -54,8 +54,11 @@
 //!    `GradientUnfilter_C` reads `prev` before writing ("in case prev==out").
 //!    With the copy the translation gives the scalar result there; upstream's
 //!    SSE2 gives another (the `release-simd` oracle shows it for every width
-//!    from 2 on in `tests/wp4_filters.rs`). The alpha decoder passes distinct
-//!    rows, so no decoding reaches the aliasing form.
+//!    from 2 on in `tests/wp4_filters.rs`). No API of the port reaches the
+//!    aliasing form: the alpha decoder, the only caller, passes distinct
+//!    rows, which the `compile_fail` doctest of `webp_unfilters` and
+//!    `tests/wp4_unfilter_aliasing.rs` prove (owner decision of 2026-11-22,
+//!    ADR 0008 amendment log).
 //! 3. **`DCHECK`** becomes `debug_assert!`s of the width, height and stride
 //!    conditions (ADR 0003); its `NULL` and `in != out` assertions hold by the
 //!    borrow rules.
