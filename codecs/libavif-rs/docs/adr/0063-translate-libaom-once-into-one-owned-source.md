@@ -164,4 +164,23 @@ equals generic C in all 24 cases. This is the original's SIMD behavior, which
 engine ADR-0041 compares SIMD with; the check's reference choice is an open
 item for the check, not for this decision.
 
-The complete original Release suites (ADR 0048) are not yet run for this tree.
+The complete original Release suites (ADR 0048) ran locally at 44e77b9f
+(owner decision of 2026-11-21: local, not hosted), with the shards and
+expectations of `avif-aom-original-native.yml` and
+`avif-aom-original-release.yml` unchanged: all 120 `test_libaom` Release
+shards, `test_aom_rc` and `test_intra_pred_speed`, then the collect step, plus
+the native build job's checks (consumers, linkage, scalar roles,
+`HighbdEncodeSmallWidthHeight.*` pairs, focused Debug, ABI).
+
+| Suite (Release) | macOS ARM64 | x86-64 GNU Linux |
+| --- | --- | --- |
+| `test_libaom` | 17,228/17,228 active cases, 23 matching dynamic skips, valid | 17,228/17,228, 23 matching dynamic skips, valid |
+| `test_aom_rc` | 38/38 | 38/38 |
+| `test_intra_pred_speed` | 0/0 (every registration disabled upstream) | 0/0 |
+| shards | 120/120 pass | 120/120 pass |
+| wall clock | 9 h 35 min (4 shards in parallel) | 21 h 22 min (2 to 4 in parallel, Rosetta) |
+
+The build-job checks passed on both, except the x86-64 unaligned-input check
+described above, and `verify_upstream.py --tracked`, which needs a Git checkout
+that the x86-64 container's copy of the tree does not have (the untracked
+verification inside `check_translation.py` passed).
