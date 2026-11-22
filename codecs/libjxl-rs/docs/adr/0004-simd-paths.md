@@ -344,7 +344,11 @@ the included `-inl.h`, from `tools/hwy_inventory.py`):
   CMake's `-DCMAKE_APPLE_SILICON_PROCESSOR=x86_64`, because CMake ignores
   `CMAKE_SYSTEM_PROCESSOR` without `CMAKE_SYSTEM_NAME`; the cross-built
   references and the AVX2 oracle now contain the HSW and SKX engines
-  ("The skcms HSW engine in its attribute context" below).
+  ("The skcms HSW engine in its attribute context" below). Since
+  2026-11-22 `tools/check.py` fails after each cross configure unless
+  CMake recorded `CMAKE_SYSTEM_PROCESSOR` x86_64 (`require_processor`), so
+  the engines cannot drop out silently. Linux x86-64 builds (hosted, and
+  the local amd64 container) are native and need no switch.
 
 <!-- vardct kernels -->
 ## VarDCT decode kernels (2026-11-13, Plan item 2)

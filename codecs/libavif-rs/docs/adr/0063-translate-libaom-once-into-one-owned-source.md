@@ -175,7 +175,9 @@ AVX2 build (`build_aom.py --simd avx2`) byte for byte in every case tried
 (10, 12 and 8 bit, both address parities). With the dispatch off the port
 equals generic C in all 24 cases. This is the original's SIMD behavior, which
 engine ADR-0041 compares SIMD with; the check's reference choice is an open
-item for the check, not for this decision.
+item for the check, not for this decision. The check now compares with both
+references ([ADR 0046](0046-preserve-byte-aligned-high-bit-depth-input-validation.md),
+amendment of 2026-11-21).
 
 The complete original Release suites (ADR 0048) ran locally at 44e77b9f
 (owner decision of 2026-11-21: local, not hosted), with the shards and

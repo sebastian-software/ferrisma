@@ -31,7 +31,7 @@ jobs:
       run: |
         test "$(uname -m)" = x86_64
         sudo apt-get update
-        sudo apt-get install -y clang-16 llvm-16 ninja-build pkg-config cmake
+        sudo apt-get install -y clang-16 llvm-16 ninja-build pkg-config cmake nasm
     - name: Install native macOS reference tools
       if: startsWith(inputs.runner, 'macos-')
       env:
@@ -62,6 +62,10 @@ jobs:
         python3 tools/review_aom_scalar_roles.py --check
     - name: Check byte-aligned input and unchanged original high-bit-depth cases
       run: |
+        # The check compares SIMD dispatch with the original's SIMD build of this target (ADR 0046).
+        simd=avx2; [ "$(uname -s)" = Darwin ] && simd=neon
+        python3 tools/build_aom.py --library-only --debug --simd "$simd" --jobs 2
+        python3 tools/build_aom.py --library-only --simd "$simd" --jobs 2
         python3 tools/check_aom_unaligned_input.py --debug
         python3 tools/check_aom_unaligned_input.py
         python3 tools/run_aom_paired_shard.py --debug --shards 1 --index 0 --filter 'HighbdEncodeSmallWidthHeight.*'

@@ -44,7 +44,7 @@ jobs:
     - name: Install the pinned translation toolchain
       run: |
         sudo apt-get update
-        sudo apt-get install -y clang-16 llvm-16-dev libclang-16-dev ninja-build pkg-config cmake
+        sudo apt-get install -y clang-16 llvm-16-dev libclang-16-dev ninja-build pkg-config cmake nasm
         rustup show active-toolchain
         rustup toolchain install 1.80.1 --profile minimal
         if [ "${{ inputs.mode }}" != compile ] && [ "${{ inputs.mode }}" != dsp ] && [ "${{ inputs.mode }}" != oracles ]; then
@@ -104,6 +104,9 @@ jobs:
         python3 tools/build_aom_consumers.py --only aomenc --only aomdec --only test_libaom
         python3 tools/check_aom_roundtrip.py --debug
         python3 tools/check_aom_roundtrip.py
+        # The unaligned-input check also compares with the original's AVX2 build (ADR 0046).
+        python3 tools/build_aom.py --library-only --debug --simd avx2
+        python3 tools/build_aom.py --library-only --simd avx2
         python3 tools/check_aom_unaligned_input.py --debug
         python3 tools/check_aom_unaligned_input.py
         python3 tools/check_aom_cli.py --debug
