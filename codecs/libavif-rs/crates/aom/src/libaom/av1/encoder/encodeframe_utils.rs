@@ -11334,15 +11334,24 @@ pub unsafe extern "C-unwind" fn av1_alloc_src_diff_buf(
             (::core::mem::size_of::<int16_t>() as size_t).wrapping_mul(sb_size as size_t),
         ) as *mut int16_t;
         if ((*mb).plane[plane_0 as usize].src_diff).is_null() {
-            aom_internal_error(
-                (*cm).error,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate mb->plane[plane].src_diff at %s:%d\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"upstream/aom/av1/encoder/encodeframe_utils.c\0" as *const u8
-                    as *const core::ffi::c_char,
-                1715 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate mb->plane[plane].src_diff at %s:%d\0"
+                        as *const u8 as *const core::ffi::c_char,
+                    b"upstream/aom/av1/encoder/encodeframe_utils.c\0" as *const u8
+                        as *const core::ffi::c_char,
+                    1715 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate mb->plane[plane].src_diff\0" as *const u8
+                        as *const core::ffi::c_char,
+                );
+            }
         }
         plane_0 += 1;
     }

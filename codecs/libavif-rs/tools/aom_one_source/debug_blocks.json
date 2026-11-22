@@ -1,5 +1,5 @@
 {
-  "description": "Debug-only C statement blocks that the one-source translation keeps out of Release builds (owner decision 2026-11-21). tools/aom_one_source.py presents each block, in a prepared copy of its file, as FERRISMA_DEBUG_ONLY_BEGIN ... FERRISMA_DEBUG_ONLY_END; the translated block becomes `#[cfg(debug_assertions)] { ... }`. `line` is the opening directive in upstream/aom (libaom 3.15.2), `expect` its text; `condition` is what remains of a compound directive; `drop_else` removes an #else branch that only casts to void. Declarations a later assert names (mi_count) stay unconditional, as dead locals in Release. `statements` are asserts outside such blocks that name a Debug-only field; they are presented the same way, so Release builds without the field compile.",
+  "description": "Debug-only C statement blocks that the one-source translation keeps out of Release builds (owner decision 2026-11-21). tools/aom_one_source.py presents each block, in a prepared copy of its file, as FERRISMA_DEBUG_ONLY_BEGIN ... FERRISMA_DEBUG_ONLY_END; the translated block becomes `#[cfg(debug_assertions)] { ... }`. `line` is the opening directive in upstream/aom (libaom 3.15.2), `expect` its text; `condition` is what remains of a compound directive; `drop_else` removes an #else branch that only casts to void. Declarations a later assert names (mi_count) stay unconditional, as dead locals in Release. `statements` are asserts outside such blocks that name a Debug-only field; they are presented the same way, so Release builds without the field compile. `profile_macros` are macros that the original defines once under `#if CONFIG_DEBUG` and once under `#else` (CONFIG_DEBUG is 1 in the Debug and 0 in the Release reference configuration); tools/aom_one_source.py presents them as one definition whose differing lines become `if (ferrisma_debug_assertions()) { Debug } else { Release }`, so each Rust profile runs the original profile's statement.",
   "blocks": [
     {
       "file": "av1/encoder/block.h",
@@ -119,6 +119,15 @@
     {
       "record": "SetOffsetsLoc",
       "why": "#ifndef NDEBUG typedef (av1/encoder/block.h:869), the type of last_set_offsets_loc"
+    }
+  ],
+  "profile_macros": [
+    {
+      "file": "aom_mem/aom_mem.h",
+      "line": 59,
+      "expect": "#if CONFIG_DEBUG",
+      "macro": "AOM_CHECK_MEM_ERROR",
+      "why": "the allocation-failure message names the call site (\" at %s:%d\", __FILE__, __LINE__) only in Debug"
     }
   ]
 }

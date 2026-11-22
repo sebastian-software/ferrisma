@@ -62,6 +62,19 @@ profile and host flags removed (`-g`, `-O*`, `-DNDEBUG`, `-fPIC`, `-arch`):
   `aom_is_corner_list_valid` (`cfg_attr(debug_assertions, no_mangle)`). Release
   builds therefore have the original Release record layouts, symbols and code.
   Declarations that a later assert names (`mi_count`) stay as dead locals.
+  A macro that the original defines twice, under `#if CONFIG_DEBUG` and
+  `#else`, is listed under `profile_macros`: `AOM_CHECK_MEM_ERROR`
+  (`aom_mem/aom_mem.h`), whose Debug message adds the call site
+  (`Failed to allocate <lval> at upstream/aom/<path>:<line>`). It is presented
+  as one definition whose differing statements become
+  `if cfg!(debug_assertions) { Debug } else { Release }`, the switch of the
+  asserts, so each Rust profile reports the original profile's message
+  (correction of 2026-11-22: the first tree had the Debug message in both
+  profiles, found by `check_aom_faults.py` in Release). The other
+  `CONFIG_DEBUG` uses need nothing more: an assert and its helper in `cnn.c`
+  (the assert does not run in Release, the static helper is dead code), the
+  CfL block of `reconintra.c` (listed above), and the floating-point
+  exception calls of `aom_encoder.c` (platform shims, below).
 - **Neutral system headers** (`tools/aom_one_source/include`, `-nostdlibinc`):
   one spelling of every fixed-width type (both targets are LP64). Where the C
   libraries differ, the header calls a shim in `crates/aom/src/platform.rs`:

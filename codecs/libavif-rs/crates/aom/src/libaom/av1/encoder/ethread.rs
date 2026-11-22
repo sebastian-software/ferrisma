@@ -6609,15 +6609,24 @@ unsafe extern "C-unwind" fn allocate_winner_mode_stats(
             .wrapping_mul(::core::mem::size_of::<WinnerModeStats>() as size_t),
     ) as *mut WinnerModeStats;
     if ((*mb).winner_mode_stats).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate mb->winner_mode_stats at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/encodeframe_utils.h\0" as *const u8
-                as *const core::ffi::c_char,
-            463 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate mb->winner_mode_stats at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/encodeframe_utils.h\0" as *const u8
+                    as *const core::ffi::c_char,
+                463 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate mb->winner_mode_stats\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
 }
 #[inline]
@@ -6648,15 +6657,24 @@ unsafe extern "C-unwind" fn av1_alloc_mb_data(
                 ::core::mem::size_of::<MB_RD_RECORD>() as size_t,
             ) as *mut MB_RD_RECORD;
             if ((*mb).txfm_search_info.mb_rd_record).is_null() {
-                aom_internal_error(
-                    (*cm).error,
-                    AOM_CODEC_MEM_ERROR,
-                    b"Failed to allocate mb->txfm_search_info.mb_rd_record at %s:%d\0"
-                        as *const u8 as *const core::ffi::c_char,
-                    b"upstream/aom/av1/encoder/encodeframe_utils.h\0" as *const u8
-                        as *const core::ffi::c_char,
-                    477 as core::ffi::c_int,
-                );
+                if cfg!(debug_assertions) {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate mb->txfm_search_info.mb_rd_record at %s:%d\0"
+                            as *const u8 as *const core::ffi::c_char,
+                        b"upstream/aom/av1/encoder/encodeframe_utils.h\0" as *const u8
+                            as *const core::ffi::c_char,
+                        477 as core::ffi::c_int,
+                    );
+                } else {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate mb->txfm_search_info.mb_rd_record\0"
+                            as *const u8 as *const core::ffi::c_char,
+                    );
+                }
             }
         }
         if frame_is_intra_only(cm) == 0 {
@@ -6679,15 +6697,24 @@ unsafe extern "C-unwind" fn av1_alloc_mb_data(
                 ::core::mem::size_of::<inter_modes_info>() as size_t,
             ) as *mut InterModesInfo as *mut inter_modes_info;
             if ((*mb).inter_modes_info).is_null() {
-                aom_internal_error(
-                    (*cm).error,
-                    AOM_CODEC_MEM_ERROR,
-                    b"Failed to allocate mb->inter_modes_info at %s:%d\0" as *const u8
-                        as *const core::ffi::c_char,
-                    b"upstream/aom/av1/encoder/encodeframe_utils.h\0" as *const u8
-                        as *const core::ffi::c_char,
-                    481 as core::ffi::c_int,
-                );
+                if cfg!(debug_assertions) {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate mb->inter_modes_info at %s:%d\0"
+                            as *const u8 as *const core::ffi::c_char,
+                        b"upstream/aom/av1/encoder/encodeframe_utils.h\0" as *const u8
+                            as *const core::ffi::c_char,
+                        481 as core::ffi::c_int,
+                    );
+                } else {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate mb->inter_modes_info\0" as *const u8
+                            as *const core::ffi::c_char,
+                    );
+                }
             }
         }
     }
@@ -6714,15 +6741,24 @@ unsafe extern "C-unwind" fn av1_alloc_mb_data(
             .wrapping_mul(::core::mem::size_of::<uint8_t>() as size_t),
     ) as *mut uint8_t;
     if ((*mb).e_mbd.seg_mask).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate mb->e_mbd.seg_mask at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/encodeframe_utils.h\0" as *const u8
-                as *const core::ffi::c_char,
-            488 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate mb->e_mbd.seg_mask at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/encodeframe_utils.h\0" as *const u8
+                    as *const core::ffi::c_char,
+                488 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate mb->e_mbd.seg_mask\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     allocate_winner_mode_stats(cpi, mb);
     let max_sb_square_y: core::ffi::c_int = (1 as core::ffi::c_int)
@@ -6748,15 +6784,24 @@ unsafe extern "C-unwind" fn av1_alloc_mb_data(
             .wrapping_mul(::core::mem::size_of::<tran_low_t>() as size_t),
     ) as *mut tran_low_t;
     if ((*mb).dqcoeff_buf).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate mb->dqcoeff_buf at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/encodeframe_utils.h\0" as *const u8
-                as *const core::ffi::c_char,
-            496 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate mb->dqcoeff_buf at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/encodeframe_utils.h\0" as *const u8
+                    as *const core::ffi::c_char,
+                496 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate mb->dqcoeff_buf\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
 }
 #[inline]
@@ -6786,15 +6831,24 @@ unsafe extern "C-unwind" fn gm_alloc_data(
             .wrapping_mul((*gm_info).segment_map_h as size_t),
     ) as *mut uint8_t;
     if ((*gm_data).segment_map).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate gm_data->segment_map at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/global_motion_facade.h\0" as *const u8
-                as *const core::ffi::c_char,
-            28 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate gm_data->segment_map at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/global_motion_facade.h\0" as *const u8
+                    as *const core::ffi::c_char,
+                28 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate gm_data->segment_map\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     memset(
         ((*gm_data).motion_models).as_mut_ptr() as *mut core::ffi::c_void,
@@ -6824,15 +6878,24 @@ unsafe extern "C-unwind" fn gm_alloc_data(
                 .wrapping_mul(4096 as size_t),
         ) as *mut core::ffi::c_int;
         if ((*gm_data).motion_models[m as usize].inliers).is_null() {
-            aom_internal_error(
-                (*cm).error,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate gm_data->motion_models[m].inliers at %s:%d\0"
-                    as *const u8 as *const core::ffi::c_char,
-                b"upstream/aom/av1/encoder/global_motion_facade.h\0" as *const u8
-                    as *const core::ffi::c_char,
-                34 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate gm_data->motion_models[m].inliers at %s:%d\0"
+                        as *const u8 as *const core::ffi::c_char,
+                    b"upstream/aom/av1/encoder/global_motion_facade.h\0" as *const u8
+                        as *const core::ffi::c_char,
+                    34 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate gm_data->motion_models[m].inliers\0"
+                        as *const u8 as *const core::ffi::c_char,
+                );
+            }
         }
         m += 1;
     }
@@ -6894,15 +6957,24 @@ unsafe extern "C-unwind" fn alloc_obmc_buffers(
             .wrapping_mul(::core::mem::size_of::<int32_t>() as size_t),
     ) as *mut int32_t;
     if ((*obmc_buffer).wsrc).is_null() {
-        aom_internal_error(
-            error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate obmc_buffer->wsrc at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/encoder_alloc.h\0" as *const u8
-                as *const core::ffi::c_char,
-            138 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate obmc_buffer->wsrc at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/encoder_alloc.h\0" as *const u8
+                    as *const core::ffi::c_char,
+                138 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate obmc_buffer->wsrc\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     if cfg!(debug_assertions) as core::ffi::c_int != 0 && (*error).setjmp == 0 {
         crate::platform::ferrisma_assert_fail(
@@ -6924,15 +6996,24 @@ unsafe extern "C-unwind" fn alloc_obmc_buffers(
             .wrapping_mul(::core::mem::size_of::<int32_t>() as size_t),
     ) as *mut int32_t;
     if ((*obmc_buffer).mask).is_null() {
-        aom_internal_error(
-            error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate obmc_buffer->mask at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/encoder_alloc.h\0" as *const u8
-                as *const core::ffi::c_char,
-            141 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate obmc_buffer->mask at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/encoder_alloc.h\0" as *const u8
+                    as *const core::ffi::c_char,
+                141 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate obmc_buffer->mask\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     if cfg!(debug_assertions) as core::ffi::c_int != 0 && (*error).setjmp == 0 {
         crate::platform::ferrisma_assert_fail(
@@ -6955,15 +7036,24 @@ unsafe extern "C-unwind" fn alloc_obmc_buffers(
             .wrapping_mul(::core::mem::size_of::<uint8_t>() as size_t),
     ) as *mut uint8_t;
     if ((*obmc_buffer).above_pred).is_null() {
-        aom_internal_error(
-            error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate obmc_buffer->above_pred at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/encoder_alloc.h\0" as *const u8
-                as *const core::ffi::c_char,
-            145 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate obmc_buffer->above_pred at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/encoder_alloc.h\0" as *const u8
+                    as *const core::ffi::c_char,
+                145 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate obmc_buffer->above_pred\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     if cfg!(debug_assertions) as core::ffi::c_int != 0 && (*error).setjmp == 0 {
         crate::platform::ferrisma_assert_fail(
@@ -6986,15 +7076,24 @@ unsafe extern "C-unwind" fn alloc_obmc_buffers(
             .wrapping_mul(::core::mem::size_of::<uint8_t>() as size_t),
     ) as *mut uint8_t;
     if ((*obmc_buffer).left_pred).is_null() {
-        aom_internal_error(
-            error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate obmc_buffer->left_pred at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/encoder_alloc.h\0" as *const u8
-                as *const core::ffi::c_char,
-            149 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate obmc_buffer->left_pred at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/encoder_alloc.h\0" as *const u8
+                    as *const core::ffi::c_char,
+                149 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate obmc_buffer->left_pred\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
 }
 #[inline]
@@ -7023,15 +7122,24 @@ unsafe extern "C-unwind" fn alloc_compound_type_rd_buffers(
             .wrapping_mul(::core::mem::size_of::<uint8_t>() as size_t),
     ) as *mut uint8_t;
     if ((*bufs).pred0).is_null() {
-        aom_internal_error(
-            error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate bufs->pred0 at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/encoder_alloc.h\0" as *const u8
-                as *const core::ffi::c_char,
-            168 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate bufs->pred0 at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/encoder_alloc.h\0" as *const u8
+                    as *const core::ffi::c_char,
+                168 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate bufs->pred0\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     if cfg!(debug_assertions) as core::ffi::c_int != 0 && (*error).setjmp == 0 {
         crate::platform::ferrisma_assert_fail(
@@ -7054,15 +7162,24 @@ unsafe extern "C-unwind" fn alloc_compound_type_rd_buffers(
             .wrapping_mul(::core::mem::size_of::<uint8_t>() as size_t),
     ) as *mut uint8_t;
     if ((*bufs).pred1).is_null() {
-        aom_internal_error(
-            error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate bufs->pred1 at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/encoder_alloc.h\0" as *const u8
-                as *const core::ffi::c_char,
-            171 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate bufs->pred1 at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/encoder_alloc.h\0" as *const u8
+                    as *const core::ffi::c_char,
+                171 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate bufs->pred1\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     if cfg!(debug_assertions) as core::ffi::c_int != 0 && (*error).setjmp == 0 {
         crate::platform::ferrisma_assert_fail(
@@ -7084,15 +7201,24 @@ unsafe extern "C-unwind" fn alloc_compound_type_rd_buffers(
             .wrapping_mul(::core::mem::size_of::<int16_t>() as size_t),
     ) as *mut int16_t;
     if ((*bufs).residual1).is_null() {
-        aom_internal_error(
-            error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate bufs->residual1 at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/encoder_alloc.h\0" as *const u8
-                as *const core::ffi::c_char,
-            174 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate bufs->residual1 at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/encoder_alloc.h\0" as *const u8
+                    as *const core::ffi::c_char,
+                174 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate bufs->residual1\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     if cfg!(debug_assertions) as core::ffi::c_int != 0 && (*error).setjmp == 0 {
         crate::platform::ferrisma_assert_fail(
@@ -7114,15 +7240,24 @@ unsafe extern "C-unwind" fn alloc_compound_type_rd_buffers(
             .wrapping_mul(::core::mem::size_of::<int16_t>() as size_t),
     ) as *mut int16_t;
     if ((*bufs).diff10).is_null() {
-        aom_internal_error(
-            error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate bufs->diff10 at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/encoder_alloc.h\0" as *const u8
-                as *const core::ffi::c_char,
-            177 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate bufs->diff10 at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/encoder_alloc.h\0" as *const u8
+                    as *const core::ffi::c_char,
+                177 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate bufs->diff10\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     if cfg!(debug_assertions) as core::ffi::c_int != 0 && (*error).setjmp == 0 {
         crate::platform::ferrisma_assert_fail(
@@ -7144,15 +7279,24 @@ unsafe extern "C-unwind" fn alloc_compound_type_rd_buffers(
             .wrapping_mul(::core::mem::size_of::<uint8_t>() as size_t),
     ) as *mut uint8_t;
     if ((*bufs).tmp_best_mask_buf).is_null() {
-        aom_internal_error(
-            error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate bufs->tmp_best_mask_buf at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/encoder_alloc.h\0" as *const u8
-                as *const core::ffi::c_char,
-            180 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate bufs->tmp_best_mask_buf at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/encoder_alloc.h\0" as *const u8
+                    as *const core::ffi::c_char,
+                180 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate bufs->tmp_best_mask_buf\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
 }
 #[inline]
@@ -7358,15 +7502,24 @@ unsafe extern "C-unwind" fn row_mt_sync_mem_alloc(
             .wrapping_mul(rows as size_t),
     ) as *mut pthread_mutex_t;
     if ((*row_mt_sync).mutex_).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate row_mt_sync->mutex_ at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                as *const core::ffi::c_char,
-            184 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate row_mt_sync->mutex_ at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                184 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate row_mt_sync->mutex_\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     if !((*row_mt_sync).mutex_).is_null() {
         i = 0 as core::ffi::c_int;
@@ -7396,15 +7549,24 @@ unsafe extern "C-unwind" fn row_mt_sync_mem_alloc(
         (::core::mem::size_of::<pthread_cond_t>() as size_t).wrapping_mul(rows as size_t),
     ) as *mut pthread_cond_t;
     if ((*row_mt_sync).cond_).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate row_mt_sync->cond_ at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                as *const core::ffi::c_char,
-            192 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate row_mt_sync->cond_ at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                192 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate row_mt_sync->cond_\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     if !((*row_mt_sync).cond_).is_null() {
         i = 0 as core::ffi::c_int;
@@ -7435,15 +7597,24 @@ unsafe extern "C-unwind" fn row_mt_sync_mem_alloc(
             .wrapping_mul(rows as size_t),
     ) as *mut core::ffi::c_int;
     if ((*row_mt_sync).num_finished_cols).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate row_mt_sync->num_finished_cols at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                as *const core::ffi::c_char,
-            201 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate row_mt_sync->num_finished_cols at %s:%d\0"
+                    as *const u8 as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                201 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate row_mt_sync->num_finished_cols\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     (*row_mt_sync).rows = rows;
     (*row_mt_sync).sync_range = 1 as core::ffi::c_int;
@@ -7570,15 +7741,24 @@ unsafe extern "C-unwind" fn row_mt_mem_alloc(
                         .wrapping_mul(::core::mem::size_of::<FRAME_CONTEXT>() as size_t),
                 ) as *mut FRAME_CONTEXT;
                 if ((*this_tile).row_ctx).is_null() {
-                    aom_internal_error(
-                        (*cm).error,
-                        AOM_CODEC_MEM_ERROR,
-                        b"Failed to allocate this_tile->row_ctx at %s:%d\0" as *const u8
-                            as *const core::ffi::c_char,
-                        b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                            as *const core::ffi::c_char,
-                        265 as core::ffi::c_int,
-                    );
+                    if cfg!(debug_assertions) {
+                        aom_internal_error(
+                            (*cm).error,
+                            AOM_CODEC_MEM_ERROR,
+                            b"Failed to allocate this_tile->row_ctx at %s:%d\0"
+                                as *const u8 as *const core::ffi::c_char,
+                            b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                                as *const core::ffi::c_char,
+                            265 as core::ffi::c_int,
+                        );
+                    } else {
+                        aom_internal_error(
+                            (*cm).error,
+                            AOM_CODEC_MEM_ERROR,
+                            b"Failed to allocate this_tile->row_ctx\0" as *const u8
+                                as *const core::ffi::c_char,
+                        );
+                    }
                 }
             }
             tile_col += 1;
@@ -7608,15 +7788,24 @@ unsafe extern "C-unwind" fn row_mt_mem_alloc(
             .wrapping_mul(sb_rows as size_t),
     ) as *mut core::ffi::c_int;
     if ((*enc_row_mt).num_tile_cols_done).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate enc_row_mt->num_tile_cols_done at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                as *const core::ffi::c_char,
-            274 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate enc_row_mt->num_tile_cols_done at %s:%d\0"
+                    as *const u8 as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                274 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate enc_row_mt->num_tile_cols_done\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     (*enc_row_mt).allocated_rows = max_rows;
     (*enc_row_mt).allocated_cols = max_cols - 1 as core::ffi::c_int;
@@ -8357,15 +8546,24 @@ match crate::jump::value_scope((((*(*cm).error).jmp).as_mut_ptr()).cast(), || {
                 ::core::mem::size_of::<pthread_mutex_t>() as size_t,
             ) as *mut pthread_mutex_t;
             if ((*enc_row_mt).mutex_).is_null() {
-                aom_internal_error(
-                    (*cm).error,
-                    AOM_CODEC_MEM_ERROR,
-                    b"Failed to allocate enc_row_mt->mutex_ at %s:%d\0" as *const u8
-                        as *const core::ffi::c_char,
-                    b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                        as *const core::ffi::c_char,
-                    859 as core::ffi::c_int,
-                );
+                if cfg!(debug_assertions) {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate enc_row_mt->mutex_ at %s:%d\0" as *const u8
+                            as *const core::ffi::c_char,
+                        b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                            as *const core::ffi::c_char,
+                        859 as core::ffi::c_int,
+                    );
+                } else {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate enc_row_mt->mutex_\0" as *const u8
+                            as *const core::ffi::c_char,
+                    );
+                }
             }
             if !((*enc_row_mt).mutex_).is_null() {
                 pthread_mutex_init(
@@ -8394,15 +8592,24 @@ match crate::jump::value_scope((((*(*cm).error).jmp).as_mut_ptr()).cast(), || {
                 ::core::mem::size_of::<pthread_cond_t>() as size_t,
             ) as *mut pthread_cond_t;
             if ((*enc_row_mt).cond_).is_null() {
-                aom_internal_error(
-                    (*cm).error,
-                    AOM_CODEC_MEM_ERROR,
-                    b"Failed to allocate enc_row_mt->cond_ at %s:%d\0" as *const u8
-                        as *const core::ffi::c_char,
-                    b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                        as *const core::ffi::c_char,
-                    864 as core::ffi::c_int,
-                );
+                if cfg!(debug_assertions) {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate enc_row_mt->cond_ at %s:%d\0" as *const u8
+                            as *const core::ffi::c_char,
+                        b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                            as *const core::ffi::c_char,
+                        864 as core::ffi::c_int,
+                    );
+                } else {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate enc_row_mt->cond_\0" as *const u8
+                            as *const core::ffi::c_char,
+                    );
+                }
             }
             if !((*enc_row_mt).cond_).is_null() {
                 pthread_cond_init((*enc_row_mt).cond_, 0 as *const pthread_condattr_t);
@@ -8431,15 +8638,24 @@ match crate::jump::value_scope((((*(*cm).error).jmp).as_mut_ptr()).cast(), || {
                 ::core::mem::size_of::<pthread_mutex_t>() as size_t,
             ) as *mut pthread_mutex_t;
             if ((*gm_sync).mutex_).is_null() {
-                aom_internal_error(
-                    (*cm).error,
-                    AOM_CODEC_MEM_ERROR,
-                    b"Failed to allocate gm_sync->mutex_ at %s:%d\0" as *const u8
-                        as *const core::ffi::c_char,
-                    b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                        as *const core::ffi::c_char,
-                    874 as core::ffi::c_int,
-                );
+                if cfg!(debug_assertions) {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate gm_sync->mutex_ at %s:%d\0" as *const u8
+                            as *const core::ffi::c_char,
+                        b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                            as *const core::ffi::c_char,
+                        874 as core::ffi::c_int,
+                    );
+                } else {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate gm_sync->mutex_\0" as *const u8
+                            as *const core::ffi::c_char,
+                    );
+                }
             }
             if !((*gm_sync).mutex_).is_null() {
                 pthread_mutex_init((*gm_sync).mutex_, 0 as *const pthread_mutexattr_t);
@@ -8466,15 +8682,24 @@ match crate::jump::value_scope((((*(*cm).error).jmp).as_mut_ptr()).cast(), || {
                 ::core::mem::size_of::<pthread_mutex_t>() as size_t,
             ) as *mut pthread_mutex_t;
             if ((*tf_sync).mutex_).is_null() {
-                aom_internal_error(
-                    (*cm).error,
-                    AOM_CODEC_MEM_ERROR,
-                    b"Failed to allocate tf_sync->mutex_ at %s:%d\0" as *const u8
-                        as *const core::ffi::c_char,
-                    b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                        as *const core::ffi::c_char,
-                    882 as core::ffi::c_int,
-                );
+                if cfg!(debug_assertions) {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate tf_sync->mutex_ at %s:%d\0" as *const u8
+                            as *const core::ffi::c_char,
+                        b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                            as *const core::ffi::c_char,
+                        882 as core::ffi::c_int,
+                    );
+                } else {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate tf_sync->mutex_\0" as *const u8
+                            as *const core::ffi::c_char,
+                    );
+                }
             }
             if !((*tf_sync).mutex_).is_null() {
                 pthread_mutex_init((*tf_sync).mutex_, 0 as *const pthread_mutexattr_t);
@@ -8501,15 +8726,24 @@ match crate::jump::value_scope((((*(*cm).error).jmp).as_mut_ptr()).cast(), || {
                 ::core::mem::size_of::<pthread_mutex_t>() as size_t,
             ) as *mut pthread_mutex_t;
             if ((*cdef_sync).mutex_).is_null() {
-                aom_internal_error(
-                    (*cm).error,
-                    AOM_CODEC_MEM_ERROR,
-                    b"Failed to allocate cdef_sync->mutex_ at %s:%d\0" as *const u8
-                        as *const core::ffi::c_char,
-                    b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                        as *const core::ffi::c_char,
-                    890 as core::ffi::c_int,
-                );
+                if cfg!(debug_assertions) {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate cdef_sync->mutex_ at %s:%d\0" as *const u8
+                            as *const core::ffi::c_char,
+                        b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                            as *const core::ffi::c_char,
+                        890 as core::ffi::c_int,
+                    );
+                } else {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate cdef_sync->mutex_\0" as *const u8
+                            as *const core::ffi::c_char,
+                    );
+                }
             }
             if !((*cdef_sync).mutex_).is_null() {
                 pthread_mutex_init((*cdef_sync).mutex_, 0 as *const pthread_mutexattr_t);
@@ -8551,15 +8785,24 @@ match crate::jump::value_scope((((*(*cm).error).jmp).as_mut_ptr()).cast(), || {
                 ::core::mem::size_of::<pthread_mutex_t>() as size_t,
             ) as *mut pthread_mutex_t;
             if ((*tpl_row_mt).mutex_).is_null() {
-                aom_internal_error(
-                    (*cm).error,
-                    AOM_CODEC_MEM_ERROR,
-                    b"Failed to allocate tpl_row_mt->mutex_ at %s:%d\0" as *const u8
-                        as *const core::ffi::c_char,
-                    b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                        as *const core::ffi::c_char,
-                    912 as core::ffi::c_int,
-                );
+                if cfg!(debug_assertions) {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate tpl_row_mt->mutex_ at %s:%d\0" as *const u8
+                            as *const core::ffi::c_char,
+                        b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                            as *const core::ffi::c_char,
+                        912 as core::ffi::c_int,
+                    );
+                } else {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate tpl_row_mt->mutex_\0" as *const u8
+                            as *const core::ffi::c_char,
+                    );
+                }
             }
             if !((*tpl_row_mt).mutex_).is_null() {
                 pthread_mutex_init(
@@ -8616,15 +8859,24 @@ match crate::jump::value_scope((((*(*cm).error).jmp).as_mut_ptr()).cast(), || {
                 ::core::mem::size_of::<pthread_mutex_t>() as size_t,
             ) as *mut pthread_mutex_t;
             if ((*pack_bs_sync).mutex_).is_null() {
-                aom_internal_error(
-                    (*cm).error,
-                    AOM_CODEC_MEM_ERROR,
-                    b"Failed to allocate pack_bs_sync->mutex_ at %s:%d\0" as *const u8
-                        as *const core::ffi::c_char,
-                    b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                        as *const core::ffi::c_char,
-                    938 as core::ffi::c_int,
-                );
+                if cfg!(debug_assertions) {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate pack_bs_sync->mutex_ at %s:%d\0"
+                            as *const u8 as *const core::ffi::c_char,
+                        b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                            as *const core::ffi::c_char,
+                        938 as core::ffi::c_int,
+                    );
+                } else {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate pack_bs_sync->mutex_\0" as *const u8
+                            as *const core::ffi::c_char,
+                    );
+                }
             }
             if !((*pack_bs_sync).mutex_).is_null() {
                 pthread_mutex_init(
@@ -8740,15 +8992,24 @@ pub unsafe extern "C-unwind" fn av1_init_tile_thread_data(
                 ::core::mem::size_of::<ThreadData>() as size_t,
             ) as *mut ThreadData;
             if td.is_null() {
-                aom_internal_error(
-                    &raw mut (*ppi).error as *mut aom_internal_error_info,
-                    AOM_CODEC_MEM_ERROR,
-                    b"Failed to allocate td at %s:%d\0" as *const u8
-                        as *const core::ffi::c_char,
-                    b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                        as *const core::ffi::c_char,
-                    977 as core::ffi::c_int,
-                );
+                if cfg!(debug_assertions) {
+                    aom_internal_error(
+                        &raw mut (*ppi).error as *mut aom_internal_error_info,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate td at %s:%d\0" as *const u8
+                            as *const core::ffi::c_char,
+                        b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                            as *const core::ffi::c_char,
+                        977 as core::ffi::c_int,
+                    );
+                } else {
+                    aom_internal_error(
+                        &raw mut (*ppi).error as *mut aom_internal_error_info,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate td\0" as *const u8
+                            as *const core::ffi::c_char,
+                    );
+                }
             }
             memset(
                 td as *mut core::ffi::c_void,
@@ -8784,15 +9045,24 @@ pub unsafe extern "C-unwind" fn av1_init_tile_thread_data(
                     .wrapping_mul(::core::mem::size_of::<CONV_BUF_TYPE>() as size_t),
             ) as *mut CONV_BUF_TYPE;
             if ((*td).tmp_conv_dst).is_null() {
-                aom_internal_error(
-                    &raw mut (*ppi).error as *mut aom_internal_error_info,
-                    AOM_CODEC_MEM_ERROR,
-                    b"Failed to allocate td->tmp_conv_dst at %s:%d\0" as *const u8
-                        as *const core::ffi::c_char,
-                    b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                        as *const core::ffi::c_char,
-                    986 as core::ffi::c_int,
-                );
+                if cfg!(debug_assertions) {
+                    aom_internal_error(
+                        &raw mut (*ppi).error as *mut aom_internal_error_info,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate td->tmp_conv_dst at %s:%d\0" as *const u8
+                            as *const core::ffi::c_char,
+                        b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                            as *const core::ffi::c_char,
+                        986 as core::ffi::c_int,
+                    );
+                } else {
+                    aom_internal_error(
+                        &raw mut (*ppi).error as *mut aom_internal_error_info,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate td->tmp_conv_dst\0" as *const u8
+                            as *const core::ffi::c_char,
+                    );
+                }
             }
             if i < (*p_mt_info).num_mod_workers[MOD_FP as core::ffi::c_int as usize] {
                 (*td).firstpass_ctx = av1_alloc_pmc(
@@ -8833,15 +9103,24 @@ pub unsafe extern "C-unwind" fn av1_init_tile_thread_data(
                     .wrapping_mul(::core::mem::size_of::<uint8_t>() as size_t),
             ) as *mut uint8_t;
             if ((*td).upsample_pred).is_null() {
-                aom_internal_error(
-                    &raw mut (*ppi).error as *mut aom_internal_error_info,
-                    AOM_CODEC_MEM_ERROR,
-                    b"Failed to allocate td->upsample_pred at %s:%d\0" as *const u8
-                        as *const core::ffi::c_char,
-                    b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                        as *const core::ffi::c_char,
-                    1000 as core::ffi::c_int,
-                );
+                if cfg!(debug_assertions) {
+                    aom_internal_error(
+                        &raw mut (*ppi).error as *mut aom_internal_error_info,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate td->upsample_pred at %s:%d\0" as *const u8
+                            as *const core::ffi::c_char,
+                        b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                            as *const core::ffi::c_char,
+                        1000 as core::ffi::c_int,
+                    );
+                } else {
+                    aom_internal_error(
+                        &raw mut (*ppi).error as *mut aom_internal_error_info,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate td->upsample_pred\0" as *const u8
+                            as *const core::ffi::c_char,
+                    );
+                }
             }
             if is_first_pass == 0 && i < num_enc_workers {
                 if av1_setup_sms_tree((*ppi).cpi, td as *mut ThreadData) != 0 {
@@ -8875,15 +9154,24 @@ pub unsafe extern "C-unwind" fn av1_init_tile_thread_data(
                             .wrapping_mul(::core::mem::size_of::<uint32_t>() as size_t),
                     ) as *mut uint32_t;
                     if ((*td).hash_value_buffer[x as usize]).is_null() {
-                        aom_internal_error(
-                            &raw mut (*ppi).error as *mut aom_internal_error_info,
-                            AOM_CODEC_MEM_ERROR,
-                            b"Failed to allocate td->hash_value_buffer[x] at %s:%d\0"
-                                as *const u8 as *const core::ffi::c_char,
-                            b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                                as *const core::ffi::c_char,
-                            1013 as core::ffi::c_int,
-                        );
+                        if cfg!(debug_assertions) {
+                            aom_internal_error(
+                                &raw mut (*ppi).error as *mut aom_internal_error_info,
+                                AOM_CODEC_MEM_ERROR,
+                                b"Failed to allocate td->hash_value_buffer[x] at %s:%d\0"
+                                    as *const u8 as *const core::ffi::c_char,
+                                b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                                    as *const core::ffi::c_char,
+                                1013 as core::ffi::c_int,
+                            );
+                        } else {
+                            aom_internal_error(
+                                &raw mut (*ppi).error as *mut aom_internal_error_info,
+                                AOM_CODEC_MEM_ERROR,
+                                b"Failed to allocate td->hash_value_buffer[x]\0"
+                                    as *const u8 as *const core::ffi::c_char,
+                            );
+                        }
                     }
                     x += 1;
                 }
@@ -8908,15 +9196,24 @@ pub unsafe extern "C-unwind" fn av1_init_tile_thread_data(
                     ::core::mem::size_of::<FRAME_COUNTS>() as size_t,
                 ) as *mut FRAME_COUNTS;
                 if ((*td).counts).is_null() {
-                    aom_internal_error(
-                        &raw mut (*ppi).error as *mut aom_internal_error_info,
-                        AOM_CODEC_MEM_ERROR,
-                        b"Failed to allocate td->counts at %s:%d\0" as *const u8
-                            as *const core::ffi::c_char,
-                        b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                            as *const core::ffi::c_char,
-                        1018 as core::ffi::c_int,
-                    );
+                    if cfg!(debug_assertions) {
+                        aom_internal_error(
+                            &raw mut (*ppi).error as *mut aom_internal_error_info,
+                            AOM_CODEC_MEM_ERROR,
+                            b"Failed to allocate td->counts at %s:%d\0" as *const u8
+                                as *const core::ffi::c_char,
+                            b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                                as *const core::ffi::c_char,
+                            1018 as core::ffi::c_int,
+                        );
+                    } else {
+                        aom_internal_error(
+                            &raw mut (*ppi).error as *mut aom_internal_error_info,
+                            AOM_CODEC_MEM_ERROR,
+                            b"Failed to allocate td->counts\0" as *const u8
+                                as *const core::ffi::c_char,
+                        );
+                    }
                 }
                 if cfg!(debug_assertions) as core::ffi::c_int != 0
                     && (*ppi).error.setjmp == 0
@@ -8939,15 +9236,24 @@ pub unsafe extern "C-unwind" fn av1_init_tile_thread_data(
                     ::core::mem::size_of::<PALETTE_BUFFER>() as size_t,
                 ) as *mut PALETTE_BUFFER;
                 if ((*td).palette_buffer).is_null() {
-                    aom_internal_error(
-                        &raw mut (*ppi).error as *mut aom_internal_error_info,
-                        AOM_CODEC_MEM_ERROR,
-                        b"Failed to allocate td->palette_buffer at %s:%d\0" as *const u8
-                            as *const core::ffi::c_char,
-                        b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                            as *const core::ffi::c_char,
-                        1022 as core::ffi::c_int,
-                    );
+                    if cfg!(debug_assertions) {
+                        aom_internal_error(
+                            &raw mut (*ppi).error as *mut aom_internal_error_info,
+                            AOM_CODEC_MEM_ERROR,
+                            b"Failed to allocate td->palette_buffer at %s:%d\0"
+                                as *const u8 as *const core::ffi::c_char,
+                            b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                                as *const core::ffi::c_char,
+                            1022 as core::ffi::c_int,
+                        );
+                    } else {
+                        aom_internal_error(
+                            &raw mut (*ppi).error as *mut aom_internal_error_info,
+                            AOM_CODEC_MEM_ERROR,
+                            b"Failed to allocate td->palette_buffer\0" as *const u8
+                                as *const core::ffi::c_char,
+                        );
+                    }
                 }
                 if (*(*ppi).cpi).oxcf.kf_cfg.key_freq_max != 0 as core::ffi::c_int {
                     alloc_obmc_buffers(&raw mut (*td).obmc_buffer, &raw mut (*ppi).error);
@@ -8982,15 +9288,24 @@ pub unsafe extern "C-unwind" fn av1_init_tile_thread_data(
                                 .wrapping_mul(::core::mem::size_of::<uint8_t>() as size_t),
                         ) as *mut uint8_t;
                         if ((*td).tmp_pred_bufs[j as usize]).is_null() {
-                            aom_internal_error(
-                                &raw mut (*ppi).error as *mut aom_internal_error_info,
-                                AOM_CODEC_MEM_ERROR,
-                                b"Failed to allocate td->tmp_pred_bufs[j] at %s:%d\0"
-                                    as *const u8 as *const core::ffi::c_char,
-                                b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                                    as *const core::ffi::c_char,
-                                1038 as core::ffi::c_int,
-                            );
+                            if cfg!(debug_assertions) {
+                                aom_internal_error(
+                                    &raw mut (*ppi).error as *mut aom_internal_error_info,
+                                    AOM_CODEC_MEM_ERROR,
+                                    b"Failed to allocate td->tmp_pred_bufs[j] at %s:%d\0"
+                                        as *const u8 as *const core::ffi::c_char,
+                                    b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                                        as *const core::ffi::c_char,
+                                    1038 as core::ffi::c_int,
+                                );
+                            } else {
+                                aom_internal_error(
+                                    &raw mut (*ppi).error as *mut aom_internal_error_info,
+                                    AOM_CODEC_MEM_ERROR,
+                                    b"Failed to allocate td->tmp_pred_bufs[j]\0" as *const u8
+                                        as *const core::ffi::c_char,
+                                );
+                            }
                         }
                         j += 1;
                     }
@@ -9024,15 +9339,24 @@ pub unsafe extern "C-unwind" fn av1_init_tile_thread_data(
                         ),
                 ) as *mut PixelLevelGradientInfo;
                 if ((*td).pixel_gradient_info).is_null() {
-                    aom_internal_error(
-                        &raw mut (*ppi).error as *mut aom_internal_error_info,
-                        AOM_CODEC_MEM_ERROR,
-                        b"Failed to allocate td->pixel_gradient_info at %s:%d\0"
-                            as *const u8 as *const core::ffi::c_char,
-                        b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                            as *const core::ffi::c_char,
-                        1045 as core::ffi::c_int,
-                    );
+                    if cfg!(debug_assertions) {
+                        aom_internal_error(
+                            &raw mut (*ppi).error as *mut aom_internal_error_info,
+                            AOM_CODEC_MEM_ERROR,
+                            b"Failed to allocate td->pixel_gradient_info at %s:%d\0"
+                                as *const u8 as *const core::ffi::c_char,
+                            b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                                as *const core::ffi::c_char,
+                            1045 as core::ffi::c_int,
+                        );
+                    } else {
+                        aom_internal_error(
+                            &raw mut (*ppi).error as *mut aom_internal_error_info,
+                            AOM_CODEC_MEM_ERROR,
+                            b"Failed to allocate td->pixel_gradient_info\0" as *const u8
+                                as *const core::ffi::c_char,
+                        );
+                    }
                 }
                 if is_src_var_for_4x4_sub_blocks_caching_enabled((*ppi).cpi) {
                     let sb_size: BLOCK_SIZE = (*(*(*ppi).cpi).common.seq_params).sb_size;
@@ -9060,15 +9384,24 @@ pub unsafe extern "C-unwind" fn av1_init_tile_thread_data(
                             .wrapping_mul(mi_count_in_sb as size_t),
                     ) as *mut Block4x4VarInfo;
                     if ((*td).src_var_info_of_4x4_sub_blocks).is_null() {
-                        aom_internal_error(
-                            &raw mut (*ppi).error as *mut aom_internal_error_info,
-                            AOM_CODEC_MEM_ERROR,
-                            b"Failed to allocate td->src_var_info_of_4x4_sub_blocks at %s:%d\0"
-                                as *const u8 as *const core::ffi::c_char,
-                            b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                                as *const core::ffi::c_char,
-                            1055 as core::ffi::c_int,
-                        );
+                        if cfg!(debug_assertions) {
+                            aom_internal_error(
+                                &raw mut (*ppi).error as *mut aom_internal_error_info,
+                                AOM_CODEC_MEM_ERROR,
+                                b"Failed to allocate td->src_var_info_of_4x4_sub_blocks at %s:%d\0"
+                                    as *const u8 as *const core::ffi::c_char,
+                                b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                                    as *const core::ffi::c_char,
+                                1055 as core::ffi::c_int,
+                            );
+                        } else {
+                            aom_internal_error(
+                                &raw mut (*ppi).error as *mut aom_internal_error_info,
+                                AOM_CODEC_MEM_ERROR,
+                                b"Failed to allocate td->src_var_info_of_4x4_sub_blocks\0"
+                                    as *const u8 as *const core::ffi::c_char,
+                            );
+                        }
                     }
                 }
                 if (*(*ppi).cpi).sf.part_sf.partition_search_type as core::ffi::c_int
@@ -9102,15 +9435,24 @@ pub unsafe extern "C-unwind" fn av1_init_tile_thread_data(
                             .wrapping_mul(num_64x64_blocks as size_t),
                     ) as *mut VP64x64;
                     if ((*td).vt64x64).is_null() {
-                        aom_internal_error(
-                            &raw mut (*ppi).error as *mut aom_internal_error_info,
-                            AOM_CODEC_MEM_ERROR,
-                            b"Failed to allocate td->vt64x64 at %s:%d\0" as *const u8
-                                as *const core::ffi::c_char,
-                            b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                                as *const core::ffi::c_char,
-                            1063 as core::ffi::c_int,
-                        );
+                        if cfg!(debug_assertions) {
+                            aom_internal_error(
+                                &raw mut (*ppi).error as *mut aom_internal_error_info,
+                                AOM_CODEC_MEM_ERROR,
+                                b"Failed to allocate td->vt64x64 at %s:%d\0" as *const u8
+                                    as *const core::ffi::c_char,
+                                b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                                    as *const core::ffi::c_char,
+                                1063 as core::ffi::c_int,
+                            );
+                        } else {
+                            aom_internal_error(
+                                &raw mut (*ppi).error as *mut aom_internal_error_info,
+                                AOM_CODEC_MEM_ERROR,
+                                b"Failed to allocate td->vt64x64\0" as *const u8
+                                    as *const core::ffi::c_char,
+                            );
+                        }
                     }
                 }
             }
@@ -9143,15 +9485,24 @@ pub unsafe extern "C-unwind" fn av1_init_tile_thread_data(
                         ::core::mem::size_of::<FRAME_CONTEXT>() as size_t,
                     ) as *mut FRAME_CONTEXT;
                     if ((*(*ppi).parallel_cpi[j_0 as usize]).td.tctx).is_null() {
-                        aom_internal_error(
-                            &raw mut (*ppi).error as *mut aom_internal_error_info,
-                            AOM_CODEC_MEM_ERROR,
-                            b"Failed to allocate ppi->parallel_cpi[j]->td.tctx at %s:%d\0"
-                                as *const u8 as *const core::ffi::c_char,
-                            b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                                as *const core::ffi::c_char,
-                            1073 as core::ffi::c_int,
-                        );
+                        if cfg!(debug_assertions) {
+                            aom_internal_error(
+                                &raw mut (*ppi).error as *mut aom_internal_error_info,
+                                AOM_CODEC_MEM_ERROR,
+                                b"Failed to allocate ppi->parallel_cpi[j]->td.tctx at %s:%d\0"
+                                    as *const u8 as *const core::ffi::c_char,
+                                b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                                    as *const core::ffi::c_char,
+                                1073 as core::ffi::c_int,
+                            );
+                        } else {
+                            aom_internal_error(
+                                &raw mut (*ppi).error as *mut aom_internal_error_info,
+                                AOM_CODEC_MEM_ERROR,
+                                b"Failed to allocate ppi->parallel_cpi[j]->td.tctx\0"
+                                    as *const u8 as *const core::ffi::c_char,
+                            );
+                        }
                     }
                     j_0 += 1;
                 }
@@ -9177,15 +9528,24 @@ pub unsafe extern "C-unwind" fn av1_init_tile_thread_data(
                     ::core::mem::size_of::<FRAME_CONTEXT>() as size_t,
                 ) as *mut FRAME_CONTEXT;
                 if ((*(*thread_data).td).tctx).is_null() {
-                    aom_internal_error(
-                        &raw mut (*ppi).error as *mut aom_internal_error_info,
-                        AOM_CODEC_MEM_ERROR,
-                        b"Failed to allocate thread_data->td->tctx at %s:%d\0"
-                            as *const u8 as *const core::ffi::c_char,
-                        b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                            as *const core::ffi::c_char,
-                        1078 as core::ffi::c_int,
-                    );
+                    if cfg!(debug_assertions) {
+                        aom_internal_error(
+                            &raw mut (*ppi).error as *mut aom_internal_error_info,
+                            AOM_CODEC_MEM_ERROR,
+                            b"Failed to allocate thread_data->td->tctx at %s:%d\0"
+                                as *const u8 as *const core::ffi::c_char,
+                            b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                                as *const core::ffi::c_char,
+                            1078 as core::ffi::c_int,
+                        );
+                    } else {
+                        aom_internal_error(
+                            &raw mut (*ppi).error as *mut aom_internal_error_info,
+                            AOM_CODEC_MEM_ERROR,
+                            b"Failed to allocate thread_data->td->tctx\0" as *const u8
+                                as *const core::ffi::c_char,
+                        );
+                    }
                 }
             }
         }
@@ -9234,15 +9594,24 @@ pub unsafe extern "C-unwind" fn av1_create_workers(
             .wrapping_mul(::core::mem::size_of::<AVxWorker>() as size_t),
     ) as *mut AVxWorker;
     if ((*p_mt_info).workers).is_null() {
-        aom_internal_error(
-            &raw mut (*ppi).error as *mut aom_internal_error_info,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate p_mt_info->workers at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                as *const core::ffi::c_char,
-            1094 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                &raw mut (*ppi).error as *mut aom_internal_error_info,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate p_mt_info->workers at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                1094 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                &raw mut (*ppi).error as *mut aom_internal_error_info,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate p_mt_info->workers\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     if cfg!(debug_assertions) as core::ffi::c_int != 0 && (*ppi).error.setjmp == 0 {
         crate::platform::ferrisma_assert_fail(
@@ -9262,15 +9631,24 @@ pub unsafe extern "C-unwind" fn av1_create_workers(
         ::core::mem::size_of::<EncWorkerData>() as size_t,
     ) as *mut EncWorkerData;
     if ((*p_mt_info).tile_thr_data).is_null() {
-        aom_internal_error(
-            &raw mut (*ppi).error as *mut aom_internal_error_info,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate p_mt_info->tile_thr_data at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                as *const core::ffi::c_char,
-            1098 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                &raw mut (*ppi).error as *mut aom_internal_error_info,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate p_mt_info->tile_thr_data at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                1098 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                &raw mut (*ppi).error as *mut aom_internal_error_info,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate p_mt_info->tile_thr_data\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     let mut i: core::ffi::c_int = 0 as core::ffi::c_int;
     while i < num_workers {
@@ -10034,15 +10412,24 @@ unsafe extern "C-unwind" fn prepare_enc_workers(
                     ::core::mem::size_of::<MvCosts>() as size_t,
                 ) as *mut MvCosts;
                 if ((*(*thread_data_0).td).mv_costs_alloc).is_null() {
-                    aom_internal_error(
-                        (*cm).error,
-                        AOM_CODEC_MEM_ERROR,
-                        b"Failed to allocate thread_data->td->mv_costs_alloc at %s:%d\0"
-                            as *const u8 as *const core::ffi::c_char,
-                        b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                            as *const core::ffi::c_char,
-                        1623 as core::ffi::c_int,
-                    );
+                    if cfg!(debug_assertions) {
+                        aom_internal_error(
+                            (*cm).error,
+                            AOM_CODEC_MEM_ERROR,
+                            b"Failed to allocate thread_data->td->mv_costs_alloc at %s:%d\0"
+                                as *const u8 as *const core::ffi::c_char,
+                            b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                                as *const core::ffi::c_char,
+                            1623 as core::ffi::c_int,
+                        );
+                    } else {
+                        aom_internal_error(
+                            (*cm).error,
+                            AOM_CODEC_MEM_ERROR,
+                            b"Failed to allocate thread_data->td->mv_costs_alloc\0"
+                                as *const u8 as *const core::ffi::c_char,
+                        );
+                    }
                 }
                 (*(*thread_data_0).td).mb.mv_costs = (*(*thread_data_0).td)
                     .mv_costs_alloc;
@@ -10073,15 +10460,24 @@ unsafe extern "C-unwind" fn prepare_enc_workers(
                         ::core::mem::size_of::<IntraBCMVCosts>() as size_t,
                     ) as *mut IntraBCMVCosts;
                     if ((*(*thread_data_0).td).dv_costs_alloc).is_null() {
-                        aom_internal_error(
-                            (*cm).error,
-                            AOM_CODEC_MEM_ERROR,
-                            b"Failed to allocate thread_data->td->dv_costs_alloc at %s:%d\0"
-                                as *const u8 as *const core::ffi::c_char,
-                            b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                                as *const core::ffi::c_char,
-                            1635 as core::ffi::c_int,
-                        );
+                        if cfg!(debug_assertions) {
+                            aom_internal_error(
+                                (*cm).error,
+                                AOM_CODEC_MEM_ERROR,
+                                b"Failed to allocate thread_data->td->dv_costs_alloc at %s:%d\0"
+                                    as *const u8 as *const core::ffi::c_char,
+                                b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                                    as *const core::ffi::c_char,
+                                1635 as core::ffi::c_int,
+                            );
+                        } else {
+                            aom_internal_error(
+                                (*cm).error,
+                                AOM_CODEC_MEM_ERROR,
+                                b"Failed to allocate thread_data->td->dv_costs_alloc\0"
+                                    as *const u8 as *const core::ffi::c_char,
+                            );
+                        }
                     }
                     (*(*thread_data_0).td).mb.dv_costs = (*(*thread_data_0).td)
                         .dv_costs_alloc;
@@ -11160,15 +11556,24 @@ unsafe extern "C-unwind" fn av1_tpl_alloc(
             .wrapping_mul(mb_rows as size_t),
     ) as *mut pthread_mutex_t;
     if ((*tpl_sync).mutex_).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate tpl_sync->mutex_ at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                as *const core::ffi::c_char,
-            2262 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate tpl_sync->mutex_ at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                2262 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate tpl_sync->mutex_\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     if !((*tpl_sync).mutex_).is_null() {
         let mut i: core::ffi::c_int = 0 as core::ffi::c_int;
@@ -11199,15 +11604,24 @@ unsafe extern "C-unwind" fn av1_tpl_alloc(
             .wrapping_mul(mb_rows as size_t),
     ) as *mut pthread_cond_t;
     if ((*tpl_sync).cond_).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate tpl_sync->cond_ at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                as *const core::ffi::c_char,
-            2269 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate tpl_sync->cond_ at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                2269 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate tpl_sync->cond_\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     if !((*tpl_sync).cond_).is_null() {
         let mut i_0: core::ffi::c_int = 0 as core::ffi::c_int;
@@ -11238,15 +11652,24 @@ unsafe extern "C-unwind" fn av1_tpl_alloc(
             .wrapping_mul(mb_rows as size_t),
     ) as *mut core::ffi::c_int;
     if ((*tpl_sync).num_finished_cols).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate tpl_sync->num_finished_cols at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
-                as *const core::ffi::c_char,
-            2277 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate tpl_sync->num_finished_cols at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/ethread.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                2277 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate tpl_sync->num_finished_cols\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     (*tpl_sync).sync_range = 1 as core::ffi::c_int;
 }

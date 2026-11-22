@@ -1649,15 +1649,24 @@ pub unsafe extern "C-unwind" fn av1_alloc_restoration_struct(
             .wrapping_mul((*rsi).num_rest_units as size_t),
     ) as *mut RestorationUnitInfo;
     if ((*rsi).unit_info).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate rsi->unit_info at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/common/restoration.c\0" as *const u8
-                as *const core::ffi::c_char,
-            83 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate rsi->unit_info at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/common/restoration.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                83 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate rsi->unit_info\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
 }
 #[no_mangle]

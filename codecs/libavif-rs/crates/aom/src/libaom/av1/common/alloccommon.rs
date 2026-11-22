@@ -1544,15 +1544,24 @@ unsafe extern "C-unwind" fn alloc_cdef_linebuf(
             *fresh13 = aom_malloc((*cdef_info).allocated_linebuf_size[plane as usize])
                 as *mut uint16_t;
             if (*linebuf.offset(plane as isize)).is_null() {
-                aom_internal_error(
-                    (*cm).error,
-                    AOM_CODEC_MEM_ERROR,
-                    b"Failed to allocate linebuf[plane] at %s:%d\0" as *const u8
-                        as *const core::ffi::c_char,
-                    b"upstream/aom/av1/common/alloccommon.c\0" as *const u8
-                        as *const core::ffi::c_char,
-                    154 as core::ffi::c_int,
-                );
+                if cfg!(debug_assertions) {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate linebuf[plane] at %s:%d\0" as *const u8
+                            as *const core::ffi::c_char,
+                        b"upstream/aom/av1/common/alloccommon.c\0" as *const u8
+                            as *const core::ffi::c_char,
+                        154 as core::ffi::c_int,
+                    );
+                } else {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate linebuf[plane]\0" as *const u8
+                            as *const core::ffi::c_char,
+                    );
+                }
             }
         }
         plane += 1;
@@ -1585,15 +1594,24 @@ unsafe extern "C-unwind" fn alloc_cdef_bufs(
         *srcbuf = aom_memalign(16 as size_t, (*cdef_info).allocated_srcbuf_size)
             as *mut uint16_t;
         if (*srcbuf).is_null() {
-            aom_internal_error(
-                (*cm).error,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate *srcbuf at %s:%d\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"upstream/aom/av1/common/alloccommon.c\0" as *const u8
-                    as *const core::ffi::c_char,
-                163 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate *srcbuf at %s:%d\0" as *const u8
+                        as *const core::ffi::c_char,
+                    b"upstream/aom/av1/common/alloccommon.c\0" as *const u8
+                        as *const core::ffi::c_char,
+                    163 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate *srcbuf\0" as *const u8
+                        as *const core::ffi::c_char,
+                );
+            }
         }
     }
     let mut plane: core::ffi::c_int = 0 as core::ffi::c_int;
@@ -1618,15 +1636,24 @@ unsafe extern "C-unwind" fn alloc_cdef_bufs(
             *fresh12 = aom_malloc((*cdef_info).allocated_colbuf_size[plane as usize])
                 as *mut uint16_t;
             if (*colbuf.offset(plane as isize)).is_null() {
-                aom_internal_error(
-                    (*cm).error,
-                    AOM_CODEC_MEM_ERROR,
-                    b"Failed to allocate colbuf[plane] at %s:%d\0" as *const u8
-                        as *const core::ffi::c_char,
-                    b"upstream/aom/av1/common/alloccommon.c\0" as *const u8
-                        as *const core::ffi::c_char,
-                    168 as core::ffi::c_int,
-                );
+                if cfg!(debug_assertions) {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate colbuf[plane] at %s:%d\0" as *const u8
+                            as *const core::ffi::c_char,
+                        b"upstream/aom/av1/common/alloccommon.c\0" as *const u8
+                            as *const core::ffi::c_char,
+                        168 as core::ffi::c_int,
+                    );
+                } else {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate colbuf[plane]\0" as *const u8
+                            as *const core::ffi::c_char,
+                    );
+                }
             }
         }
         plane += 1;
@@ -1660,15 +1687,24 @@ unsafe extern "C-unwind" fn alloc_cdef_row_sync(
         ::core::mem::size_of::<AV1CdefRowSync>() as size_t,
     ) as *mut AV1CdefRowSync;
     if (*cdef_row_mt).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate *cdef_row_mt at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/common/alloccommon.c\0" as *const u8
-                as *const core::ffi::c_char,
-            178 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate *cdef_row_mt at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/common/alloccommon.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                178 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate *cdef_row_mt\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     let mut row_idx: core::ffi::c_int = 0 as core::ffi::c_int;
     while row_idx < num_mi_rows {
@@ -1691,15 +1727,24 @@ unsafe extern "C-unwind" fn alloc_cdef_row_sync(
         *fresh10 = aom_malloc(::core::mem::size_of::<pthread_mutex_t>() as size_t)
             as *mut pthread_mutex_t;
         if ((*(*cdef_row_mt).offset(row_idx as isize)).row_mutex_).is_null() {
-            aom_internal_error(
-                (*cm).error,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate (*cdef_row_mt)[row_idx].row_mutex_ at %s:%d\0"
-                    as *const u8 as *const core::ffi::c_char,
-                b"upstream/aom/av1/common/alloccommon.c\0" as *const u8
-                    as *const core::ffi::c_char,
-                182 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate (*cdef_row_mt)[row_idx].row_mutex_ at %s:%d\0"
+                        as *const u8 as *const core::ffi::c_char,
+                    b"upstream/aom/av1/common/alloccommon.c\0" as *const u8
+                        as *const core::ffi::c_char,
+                    182 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate (*cdef_row_mt)[row_idx].row_mutex_\0"
+                        as *const u8 as *const core::ffi::c_char,
+                );
+            }
         }
         pthread_mutex_init(
             (*(*cdef_row_mt).offset(row_idx as isize)).row_mutex_,
@@ -1724,15 +1769,24 @@ unsafe extern "C-unwind" fn alloc_cdef_row_sync(
         *fresh11 = aom_malloc(::core::mem::size_of::<pthread_cond_t>() as size_t)
             as *mut pthread_cond_t;
         if ((*(*cdef_row_mt).offset(row_idx as isize)).row_cond_).is_null() {
-            aom_internal_error(
-                (*cm).error,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate (*cdef_row_mt)[row_idx].row_cond_ at %s:%d\0"
-                    as *const u8 as *const core::ffi::c_char,
-                b"upstream/aom/av1/common/alloccommon.c\0" as *const u8
-                    as *const core::ffi::c_char,
-                186 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate (*cdef_row_mt)[row_idx].row_cond_ at %s:%d\0"
+                        as *const u8 as *const core::ffi::c_char,
+                    b"upstream/aom/av1/common/alloccommon.c\0" as *const u8
+                        as *const core::ffi::c_char,
+                    186 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate (*cdef_row_mt)[row_idx].row_cond_\0"
+                        as *const u8 as *const core::ffi::c_char,
+                );
+            }
         }
         pthread_cond_init(
             (*(*cdef_row_mt).offset(row_idx as isize)).row_cond_,
@@ -1885,15 +1939,24 @@ pub unsafe extern "C-unwind" fn av1_alloc_cdef_buffers(
                 ::core::mem::size_of::<AV1CdefWorkerData>() as size_t,
             ) as *mut AV1CdefWorkerData;
             if (*cdef_worker).is_null() {
-                aom_internal_error(
-                    (*cm).error,
-                    AOM_CODEC_MEM_ERROR,
-                    b"Failed to allocate *cdef_worker at %s:%d\0" as *const u8
-                        as *const core::ffi::c_char,
-                    b"upstream/aom/av1/common/alloccommon.c\0" as *const u8
-                        as *const core::ffi::c_char,
-                    285 as core::ffi::c_int,
-                );
+                if cfg!(debug_assertions) {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate *cdef_worker at %s:%d\0" as *const u8
+                            as *const core::ffi::c_char,
+                        b"upstream/aom/av1/common/alloccommon.c\0" as *const u8
+                            as *const core::ffi::c_char,
+                        285 as core::ffi::c_int,
+                    );
+                } else {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate *cdef_worker\0" as *const u8
+                            as *const core::ffi::c_char,
+                    );
+                }
             }
         }
         let mut idx_1: core::ffi::c_int = num_workers - 1 as core::ffi::c_int;
@@ -1946,15 +2009,24 @@ pub unsafe extern "C-unwind" fn av1_alloc_restoration_buffers(
                 .wrapping_mul(::core::mem::size_of::<int32_t>() as size_t),
         ) as *mut int32_t;
         if ((*cm).rst_tmpbuf).is_null() {
-            aom_internal_error(
-                (*cm).error,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate cm->rst_tmpbuf at %s:%d\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"upstream/aom/av1/common/alloccommon.c\0" as *const u8
-                    as *const core::ffi::c_char,
-                304 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate cm->rst_tmpbuf at %s:%d\0" as *const u8
+                        as *const core::ffi::c_char,
+                    b"upstream/aom/av1/common/alloccommon.c\0" as *const u8
+                        as *const core::ffi::c_char,
+                    304 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate cm->rst_tmpbuf\0" as *const u8
+                        as *const core::ffi::c_char,
+                );
+            }
         }
     }
     if ((*cm).rlbs).is_null() {
@@ -1977,15 +2049,24 @@ pub unsafe extern "C-unwind" fn av1_alloc_restoration_buffers(
             ::core::mem::size_of::<RestorationLineBuffers>() as size_t,
         ) as *mut RestorationLineBuffers;
         if ((*cm).rlbs).is_null() {
-            aom_internal_error(
-                (*cm).error,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate cm->rlbs at %s:%d\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"upstream/aom/av1/common/alloccommon.c\0" as *const u8
-                    as *const core::ffi::c_char,
-                308 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate cm->rlbs at %s:%d\0" as *const u8
+                        as *const core::ffi::c_char,
+                    b"upstream/aom/av1/common/alloccommon.c\0" as *const u8
+                        as *const core::ffi::c_char,
+                    308 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate cm->rlbs\0" as *const u8
+                        as *const core::ffi::c_char,
+                );
+            }
         }
     }
     let mut mi_h: core::ffi::c_int = (*cm).mi_params.mi_rows;
@@ -2039,15 +2120,24 @@ pub unsafe extern "C-unwind" fn av1_alloc_restoration_buffers(
                 buf_size as size_t,
             ) as *mut uint8_t;
             if ((*boundaries).stripe_boundary_above).is_null() {
-                aom_internal_error(
-                    (*cm).error,
-                    AOM_CODEC_MEM_ERROR,
-                    b"Failed to allocate boundaries->stripe_boundary_above at %s:%d\0"
-                        as *const u8 as *const core::ffi::c_char,
-                    b"upstream/aom/av1/common/alloccommon.c\0" as *const u8
-                        as *const core::ffi::c_char,
-                    340 as core::ffi::c_int,
-                );
+                if cfg!(debug_assertions) {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate boundaries->stripe_boundary_above at %s:%d\0"
+                            as *const u8 as *const core::ffi::c_char,
+                        b"upstream/aom/av1/common/alloccommon.c\0" as *const u8
+                            as *const core::ffi::c_char,
+                        340 as core::ffi::c_int,
+                    );
+                } else {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate boundaries->stripe_boundary_above\0"
+                            as *const u8 as *const core::ffi::c_char,
+                    );
+                }
             }
             if cfg!(debug_assertions) as core::ffi::c_int != 0
                 && (*(*cm).error).setjmp == 0
@@ -2069,15 +2159,24 @@ pub unsafe extern "C-unwind" fn av1_alloc_restoration_buffers(
                 buf_size as size_t,
             ) as *mut uint8_t;
             if ((*boundaries).stripe_boundary_below).is_null() {
-                aom_internal_error(
-                    (*cm).error,
-                    AOM_CODEC_MEM_ERROR,
-                    b"Failed to allocate boundaries->stripe_boundary_below at %s:%d\0"
-                        as *const u8 as *const core::ffi::c_char,
-                    b"upstream/aom/av1/common/alloccommon.c\0" as *const u8
-                        as *const core::ffi::c_char,
-                    342 as core::ffi::c_int,
-                );
+                if cfg!(debug_assertions) {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate boundaries->stripe_boundary_below at %s:%d\0"
+                            as *const u8 as *const core::ffi::c_char,
+                        b"upstream/aom/av1/common/alloccommon.c\0" as *const u8
+                            as *const core::ffi::c_char,
+                        342 as core::ffi::c_int,
+                    );
+                } else {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate boundaries->stripe_boundary_below\0"
+                            as *const u8 as *const core::ffi::c_char,
+                    );
+                }
             }
             (*boundaries).stripe_boundary_size = buf_size;
         }

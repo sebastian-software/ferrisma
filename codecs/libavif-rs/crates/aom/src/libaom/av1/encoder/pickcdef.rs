@@ -6947,15 +6947,24 @@ unsafe extern "C-unwind" fn cdef_alloc_data(
             .wrapping_mul(::core::mem::size_of::<core::ffi::c_int>() as size_t),
     ) as *mut core::ffi::c_int;
     if ((*cdef_search_ctx).sb_index).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate cdef_search_ctx->sb_index at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/pickcdef.c\0" as *const u8
-                as *const core::ffi::c_char,
-            660 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate cdef_search_ctx->sb_index at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/pickcdef.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                660 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate cdef_search_ctx->sb_index\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     (*cdef_search_ctx).sb_count = 0 as core::ffi::c_int;
     if cfg!(debug_assertions) as core::ffi::c_int != 0 && (*(*cm).error).setjmp == 0
@@ -6978,15 +6987,24 @@ unsafe extern "C-unwind" fn cdef_alloc_data(
             .wrapping_mul(nhfb as size_t),
     ) as *mut [uint64_t; 64];
     if ((*cdef_search_ctx).mse[0 as core::ffi::c_int as usize]).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate cdef_search_ctx->mse[0] at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/pickcdef.c\0" as *const u8
-                as *const core::ffi::c_char,
-            663 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate cdef_search_ctx->mse[0] at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/pickcdef.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                663 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate cdef_search_ctx->mse[0]\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     if cfg!(debug_assertions) as core::ffi::c_int != 0 && (*(*cm).error).setjmp == 0
     {
@@ -7008,15 +7026,24 @@ unsafe extern "C-unwind" fn cdef_alloc_data(
             .wrapping_mul(nhfb as size_t),
     ) as *mut [uint64_t; 64];
     if ((*cdef_search_ctx).mse[1 as core::ffi::c_int as usize]).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate cdef_search_ctx->mse[1] at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/pickcdef.c\0" as *const u8
-                as *const core::ffi::c_char,
-            665 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate cdef_search_ctx->mse[1] at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/pickcdef.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                665 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate cdef_search_ctx->mse[1]\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
 }
 #[no_mangle]
@@ -7434,15 +7461,24 @@ pub unsafe extern "C-unwind" fn av1_cdef_search(mut cpi: *mut AV1_COMP) {
             ::core::mem::size_of::<CdefSearchCtx>() as size_t,
         ) as *mut CdefSearchCtx;
         if ((*cpi).cdef_search_ctx).is_null() {
-            aom_internal_error(
-                (*cm).error,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate cpi->cdef_search_ctx at %s:%d\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"upstream/aom/av1/encoder/pickcdef.c\0" as *const u8
-                    as *const core::ffi::c_char,
-                893 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate cpi->cdef_search_ctx at %s:%d\0" as *const u8
+                        as *const core::ffi::c_char,
+                    b"upstream/aom/av1/encoder/pickcdef.c\0" as *const u8
+                        as *const core::ffi::c_char,
+                    893 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate cpi->cdef_search_ctx\0" as *const u8
+                        as *const core::ffi::c_char,
+                );
+            }
         }
     }
     let mut cdef_search_ctx: *mut CdefSearchCtx = (*cpi).cdef_search_ctx;

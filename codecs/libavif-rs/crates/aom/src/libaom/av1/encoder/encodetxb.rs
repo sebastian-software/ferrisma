@@ -8151,15 +8151,24 @@ pub unsafe extern "C-unwind" fn av1_alloc_txb_buf(mut cpi: *mut AV1_COMP) {
             .wrapping_mul(size as size_t),
     ) as *mut CB_COEFF_BUFFER;
     if ((*cpi).coeff_buffer_base).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate cpi->coeff_buffer_base at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/encodetxb.c\0" as *const u8
-                as *const core::ffi::c_char,
-            64 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate cpi->coeff_buffer_base at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/encodetxb.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                64 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate cpi->coeff_buffer_base\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     if ::core::mem::size_of::<tran_low_t>() as usize
         > (SIZE_MAX as size_t).wrapping_div(num_tcoeffs)
@@ -8190,15 +8199,24 @@ pub unsafe extern "C-unwind" fn av1_alloc_txb_buf(mut cpi: *mut AV1_COMP) {
         (::core::mem::size_of::<tran_low_t>() as size_t).wrapping_mul(num_tcoeffs),
     ) as *mut tran_low_t;
     if ((*coeff_buf_pool).tcoeff).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate coeff_buf_pool->tcoeff at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/encodetxb.c\0" as *const u8
-                as *const core::ffi::c_char,
-            71 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate coeff_buf_pool->tcoeff at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/encodetxb.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                71 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate coeff_buf_pool->tcoeff\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     if ::core::mem::size_of::<uint16_t>() as usize
         > (SIZE_MAX as size_t).wrapping_div(num_tcoeffs)
@@ -8230,15 +8248,24 @@ pub unsafe extern "C-unwind" fn av1_alloc_txb_buf(mut cpi: *mut AV1_COMP) {
             .wrapping_div(txb_unit_size as size_t),
     ) as *mut uint16_t;
     if ((*coeff_buf_pool).eobs).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate coeff_buf_pool->eobs at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/encodetxb.c\0" as *const u8
-                as *const core::ffi::c_char,
-            78 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate coeff_buf_pool->eobs at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/encodetxb.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                78 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate coeff_buf_pool->eobs\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     if ::core::mem::size_of::<uint8_t>() as usize
         > (SIZE_MAX as size_t).wrapping_div(num_tcoeffs)
@@ -8270,15 +8297,24 @@ pub unsafe extern "C-unwind" fn av1_alloc_txb_buf(mut cpi: *mut AV1_COMP) {
             .wrapping_div(txb_unit_size as size_t),
     ) as *mut uint8_t;
     if ((*coeff_buf_pool).entropy_ctx).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate coeff_buf_pool->entropy_ctx at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/encodetxb.c\0" as *const u8
-                as *const core::ffi::c_char,
-            85 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate coeff_buf_pool->entropy_ctx at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/encodetxb.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                85 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate coeff_buf_pool->entropy_ctx\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     let mut tcoeff_ptr: *mut tran_low_t = (*coeff_buf_pool).tcoeff;
     let mut eob_ptr: *mut uint16_t = (*coeff_buf_pool).eobs;

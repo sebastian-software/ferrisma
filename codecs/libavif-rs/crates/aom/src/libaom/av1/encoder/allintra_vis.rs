@@ -6226,15 +6226,24 @@ pub unsafe extern "C-unwind" fn av1_alloc_mb_wiener_var_pred_buf(
     } else {};
     (*td).wiener_tmp_pred_buf = aom_memalign(32 as size_t, buf_size) as *mut uint8_t;
     if ((*td).wiener_tmp_pred_buf).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate td->wiener_tmp_pred_buf at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/allintra_vis.c\0" as *const u8
-                as *const core::ffi::c_char,
-            52 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate td->wiener_tmp_pred_buf at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/allintra_vis.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                52 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate td->wiener_tmp_pred_buf\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
 }
 #[no_mangle]
@@ -6274,15 +6283,24 @@ pub unsafe extern "C-unwind" fn av1_init_mb_wiener_var_buffer(mut cpi: *mut AV1_
         ::core::mem::size_of::<WeberStats>() as size_t,
     ) as *mut WeberStats;
     if ((*cpi).mb_weber_stats).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate cpi->mb_weber_stats at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/allintra_vis.c\0" as *const u8
-                as *const core::ffi::c_char,
-            78 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate cpi->mb_weber_stats at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/allintra_vis.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                78 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate cpi->mb_weber_stats\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     if (*cpi).oxcf.enable_rate_guide_deltaq != 0 {
         if cfg!(debug_assertions) as core::ffi::c_int != 0
@@ -6305,15 +6323,24 @@ pub unsafe extern "C-unwind" fn av1_init_mb_wiener_var_buffer(mut cpi: *mut AV1_
             ::core::mem::size_of::<core::ffi::c_int>() as size_t,
         ) as *mut core::ffi::c_int;
         if ((*cpi).prep_rate_estimates).is_null() {
-            aom_internal_error(
-                (*cm).error,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate cpi->prep_rate_estimates at %s:%d\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"upstream/aom/av1/encoder/allintra_vis.c\0" as *const u8
-                    as *const core::ffi::c_char,
-                84 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate cpi->prep_rate_estimates at %s:%d\0"
+                        as *const u8 as *const core::ffi::c_char,
+                    b"upstream/aom/av1/encoder/allintra_vis.c\0" as *const u8
+                        as *const core::ffi::c_char,
+                    84 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate cpi->prep_rate_estimates\0" as *const u8
+                        as *const core::ffi::c_char,
+                );
+            }
         }
         if cfg!(debug_assertions) as core::ffi::c_int != 0
             && (*(*cm).error).setjmp == 0
@@ -6335,15 +6362,24 @@ pub unsafe extern "C-unwind" fn av1_init_mb_wiener_var_buffer(mut cpi: *mut AV1_
             ::core::mem::size_of::<core::ffi::c_double>() as size_t,
         ) as *mut core::ffi::c_double;
         if ((*cpi).ext_rate_distribution).is_null() {
-            aom_internal_error(
-                (*cm).error,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate cpi->ext_rate_distribution at %s:%d\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"upstream/aom/av1/encoder/allintra_vis.c\0" as *const u8
-                    as *const core::ffi::c_char,
-                89 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate cpi->ext_rate_distribution at %s:%d\0"
+                        as *const u8 as *const core::ffi::c_char,
+                    b"upstream/aom/av1/encoder/allintra_vis.c\0" as *const u8
+                        as *const core::ffi::c_char,
+                    89 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate cpi->ext_rate_distribution\0" as *const u8
+                        as *const core::ffi::c_char,
+                );
+            }
         }
     }
 }
@@ -7752,15 +7788,24 @@ pub unsafe extern "C-unwind" fn av1_init_mb_ur_var_buffer(mut cpi: *mut AV1_COMP
         ::core::mem::size_of::<core::ffi::c_int>() as size_t,
     ) as *mut core::ffi::c_int;
     if ((*cpi).mb_delta_q).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate cpi->mb_delta_q at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/allintra_vis.c\0" as *const u8
-                as *const core::ffi::c_char,
-            782 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate cpi->mb_delta_q at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/allintra_vis.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                782 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate cpi->mb_delta_q\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
 }
 #[no_mangle]
@@ -7806,15 +7851,24 @@ pub unsafe extern "C-unwind" fn av1_set_mb_ur_variance(mut cpi: *mut AV1_COMP) {
         ::core::mem::size_of::<core::ffi::c_int>() as size_t,
     ) as *mut core::ffi::c_int;
     if (mb_delta_q[0 as core::ffi::c_int as usize]).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate mb_delta_q[0] at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/allintra_vis.c\0" as *const u8
-                as *const core::ffi::c_char,
-            956 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate mb_delta_q[0] at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/allintra_vis.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                956 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate mb_delta_q[0]\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     if cfg!(debug_assertions) as core::ffi::c_int != 0 && (*(*cm).error).setjmp == 0
     {
@@ -7835,15 +7889,24 @@ pub unsafe extern "C-unwind" fn av1_set_mb_ur_variance(mut cpi: *mut AV1_COMP) {
         ::core::mem::size_of::<core::ffi::c_int>() as size_t,
     ) as *mut core::ffi::c_int;
     if (mb_delta_q[1 as core::ffi::c_int as usize]).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate mb_delta_q[1] at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/allintra_vis.c\0" as *const u8
-                as *const core::ffi::c_char,
-            958 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate mb_delta_q[1] at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/allintra_vis.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                958 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate mb_delta_q[1]\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     let model_change: [core::ffi::c_double; 2] = [3.0f64, 3.0f64];
     let a: [core::ffi::c_double; 2] = [-24.50f64 * 4.0f64, -17.20f64 * 4.0f64];

@@ -52564,15 +52564,23 @@ pub unsafe extern "C-unwind" fn av1_collect_motion_search_features_sb(
         ::core::mem::size_of::<SIMPLE_MOTION_DATA_TREE>() as size_t,
     ) as *mut SIMPLE_MOTION_DATA_TREE;
     if sms_tree.is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate sms_tree at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/partition_strategy.c\0" as *const u8
-                as *const core::ffi::c_char,
-            2505 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate sms_tree at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/partition_strategy.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                2505 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate sms_tree\0" as *const u8 as *const core::ffi::c_char,
+            );
+        }
     }
     let mut sms_root: *mut SIMPLE_MOTION_DATA_TREE = setup_sms_tree(cpi, sms_tree);
     let tile_info: *mut TileInfo = &raw mut (*tile_data).tile_info;

@@ -7138,15 +7138,24 @@ unsafe extern "C-unwind" fn alloc_token_info(
         .tile_tok[0 as core::ffi::c_int as usize][0 as core::ffi::c_int as usize])
         .is_null()
     {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate token_info->tile_tok[0][0] at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/tokenize.h\0" as *const u8
-                as *const core::ffi::c_char,
-            130 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate token_info->tile_tok[0][0] at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/tokenize.h\0" as *const u8
+                    as *const core::ffi::c_char,
+                130 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate token_info->tile_tok[0][0]\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     if cfg!(debug_assertions) as core::ffi::c_int != 0 && (*(*cm).error).setjmp == 0
     {
@@ -7171,15 +7180,24 @@ unsafe extern "C-unwind" fn alloc_token_info(
         .tplist[0 as core::ffi::c_int as usize][0 as core::ffi::c_int as usize])
         .is_null()
     {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate token_info->tplist[0][0] at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/tokenize.h\0" as *const u8
-                as *const core::ffi::c_char,
-            135 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate token_info->tplist[0][0] at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/tokenize.h\0" as *const u8
+                    as *const core::ffi::c_char,
+                135 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate token_info->tplist[0][0]\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
 }
 #[inline]
@@ -7580,15 +7598,24 @@ unsafe extern "C-unwind" fn allocate_winner_mode_stats(
             .wrapping_mul(::core::mem::size_of::<WinnerModeStats>() as size_t),
     ) as *mut WinnerModeStats;
     if ((*mb).winner_mode_stats).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate mb->winner_mode_stats at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/encodeframe_utils.h\0" as *const u8
-                as *const core::ffi::c_char,
-            463 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate mb->winner_mode_stats at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/encodeframe_utils.h\0" as *const u8
+                    as *const core::ffi::c_char,
+                463 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate mb->winner_mode_stats\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
 }
 #[inline]
@@ -7619,15 +7646,24 @@ unsafe extern "C-unwind" fn av1_alloc_mb_data(
                 ::core::mem::size_of::<MB_RD_RECORD>() as size_t,
             ) as *mut MB_RD_RECORD;
             if ((*mb).txfm_search_info.mb_rd_record).is_null() {
-                aom_internal_error(
-                    (*cm).error,
-                    AOM_CODEC_MEM_ERROR,
-                    b"Failed to allocate mb->txfm_search_info.mb_rd_record at %s:%d\0"
-                        as *const u8 as *const core::ffi::c_char,
-                    b"upstream/aom/av1/encoder/encodeframe_utils.h\0" as *const u8
-                        as *const core::ffi::c_char,
-                    477 as core::ffi::c_int,
-                );
+                if cfg!(debug_assertions) {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate mb->txfm_search_info.mb_rd_record at %s:%d\0"
+                            as *const u8 as *const core::ffi::c_char,
+                        b"upstream/aom/av1/encoder/encodeframe_utils.h\0" as *const u8
+                            as *const core::ffi::c_char,
+                        477 as core::ffi::c_int,
+                    );
+                } else {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate mb->txfm_search_info.mb_rd_record\0"
+                            as *const u8 as *const core::ffi::c_char,
+                    );
+                }
             }
         }
         if frame_is_intra_only(cm) == 0 {
@@ -7650,15 +7686,24 @@ unsafe extern "C-unwind" fn av1_alloc_mb_data(
                 ::core::mem::size_of::<inter_modes_info>() as size_t,
             ) as *mut InterModesInfo as *mut inter_modes_info;
             if ((*mb).inter_modes_info).is_null() {
-                aom_internal_error(
-                    (*cm).error,
-                    AOM_CODEC_MEM_ERROR,
-                    b"Failed to allocate mb->inter_modes_info at %s:%d\0" as *const u8
-                        as *const core::ffi::c_char,
-                    b"upstream/aom/av1/encoder/encodeframe_utils.h\0" as *const u8
-                        as *const core::ffi::c_char,
-                    481 as core::ffi::c_int,
-                );
+                if cfg!(debug_assertions) {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate mb->inter_modes_info at %s:%d\0"
+                            as *const u8 as *const core::ffi::c_char,
+                        b"upstream/aom/av1/encoder/encodeframe_utils.h\0" as *const u8
+                            as *const core::ffi::c_char,
+                        481 as core::ffi::c_int,
+                    );
+                } else {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate mb->inter_modes_info\0" as *const u8
+                            as *const core::ffi::c_char,
+                    );
+                }
             }
         }
     }
@@ -7685,15 +7730,24 @@ unsafe extern "C-unwind" fn av1_alloc_mb_data(
             .wrapping_mul(::core::mem::size_of::<uint8_t>() as size_t),
     ) as *mut uint8_t;
     if ((*mb).e_mbd.seg_mask).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate mb->e_mbd.seg_mask at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/encodeframe_utils.h\0" as *const u8
-                as *const core::ffi::c_char,
-            488 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate mb->e_mbd.seg_mask at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/encodeframe_utils.h\0" as *const u8
+                    as *const core::ffi::c_char,
+                488 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate mb->e_mbd.seg_mask\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     allocate_winner_mode_stats(cpi, mb);
     let max_sb_square_y: core::ffi::c_int = (1 as core::ffi::c_int)
@@ -7719,15 +7773,24 @@ unsafe extern "C-unwind" fn av1_alloc_mb_data(
             .wrapping_mul(::core::mem::size_of::<tran_low_t>() as size_t),
     ) as *mut tran_low_t;
     if ((*mb).dqcoeff_buf).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate mb->dqcoeff_buf at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/encodeframe_utils.h\0" as *const u8
-                as *const core::ffi::c_char,
-            496 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate mb->dqcoeff_buf at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/encodeframe_utils.h\0" as *const u8
+                    as *const core::ffi::c_char,
+                496 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate mb->dqcoeff_buf\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
 }
 #[inline]
@@ -10132,15 +10195,24 @@ unsafe extern "C-unwind" fn encode_rd_sb(
                 ::core::mem::size_of::<SB_FIRST_PASS_STATS>() as size_t,
             ) as *mut SB_FIRST_PASS_STATS as *mut SB_FIRST_PASS_STATS;
             if ((*td).mb.sb_stats_cache).is_null() {
-                aom_internal_error(
-                    (*x).e_mbd.error_info as *mut aom_internal_error_info,
-                    AOM_CODEC_MEM_ERROR,
-                    b"Failed to allocate td->mb.sb_stats_cache at %s:%d\0" as *const u8
-                        as *const core::ffi::c_char,
-                    b"upstream/aom/av1/encoder/encodeframe.c\0" as *const u8
-                        as *const core::ffi::c_char,
-                    948 as core::ffi::c_int,
-                );
+                if cfg!(debug_assertions) {
+                    aom_internal_error(
+                        (*x).e_mbd.error_info as *mut aom_internal_error_info,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate td->mb.sb_stats_cache at %s:%d\0"
+                            as *const u8 as *const core::ffi::c_char,
+                        b"upstream/aom/av1/encoder/encodeframe.c\0" as *const u8
+                            as *const core::ffi::c_char,
+                        948 as core::ffi::c_int,
+                    );
+                } else {
+                    aom_internal_error(
+                        (*x).e_mbd.error_info as *mut aom_internal_error_info,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate td->mb.sb_stats_cache\0" as *const u8
+                            as *const core::ffi::c_char,
+                    );
+                }
             }
             av1_backup_sb_state(
                 (*td).mb.sb_stats_cache as *mut SB_FIRST_PASS_STATS,
@@ -10255,15 +10327,24 @@ unsafe extern "C-unwind" fn encode_rd_sb(
                 ::core::mem::size_of::<SB_FIRST_PASS_STATS>() as size_t,
             ) as *mut SB_FIRST_PASS_STATS as *mut SB_FIRST_PASS_STATS;
             if ((*td).mb.sb_fp_stats).is_null() {
-                aom_internal_error(
-                    (*x).e_mbd.error_info as *mut aom_internal_error_info,
-                    AOM_CODEC_MEM_ERROR,
-                    b"Failed to allocate td->mb.sb_fp_stats at %s:%d\0" as *const u8
-                        as *const core::ffi::c_char,
-                    b"upstream/aom/av1/encoder/encodeframe.c\0" as *const u8
-                        as *const core::ffi::c_char,
-                    1004 as core::ffi::c_int,
-                );
+                if cfg!(debug_assertions) {
+                    aom_internal_error(
+                        (*x).e_mbd.error_info as *mut aom_internal_error_info,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate td->mb.sb_fp_stats at %s:%d\0" as *const u8
+                            as *const core::ffi::c_char,
+                        b"upstream/aom/av1/encoder/encodeframe.c\0" as *const u8
+                            as *const core::ffi::c_char,
+                        1004 as core::ffi::c_int,
+                    );
+                } else {
+                    aom_internal_error(
+                        (*x).e_mbd.error_info as *mut aom_internal_error_info,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate td->mb.sb_fp_stats\0" as *const u8
+                            as *const core::ffi::c_char,
+                    );
+                }
             }
             av1_backup_sb_state(
                 (*td).mb.sb_fp_stats as *mut SB_FIRST_PASS_STATS,
@@ -10779,15 +10860,24 @@ pub unsafe extern "C-unwind" fn av1_alloc_tile_data(mut cpi: *mut AV1_COMP) {
             .wrapping_mul(::core::mem::size_of::<TileDataEnc>() as size_t),
     ) as *mut TileDataEnc;
     if ((*cpi).tile_data).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate cpi->tile_data at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/encodeframe.c\0" as *const u8
-                as *const core::ffi::c_char,
-            1388 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate cpi->tile_data at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/encodeframe.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                1388 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate cpi->tile_data\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     (*cpi).allocated_tiles = tile_cols * tile_rows;
     let mut tile_row: core::ffi::c_int = 0 as core::ffi::c_int;

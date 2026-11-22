@@ -9537,15 +9537,24 @@ unsafe extern "C-unwind" fn allocate_search_structs(
             .wrapping_mul(max_num_units as size_t),
     ) as *mut RestorationUnitInfo;
     if ((*rsi).unit_info).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate rsi->unit_info at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/pickrst.c\0" as *const u8
-                as *const core::ffi::c_char,
-            2005 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate rsi->unit_info at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/pickrst.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                2005 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate rsi->unit_info\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     let mut rusi: *mut RestUnitSearchInfo = 0 as *mut RestUnitSearchInfo;
     if cfg!(debug_assertions) as core::ffi::c_int != 0 && (*(*cm).error).setjmp == 0
@@ -9568,15 +9577,23 @@ unsafe extern "C-unwind" fn allocate_search_structs(
             .wrapping_mul(max_num_units as size_t),
     ) as *mut RestUnitSearchInfo;
     if rusi.is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate rusi at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/pickrst.c\0" as *const u8
-                as *const core::ffi::c_char,
-            2010 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate rusi at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/pickrst.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                2010 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate rusi\0" as *const u8 as *const core::ffi::c_char,
+            );
+        }
     }
     memset(
         rusi as *mut core::ffi::c_void,

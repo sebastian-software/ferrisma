@@ -5696,15 +5696,24 @@ unsafe extern "C-unwind" fn gm_alloc_data(
             .wrapping_mul((*gm_info).segment_map_h as size_t),
     ) as *mut uint8_t;
     if ((*gm_data).segment_map).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate gm_data->segment_map at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/global_motion_facade.h\0" as *const u8
-                as *const core::ffi::c_char,
-            28 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate gm_data->segment_map at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/global_motion_facade.h\0" as *const u8
+                    as *const core::ffi::c_char,
+                28 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate gm_data->segment_map\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     memset(
         ((*gm_data).motion_models).as_mut_ptr() as *mut core::ffi::c_void,
@@ -5734,15 +5743,24 @@ unsafe extern "C-unwind" fn gm_alloc_data(
                 .wrapping_mul(4096 as size_t),
         ) as *mut core::ffi::c_int;
         if ((*gm_data).motion_models[m as usize].inliers).is_null() {
-            aom_internal_error(
-                (*cm).error,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate gm_data->motion_models[m].inliers at %s:%d\0"
-                    as *const u8 as *const core::ffi::c_char,
-                b"upstream/aom/av1/encoder/global_motion_facade.h\0" as *const u8
-                    as *const core::ffi::c_char,
-                34 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate gm_data->motion_models[m].inliers at %s:%d\0"
+                        as *const u8 as *const core::ffi::c_char,
+                    b"upstream/aom/av1/encoder/global_motion_facade.h\0" as *const u8
+                        as *const core::ffi::c_char,
+                    34 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate gm_data->motion_models[m].inliers\0"
+                        as *const u8 as *const core::ffi::c_char,
+                );
+            }
         }
         m += 1;
     }

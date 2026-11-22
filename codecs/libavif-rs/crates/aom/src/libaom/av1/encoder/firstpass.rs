@@ -8476,15 +8476,24 @@ unsafe extern "C-unwind" fn setup_firstpass_data(
         ::core::mem::size_of::<core::ffi::c_int>() as size_t,
     ) as *mut core::ffi::c_int;
     if ((*firstpass_data).raw_motion_err_list).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate firstpass_data->raw_motion_err_list at %s:%d\0"
-                as *const u8 as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/firstpass.c\0" as *const u8
-                as *const core::ffi::c_char,
-            1102 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate firstpass_data->raw_motion_err_list at %s:%d\0"
+                    as *const u8 as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/firstpass.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                1102 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate firstpass_data->raw_motion_err_list\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     if cfg!(debug_assertions) as core::ffi::c_int != 0 && (*(*cm).error).setjmp == 0
     {
@@ -8505,15 +8514,24 @@ unsafe extern "C-unwind" fn setup_firstpass_data(
         ::core::mem::size_of::<FRAME_STATS>() as size_t,
     ) as *mut FRAME_STATS;
     if ((*firstpass_data).mb_stats).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate firstpass_data->mb_stats at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/firstpass.c\0" as *const u8
-                as *const core::ffi::c_char,
-            1105 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate firstpass_data->mb_stats at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/firstpass.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                1105 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate firstpass_data->mb_stats\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     let mut j: core::ffi::c_int = 0 as core::ffi::c_int;
     while j < unit_rows {

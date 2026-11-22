@@ -9288,14 +9288,23 @@ pub unsafe extern "C-unwind" fn av1_choose_var_based_partitioning(
     } else {};
     vt = aom_malloc(::core::mem::size_of::<VP128x128>() as size_t) as *mut VP128x128;
     if vt.is_null() {
-        aom_internal_error(
-            (*xd).error_info as *mut aom_internal_error_info,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate vt at %s:%d\0" as *const u8 as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/var_based_part.c\0" as *const u8
-                as *const core::ffi::c_char,
-            1761 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*xd).error_info as *mut aom_internal_error_info,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate vt at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/var_based_part.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                1761 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*xd).error_info as *mut aom_internal_error_info,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate vt\0" as *const u8 as *const core::ffi::c_char,
+            );
+        }
     }
     (*vt).split = (*td).vt64x64;
     if !is_key_frame && (*cpi).sf.rt_sf.part_early_exit_zeromv != 0

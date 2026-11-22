@@ -14960,15 +14960,24 @@ pub unsafe extern "C-unwind" fn av1_rc_scene_detection_onepass_rt(
                 ::core::mem::size_of::<uint64_t>() as size_t,
             ) as *mut uint64_t;
             if ((*cpi).src_sad_blk_64x64).is_null() {
-                aom_internal_error(
-                    (*cm).error,
-                    AOM_CODEC_MEM_ERROR,
-                    b"Failed to allocate cpi->src_sad_blk_64x64 at %s:%d\0" as *const u8
-                        as *const core::ffi::c_char,
-                    b"upstream/aom/av1/encoder/ratectrl.c\0" as *const u8
-                        as *const core::ffi::c_char,
-                    3370 as core::ffi::c_int,
-                );
+                if cfg!(debug_assertions) {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate cpi->src_sad_blk_64x64 at %s:%d\0"
+                            as *const u8 as *const core::ffi::c_char,
+                        b"upstream/aom/av1/encoder/ratectrl.c\0" as *const u8
+                            as *const core::ffi::c_char,
+                        3370 as core::ffi::c_int,
+                    );
+                } else {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate cpi->src_sad_blk_64x64\0" as *const u8
+                            as *const core::ffi::c_char,
+                    );
+                }
             }
             (*cpi).src_sad_blk_alloc_size = sb_cols * sb_rows;
         }

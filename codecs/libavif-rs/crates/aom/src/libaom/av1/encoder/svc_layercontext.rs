@@ -5429,15 +5429,24 @@ unsafe extern "C-unwind" fn alloc_context_buffers_ext(
                 .wrapping_mul(::core::mem::size_of::<MB_MODE_INFO_EXT_FRAME>() as size_t),
         ) as *mut MB_MODE_INFO_EXT_FRAME;
         if ((*mbmi_ext_info).frame_base).is_null() {
-            aom_internal_error(
-                (*cm).error,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate mbmi_ext_info->frame_base at %s:%d\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"upstream/aom/av1/encoder/encoder_alloc.h\0" as *const u8
-                    as *const core::ffi::c_char,
-                51 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate mbmi_ext_info->frame_base at %s:%d\0"
+                        as *const u8 as *const core::ffi::c_char,
+                    b"upstream/aom/av1/encoder/encoder_alloc.h\0" as *const u8
+                        as *const core::ffi::c_char,
+                    51 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate mbmi_ext_info->frame_base\0" as *const u8
+                        as *const core::ffi::c_char,
+                );
+            }
         }
         (*mbmi_ext_info).alloc_size = new_ext_mi_size;
     }
@@ -5553,15 +5562,24 @@ pub unsafe extern "C-unwind" fn av1_init_layer_context(cpi: *mut AV1_COMP) {
                     ::core::mem::size_of::<int8_t>() as size_t,
                 ) as *mut int8_t;
                 if ((*lc).map).is_null() {
-                    aom_internal_error(
-                        (*cm).error,
-                        AOM_CODEC_MEM_ERROR,
-                        b"Failed to allocate lc->map at %s:%d\0" as *const u8
-                            as *const core::ffi::c_char,
-                        b"upstream/aom/av1/encoder/svc_layercontext.c\0" as *const u8
-                            as *const core::ffi::c_char,
-                        77 as core::ffi::c_int,
-                    );
+                    if cfg!(debug_assertions) {
+                        aom_internal_error(
+                            (*cm).error,
+                            AOM_CODEC_MEM_ERROR,
+                            b"Failed to allocate lc->map at %s:%d\0" as *const u8
+                                as *const core::ffi::c_char,
+                            b"upstream/aom/av1/encoder/svc_layercontext.c\0" as *const u8
+                                as *const core::ffi::c_char,
+                            77 as core::ffi::c_int,
+                        );
+                    } else {
+                        aom_internal_error(
+                            (*cm).error,
+                            AOM_CODEC_MEM_ERROR,
+                            b"Failed to allocate lc->map\0" as *const u8
+                                as *const core::ffi::c_char,
+                        );
+                    }
                 }
             }
             tl += 1;
@@ -5717,15 +5735,24 @@ pub unsafe extern "C-unwind" fn av1_update_layer_context_change_config(
                     ::core::mem::size_of::<int8_t>() as size_t,
                 ) as *mut int8_t;
                 if ((*lc_0).map).is_null() {
-                    aom_internal_error(
-                        (*cm).error,
-                        AOM_CODEC_MEM_ERROR,
-                        b"Failed to allocate lc->map at %s:%d\0" as *const u8
-                            as *const core::ffi::c_char,
-                        b"upstream/aom/av1/encoder/svc_layercontext.c\0" as *const u8
-                            as *const core::ffi::c_char,
-                        167 as core::ffi::c_int,
-                    );
+                    if cfg!(debug_assertions) {
+                        aom_internal_error(
+                            (*cm).error,
+                            AOM_CODEC_MEM_ERROR,
+                            b"Failed to allocate lc->map at %s:%d\0" as *const u8
+                                as *const core::ffi::c_char,
+                            b"upstream/aom/av1/encoder/svc_layercontext.c\0" as *const u8
+                                as *const core::ffi::c_char,
+                            167 as core::ffi::c_int,
+                        );
+                    } else {
+                        aom_internal_error(
+                            (*cm).error,
+                            AOM_CODEC_MEM_ERROR,
+                            b"Failed to allocate lc->map\0" as *const u8
+                                as *const core::ffi::c_char,
+                        );
+                    }
                 }
             }
             tl_0 += 1;

@@ -7953,15 +7953,24 @@ pub unsafe extern "C-unwind" fn av1_initialize_rd_consts(mut cpi: *mut AV1_COMP)
                 ::core::mem::size_of::<IntraBCMVCosts>() as size_t,
             ) as *mut IntraBCMVCosts;
             if ((*cpi).td.dv_costs_alloc).is_null() {
-                aom_internal_error(
-                    (*cm).error,
-                    AOM_CODEC_MEM_ERROR,
-                    b"Failed to allocate cpi->td.dv_costs_alloc at %s:%d\0" as *const u8
-                        as *const core::ffi::c_char,
-                    b"upstream/aom/av1/encoder/rd.c\0" as *const u8
-                        as *const core::ffi::c_char,
-                    848 as core::ffi::c_int,
-                );
+                if cfg!(debug_assertions) {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate cpi->td.dv_costs_alloc at %s:%d\0"
+                            as *const u8 as *const core::ffi::c_char,
+                        b"upstream/aom/av1/encoder/rd.c\0" as *const u8
+                            as *const core::ffi::c_char,
+                        848 as core::ffi::c_int,
+                    );
+                } else {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate cpi->td.dv_costs_alloc\0" as *const u8
+                            as *const core::ffi::c_char,
+                    );
+                }
             }
             (*cpi).td.mb.dv_costs = (*cpi).td.dv_costs_alloc;
         }

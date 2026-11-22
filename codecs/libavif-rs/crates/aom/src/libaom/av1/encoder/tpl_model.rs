@@ -9156,15 +9156,24 @@ pub unsafe extern "C-unwind" fn av1_setup_tpl_buffers(
         ::core::mem::size_of::<TplTxfmStats>() as size_t,
     ) as *mut TplTxfmStats;
     if ((*tpl_data).txfm_stats_list).is_null() {
-        aom_internal_error(
-            &raw mut (*ppi).error as *mut aom_internal_error_info,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate tpl_data->txfm_stats_list at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/tpl_model.c\0" as *const u8
-                as *const core::ffi::c_char,
-            186 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                &raw mut (*ppi).error as *mut aom_internal_error_info,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate tpl_data->txfm_stats_list at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/tpl_model.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                186 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                &raw mut (*ppi).error as *mut aom_internal_error_info,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate tpl_data->txfm_stats_list\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     let mut frame_0: core::ffi::c_int = 0 as core::ffi::c_int;
     while frame_0 < lag_in_frames {
@@ -9189,15 +9198,24 @@ pub unsafe extern "C-unwind" fn av1_setup_tpl_buffers(
             ::core::mem::size_of::<TplDepStats>() as size_t,
         ) as *mut TplDepStats;
         if ((*tpl_data).tpl_stats_pool[frame_0 as usize]).is_null() {
-            aom_internal_error(
-                &raw mut (*ppi).error as *mut aom_internal_error_info,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate tpl_data->tpl_stats_pool[frame] at %s:%d\0"
-                    as *const u8 as *const core::ffi::c_char,
-                b"upstream/aom/av1/encoder/tpl_model.c\0" as *const u8
-                    as *const core::ffi::c_char,
-                193 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    &raw mut (*ppi).error as *mut aom_internal_error_info,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate tpl_data->tpl_stats_pool[frame] at %s:%d\0"
+                        as *const u8 as *const core::ffi::c_char,
+                    b"upstream/aom/av1/encoder/tpl_model.c\0" as *const u8
+                        as *const core::ffi::c_char,
+                    193 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    &raw mut (*ppi).error as *mut aom_internal_error_info,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate tpl_data->tpl_stats_pool[frame]\0" as *const u8
+                        as *const core::ffi::c_char,
+                );
+            }
         }
         if aom_alloc_frame_buffer(
             &raw mut *((*tpl_data).tpl_rec_pool).as_mut_ptr().offset(frame_0 as isize),
@@ -12917,15 +12935,24 @@ unsafe extern "C-unwind" fn init_tpl_stats_before_propagation(
         ::core::mem::size_of::<AomTplFrameStats>() as size_t,
     ) as *mut AomTplFrameStats;
     if ((*extrc_tpl_gop_stats).frame_stats_list).is_null() {
-        aom_internal_error(
-            error_info,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate extrc_tpl_gop_stats->frame_stats_list at %s:%d\0"
-                as *const u8 as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/tpl_model.c\0" as *const u8
-                as *const core::ffi::c_char,
-            2051 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                error_info,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate extrc_tpl_gop_stats->frame_stats_list at %s:%d\0"
+                    as *const u8 as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/tpl_model.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                2051 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                error_info,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate extrc_tpl_gop_stats->frame_stats_list\0"
+                    as *const u8 as *const core::ffi::c_char,
+            );
+        }
     }
     (*extrc_tpl_gop_stats).size = tpl_gop_frames;
     let mut frame_index: core::ffi::c_int = 0 as core::ffi::c_int;
@@ -12960,15 +12987,24 @@ unsafe extern "C-unwind" fn init_tpl_stats_before_propagation(
             ::core::mem::size_of::<AomTplBlockStats>() as size_t,
         ) as *mut AomTplBlockStats;
         if ((*this_frame_stats).block_stats_list).is_null() {
-            aom_internal_error(
-                error_info,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate this_frame_stats->block_stats_list at %s:%d\0"
-                    as *const u8 as *const core::ffi::c_char,
-                b"upstream/aom/av1/encoder/tpl_model.c\0" as *const u8
-                    as *const core::ffi::c_char,
-                2065 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    error_info,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate this_frame_stats->block_stats_list at %s:%d\0"
+                        as *const u8 as *const core::ffi::c_char,
+                    b"upstream/aom/av1/encoder/tpl_model.c\0" as *const u8
+                        as *const core::ffi::c_char,
+                    2065 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    error_info,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate this_frame_stats->block_stats_list\0"
+                        as *const u8 as *const core::ffi::c_char,
+                );
+            }
         }
         (*this_frame_stats).num_blocks = block_rows * block_cols;
         (*this_frame_stats).frame_width = frame_width;
@@ -13011,15 +13047,24 @@ unsafe extern "C-unwind" fn trim_tpl_stats(
         ::core::mem::size_of::<AomTplFrameStats>() as size_t,
     ) as *mut AomTplFrameStats;
     if new_frame_stats.is_null() {
-        aom_internal_error(
-            error_info,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate new_frame_stats at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/tpl_model.c\0" as *const u8
-                as *const core::ffi::c_char,
-            2083 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                error_info,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate new_frame_stats at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/tpl_model.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                2083 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                error_info,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate new_frame_stats\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     i = 0 as core::ffi::c_int;
     while i < new_size {
@@ -13052,15 +13097,24 @@ unsafe extern "C-unwind" fn trim_tpl_stats(
             ::core::mem::size_of::<AomTplBlockStats>() as size_t,
         ) as *mut AomTplBlockStats;
         if ((*new_frame_stats.offset(i as isize)).block_stats_list).is_null() {
-            aom_internal_error(
-                error_info,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate new_frame_stats[i].block_stats_list at %s:%d\0"
-                    as *const u8 as *const core::ffi::c_char,
-                b"upstream/aom/av1/encoder/tpl_model.c\0" as *const u8
-                    as *const core::ffi::c_char,
-                2093 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    error_info,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate new_frame_stats[i].block_stats_list at %s:%d\0"
+                        as *const u8 as *const core::ffi::c_char,
+                    b"upstream/aom/av1/encoder/tpl_model.c\0" as *const u8
+                        as *const core::ffi::c_char,
+                    2093 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    error_info,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate new_frame_stats[i].block_stats_list\0"
+                        as *const u8 as *const core::ffi::c_char,
+                );
+            }
         }
         memcpy(
             (*new_frame_stats.offset(i as isize)).block_stats_list

@@ -1906,15 +1906,24 @@ pub unsafe extern "C-unwind" fn av1_loop_filter_alloc(
                 .wrapping_mul(rows as size_t),
         ) as *mut pthread_mutex_t;
         if ((*lf_sync).mutex_[j as usize]).is_null() {
-            aom_internal_error(
-                (*cm).error,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate lf_sync->mutex_[j] at %s:%d\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"upstream/aom/av1/common/thread_common.c\0" as *const u8
-                    as *const core::ffi::c_char,
-                77 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate lf_sync->mutex_[j] at %s:%d\0" as *const u8
+                        as *const core::ffi::c_char,
+                    b"upstream/aom/av1/common/thread_common.c\0" as *const u8
+                        as *const core::ffi::c_char,
+                    77 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate lf_sync->mutex_[j]\0" as *const u8
+                        as *const core::ffi::c_char,
+                );
+            }
         }
         if !((*lf_sync).mutex_[j as usize]).is_null() {
             i = 0 as core::ffi::c_int;
@@ -1947,15 +1956,24 @@ pub unsafe extern "C-unwind" fn av1_loop_filter_alloc(
                 .wrapping_mul(rows as size_t),
         ) as *mut pthread_cond_t;
         if ((*lf_sync).cond_[j as usize]).is_null() {
-            aom_internal_error(
-                (*cm).error,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate lf_sync->cond_[j] at %s:%d\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"upstream/aom/av1/common/thread_common.c\0" as *const u8
-                    as *const core::ffi::c_char,
-                85 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate lf_sync->cond_[j] at %s:%d\0" as *const u8
+                        as *const core::ffi::c_char,
+                    b"upstream/aom/av1/common/thread_common.c\0" as *const u8
+                        as *const core::ffi::c_char,
+                    85 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate lf_sync->cond_[j]\0" as *const u8
+                        as *const core::ffi::c_char,
+                );
+            }
         }
         if !((*lf_sync).cond_[j as usize]).is_null() {
             i = 0 as core::ffi::c_int;
@@ -1988,15 +2006,24 @@ pub unsafe extern "C-unwind" fn av1_loop_filter_alloc(
         ::core::mem::size_of::<pthread_mutex_t>() as size_t,
     ) as *mut pthread_mutex_t;
     if ((*lf_sync).job_mutex).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate lf_sync->job_mutex at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/common/thread_common.c\0" as *const u8
-                as *const core::ffi::c_char,
-            94 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate lf_sync->job_mutex at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/common/thread_common.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                94 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate lf_sync->job_mutex\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     if !((*lf_sync).job_mutex).is_null() {
         pthread_mutex_init((*lf_sync).job_mutex, 0 as *const pthread_mutexattr_t);
@@ -2020,15 +2047,24 @@ pub unsafe extern "C-unwind" fn av1_loop_filter_alloc(
             .wrapping_mul(::core::mem::size_of::<LFWorkerData>() as size_t),
     ) as *mut LFWorkerData;
     if ((*lf_sync).lfdata).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate lf_sync->lfdata at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/common/thread_common.c\0" as *const u8
-                as *const core::ffi::c_char,
-            101 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate lf_sync->lfdata at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/common/thread_common.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                101 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate lf_sync->lfdata\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     (*lf_sync).num_workers = num_workers;
     let mut j_0: core::ffi::c_int = 0 as core::ffi::c_int;
@@ -2053,15 +2089,24 @@ pub unsafe extern "C-unwind" fn av1_loop_filter_alloc(
                 .wrapping_mul(rows as size_t),
         ) as *mut core::ffi::c_int;
         if ((*lf_sync).cur_sb_col[j_0 as usize]).is_null() {
-            aom_internal_error(
-                (*cm).error,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate lf_sync->cur_sb_col[j] at %s:%d\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"upstream/aom/av1/common/thread_common.c\0" as *const u8
-                    as *const core::ffi::c_char,
-                106 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate lf_sync->cur_sb_col[j] at %s:%d\0" as *const u8
+                        as *const core::ffi::c_char,
+                    b"upstream/aom/av1/common/thread_common.c\0" as *const u8
+                        as *const core::ffi::c_char,
+                    106 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate lf_sync->cur_sb_col[j]\0" as *const u8
+                        as *const core::ffi::c_char,
+                );
+            }
         }
         j_0 += 1;
     }
@@ -2086,15 +2131,24 @@ pub unsafe extern "C-unwind" fn av1_loop_filter_alloc(
             .wrapping_mul(2 as size_t),
     ) as *mut AV1LfMTInfo;
     if ((*lf_sync).job_queue).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate lf_sync->job_queue at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/common/thread_common.c\0" as *const u8
-                as *const core::ffi::c_char,
-            110 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate lf_sync->job_queue at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/common/thread_common.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                110 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate lf_sync->job_queue\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     (*lf_sync).sync_range = get_sync_range(width);
 }
@@ -2176,15 +2230,24 @@ pub unsafe extern "C-unwind" fn av1_alloc_cdef_sync(
             ::core::mem::size_of::<pthread_mutex_t>() as size_t,
         ) as *mut pthread_mutex_t;
         if ((*cdef_sync).mutex_).is_null() {
-            aom_internal_error(
-                (*cm).error,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate cdef_sync->mutex_ at %s:%d\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"upstream/aom/av1/common/thread_common.c\0" as *const u8
-                    as *const core::ffi::c_char,
-                158 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate cdef_sync->mutex_ at %s:%d\0" as *const u8
+                        as *const core::ffi::c_char,
+                    b"upstream/aom/av1/common/thread_common.c\0" as *const u8
+                        as *const core::ffi::c_char,
+                    158 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate cdef_sync->mutex_\0" as *const u8
+                        as *const core::ffi::c_char,
+                );
+            }
         }
         if !((*cdef_sync).mutex_).is_null() {
             pthread_mutex_init((*cdef_sync).mutex_, 0 as *const pthread_mutexattr_t);
@@ -2852,15 +2915,24 @@ pub unsafe extern "C-unwind" fn av1_loop_restoration_alloc(
                 .wrapping_mul(num_rows_lr as size_t),
         ) as *mut pthread_mutex_t;
         if ((*lr_sync).mutex_[j as usize]).is_null() {
-            aom_internal_error(
-                (*cm).error,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate lr_sync->mutex_[j] at %s:%d\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"upstream/aom/av1/common/thread_common.c\0" as *const u8
-                    as *const core::ffi::c_char,
-                600 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate lr_sync->mutex_[j] at %s:%d\0" as *const u8
+                        as *const core::ffi::c_char,
+                    b"upstream/aom/av1/common/thread_common.c\0" as *const u8
+                        as *const core::ffi::c_char,
+                    600 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate lr_sync->mutex_[j]\0" as *const u8
+                        as *const core::ffi::c_char,
+                );
+            }
         }
         if !((*lr_sync).mutex_[j as usize]).is_null() {
             i = 0 as core::ffi::c_int;
@@ -2893,15 +2965,24 @@ pub unsafe extern "C-unwind" fn av1_loop_restoration_alloc(
                 .wrapping_mul(num_rows_lr as size_t),
         ) as *mut pthread_cond_t;
         if ((*lr_sync).cond_[j as usize]).is_null() {
-            aom_internal_error(
-                (*cm).error,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate lr_sync->cond_[j] at %s:%d\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"upstream/aom/av1/common/thread_common.c\0" as *const u8
-                    as *const core::ffi::c_char,
-                608 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate lr_sync->cond_[j] at %s:%d\0" as *const u8
+                        as *const core::ffi::c_char,
+                    b"upstream/aom/av1/common/thread_common.c\0" as *const u8
+                        as *const core::ffi::c_char,
+                    608 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate lr_sync->cond_[j]\0" as *const u8
+                        as *const core::ffi::c_char,
+                );
+            }
         }
         if !((*lr_sync).cond_[j as usize]).is_null() {
             i = 0 as core::ffi::c_int;
@@ -2934,15 +3015,24 @@ pub unsafe extern "C-unwind" fn av1_loop_restoration_alloc(
         ::core::mem::size_of::<pthread_mutex_t>() as size_t,
     ) as *mut pthread_mutex_t;
     if ((*lr_sync).job_mutex).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate lr_sync->job_mutex at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/common/thread_common.c\0" as *const u8
-                as *const core::ffi::c_char,
-            617 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate lr_sync->job_mutex at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/common/thread_common.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                617 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate lr_sync->job_mutex\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     if !((*lr_sync).job_mutex).is_null() {
         pthread_mutex_init((*lr_sync).job_mutex, 0 as *const pthread_mutexattr_t);
@@ -2966,15 +3056,24 @@ pub unsafe extern "C-unwind" fn av1_loop_restoration_alloc(
         ::core::mem::size_of::<LRWorkerData>() as size_t,
     ) as *mut LRWorkerData;
     if ((*lr_sync).lrworkerdata).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate lr_sync->lrworkerdata at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/common/thread_common.c\0" as *const u8
-                as *const core::ffi::c_char,
-            624 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate lr_sync->lrworkerdata at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/common/thread_common.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                624 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate lr_sync->lrworkerdata\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     (*lr_sync).num_workers = num_workers;
     let mut worker_idx: core::ffi::c_int = 0 as core::ffi::c_int;
@@ -3012,15 +3111,24 @@ pub unsafe extern "C-unwind" fn av1_loop_restoration_alloc(
             if ((*((*lr_sync).lrworkerdata).offset(worker_idx as isize)).rst_tmpbuf)
                 .is_null()
             {
-                aom_internal_error(
-                    (*cm).error,
-                    AOM_CODEC_MEM_ERROR,
-                    b"Failed to allocate lr_sync->lrworkerdata[worker_idx].rst_tmpbuf at %s:%d\0"
-                        as *const u8 as *const core::ffi::c_char,
-                    b"upstream/aom/av1/common/thread_common.c\0" as *const u8
-                        as *const core::ffi::c_char,
-                    630 as core::ffi::c_int,
-                );
+                if cfg!(debug_assertions) {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate lr_sync->lrworkerdata[worker_idx].rst_tmpbuf at %s:%d\0"
+                            as *const u8 as *const core::ffi::c_char,
+                        b"upstream/aom/av1/common/thread_common.c\0" as *const u8
+                            as *const core::ffi::c_char,
+                        630 as core::ffi::c_int,
+                    );
+                } else {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate lr_sync->lrworkerdata[worker_idx].rst_tmpbuf\0"
+                            as *const u8 as *const core::ffi::c_char,
+                    );
+                }
             }
             if cfg!(debug_assertions) as core::ffi::c_int != 0
                 && (*(*cm).error).setjmp == 0
@@ -3044,15 +3152,24 @@ pub unsafe extern "C-unwind" fn av1_loop_restoration_alloc(
             );
             if ((*((*lr_sync).lrworkerdata).offset(worker_idx as isize)).rlbs).is_null()
             {
-                aom_internal_error(
-                    (*cm).error,
-                    AOM_CODEC_MEM_ERROR,
-                    b"Failed to allocate lr_sync->lrworkerdata[worker_idx].rlbs at %s:%d\0"
-                        as *const u8 as *const core::ffi::c_char,
-                    b"upstream/aom/av1/common/thread_common.c\0" as *const u8
-                        as *const core::ffi::c_char,
-                    632 as core::ffi::c_int,
-                );
+                if cfg!(debug_assertions) {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate lr_sync->lrworkerdata[worker_idx].rlbs at %s:%d\0"
+                            as *const u8 as *const core::ffi::c_char,
+                        b"upstream/aom/av1/common/thread_common.c\0" as *const u8
+                            as *const core::ffi::c_char,
+                        632 as core::ffi::c_int,
+                    );
+                } else {
+                    aom_internal_error(
+                        (*cm).error,
+                        AOM_CODEC_MEM_ERROR,
+                        b"Failed to allocate lr_sync->lrworkerdata[worker_idx].rlbs\0"
+                            as *const u8 as *const core::ffi::c_char,
+                    );
+                }
             }
         } else {
             let fresh9 = &raw mut (*((*lr_sync).lrworkerdata).offset(worker_idx as isize))
@@ -3087,15 +3204,24 @@ pub unsafe extern "C-unwind" fn av1_loop_restoration_alloc(
                 .wrapping_mul(num_rows_lr as size_t),
         ) as *mut core::ffi::c_int;
         if ((*lr_sync).cur_sb_col[j_0 as usize]).is_null() {
-            aom_internal_error(
-                (*cm).error,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate lr_sync->cur_sb_col[j] at %s:%d\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"upstream/aom/av1/common/thread_common.c\0" as *const u8
-                    as *const core::ffi::c_char,
-                643 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate lr_sync->cur_sb_col[j] at %s:%d\0" as *const u8
+                        as *const core::ffi::c_char,
+                    b"upstream/aom/av1/common/thread_common.c\0" as *const u8
+                        as *const core::ffi::c_char,
+                    643 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    (*cm).error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate lr_sync->cur_sb_col[j]\0" as *const u8
+                        as *const core::ffi::c_char,
+                );
+            }
         }
         j_0 += 1;
     }
@@ -3119,15 +3245,24 @@ pub unsafe extern "C-unwind" fn av1_loop_restoration_alloc(
             .wrapping_mul(num_planes as size_t),
     ) as *mut AV1LrMTInfo;
     if ((*lr_sync).job_queue).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate lr_sync->job_queue at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/common/thread_common.c\0" as *const u8
-                as *const core::ffi::c_char,
-            647 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate lr_sync->job_queue at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/common/thread_common.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                647 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate lr_sync->job_queue\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     (*lr_sync).sync_range = get_lr_sync_range(width);
 }

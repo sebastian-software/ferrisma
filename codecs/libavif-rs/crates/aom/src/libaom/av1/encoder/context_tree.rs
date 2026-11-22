@@ -5431,15 +5431,24 @@ pub unsafe extern "C-unwind" fn av1_setup_shared_coeff_buffer(
                 .wrapping_mul(::core::mem::size_of::<tran_low_t>() as size_t),
         ) as *mut tran_low_t;
         if ((*shared_bufs).coeff_buf[i as usize]).is_null() {
-            aom_internal_error(
-                error,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate shared_bufs->coeff_buf[i] at %s:%d\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"upstream/aom/av1/encoder/context_tree.c\0" as *const u8
-                    as *const core::ffi::c_char,
-                46 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate shared_bufs->coeff_buf[i] at %s:%d\0"
+                        as *const u8 as *const core::ffi::c_char,
+                    b"upstream/aom/av1/encoder/context_tree.c\0" as *const u8
+                        as *const core::ffi::c_char,
+                    46 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate shared_bufs->coeff_buf[i]\0" as *const u8
+                        as *const core::ffi::c_char,
+                );
+            }
         }
         if cfg!(debug_assertions) as core::ffi::c_int != 0 && (*error).setjmp == 0 {
             crate::platform::ferrisma_assert_fail(
@@ -5460,15 +5469,24 @@ pub unsafe extern "C-unwind" fn av1_setup_shared_coeff_buffer(
                 .wrapping_mul(::core::mem::size_of::<tran_low_t>() as size_t),
         ) as *mut tran_low_t;
         if ((*shared_bufs).qcoeff_buf[i as usize]).is_null() {
-            aom_internal_error(
-                error,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate shared_bufs->qcoeff_buf[i] at %s:%d\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"upstream/aom/av1/encoder/context_tree.c\0" as *const u8
-                    as *const core::ffi::c_char,
-                48 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate shared_bufs->qcoeff_buf[i] at %s:%d\0"
+                        as *const u8 as *const core::ffi::c_char,
+                    b"upstream/aom/av1/encoder/context_tree.c\0" as *const u8
+                        as *const core::ffi::c_char,
+                    48 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate shared_bufs->qcoeff_buf[i]\0" as *const u8
+                        as *const core::ffi::c_char,
+                );
+            }
         }
         if cfg!(debug_assertions) as core::ffi::c_int != 0 && (*error).setjmp == 0 {
             crate::platform::ferrisma_assert_fail(
@@ -5489,15 +5507,24 @@ pub unsafe extern "C-unwind" fn av1_setup_shared_coeff_buffer(
                 .wrapping_mul(::core::mem::size_of::<tran_low_t>() as size_t),
         ) as *mut tran_low_t;
         if ((*shared_bufs).dqcoeff_buf[i as usize]).is_null() {
-            aom_internal_error(
-                error,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate shared_bufs->dqcoeff_buf[i] at %s:%d\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"upstream/aom/av1/encoder/context_tree.c\0" as *const u8
-                    as *const core::ffi::c_char,
-                50 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate shared_bufs->dqcoeff_buf[i] at %s:%d\0"
+                        as *const u8 as *const core::ffi::c_char,
+                    b"upstream/aom/av1/encoder/context_tree.c\0" as *const u8
+                        as *const core::ffi::c_char,
+                    50 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    error,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate shared_bufs->dqcoeff_buf[i]\0" as *const u8
+                        as *const core::ffi::c_char,
+                );
+            }
         }
         i += 1;
     }
@@ -5554,15 +5581,23 @@ match crate::jump::value_scope(((error.jmp).as_mut_ptr()).cast(), || {
             as *mut PICK_MODE_CONTEXT,
     );
     if ctx.is_null() {
-        aom_internal_error(
-            &raw mut error as *mut aom_internal_error_info,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate ctx at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/context_tree.c\0" as *const u8
-                as *const core::ffi::c_char,
-            78 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                &raw mut error as *mut aom_internal_error_info,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate ctx at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/context_tree.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                78 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                &raw mut error as *mut aom_internal_error_info,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate ctx\0" as *const u8 as *const core::ffi::c_char,
+            );
+        }
     }
     (*ctx).rd_mode_is_ready = 0 as core::ffi::c_int;
     let num_planes: core::ffi::c_int = av1_num_planes(cm) as core::ffi::c_int;
@@ -5587,15 +5622,24 @@ match crate::jump::value_scope(((error.jmp).as_mut_ptr()).cast(), || {
         ::core::mem::size_of::<uint8_t>() as size_t,
     ) as *mut uint8_t;
     if ((*ctx).tx_type_map).is_null() {
-        aom_internal_error(
-            &raw mut error as *mut aom_internal_error_info,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate ctx->tx_type_map at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/encoder/context_tree.c\0" as *const u8
-                as *const core::ffi::c_char,
-            86 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                &raw mut error as *mut aom_internal_error_info,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate ctx->tx_type_map at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/encoder/context_tree.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                86 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                &raw mut error as *mut aom_internal_error_info,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate ctx->tx_type_map\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     (*ctx).num_4x4_blk = num_blk;
     let mut i: core::ffi::c_int = 0 as core::ffi::c_int;
@@ -5622,15 +5666,24 @@ match crate::jump::value_scope(((error.jmp).as_mut_ptr()).cast(), || {
                 .wrapping_mul(::core::mem::size_of::<uint16_t>() as size_t),
         ) as *mut uint16_t;
         if ((*ctx).eobs[i as usize]).is_null() {
-            aom_internal_error(
-                &raw mut error as *mut aom_internal_error_info,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate ctx->eobs[i] at %s:%d\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"upstream/aom/av1/encoder/context_tree.c\0" as *const u8
-                    as *const core::ffi::c_char,
-                94 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    &raw mut error as *mut aom_internal_error_info,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate ctx->eobs[i] at %s:%d\0" as *const u8
+                        as *const core::ffi::c_char,
+                    b"upstream/aom/av1/encoder/context_tree.c\0" as *const u8
+                        as *const core::ffi::c_char,
+                    94 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    &raw mut error as *mut aom_internal_error_info,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate ctx->eobs[i]\0" as *const u8
+                        as *const core::ffi::c_char,
+                );
+            }
         }
         if cfg!(debug_assertions) as core::ffi::c_int != 0 && error.setjmp == 0 {
             crate::platform::ferrisma_assert_fail(
@@ -5650,15 +5703,24 @@ match crate::jump::value_scope(((error.jmp).as_mut_ptr()).cast(), || {
             (num_blk as size_t).wrapping_mul(::core::mem::size_of::<uint8_t>() as size_t),
         ) as *mut uint8_t;
         if ((*ctx).txb_entropy_ctx[i as usize]).is_null() {
-            aom_internal_error(
-                &raw mut error as *mut aom_internal_error_info,
-                AOM_CODEC_MEM_ERROR,
-                b"Failed to allocate ctx->txb_entropy_ctx[i] at %s:%d\0" as *const u8
-                    as *const core::ffi::c_char,
-                b"upstream/aom/av1/encoder/context_tree.c\0" as *const u8
-                    as *const core::ffi::c_char,
-                97 as core::ffi::c_int,
-            );
+            if cfg!(debug_assertions) {
+                aom_internal_error(
+                    &raw mut error as *mut aom_internal_error_info,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate ctx->txb_entropy_ctx[i] at %s:%d\0" as *const u8
+                        as *const core::ffi::c_char,
+                    b"upstream/aom/av1/encoder/context_tree.c\0" as *const u8
+                        as *const core::ffi::c_char,
+                    97 as core::ffi::c_int,
+                );
+            } else {
+                aom_internal_error(
+                    &raw mut error as *mut aom_internal_error_info,
+                    AOM_CODEC_MEM_ERROR,
+                    b"Failed to allocate ctx->txb_entropy_ctx[i]\0" as *const u8
+                        as *const core::ffi::c_char,
+                );
+            }
         }
         i += 1;
     }
@@ -5687,15 +5749,24 @@ match crate::jump::value_scope(((error.jmp).as_mut_ptr()).cast(), || {
                         .wrapping_mul(::core::mem::size_of::<uint8_t>() as size_t),
                 ) as *mut uint8_t;
                 if ((*ctx).color_index_map[i_0 as usize]).is_null() {
-                    aom_internal_error(
-                        &raw mut error as *mut aom_internal_error_info,
-                        AOM_CODEC_MEM_ERROR,
-                        b"Failed to allocate ctx->color_index_map[i] at %s:%d\0"
-                            as *const u8 as *const core::ffi::c_char,
-                        b"upstream/aom/av1/encoder/context_tree.c\0" as *const u8
-                            as *const core::ffi::c_char,
-                        105 as core::ffi::c_int,
-                    );
+                    if cfg!(debug_assertions) {
+                        aom_internal_error(
+                            &raw mut error as *mut aom_internal_error_info,
+                            AOM_CODEC_MEM_ERROR,
+                            b"Failed to allocate ctx->color_index_map[i] at %s:%d\0"
+                                as *const u8 as *const core::ffi::c_char,
+                            b"upstream/aom/av1/encoder/context_tree.c\0" as *const u8
+                                as *const core::ffi::c_char,
+                            105 as core::ffi::c_int,
+                        );
+                    } else {
+                        aom_internal_error(
+                            &raw mut error as *mut aom_internal_error_info,
+                            AOM_CODEC_MEM_ERROR,
+                            b"Failed to allocate ctx->color_index_map[i]\0" as *const u8
+                                as *const core::ffi::c_char,
+                        );
+                    }
                 }
             } else {
                 (*ctx).color_index_map[i_0 as usize] = 0 as *mut uint8_t;

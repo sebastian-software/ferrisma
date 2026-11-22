@@ -5,7 +5,10 @@ The C sources stay unchanged; only their presentation to C2Rust changes:
 
 * no NDEBUG and CONFIG_DEBUG 1 for every profile, with a forced include
   (`tools/aom_one_source/prelude.h`) and a neutral <assert.h> that turn
-  `assert(e)` into a check gated by `ferrisma_debug_assertions()`;
+  `assert(e)` into a check gated by `ferrisma_debug_assertions()`; the
+  Debug-only blocks of `debug_blocks.json` become `#[cfg(debug_assertions)]`
+  and its `profile_macros` (defined once per CONFIG_DEBUG value) choose
+  their profile's statement by `ferrisma_debug_assertions()`;
 * a small neutral system-header set (`tools/aom_one_source/include`, searched
   instead of the macOS SDK or glibc headers) with one spelling of every
   fixed-width type, and platform shims for the few C-library details that
@@ -157,6 +160,81 @@ DEBUG_BLOCKS = json.loads((PREPARED / 'debug_blocks.json').read_text())
 DIRECTIVE = re.compile(r'^\s*#\s*(if|ifdef|ifndef|elif|else|endif)\b')
 
 
+def directive_branches(lines, start, name):
+    """The #else and #endif lines of the conditional opened at `start`."""
+    depth, middle = 0, None
+    for index in range(start, len(lines)):
+        match = DIRECTIVE.match(lines[index])
+        if not match:
+            continue
+        kind = match.group(1)
+        if kind in ('if', 'ifdef', 'ifndef'):
+            depth += 1
+        elif kind == 'endif':
+            depth -= 1
+            if depth == 0:
+                return middle, index
+        elif depth == 1:
+            if kind == 'elif' or middle is not None:
+                raise SystemExit(f'{name}:{start + 1}: unexpected #{kind} in a profile macro')
+            middle = index
+    raise SystemExit(f'{name}:{start + 1}: unterminated profile macro')
+
+
+def profile_macro(lines, item, name):
+    """Present a macro that the original defines twice, under `#if CONFIG_DEBUG`
+    and under `#else`, as one definition that chooses at run time.
+
+    The two bodies keep their common leading and trailing lines; the lines in
+    which they differ become
+    `if (ferrisma_debug_assertions()) { Debug } else { Release }`, which is
+    `if cfg!(debug_assertions)` in Rust, the profile switch of the asserts.
+    So the one translation gives each Rust profile the original profile's
+    statement. Blank lines after the definition keep the line count."""
+    start = item['line'] - 1
+    if lines[start].strip() != item['expect']:
+        raise SystemExit(f'{name}:{item["line"]}: expected {item["expect"]!r}, found {lines[start]!r}')
+    middle, end = directive_branches(lines, start, name)
+    if middle is None:
+        raise SystemExit(f'{name}:{item["line"]}: a profile macro needs an #else branch')
+
+    def body(first, last):
+        result = [re.sub(r'\s*\\$', '', line).rstrip() for line in lines[first:last]]
+        continued = [line.rstrip().endswith('\\') for line in lines[first:last]]
+        if not result or continued[-1] or not all(continued[:-1]) or not result[0].startswith('#define '):
+            raise SystemExit(f'{name}:{first + 1}: a profile branch must be one macro definition')
+        return result
+
+    debug, release = body(start + 1, middle), body(middle + 1, end)
+    prefix = 0
+    while prefix < min(len(debug), len(release)) and debug[prefix] == release[prefix]:
+        prefix += 1
+    def depth(part):
+        return sum(text.count('(') - text.count(')') for text in (re.sub(r'"(\\.|[^"\\])*"', '""', line)
+                                                                  for line in part))
+
+    # The split falls between whole statements: the shared head ends one
+    # (or is a control head such as `if (!lval)`), each differing part is
+    # balanced.
+    while prefix > 1 and (depth(debug[1:prefix]) or not re.search(r'[;{})]$', debug[prefix - 1])):
+        prefix -= 1
+    suffix = 0
+    while (suffix < min(len(debug), len(release)) - prefix
+           and debug[-1 - suffix] == release[-1 - suffix]):
+        suffix += 1
+    while suffix and (depth(debug[prefix:len(debug) - suffix]) or depth(release[prefix:len(release) - suffix])):
+        suffix -= 1
+    if prefix == 0 or suffix == 0:
+        raise SystemExit(f'{name}:{item["line"]}: the profile branches must define the same macro')
+    merged = (debug[:prefix] + ['  if (ferrisma_debug_assertions()) {'] + debug[prefix:len(debug) - suffix]
+              + ['  } else {'] + release[prefix:len(release) - suffix] + ['  }'] + debug[len(debug) - suffix:])
+    presented = [line + ' \\' for line in merged[:-1]] + [merged[-1]]
+    span = end - start + 1
+    if len(presented) > span:
+        raise SystemExit(f'{name}:{item["line"]}: the presented macro is longer than the original')
+    lines[start:end + 1] = presented + [''] * (span - len(presented))
+
+
 def prepared_sources(source_root, directory):
     """Copies of the files with Debug-only blocks, presented per debug_blocks.json.
 
@@ -168,10 +246,12 @@ def prepared_sources(source_root, directory):
     by_file = {}
     for block in DEBUG_BLOCKS['blocks']:
         by_file.setdefault(block['file'], []).append(block)
-    for statement in DEBUG_BLOCKS.get('statements', []):
+    for statement in DEBUG_BLOCKS.get('statements', []) + DEBUG_BLOCKS.get('profile_macros', []):
         by_file.setdefault(statement['file'], [])
     for name, blocks in by_file.items():
         lines = (source_root / name).read_text().split('\n')
+        for item in [m for m in DEBUG_BLOCKS.get('profile_macros', []) if m['file'] == name]:
+            profile_macro(lines, item, name)
         for statement in [s for s in DEBUG_BLOCKS.get('statements', []) if s['file'] == name]:
             first, last = statement['line'] - 1, statement['last_line'] - 1
             if lines[first].strip() != statement['expect'] or not lines[last].rstrip().endswith(';'):

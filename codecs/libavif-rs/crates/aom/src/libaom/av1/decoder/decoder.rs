@@ -2066,15 +2066,23 @@ match crate::jump::value_scope((((*pbi).error.jmp).as_mut_ptr()).cast(), || {
         ::core::mem::size_of::<FRAME_CONTEXT>() as size_t,
     ) as *mut FRAME_CONTEXT;
     if ((*cm).fc).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate cm->fc at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/decoder/decoder.c\0" as *const u8
-                as *const core::ffi::c_char,
-            111 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate cm->fc at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/decoder/decoder.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                111 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate cm->fc\0" as *const u8 as *const core::ffi::c_char,
+            );
+        }
     }
     if cfg!(debug_assertions) as core::ffi::c_int != 0 && (*(*cm).error).setjmp == 0
     {
@@ -2095,15 +2103,24 @@ match crate::jump::value_scope((((*pbi).error.jmp).as_mut_ptr()).cast(), || {
         ::core::mem::size_of::<FRAME_CONTEXT>() as size_t,
     ) as *mut FRAME_CONTEXT;
     if ((*cm).default_frame_context).is_null() {
-        aom_internal_error(
-            (*cm).error,
-            AOM_CODEC_MEM_ERROR,
-            b"Failed to allocate cm->default_frame_context at %s:%d\0" as *const u8
-                as *const core::ffi::c_char,
-            b"upstream/aom/av1/decoder/decoder.c\0" as *const u8
-                as *const core::ffi::c_char,
-            114 as core::ffi::c_int,
-        );
+        if cfg!(debug_assertions) {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate cm->default_frame_context at %s:%d\0" as *const u8
+                    as *const core::ffi::c_char,
+                b"upstream/aom/av1/decoder/decoder.c\0" as *const u8
+                    as *const core::ffi::c_char,
+                114 as core::ffi::c_int,
+            );
+        } else {
+            aom_internal_error(
+                (*cm).error,
+                AOM_CODEC_MEM_ERROR,
+                b"Failed to allocate cm->default_frame_context\0" as *const u8
+                    as *const core::ffi::c_char,
+            );
+        }
     }
     memset(
         (*cm).fc as *mut core::ffi::c_void,
