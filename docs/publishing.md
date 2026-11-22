@@ -398,9 +398,9 @@ self-review is accepted for 1.0, and there is no independent legal review
 before 1.0; the scope of the patent grants for the translated ports stays
 named as not assessed ([license audit](license-audit.md)). The
 `simd_helpers` item is moot: the package left the root `Cargo.lock` with
-rav1e. **Not done yet**, after the rename: regenerate the inventory and the
-license bundles, and re-bind the JPEG source-bound evidence to the reviewed
-files.
+rav1e. The inventory and the license bundles were regenerated after the
+rename (2026-11-21), and the JPEG source-bound evidence was re-reviewed and
+re-bound on 2026-11-22 ([license audit](license-audit.md#re-review-of-2026-11-22)).
 
 ## Evidence (2026-11-14)
 
