@@ -81,3 +81,70 @@ fn cli_writes_avif_through_libavif_at_either_depth() {
     }
     std::fs::remove_file(output).unwrap();
 }
+
+/// `--avif-decoder=` (since 2026-11-22): the dav1d port decodes AVIF input
+/// by default, `libaom` selects the reference decoder, both write the same
+/// bytes and the report names the one that ran. With other input the
+/// nondefault choice is refused as a usage error (ADR-0042), not ignored.
+#[test]
+fn cli_reads_avif_with_dav1d_by_default_and_libaom_on_request() {
+    let avif = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/orientation/avif-6.avif"
+    );
+    let jpeg = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/sample.jpg");
+    let output = |tag: &str| {
+        std::env::temp_dir().join(format!(
+            "ferrisma-avif-decoder-{}-{tag}.webp",
+            std::process::id()
+        ))
+    };
+    let run = |input: &str, tag: &str, flags: &[&str]| {
+        Command::new(env!("CARGO_BIN_EXE_ferrisma"))
+            .args([
+                input,
+                output(tag).to_str().unwrap(),
+                "8",
+                "8",
+                "--assume-srgb",
+            ])
+            .args(flags)
+            .output()
+            .unwrap()
+    };
+    let decoder = |result: &std::process::Output| {
+        assert!(
+            result.status.success(),
+            "{}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+        String::from_utf8_lossy(&result.stdout)
+            .split_whitespace()
+            .find_map(|field| field.strip_prefix("decoder="))
+            .expect("the report names the decoder")
+            .to_owned()
+    };
+    assert_eq!(decoder(&run(avif, "default", &[])), "libavif/dav1d");
+    assert_eq!(
+        decoder(&run(avif, "dav1d", &["--avif-decoder=dav1d"])),
+        "libavif/dav1d"
+    );
+    assert_eq!(
+        decoder(&run(avif, "libaom", &["--avif-decoder=libaom"])),
+        "libavif/aom"
+    );
+    let default = std::fs::read(output("default")).unwrap();
+    assert_eq!(default, std::fs::read(output("dav1d")).unwrap());
+    assert_eq!(default, std::fs::read(output("libaom")).unwrap());
+    let refused = run(jpeg, "jpeg", &["--avif-decoder=libaom"]);
+    assert_eq!(refused.status.code(), Some(2));
+    assert!(
+        String::from_utf8_lossy(&refused.stderr)
+            .contains("avif_decoder applies to AVIF input only"),
+        "{}",
+        String::from_utf8_lossy(&refused.stderr)
+    );
+    for tag in ["default", "dav1d", "libaom", "jpeg"] {
+        let _ = std::fs::remove_file(output(tag));
+    }
+}

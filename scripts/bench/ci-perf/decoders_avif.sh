@@ -21,7 +21,8 @@
 #   c-aom:t1 / c-aom:tN            C libavif + libaom release, D6 scope
 #   c-dav1d-v1:t1 / c-dav1d-v1:tN  C libavif + dav1d, asm masked to the v1.0 scope
 #   c-dav1d:t1 / c-dav1d:tN        C libavif + dav1d, unrestricted asm
-#   port-aom-reader:t1             ferrisma-avif-read (the engine's path; 8-bit only)
+#   port-aom-reader:t1             ferrisma-avif-read with libaom selected (the
+#                                  engine's path until 2026-11-22; 8-bit only)
 #   port-aom:t1 / port-aom:tN      libavif-rs decode_codec aom
 #   port-dav1d:t1 / port-dav1d:tN  libavif-rs decode_codec dav1d
 # tN = maxThreads = online CPUs. Timer: elapsed_ms = decoder create + parse +
@@ -140,7 +141,7 @@ for size in $SIZES; do
       "$(candidate port-dav1d:t1 "$o-port-dav1d-t1.ppm" '{}' "$P_CODEC" dav1d 1 "$in" "$o-port-dav1d-t1.ppm")"
       "$(candidate port-dav1d:tN "$o-port-dav1d-tN.ppm" '{}' "$P_CODEC" dav1d "$NCPU" "$in" "$o-port-dav1d-tN.ppm")"
     )
-    [[ "${class%-*}" == 8 ]] && cands+=("$(candidate port-aom-reader:t1 "$o-port-aom-reader-t1.ppm" '{}' "$P_READER" "$in" "$o-port-aom-reader-t1.ppm")")
+    [[ "${class%-*}" == 8 ]] && cands+=("$(candidate port-aom-reader:t1 "$o-port-aom-reader-t1.ppm" '{}' "$P_READER" "$in" "$o-port-aom-reader-t1.ppm" libaom)")
     python3 -I - "$WORK/plan-$size-$class.json" "$REPS" "$WARMUPS" "avif/decode/photo$size-$class" "${cands[@]}" <<'EOF'
 import json, sys
 out, reps, warmups, group, *candidates = sys.argv[1:]

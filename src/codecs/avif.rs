@@ -1,4 +1,6 @@
-//! Read-only AVIF bridge via the workspace libavif port's libaom decoder.
+//! Read-only AVIF bridge via the workspace libavif port, decoding AV1 with
+//! the chosen [`AvifDecoder`]: the dav1d port by default since 2026-11-22,
+//! or the libaom port, the reference decoder every read used before.
 //!
 //! The constructor only parses container metadata and the AV1 sequence
 //! header, so callers can apply their color policy before any pixel decode.
@@ -17,7 +19,7 @@
 //! as the source orientation and applied by the pipeline (ADR-0019).
 //! 10/12-bit input is emitted as normalized float samples.
 
-use ferrisma_avif_read::{Decoder, ReadError, Samples};
+use ferrisma_avif_read::{Codec, Decoder, ReadError, Samples};
 
 use super::avif_meta::{MetaError, PrimaryProperties, SequenceColor, primary_properties};
 use crate::color::AlphaMode;
@@ -30,6 +32,14 @@ use crate::error::Error;
 use crate::geometry::{Rect, Size};
 use crate::memory::MemoryBudget;
 use crate::orientation::Orientation;
+use crate::pipeline::AvifDecoder;
+
+fn codec(decoder: AvifDecoder) -> Codec {
+    match decoder {
+        AvifDecoder::Dav1d => Codec::Dav1d,
+        AvifDecoder::Libaom => Codec::Libaom,
+    }
+}
 
 fn bridge_error(error: ReadError) -> Error {
     match error {
@@ -121,7 +131,11 @@ impl<'a> AvifSource<'a> {
     /// allocates a pixel surface. This is not an RSS limit: parsing and the
     /// later decode can still allocate opaque codec memory.
     #[allow(clippy::too_many_lines)] // The checks stay in the order they run.
-    pub(crate) fn new_bounded(bytes: &'a [u8], max_pixels: u64) -> Result<Self, Error> {
+    pub(crate) fn new_bounded(
+        bytes: &'a [u8],
+        max_pixels: u64,
+        avif_decoder: AvifDecoder,
+    ) -> Result<Self, Error> {
         let properties = primary_properties(bytes).map_err(|error| match error {
             MetaError::Allocation => Error::AllocationFailed,
             MetaError::ProfileTooLarge => Error::UnsupportedColorEncoding,
@@ -148,7 +162,8 @@ impl<'a> AvifSource<'a> {
                 limit: max_pixels,
             });
         }
-        let (decoder, decoded_info) = Decoder::parse(bytes, max_pixels).map_err(bridge_error)?;
+        let (decoder, decoded_info) =
+            Decoder::parse_with(bytes, max_pixels, codec(avif_decoder)).map_err(bridge_error)?;
         let coded_pixels = u64::from(decoded_info.sequence.max_width)
             .checked_mul(u64::from(decoded_info.sequence.max_height))
             .ok_or(Error::GeometryOverflow)?;
@@ -247,7 +262,7 @@ impl<'a> AvifSource<'a> {
 
     #[cfg(test)]
     pub(crate) fn new(bytes: &'a [u8]) -> Result<Self, Error> {
-        Self::new_bounded(bytes, 100_000_000)
+        Self::new_bounded(bytes, 100_000_000, AvifDecoder::default())
     }
 }
 
@@ -558,7 +573,15 @@ mod tests {
 
     /// Every sample of a full-frame read, as bit patterns.
     fn decode_all(bytes: &[u8], threads: usize) -> Vec<u32> {
-        let mut source = AvifSource::new(bytes).unwrap();
+        decode_all_with(bytes, threads, crate::pipeline::AvifDecoder::default())
+    }
+
+    fn decode_all_with(
+        bytes: &[u8],
+        threads: usize,
+        avif_decoder: crate::pipeline::AvifDecoder,
+    ) -> Vec<u32> {
+        let mut source = AvifSource::new_bounded(bytes, 100_000_000, avif_decoder).unwrap();
         source.set_decode_threads(threads);
         let size = source.info().size;
         let mut samples = Vec::new();
@@ -619,5 +642,44 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// The engine rows of the dav1d default equal those of the libaom
+    /// reference on the engine's AVIF fixtures above 8 bits, with alpha and
+    /// with orientation (owner decision of 2026-11-22; the reader crate
+    /// compares the whole repository corpus at the bridge).
+    #[test]
+    fn dav1d_default_rows_equal_the_libaom_reference() {
+        use crate::pipeline::AvifDecoder;
+        let root = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/");
+        let mut checked = 0;
+        for directory in ["avif-deep", "avif-color", "orientation", "parity"] {
+            let mut files: Vec<_> = std::fs::read_dir(format!("{root}{directory}"))
+                .unwrap()
+                .map(|entry| entry.unwrap().path())
+                .filter(|path| path.extension().is_some_and(|ext| ext == "avif"))
+                .collect();
+            files.sort();
+            for path in files {
+                let bytes = std::fs::read(&path).unwrap();
+                if AvifSource::new(&bytes).is_err() {
+                    // Refused before any pixel decode, alike for both.
+                    assert!(
+                        AvifSource::new_bounded(&bytes, 100_000_000, AvifDecoder::Libaom).is_err(),
+                        "{}",
+                        path.display()
+                    );
+                    continue;
+                }
+                assert_eq!(
+                    decode_all_with(&bytes, 1, AvifDecoder::Dav1d),
+                    decode_all_with(&bytes, 1, AvifDecoder::Libaom),
+                    "{}",
+                    path.display()
+                );
+                checked += 1;
+            }
+        }
+        assert!(checked >= 16, "only {checked} fixtures decoded");
     }
 }

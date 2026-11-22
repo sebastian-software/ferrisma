@@ -11,7 +11,7 @@
 // shared helpers are compiled but unused.
 #![allow(dead_code, unused_imports)]
 
-use ferrisma::pipeline::Threads;
+use ferrisma::pipeline::{AvifDecoder, ProcessingErrorKind, Threads};
 use ferrisma::pipeline::{AvifOptions, OutputGeometry, OutputSettings};
 use ferrisma::pipeline::{
     EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat, InputProfilePolicy,
@@ -103,12 +103,45 @@ fn jpeg_xl_reader_is_reported() {
     assert_eq!(report.decoder_backend, "libjxl");
 }
 
+/// The AVIF reader names its AV1 decoder: dav1d by default since
+/// 2026-11-22 (owner decision; `libavif/aom` for every AVIF read before),
+/// libaom when selected as the reference.
 #[cfg(feature = "avif-read")]
 #[test]
 fn avif_reader_is_reported() {
     let avif = include_bytes!("fixtures/orientation/avif-6.avif");
     let report = read(avif, ImageFormat::Avif, srgb()).report;
+    assert_eq!(report.decoder_backend, "libavif/dav1d");
+    let report = read(
+        avif,
+        ImageFormat::Avif,
+        srgb().with_avif_decoder(AvifDecoder::Libaom),
+    )
+    .report;
     assert_eq!(report.decoder_backend, "libavif/aom");
+    let report = read(
+        avif,
+        ImageFormat::Avif,
+        srgb().with_avif_decoder(AvifDecoder::Dav1d),
+    )
+    .report;
+    assert_eq!(report.decoder_backend, "libavif/dav1d");
+}
+
+/// An AV1 decoder choice other than the default has no effect on a JPEG
+/// and is refused before decoding (ADR-0042, options without effect).
+#[cfg(feature = "jpeg-read")]
+#[test]
+fn avif_decoder_choice_for_other_input_is_refused() {
+    let jpeg = include_bytes!("fixtures/decoder-work/paris-420.jpg");
+    let options = srgb()
+        .with_output(OutputSettings::default_for(OutputFormat::WebP))
+        .with_avif_decoder(AvifDecoder::Libaom);
+    let error = transcode_with(jpeg, ImageFormat::Jpeg, &options, &Discard).unwrap_err();
+    assert_eq!(error.kind(), ProcessingErrorKind::InvalidOptions);
+    // The default is no choice of its own and is accepted.
+    let options = options.with_avif_decoder(AvifDecoder::Dav1d);
+    transcode_with(jpeg, ImageFormat::Jpeg, &options, &Discard).unwrap();
 }
 
 /// One small JPEG through a built-in writer; `speed` applies to AVIF only.

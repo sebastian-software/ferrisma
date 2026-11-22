@@ -7,8 +7,8 @@
 //! ```
 //!
 //! The benchmark uses it for the `port-dav1d` column: the port's dav1d,
-//! which the engine does not select (ADR-0031), with the kernels rebuilt so
-//! far (ADR 0062). Settings: the primary item, one image, nearest chroma
+//! with the kernels rebuilt so far (ADR 0062); the engine's default AVIF
+//! decoder since 2026-11-22 (ADR-0031 amendment; it selected libaom before). Settings: the primary item, one image, nearest chroma
 //! upsampling to 8-bit RGB. `elapsed_ms` covers decoder creation, parse,
 //! decode and YUV to RGB; reading the input and writing the PPM are outside.
 use std::time::Instant;

@@ -657,6 +657,40 @@ impl KernelLevelReason {
     }
 }
 
+/// The AV1 decoder of the AVIF reader (since 2026-11-22). Both are the
+/// workspace's own ports, run through the workspace libavif port, which
+/// selects the chosen one explicitly and never falls back to the other.
+///
+/// [`AvifDecoder::Dav1d`] is the default for 1.0 (owner decision of
+/// 2026-11-22, ADR-0025 and ADR-0031 amendments): it decodes in about half
+/// the time and with less than half the peak memory of the libaom port, and
+/// its output is bit-identical to the libaom port's and to stock dav1d's;
+/// a test decodes every AVIF file of the repository with both and compares
+/// them. [`AvifDecoder::Libaom`] is the AV1 reference decoder, which every
+/// AVIF read used until 2026-11-22; it stays selectable as the verified
+/// reference, for verification and bug reports. The choice is reported in
+/// [`ProcessingReport::decoder_backend`]. Choosing libaom for an input that
+/// is not AVIF is refused with [`ProcessingErrorKind::InvalidOptions`]
+/// (ADR-0042, options without effect).
+///
+/// ```
+/// use ferrisma::pipeline::{AvifDecoder, OutputGeometry, TransformOptions};
+///
+/// let options = TransformOptions::new(OutputGeometry::Exact { width: 64, height: 64 });
+/// assert_eq!(options.avif_decoder(), AvifDecoder::Dav1d);
+/// let reference = options.with_avif_decoder(AvifDecoder::Libaom);
+/// assert_eq!(reference.avif_decoder(), AvifDecoder::Libaom);
+/// ```
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum AvifDecoder {
+    /// The workspace dav1d port; the default.
+    #[default]
+    Dav1d,
+    /// The workspace libaom port, the AV1 reference decoder.
+    Libaom,
+}
+
 /// How many threads a stage uses: chosen by the engine, or an explicit
 /// count (problem 9 of ADR-0040, since 2026-11-16; before, a `usize` with
 /// `0` for "automatic"). A count above [`Threads::MAX`] is refused with
@@ -838,6 +872,7 @@ pub struct TransformOptions {
     kernel_level_ceiling: Option<KernelLevel>,
     transform_threads: Threads,
     profile_policy: InputProfilePolicy,
+    avif_decoder: AvifDecoder,
     encoder_threads: Threads,
     max_managed_bytes: usize,
     max_input_bytes: usize,
@@ -854,7 +889,8 @@ impl TransformOptions {
     /// The options for `geometry` with every other setting at its default:
     /// AVIF at `avifenc`'s defaults, no crop, Lanczos3, the `f32` executor,
     /// the default kernel ceiling, automatic transform threads, one encoder
-    /// thread, the strict color policy, and the default limits (a 2 GiB
+    /// thread, the strict color policy, the dav1d AVIF decoder, and the
+    /// default limits (a 2 GiB
     /// managed budget, 64 MiB of input, 100 million input pixels, 256 MiB of
     /// output).
     #[must_use]
@@ -868,6 +904,7 @@ impl TransformOptions {
             kernel_level_ceiling: None,
             transform_threads: Threads::Automatic,
             profile_policy: InputProfilePolicy::Strict,
+            avif_decoder: AvifDecoder::Dav1d,
             encoder_threads: Threads::ONE,
             // 2 GiB since 2026-11-16 (owner decision, ADR-0004 amendment);
             // 1 GiB from 2026-11-15, 256 MiB before.
@@ -940,6 +977,13 @@ impl TransformOptions {
         /// How missing or rendered ICC color is handled; default
         /// [`InputProfilePolicy::Strict`].
         profile_policy, with_profile_policy: InputProfilePolicy
+    );
+    setting!(
+        /// The AV1 decoder for AVIF input; default [`AvifDecoder::Dav1d`]
+        /// (since 2026-11-22; every AVIF read used libaom before). A
+        /// nondefault value with an input that is not AVIF is refused with
+        /// [`ProcessingErrorKind::InvalidOptions`].
+        avif_decoder, with_avif_decoder: AvifDecoder
     );
     setting!(
         /// AV1 encoder threads: [`Threads::Automatic`] means the available
@@ -1152,8 +1196,10 @@ pub struct ProcessingReport {
     pub transform_threads: usize,
     /// The decoder that read the input and produced the source pixels
     /// (issue #217). Built-in readers: `"libjpeg-turbo"` (JPEG),
-    /// `"libwebp"` (WebP), `"libjxl"` (JPEG XL) and `"libavif/aom"`
-    /// (AVIF), one per format. Each names the original codec the reader is
+    /// `"libwebp"` (WebP), `"libjxl"` (JPEG XL), and for AVIF
+    /// `"libavif/dav1d"` (the default [`AvifDecoder::Dav1d`], since
+    /// 2026-11-22) or `"libavif/aom"` ([`AvifDecoder::Libaom`]; every AVIF
+    /// read until 2026-11-22). Each names the original codec the reader is
     /// a port of, not the Rust package, so a renamed package does not change
     /// it (owner decision of 2026-11-16; until then the package names
     /// `"libjpeg-turbo-rs"`, `"libwebp-rs"`, `"libjxl-rs"` and
@@ -1478,9 +1524,12 @@ fn open_source<'a>(
     bytes: &'a [u8],
     format: ImageFormat,
     max_pixels: u64,
+    avif_decoder: AvifDecoder,
 ) -> Result<Box<dyn DecodeSource + 'a>, ProcessingError> {
     #[cfg(not(any(feature = "avif-read", feature = "webp-read", feature = "jpeg-xl-read")))]
     let _ = max_pixels;
+    #[cfg(not(feature = "avif-read"))]
+    let _ = avif_decoder;
     match format {
         ImageFormat::Jpeg => {
             #[cfg(feature = "jpeg-read")]
@@ -1532,7 +1581,9 @@ fn open_source<'a>(
             #[cfg(feature = "avif-read")]
             {
                 Ok(Box::new(crate::codecs::avif::AvifSource::new_bounded(
-                    bytes, max_pixels,
+                    bytes,
+                    max_pixels,
+                    avif_decoder,
                 )?))
             }
             #[cfg(not(feature = "avif-read"))]
@@ -1548,14 +1599,18 @@ fn open_source<'a>(
 }
 
 /// The name reported in [`ProcessingReport::decoder_backend`] for the reader
-/// that [`open_source`] opens for `format`; only called after that reader
-/// was opened, so the name always belongs to a compiled backend.
-fn decoder_backend(format: ImageFormat) -> &'static str {
+/// that [`open_source`] opens for `format`, with the AV1 decoder chosen for
+/// AVIF; only called after that reader was opened, so the name always
+/// belongs to a compiled backend.
+fn decoder_backend(format: ImageFormat, avif_decoder: AvifDecoder) -> &'static str {
     match format {
         ImageFormat::Jpeg => "libjpeg-turbo",
         ImageFormat::WebP => "libwebp",
         ImageFormat::JpegXl => "libjxl",
-        ImageFormat::Avif => "libavif/aom",
+        ImageFormat::Avif => match avif_decoder {
+            AvifDecoder::Dav1d => "libavif/dav1d",
+            AvifDecoder::Libaom => "libavif/aom",
+        },
     }
 }
 
@@ -1701,7 +1756,13 @@ fn inspect_headers(
             "header inspection supports JPEG and WebP",
         ));
     }
-    let source = open_source(encoded, format, limits.max_input_pixels)?;
+    // Header inspection reads JPEG and WebP only; no AV1 decoder runs.
+    let source = open_source(
+        encoded,
+        format,
+        limits.max_input_pixels,
+        AvifDecoder::default(),
+    )?;
     let info = source.info();
     let stored = info.size;
     if u64::from(stored.width) * u64::from(stored.height) > limits.max_input_pixels {
@@ -1989,6 +2050,13 @@ fn run(
             "input byte/pixel limits must be nonzero",
         ));
     }
+    // The AV1 decoder choice has no effect on other inputs (ADR-0042).
+    if format != ImageFormat::Avif && options.avif_decoder != AvifDecoder::default() {
+        return Err(ProcessingError::new(
+            ProcessingErrorKind::InvalidOptions,
+            "avif_decoder applies to AVIF input only",
+        ));
+    }
     if encoded.len() > options.max_input_bytes {
         return Err(ProcessingError::new(
             ProcessingErrorKind::InputLimitExceeded,
@@ -1999,7 +2067,12 @@ fn run(
         WorkingPrecision::F64Reference => 1,
         WorkingPrecision::F32 => transform_threads,
     };
-    let mut source = open_source(encoded, format, options.max_input_pixels)?;
+    let mut source = open_source(
+        encoded,
+        format,
+        options.max_input_pixels,
+        options.avif_decoder,
+    )?;
     // Alpha is processed straight (ADR-0014); an association the reader
     // did not convert is refused under every policy, before color, rather
     // than guessed (ADR-0015).
@@ -2010,7 +2083,7 @@ fn run(
     {
         return Err(Error::UnsupportedAlphaMode.into());
     }
-    let decoder_backend = decoder_backend(format);
+    let decoder_backend = decoder_backend(format, options.avif_decoder);
     source.set_decode_threads(transform_threads);
     // ADR-0042 D2: what the codec reads past, from its headers, and hidden
     // color under zero alpha, noticed in the rows it delivers.

@@ -71,8 +71,13 @@ fn avif_decoder_rejects_truncated_container_without_panicking() {
     }
     assert_eq!(budget.snapshot().live, 0);
 
-    assert!(AvifSource::new_bounded(&file, 1).is_err());
-    assert!(AvifSource::new_bounded(&file, 16).is_ok());
+    for decoder in [
+        crate::pipeline::AvifDecoder::Dav1d,
+        crate::pipeline::AvifDecoder::Libaom,
+    ] {
+        assert!(AvifSource::new_bounded(&file, 1, decoder).is_err());
+        assert!(AvifSource::new_bounded(&file, 16, decoder).is_ok());
+    }
 }
 
 #[cfg(all(feature = "jpeg-read", feature = "avif-write"))]

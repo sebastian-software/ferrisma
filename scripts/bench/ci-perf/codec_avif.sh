@@ -23,7 +23,8 @@
 #                  rebuilt dav1d kernels are gated against (libavif-rs ADR 0062)
 #   port-dav1d:t1  decode context: the port's dav1d (libavif-rs
 #                  examples/decode_codec.rs, codec chosen by name, one thread)
-#                  with the kernels rebuilt so far; not the engine's path
+#                  with the kernels rebuilt so far; the engine's default
+#                  decoder since 2026-11-22 (not the engine's path before)
 #
 # Operations (all candidates in ONE interleaved plan per operation and size):
 #   encode  still encode at the engine's libavif defaults (src/pipeline.rs,
@@ -39,7 +40,10 @@
 #           of SIZES) are encoded, to keep the job inside its time budget.
 #   decode  AV1 still decode to 8-bit RGB with nearest chroma upsampling, the
 #           way the engine reads AVIF (crates/ferrisma-avif-read: libavif
-#           port with its AOM decoder, libavif's default maxThreads=1).
+#           port with its default decoder, libavif's default maxThreads=1;
+#           the dav1d port since 2026-11-22, the AOM decoder before, so
+#           `port` decode records before and after that day measure
+#           different decoders).
 #           C: a small libavif driver written to $WORK (decode_still.c below)
 #           with `-c aom` and `-c dav1d`; port:
 #           crates/ferrisma-avif-read/examples/decode_still.rs. Both print
