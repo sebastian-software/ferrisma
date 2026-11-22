@@ -9,11 +9,17 @@ name: v1.0 CI performance
 # Runs only on throwaway bench/** branches or by hand; no secrets. A pushed
 # head commit whose message contains "[bench codecs-only]" skips the engine
 # matrix; "[bench decoders]" runs only the AVIF decoder comparison
-# (docs/benchmarks/v1.0-decoders-2026-11-22.md) on the x86-64 Linux runners.
+# (docs/benchmarks/v1.0-decoders-2026-11-22.md) on the x86-64 Linux runners,
+# as does a dispatch with the input only=decoders.
 on:
   push:
     branches: ["bench/**"]
   workflow_dispatch:
+    inputs:
+      only:
+        description: "'decoders' runs only the AVIF decoder comparison (as the [bench decoders] tag)"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -56,7 +62,7 @@ jobs:
 
   engine:
     needs: corpus
-    if: ${{ !contains(github.event.head_commit.message, '[bench codecs-only]') && !contains(github.event.head_commit.message, '[bench decoders]') }}
+    if: ${{ !contains(github.event.head_commit.message, '[bench codecs-only]') && !contains(github.event.head_commit.message, '[bench decoders]') && inputs.only != 'decoders' }}
     strategy:
       fail-fast: false
       matrix:
@@ -122,7 +128,7 @@ jobs:
 
   codec:
     needs: corpus
-    if: ${{ !contains(github.event.head_commit.message, '[bench decoders]') }}
+    if: ${{ !contains(github.event.head_commit.message, '[bench decoders]') && inputs.only != 'decoders' }}
     strategy:
       fail-fast: false
       matrix:
@@ -172,7 +178,7 @@ jobs:
 
   decoders:
     needs: corpus
-    if: ${{ contains(github.event.head_commit.message, '[bench decoders]') }}
+    if: ${{ contains(github.event.head_commit.message, '[bench decoders]') || inputs.only == 'decoders' }}
     strategy:
       fail-fast: false
       matrix:
