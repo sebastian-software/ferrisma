@@ -41,11 +41,12 @@ the release-chain evidence):
   again only `ferrisma-libjpeg-turbo` is `REVIEW` (metadata `REVIEW`, notices
   `FOUND_NOT_REVIEWED`).
 
-**Still not done:** re-bind the JPEG source-bound evidence to the reviewed
-files (finding 2). The generator links it only when the tracked source hash
-matches the reviewed one (`f5ba795a…`, 2026-11-11); the port's sources have
-changed since, so the bundle reports the notices as found, not reviewed.
-That needs a new review of the JPEG port's files, not a regeneration.
+**JPEG source-bound evidence re-bound on 2026-11-22** (finding 2): the
+changes to the port between the reviewed tree (`f5ba795a…`, 2026-11-11) and
+`main` at `6896c2ef` (`a985272a…`) were reviewed file by file
+([below](#re-review-of-2026-11-22)); the generator links the evidence again.
+The metadata item stays `REVIEW` (IJG is not allowlisted) and the notices
+stay `FOUND_NOT_REVIEWED`, as the tool reports for every package.
 
 ## Automated metadata screening
 
@@ -127,8 +128,11 @@ source and legal review remains open for all entries.
 
 The `libjpeg-turbo-rs` 0.1.0 workspace package declares `IJG AND Zlib`.
 The tracked source hash calculated by the bundle generator is
+`a985272ac08c3098122aab0eabd25f1a945333f539c0e153f93d4f1d68311211`
+for the version re-reviewed on 2026-11-22 (`main` at `6896c2ef`); the first
+review, on 2026-11-11, covered
 `f5ba795a3d447b0adcaeef7e239cf45fb5495665529c5f11c9d7de599c0afca2`
-for the version reviewed on 2026-11-11; its [import record](../codecs/libjpeg-turbo-rs/IMPORT.json)
+(the tree of `b085a6d2`). Its [import record](../codecs/libjpeg-turbo-rs/IMPORT.json)
 identifies the port revision. [README.ijg](../codecs/libjpeg-turbo-rs/README.ijg)
 contains the IJG source redistribution, executable documentation, warranty,
 liability, and publicity conditions. Upstream [LICENSE.md](../codecs/libjpeg-turbo-rs/LICENSE.md)
@@ -145,6 +149,62 @@ replace a per-distribution audit, or resolve patent questions. The tool links
 this evidence only when package, version, expression, and tracked source hash
 all match. IJG continues to be `REVIEW`, including in strict mode, until the
 remaining independent review is completed.
+
+#### Re-review of 2026-11-22
+
+The hash covers every tracked file under `codecs/libjpeg-turbo-rs`
+(contents, and the `upstream/libjpeg-turbo` submodule's commit). Recomputed
+per commit with the generator's algorithm: `f5ba795a…` is the tree of
+`b085a6d2` (2026-11-11) and holds until `90b638dd` (`3531c839…`, the
+Ferrixel-to-Ferrisma rename), then `45b51caf…`, `997b451e…` at `73ee503e`
+(package rename, #207) and `a985272a…` from `e85ad0b9` to `6896c2ef`.
+`git diff b085a6d2 6896c2ef -- codecs/libjpeg-turbo-rs`: 35 files, 10 added,
+25 modified, none deleted. Unchanged: the upstream submodule
+(`7b499378…`, libjpeg-turbo 3.2.1), `README.ijg`, `LICENSE.md`,
+`upstream.json`, `IMPORT.json`, `build.rs`. No line naming a copyright,
+license, permission or warranty was added or removed in `src/`.
+
+- **Translated sources** (`src/jdcoefct.rs`, `jdcolext.rs`, `jdmrgext.rs`,
+  `jdsample.rs`, `jdhuff.rs`, `jidctint_neon.rs`, and Clippy attributes in
+  `jdapimin.rs`, `jdmarker.rs`, `jdphuff.rs`, `jidctflt.rs`): restructurings
+  of the same upstream functions (fixed MCU block array, table arrays,
+  row splitting, the Neon islow pass-2 helpers as macros, an inlined Huffman
+  fast path) and lint attributes. Each file keeps its upstream header; the
+  Neon file keeps the zlib notice. The added helpers are marked "Not an
+  upstream item" and are additions under the port's terms (#136). No code
+  from another project.
+- **Package metadata** (`Cargo.toml`): name `ferrisma-libjpeg-turbo`,
+  repository and homepage, `rust-version`, and the `include` list of
+  2026-11-14. `license = "IJG AND Zlib"` is unchanged. `cargo package --list`
+  gives 75 files with `README.ijg`, `LICENSE.md` and `upstream.json`; no
+  `upstream/`, `fuzz/`, `tools/` or `tests/` file is packaged.
+- **Fuzz target** (`fuzz/`, ADR 0009 of the port; not packaged, not a
+  workspace member, `publish = false`, `license = "IJG AND Zlib"`): project
+  code with no upstream header, an addition under the port's terms (#136).
+  `fuzz/src/lib.rs` is written against the port's safe API; it names
+  upstream's `fuzz/decompress.cc` (BSD-3-Clause, D. R. Commander) as its
+  model and reuses its test parameters (one-megapixel limit, the
+  `{32, 16, 65, 59}` crop for 97 x 75 outputs, the choice of pixel
+  formats), not its code. `fuzz/Cargo.lock` adds `libfuzzer-sys` for fuzz
+  builds only. `fuzz/seed_corpus.py` copies upstream's test images into an
+  untracked corpus and excludes the T.83 data, which ITU does not license
+  for redistribution.
+- **Tests and tools** (`tests/support/wp2.rs`, `wp5.rs`: lint attributes;
+  `tools/check.py`, new `tools/partition.py` and `partition_test.py`,
+  `tools/units.json`): project tooling, not packaged, no third-party code.
+- **Documentation** (README, AGENTS, ADRs 0001 to 0007 and 0009): text
+  only; the README's license statements are unchanged.
+
+Result: no new or changed upstream file, no copied third-party code, no
+generated code, no header or notice removed; the package expression still
+describes every packaged file. Tools on the branch (macOS ARM64 host):
+`scripts/test_production_license_bundle.py` and
+`scripts/test_audit_licenses.py` pass; `scripts/audit-licenses.py` 48 crates,
+one `REVIEW` (`ferrisma-libjpeg-turbo`); `production-license-bundle.py
+--features cli` for `aarch64-apple-darwin` and `x86_64-unknown-linux-gnu`,
+27 packages each, generate and `--verify` exit 0, with `source_review`
+linked for `ferrisma-libjpeg-turbo`. Any later change under
+`codecs/libjpeg-turbo-rs` changes the hash and unlinks the evidence again.
 
 ## v1.0 distribution inventory (2026-11-12)
 
@@ -228,7 +288,8 @@ Workspace packages in the `cli` graph and their declared terms:
    `90b638dd` (`3531c839ba87e6acb563b5fe04644d88aa55332343196a9b88d455f78a01ea59`),
    which predates this branch; this branch does not modify the port. The
    generator therefore no longer links the JPEG evidence. The pin was not
-   refreshed: the changed files need review before the evidence is re-bound.
+   refreshed: the changed files need review before the evidence is re-bound. *2026-11-22:* re-reviewed and re-bound
+   to `a985272a…` ([re-review](#re-review-of-2026-11-22)).
 3. **`simd_helpers` 0.1.0** still has no copyright or permission notice in its
    published package or upstream revision. It is a proc-macro of `rav1e` and
    reaches `avif-write` and `cli`. Either obtain a notice from its author,

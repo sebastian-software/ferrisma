@@ -331,6 +331,13 @@ calls them through RTCD everywhere.
 
 ## Amendment log
 
+- 2026-11-22 — The check mode prints each difference with a unified diff
+  from the committed text to the tool's output (`setup_rtcd_internal`
+  statement by statement, a caller unit as its target's projection, a
+  dispatch header or `TRANSLATION.json` as text). On the one tree (ADR 0063)
+  it passes at `6896c2ef` with 631 functions on macOS and 420 on Linux;
+  edits to a setup block, a caller and the overlay in a copy of the tree
+  each fail with their diff.
 - 2026-11-16 — `tools/enable_aom_dispatch.py` has a check mode, run in CI;
   the open work of the 2026-11-15 amendment is closed there.
 - 2026-11-15 — Owner decision on O8: owned code changes only through
