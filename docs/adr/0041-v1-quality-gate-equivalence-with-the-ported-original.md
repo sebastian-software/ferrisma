@@ -558,7 +558,7 @@ and what is not done yet.
   decoder. Its 1.0 evidence is bit identity with the libaom port (every
   input, every host; continuously on every committed AVIF file in CI) and
   with stock dav1d (994/994), a recorded exception to ADR-0025 point 1;
-  Argon conformance is a follow-up (ADR-0031, amendment of 2026-11-22).
+  Argon conformance is a follow-up ([#267](https://github.com/sebastian-software/ferrisma/issues/267); ADR-0031, amendment of 2026-11-22).
 
 ## Review when
 

@@ -269,7 +269,7 @@ Evidence per format:
   unchanged); `codecs::avif::tests::dav1d_default_rows_equal_the_libaom_reference`
   for the engine rows; and stock dav1d, 994 of 994 (libavif-rs ADR 0062).
   Argon AV1 conformance was not run: a recorded exception to ADR-0025
-  point 1 (owner decision of 2026-11-22), with Argon as a follow-up.
+  point 1 (owner decision of 2026-11-22), with Argon as a follow-up ([#267](https://github.com/sebastian-software/ferrisma/issues/267)).
 
 ### AVIF input: transforms, animation, channels and caps
 

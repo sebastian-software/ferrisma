@@ -225,7 +225,7 @@ an AVIF feature needs another platform.
   the dav1d port, which the 2026-11-12, 2026-11-15 and 2026-11-16 entries
   kept, is set aside for this decoder by the owner; its 1.0 evidence is
   bit identity with the libaom reference and with stock dav1d, and Argon
-  conformance is a follow-up (GitHub issue "AVIF: Argon conformance
+  conformance is a follow-up ([#267](https://github.com/sebastian-software/ferrisma/issues/267), "AVIF: Argon conformance
   evidence for the dav1d default decoder"). **Implemented** on
   `v1/avif-dav1d-default`: `ferrisma-avif-read` takes a `Codec`
   (`Dav1d`, the default, or `Libaom`) and sets it explicitly, never
