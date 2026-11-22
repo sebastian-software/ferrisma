@@ -300,12 +300,60 @@ pub fn webp_filters(
     filter_fn(data, width, height, stride, filtered_data);
 }
 
+/// Whether two byte slices share a byte, from their addresses: the check of
+/// `webp_unfilters` that the previous row is not the output row (`prev ==
+/// out` in C).
+fn overlap(a: &[u8], b: &[u8]) -> bool {
+    let (a, b) = (a.as_ptr_range(), b.as_ptr_range());
+    a.start < b.end && b.start < a.end
+}
+
 // upstream: src/dsp/filters.c WebPUnfilters
 /// Reconstructs one row with the unfilter of `filter`, `WebPUnfilters[filter]`.
 ///
+/// # Aliasing
+///
+/// C lets the previous row be the output row (`prev == out`), and there
+/// upstream's `GradientUnfilter_SSE2` and `GradientUnfilter_C` give different
+/// bytes. That form is unreachable here: `prev` is a shared and `out` an
+/// exclusive borrow, so safe Rust cannot pass the same row as both, and the
+/// call does not compile:
+///
+/// ```compile_fail,E0502
+/// use webp::dsp::dsp::WEBP_FILTER_TYPE;
+/// use webp::dsp::filters::webp_unfilters;
+///
+/// let input = [1_u8; 9];
+/// let mut row = [2_u8; 9];
+/// // The previous row is the output row: rejected by the borrow checker.
+/// webp_unfilters(WEBP_FILTER_TYPE::WEBP_FILTER_GRADIENT, Some(&row), &input, &mut row, 9);
+/// ```
+///
+/// A caller that wants C's in-place form passes a copy of the row as `prev`,
+/// which gives `GradientUnfilter_C`'s bytes (the same call with a copy
+/// compiles):
+///
+/// ```
+/// use webp::dsp::dsp::WEBP_FILTER_TYPE;
+/// use webp::dsp::filters::webp_unfilters;
+///
+/// let input = [1_u8; 9];
+/// let mut row = [2_u8; 9];
+/// let prev = row;
+/// webp_unfilters(WEBP_FILTER_TYPE::WEBP_FILTER_GRADIENT, Some(&prev), &input, &mut row, 9);
+/// assert_eq!(row, [3, 4, 5, 6, 7, 8, 9, 10, 11]);
+/// ```
+///
+/// The crate's own callers, the alpha decoder's rows (`src/dec/alpha_dec.rs`
+/// and `src/dec/vp8l_dec.rs`), take `prev` and `out` from the two halves of
+/// one `split_at_mut`, and debug builds assert here that the two rows do not
+/// overlap; `tests/wp4_unfilter_aliasing.rs` decodes through both callers
+/// and guards their sources.
+///
 /// # Panics
 ///
-/// Panics for a value outside the table.
+/// Panics for a value outside the table, and in debug builds when `prev` and
+/// `out` overlap.
 pub fn webp_unfilters(
     filter: WEBP_FILTER_TYPE,
     prev: Option<&[u8]>,
@@ -313,6 +361,10 @@ pub fn webp_unfilters(
     out: &mut [u8],
     width: i32,
 ) {
+    debug_assert!(
+        prev.is_none_or(|prev| !overlap(prev, out)),
+        "the previous row overlaps the output row"
+    );
     #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
     {
         let features = crate::dsp::cpu::features();

@@ -109,14 +109,25 @@ fn script(simd: bool) -> (String, String) {
                     if alias == 2 && !has_prev {
                         continue;
                     }
-                    // `GradientUnfilter_SSE2` reads `prev[i - 1]` after it
-                    // wrote `out[i - 1]`, so with `prev == out` it differs
-                    // from `GradientUnfilter_C`, which reads `prev[i]` first.
-                    // Upstream's callers never pass `prev == out` (the
-                    // previous row is another row), and a Rust slice cannot
-                    // alias the output, so against `release-simd` (ADR 0008)
-                    // the gradient runs without that form.
-                    if simd && alias == 2 && filter == 3 {
+                    // Excluded from the `release-simd` comparison on x86
+                    // because the form is unreachable through the port's API
+                    // (owner decision of 2026-11-22, ADR 0008 amendment log):
+                    // the gradient unfilter with the previous row as the
+                    // output row (`prev == out`), where upstream's
+                    // `GradientUnfilter_SSE2` reads `top[-1]` after it wrote
+                    // the same byte and so differs from `GradientUnfilter_C`.
+                    // Proven by the `compile_fail` doctest of `webp_unfilters`
+                    // (safe Rust cannot pass one row as `prev` and `out`) and
+                    // by `tests/wp4_unfilter_aliasing.rs` (the alpha decoder
+                    // is the only caller and takes the two rows from the
+                    // halves of one `split_at_mut`; source guards on the
+                    // callers, the dispatch and its `unsafe`; decodes through
+                    // both callers with the debug assertion that the rows do
+                    // not overlap). The scalar comparison with `release`, and
+                    // `release-simd` on AArch64, where upstream keeps the C
+                    // gradient unfilter, keep the form.
+                    let x86 = cfg!(any(target_arch = "x86", target_arch = "x86_64"));
+                    if simd && x86 && alias == 2 && filter == 3 {
                         continue;
                     }
                     let prev = rng.bytes(width);
