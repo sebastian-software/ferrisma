@@ -10,7 +10,7 @@ use std::process::ExitCode;
 use std::str::FromStr;
 
 use crate::pipeline::{
-    AvifOptions, BitDepth, ChromaSubsampling, Crop, EncoderBackend, ImageFormat,
+    AvifDecoder, AvifOptions, BitDepth, ChromaSubsampling, Crop, EncoderBackend, ImageFormat,
     InputProfilePolicy, JpegXlLossless, JpegXlLossy, JpegXlOptions, KernelLevel, Output,
     OutputFormat, OutputGeometry, OutputSettings, ProcessingError, ProcessingErrorKind,
     RefusalReason, ResizeFilter, Threads, TransformOptions, WebpLossless, WebpOptions,
@@ -168,6 +168,10 @@ fn apply_option(
             )
             .into());
         }
+        // The AV1 decoder of AVIF input (since 2026-11-22): dav1d by
+        // default, libaom as the selectable reference.
+        "--avif-decoder=dav1d" => options.with_avif_decoder(AvifDecoder::Dav1d),
+        "--avif-decoder=libaom" => options.with_avif_decoder(AvifDecoder::Libaom),
         "--kernel-level=scalar" => options.with_kernel_level_ceiling(Some(KernelLevel::Scalar)),
         "--kernel-level=neon" => options.with_kernel_level_ceiling(Some(KernelLevel::Neon)),
         "--kernel-level=avx2" => options.with_kernel_level_ceiling(Some(KernelLevel::Avx2)),
@@ -342,7 +346,7 @@ fn usage_text(args: &[String]) -> String {
         .and_then(|name| name.to_str())
         .unwrap_or("ferrisma");
     format!(
-        "usage: {program} --version|-V\n       {program} --help|-h\n       {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp|output.jxl WIDTH HEIGHT [--avif-quality=60 --avif-alpha-quality=60 (libavif 0-100) --avif-speed=6 (AOM cpu-used 0-10) --avif-depth=8|10|12 (default: the input's) --avif-chroma=444|420] [--webp-quality=75 (libwebp 1-100) --webp-method=4 (libwebp 0-6)|--webp-lossless --webp-level=4 (libwebp 0-9)] [--jxl-distance=1.0 (0.05 to below 3.0)|--jxl-lossless] [--jxl-depth=8..16 (default: the input's)] [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--kernel-level=scalar|neon|avx2|avx512] [--encoder-threads=1] [--transform-threads=0] [--max-output-mb=256] [--budget-mb=2048] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]\n       Each flag may be given once. Mutually exclusive: --assume-srgb and --use-rendered-icc; --jxl-lossless and --jxl-distance; --webp-lossless or --webp-level and --webp-quality or --webp-method. Defaults are the original tools' (avifenc, cwebp, cjxl).\n       Exit status: 0 success, 1 processing error, 2 usage error."
+        "usage: {program} --version|-V\n       {program} --help|-h\n       {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp|output.jxl WIDTH HEIGHT [--avif-quality=60 --avif-alpha-quality=60 (libavif 0-100) --avif-speed=6 (AOM cpu-used 0-10) --avif-depth=8|10|12 (default: the input's) --avif-chroma=444|420] [--webp-quality=75 (libwebp 1-100) --webp-method=4 (libwebp 0-6)|--webp-lossless --webp-level=4 (libwebp 0-9)] [--jxl-distance=1.0 (0.05 to below 3.0)|--jxl-lossless] [--jxl-depth=8..16 (default: the input's)] [--assume-srgb|--use-rendered-icc] [--avif-decoder=dav1d|libaom (AVIF input; default dav1d)] [--area] [--reference] [--kernel-level=scalar|neon|avx2|avx512] [--encoder-threads=1] [--transform-threads=0] [--max-output-mb=256] [--budget-mb=2048] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]\n       Each flag may be given once. Mutually exclusive: --assume-srgb and --use-rendered-icc; --jxl-lossless and --jxl-distance; --webp-lossless or --webp-level and --webp-quality or --webp-method. Defaults are the original tools' (avifenc, cwebp, cjxl).\n       Exit status: 0 success, 1 processing error, 2 usage error."
     )
 }
 
@@ -784,6 +788,35 @@ mod tests {
             read_input(Broken, 3).unwrap_err().kind(),
             io::ErrorKind::Other
         );
+    }
+
+    /// `--avif-decoder=` chooses the AV1 decoder of AVIF input (since
+    /// 2026-11-22): dav1d by default, libaom as the reference; any other
+    /// value is an unknown option, not a fallback.
+    #[test]
+    fn avif_decoder_defaults_to_dav1d_and_libaom_is_explicit() {
+        use crate::pipeline::AvifDecoder;
+        assert_eq!(
+            options(OutputFormat::Avif).avif_decoder(),
+            AvifDecoder::Dav1d
+        );
+        for (flag, decoder) in [
+            ("--avif-decoder=dav1d", AvifDecoder::Dav1d),
+            ("--avif-decoder=libaom", AvifDecoder::Libaom),
+        ] {
+            for format in [OutputFormat::Avif, OutputFormat::WebP, OutputFormat::JpegXl] {
+                let options = apply_option(options(format), flag).unwrap();
+                assert_eq!(options.avif_decoder(), decoder, "{flag}");
+            }
+        }
+        for flag in [
+            "--avif-decoder=aom",
+            "--avif-decoder=auto",
+            "--avif-decoder=",
+        ] {
+            let error = apply_option(options(OutputFormat::Avif), flag).unwrap_err();
+            assert!(error.to_string().starts_with("unknown option"), "{error}");
+        }
     }
 
     #[test]

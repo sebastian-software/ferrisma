@@ -96,6 +96,36 @@ impl Samples {
     }
 }
 
+/// The AV1 decoder libavif runs for the color and alpha items. The reader
+/// sets the choice explicitly; libavif's `AUTO` selection is never used, so
+/// a decoder that is not available is an error, not a fallback.
+///
+/// Since 2026-11-22 the dav1d port is the default (owner decision of that
+/// day, ADR-0025 and ADR-0031 amendments). Its evidence for 1.0 is bit
+/// identity with the libaom port on every input, checked by
+/// `dav1d_and_libaom_decode_the_avif_corpus_identically`, and with stock
+/// dav1d (libavif-rs ADR 0062). libaom, the AV1 reference decoder, stays
+/// selectable as the verified reference. Before 2026-11-22 the reader always
+/// selected libaom.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum Codec {
+    /// The workspace dav1d port (`AVIF_CODEC_CHOICE_DAV1D`).
+    #[default]
+    Dav1d,
+    /// The workspace libaom port (`AVIF_CODEC_CHOICE_AOM`), the AV1
+    /// reference decoder.
+    Libaom,
+}
+
+impl Codec {
+    fn choice(self) -> api::avifCodecChoice {
+        match self {
+            Self::Dav1d => api::AVIF_CODEC_CHOICE_DAV1D,
+            Self::Libaom => api::AVIF_CODEC_CHOICE_AOM,
+        }
+    }
+}
+
 /// Owns one libavif decoder. The input slice must outlive its memory reader;
 /// the borrow checker enforces that the decoder cannot outlive its input:
 ///
@@ -122,7 +152,18 @@ impl Drop for Decoder<'_> {
 }
 
 impl<'a> Decoder<'a> {
+    /// [`Self::parse_with`] with the default decoder, [`Codec::Dav1d`].
     pub fn parse(bytes: &'a [u8], max_pixels: u64) -> Result<(Self, ImageInfo), ReadError> {
+        Self::parse_with(bytes, max_pixels, Codec::default())
+    }
+
+    /// Parse `bytes` for decoding with `codec`, which libavif runs for
+    /// every item of the image.
+    pub fn parse_with(
+        bytes: &'a [u8],
+        max_pixels: u64,
+        codec: Codec,
+    ) -> Result<(Self, ImageInfo), ReadError> {
         // SAFETY: The returned pointer is checked and guarded immediately.
         let raw =
             NonNull::new(unsafe { read::avifDecoderCreate() }).ok_or(ReadError::Allocation)?;
@@ -135,7 +176,7 @@ impl<'a> Decoder<'a> {
         // memory reader retains the slice only until the owner is dropped.
         let result = unsafe {
             let decoder = &mut *owner.raw.as_ptr();
-            decoder.codecChoice = api::AVIF_CODEC_CHOICE_AOM;
+            decoder.codecChoice = codec.choice();
             decoder.requestedSource = read::AVIF_DECODER_SOURCE_PRIMARY_ITEM;
             // Parse does not allocate pixel surfaces. Use libavif's largest
             // representable parser limit so the exact coded size reaches our
@@ -220,7 +261,7 @@ impl<'a> Decoder<'a> {
         // SAFETY: Parse succeeded and owns the image until decoder destruction.
         let info = unsafe {
             let decoder = owner.raw.as_ref();
-            if decoder.codecChoice != api::AVIF_CODEC_CHOICE_AOM || decoder.image.is_null() {
+            if decoder.codecChoice != codec.choice() || decoder.image.is_null() {
                 return Err(ReadError::InvalidInput);
             }
             let image = &*decoder.image;
@@ -279,10 +320,13 @@ impl<'a> Decoder<'a> {
     /// job would depend on its neighbor's rows). Each job owns disjoint
     /// output rows, so the samples do not depend on the count.
     ///
-    /// The AV1 decode itself stays on one thread: with more than one,
-    /// libaom's row-based multithreading keeps coefficient buffers for every
-    /// superblock of the frame, about 1.4 GB of opaque memory for a 24 MP
-    /// image on the 2026-11-12 measurement, whatever the thread count.
+    /// The AV1 decode itself stays on one thread, with either [`Codec`]
+    /// (libavif's `maxThreads` keeps its default of one). The reason was
+    /// libaom: with more than one thread its row-based multithreading keeps
+    /// coefficient buffers for every superblock of the frame, about 1.4 GB
+    /// of opaque memory for a 24 MP image on the 2026-11-12 measurement,
+    /// whatever the thread count. Threads for the dav1d default are not
+    /// enabled by the 2026-11-22 switch; that is a separate decision.
     pub fn set_threads(&mut self, threads: u32) {
         self.threads = threads.clamp(1, 64);
     }
@@ -423,6 +467,9 @@ impl<'a> Decoder<'a> {
         )
     }
 }
+
+#[cfg(test)]
+mod codec_identity_tests;
 
 #[cfg(test)]
 mod tests {

@@ -1,0 +1,85 @@
+{
+  "made_with": "C libavif+libaom release, encode_still.c --quality=60 --speed=6 --depth=D [--yuv444] --threads=1 (one tile, BT.709/sRGB/BT.601 full range); web14/web03: photo12 box-filtered by 3 and 6",
+  "files": {
+    "photoweb03.bmp": {
+      "bytes": 1016118,
+      "sha256": "6e2bca8faa359a34331110fc4f13da7b3e08231fa76eeacc39e7d0dc84d60a79"
+    },
+    "photoweb03-8-420.avif": {
+      "bytes": 42017,
+      "sha256": "abcc41a70f85e0372a5cded5467f0302ec6ca3c09cc4fe5120dcda737d5a9b05"
+    },
+    "photoweb03-8-444.avif": {
+      "bytes": 43426,
+      "sha256": "1219e6110e47fe81a034e035459a5128e4ee43fbe1f954e639b96674b7b74850"
+    },
+    "photoweb03-10-420.avif": {
+      "bytes": 42689,
+      "sha256": "25505996ce7a5f70ecb79682acb75890addd0f20cb5eda68fcf37aa62a79df1c"
+    },
+    "photoweb03-10-444.avif": {
+      "bytes": 43891,
+      "sha256": "37f564af9072ebe24c240d728bad64b4478003a24f66ba193cbfe6f6a43f5eac"
+    },
+    "photoweb14.bmp": {
+      "bytes": 4064310,
+      "sha256": "24d9e7e06370cd1dfc6c9780763efd28939c0a3709b5709f8d378d4b47eb8e97"
+    },
+    "photoweb14-8-420.avif": {
+      "bytes": 126342,
+      "sha256": "c6e7ee925451fa8b7f9f50496ce3126b0f81ebed3f0cb3956c520cd5dc7b4fcc"
+    },
+    "photoweb14-8-444.avif": {
+      "bytes": 129670,
+      "sha256": "1c0ce6102946a18e0e40f891ac24b7a64385bacdae1931e5602e1c97c7f9053e"
+    },
+    "photoweb14-10-420.avif": {
+      "bytes": 128969,
+      "sha256": "abcbb119164e72b7b2f6dc22fecb9298db675dcb0032713fd7de702ab225ecca"
+    },
+    "photoweb14-10-444.avif": {
+      "bytes": 132964,
+      "sha256": "dc8dc18e1541262f90273cd54b5e35379e7cc3fd2bdcc6af43420cf27bfecc33"
+    },
+    "photo12.bmp": {
+      "bytes": 36578358,
+      "sha256": "bda890c2971212e9bc9b3a076a72a84b038a444bfc41151dfa25d15fe9a46054"
+    },
+    "photo12-8-420.avif": {
+      "bytes": 814960,
+      "sha256": "75e4b60e098dfcc4378c5526f9e89385fc7c2d2a432be3af247fb66b9024d640"
+    },
+    "photo12-8-444.avif": {
+      "bytes": 840536,
+      "sha256": "3705992927dc3477ad855c8f3a101d1fdaea958c0b334b7648ae46eae985402e"
+    },
+    "photo12-10-420.avif": {
+      "bytes": 823647,
+      "sha256": "2a5d9af9b6e9f9feadfb1ddebe3d636f4fc2efba817047f7cfe644608a02b9a6"
+    },
+    "photo12-10-444.avif": {
+      "bytes": 848990,
+      "sha256": "c1ef93517b03218e0035406addec2d95c6cecf8d102ef2a88512f58a47b3d714"
+    },
+    "photo24.bmp": {
+      "bytes": 72000054,
+      "sha256": "032cd094b1c3102bc9bfb638d44ba686cf94c9ee62b072577684468602af898d"
+    },
+    "photo24-8-420.avif": {
+      "bytes": 1712574,
+      "sha256": "a5dd50c4d27d3d6a26e4dea3a4f9dcf363fe44393327c0d4acd7f53af61bc2f9"
+    },
+    "photo24-8-444.avif": {
+      "bytes": 1790401,
+      "sha256": "3ca7319ff49984d70189864a0b206d38a90fdb82530976d88b65ce2423722cb2"
+    },
+    "photo24-10-420.avif": {
+      "bytes": 1721400,
+      "sha256": "89167fdcbe12b3dd8b2736e3afd17fda2279667e77c577daa5bf533e1ef12e7c"
+    },
+    "photo24-10-444.avif": {
+      "bytes": 1791952,
+      "sha256": "cf1b6622a96e4fd2872f30e599af66e68556b72b3cf522f37eb29a3d105d322d"
+    }
+  }
+}

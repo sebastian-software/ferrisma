@@ -61,7 +61,7 @@ one adapter. Since 2026-11-15 every format has one reader and one writer
 | `webp-read` | still WebP input | workspace `ferrisma-libwebp` | only WebP reader | stable 1.99 | none | Stable |
 | `webp-write` | still WebP output | workspace `ferrisma-libwebp` | only WebP writer | stable 1.99 | none | Stable |
 | `jpeg-xl-read` | JPEG XL input | workspace `ferrisma-libjxl` via `ferrisma-jxl-decoder` | only JPEG XL reader (since 2026-11-15; this name selected `jxl-oxide` before, and the workspace reader was `jpeg-xl-own-read`) | stable 1.99 | none | Stable as capability |
-| `avif-read` | still AVIF input | workspace libavif/AOM via `ferrisma-avif-read` | only AVIF reader | stable 1.99 | native macOS ARM64 or GNU Linux x86-64 | Experimental |
+| `avif-read` | still AVIF input | workspace libavif via `ferrisma-avif-read`, AV1 by the dav1d port (default since 2026-11-22) or the libaom port (`--avif-decoder=libaom`; the only decoder before) | only AVIF reader | stable 1.99 | native macOS ARM64 or GNU Linux x86-64 | Experimental |
 | `avif-write` | AVIF output | workspace libavif/AOM via `ferrisma-avif-write` | only AVIF writer (since 2026-11-15; this name selected `rav1e` 0.8 + `avif-serialize` before, and the workspace writer was `avif-own-write`) | stable 1.99 | native macOS ARM64 or GNU Linux x86-64 | Experimental until it builds on stable (working decision 2026-11-15) |
 | `jpeg-xl-write` | JPEG XL output: lossy d1.0 (default) or lossless | workspace `ferrisma-libjxl`: public encoder through `ferrisma-jxl-encoder` (lossy), fixed-profile entry point (lossless) | only JPEG XL writer; in `cli` since 2026-11-12 | stable 1.99 | none | Experimental |
 | `icc` | rendered-ICC → sRGB conversion | `moxcms` 0.9 | needed for `UseRenderedIcc` / `--use-rendered-icc` | stable 1.99 | none | Stable |
@@ -258,10 +258,18 @@ Evidence per format:
   `animation_is_not_accepted_as_a_still_image`,
   `coded_pixel_limit_reports_exact_sequence_geometry`. Through the public API:
   see [AVIF input](#avif-input-transforms-animation-channels-and-caps).
-  Argon AV1 conformance was not run (ADR-0025); the reader relies on the
-  reference-origin route, which the owner confirmed on 2026-11-15 as its
-  1.0 evidence (bit identity with libaom; Argon is later extra evidence,
-  ADR-0031).
+  The AV1 decoder is the dav1d port by default since 2026-11-22 (owner
+  decision, ADR-0031); every test above runs through it with its expected
+  values unchanged. Its evidence is bit identity with the libaom reference:
+  `ferrisma_avif_read` `dav1d_and_libaom_decode_the_avif_corpus_identically`
+  (every committed AVIF file, 95 on 2026-11-22, 81 decoded: YUV and alpha
+  planes and RGB equal, the rest refused alike) and
+  `both_decoders_reproduce_the_pinned_c_oracle` (the C libavif/libaom
+  SHA-256 of seven fixtures, [record of 2026-11-11](benchmarks/M2-avif-input.md),
+  unchanged); `codecs::avif::tests::dav1d_default_rows_equal_the_libaom_reference`
+  for the engine rows; and stock dav1d, 994 of 994 (libavif-rs ADR 0062).
+  Argon AV1 conformance was not run: a recorded exception to ADR-0025
+  point 1 (owner decision of 2026-11-22), with Argon as a follow-up ([#267](https://github.com/sebastian-software/ferrisma/issues/267)).
 
 ### AVIF input: transforms, animation, channels and caps
 
@@ -292,6 +300,7 @@ test assets) and the libheif orientation set (`tests/fixtures/orientation/`).
 | Signalled sRGB | passes every policy as `ColorSignal::Cicp`, as JPEG XL enum sRGB (until 2026-11-15 refused under `UseRenderedIcc` with `RenderedIccMissing`; working decision 2026-11-15, delegated, revisable by the owner) | `avif_signalled_srgb_passes_the_strict_policy` (`colors_sdr_srgb.avif`); `tests/color_signal_and_refusals.rs::rendered_icc_policy_without_a_profile_is_refused_with_its_reason`; `tests/format_parity.rs::typed_srgb_is_read_under_every_policy` |
 | Rendered size, then coded sequence size, above `max_input_pixels` | `InputLimitExceeded` before decoding | `avif_pixel_limit_checks_the_rendered_and_the_coded_size`; `ferrisma_avif_read::coded_pixel_limit_reports_exact_sequence_geometry` |
 | ICC property above the parser's cap | `UnsupportedColor` before the copy, no `RefusalReason` | `codecs::avif_meta_tests::oversized_icc_property_is_rejected_before_copy` (synthetic) |
+| AV1 decoder (since 2026-11-22) | the dav1d port by default; the libaom port with `TransformOptions::avif_decoder = AvifDecoder::Libaom` / `--avif-decoder=libaom`, no fallback between them; the report's `decoder=` is `libavif/dav1d` or `libavif/aom`; a nondefault choice with other input is `InvalidOptions` | `tests/report_backends.rs::avif_reader_is_reported`, `avif_decoder_choice_for_other_input_is_refused`; `tests/own_avif_cli.rs::cli_reads_avif_with_dav1d_by_default_and_libaom_on_request` (same output bytes) |
 
 ## Discarded report
 

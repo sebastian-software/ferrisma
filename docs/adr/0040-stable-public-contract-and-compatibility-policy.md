@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-12
-- **Last reviewed:** 2026-11-16
+- **Last reviewed:** 2026-11-22
 - **Supersedes:** None. Once accepted, it replaces decision 6 ("no stability promise") of [ADR-0017](0017-minimal-public-facade-and-cli.md) for the items it marks stable.
 - **Superseded in part by:** [0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) (when the version 1.0 may be used, and the release tooling)
 - **Related:** [0010](0010-dual-licensing.md), [0017](0017-minimal-public-facade-and-cli.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0020](0020-kernel-crate-and-isa-dispatch.md), [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), [0026](0026-codecs-in-one-repository-and-workspace.md), [0034](0034-thumbnail-geometry.md), [0037](0037-selectable-workspace-avif-encoder.md), [publishing](../publishing.md), [release automation](../release-automation.md), [compatibility guide](../compatibility.md), tracker #196
@@ -135,7 +135,7 @@ command line, not these functions, is the stable CLI contract.
 | `--help`, `-h`: usage on stdout, exit 0 (since 2026-11-16) | Tier not decided |
 | `--version`, `-V`: four lines on stdout (version, target, features, build), exit 0, precedence over every other argument | Tier not decided |
 | Each flag at most once; mutually exclusive pairs refused with both names (owner decision 2026-11-15) | Stable |
-| `report:` key=value line on stdout | Stable keys; new keys are additive; integer values except `precision`, `kernel_level`, `encoder`, `decoder` (appended 2026-11-14, #217), `color_signal` and `discarded`; the names taken from enums are the CLI's own lower-case hyphenated values since 2026-11-16 (tier of the values not decided); `encoder=`/`decoder=` name the ported originals (`libjpeg-turbo`, `libwebp`, `libjxl`, `libavif/aom`) since 2026-11-16 |
+| `report:` key=value line on stdout | Stable keys; new keys are additive; integer values except `precision`, `kernel_level`, `encoder`, `decoder` (appended 2026-11-14, #217), `color_signal` and `discarded`; the names taken from enums are the CLI's own lower-case hyphenated values since 2026-11-16 (tier of the values not decided); `encoder=`/`decoder=` name the ported originals (`libjpeg-turbo`, `libwebp`, `libjxl`, `libavif/aom`) since 2026-11-16; the AVIF reader's `decoder=` is `libavif/dav1d` by default since 2026-11-22 (`libavif/aom` with `--avif-decoder=libaom`) |
 | `decoder_work:` line on stdout (rectangles `WxH+X+Y`, counts with `>=` for a lower bound) | Tier not decided |
 | Human-readable `Encoded …`, `Timings: …` lines and the stderr memory note | Not stable |
 
@@ -879,3 +879,12 @@ reports that a stable item cannot express its use case.
       features, `cli` and `--version`; `inspect` for JPEG XL and AVIF; new
       CLI flags (problem 15); memory models for AVIF and WebP output; the
       bridges' own APIs.
+- 2026-11-22 — Owner decision: the dav1d port is the default AVIF decoder
+  for 1.0 (ADR-0031, amendment of 2026-11-22). Additive API:
+  `pipeline::AvifDecoder` (`#[non_exhaustive]`, default `Dav1d`) and
+  `TransformOptions::avif_decoder`/`with_avif_decoder`; CLI flag
+  `--avif-decoder=dav1d|libaom` (problem 15, new CLI flags, still not
+  decided as a tier). Changed observation: `ProcessingReport::decoder_backend`
+  and the CLI's `decoder=` for AVIF input are `libavif/dav1d` by default
+  (were `libavif/aom` for every AVIF read); `libavif/aom` names the libaom
+  reference when selected. Tiers unchanged.

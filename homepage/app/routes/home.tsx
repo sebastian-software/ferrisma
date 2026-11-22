@@ -243,7 +243,7 @@ function Originals() {
     >
       <p>
         Each codec is a translation of the library its format is measured against: libjpeg-turbo,
-        libwebp, libjxl, and libavif with libaom. Version 1.0 is defined by one test: every port
+        libwebp, libjxl, and libavif with libaom for encoding and dav1d for decoding. Version 1.0 is defined by one test: every port
         produces exactly the original's output, bit for bit, in its plain and its fast code, on
         ARM and on x86. Today the recorded comparisons pass for WebP and the JPEG XL decoder on
         both targets, and for AVIF on ARM; the rest is the work before 1.0.
@@ -350,8 +350,8 @@ function Status() {
         </div>
       </MonoWide>
       <p>
-        Next on the way to 1.0: the bit-for-bit test on both targets for every port, dav1d's
-        fast kernels rebuilt in Rust, and the independent evidence for image quality,
+        Next on the way to 1.0: the bit-for-bit test on both targets for every port and the
+        independent evidence for image quality,
         hardening, resources and dependencies. Until then, releases will be 0.x previews.
       </p>
       <p className="fx-section-link">

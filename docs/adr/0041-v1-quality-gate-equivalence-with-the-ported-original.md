@@ -2,7 +2,7 @@
 
 - **Status:** Accepted (decisions D1–D10). The former open questions O1–O9 and the further items listed with them were decided by the owner on 2026-11-15 ([Owner decisions of 2026-11-15](#owner-decisions-of-2026-11-15)); what is not yet implemented is named there.
 - **Date:** 2026-11-13
-- **Last reviewed:** 2026-11-16
+- **Last reviewed:** 2026-11-22
 - **Source:** owner decision (structured interview, 2026-11-13)
 - **Supersedes:** In part: the performance criteria of [0007](0007-correctness-and-performance-evidence.md) as release evidence; the default ISA level of [0020](0020-kernel-crate-and-isa-dispatch.md) decision 4; the role of third-party comparisons in [0025](0025-codec-selection-reference-conformance-and-image-scope.md) point 3, [0032](0032-jpeg-xl-workspace-decoder-input.md) and [0037](0037-selectable-workspace-avif-encoder.md); the validation platforms of [0027](0027-tiered-validation-and-rust-test-orchestration.md); release naming in [0040](0040-stable-public-contract-and-compatibility-policy.md). In the ports: the NaN-payload rule of libjxl-rs ADR 0002/0003, the SIMD reference of libavif-rs ADR 0056/0058/0059, and the SIMD reference and NEON rescaler ruling of libwebp-rs ADR 0002/0008. Each amended record links back here.
 - **Related:** [0026](0026-codecs-in-one-repository-and-workspace.md), [quality gate guide](../quality-gate.md), [v1.0 CI performance record](../benchmarks/v1.0-ci-performance-2026-11-12.md), [JPEG XL performance analysis](../benchmarks/v1.0-jxl-performance-analysis-2026-11-12.md), tracker #196
@@ -552,6 +552,13 @@ and what is not done yet.
   [ADR-0044](0044-no-assembly-acceleration-through-rust-intrinsics.md) D2,
   gated against dav1d's own SIMD build at the same level; which decoder
   the engine finally uses is open (ADR-0031, amendment of 2026-11-16).
+  **Decided on 2026-11-22** by the owner ("Passt: dav1d wird der Standard-Decoder für 1.0"): the dav1d port
+  is the default AVIF decoder for 1.0 and stays in the runtime and the
+  published chain; libaom stays the encoder and the selectable reference
+  decoder. Its 1.0 evidence is bit identity with the libaom port (every
+  input, every host; continuously on every committed AVIF file in CI) and
+  with stock dav1d (994/994), a recorded exception to ADR-0025 point 1;
+  Argon conformance is a follow-up ([#267](https://github.com/sebastian-software/ferrisma/issues/267); ADR-0031, amendment of 2026-11-22).
 
 ## Review when
 
@@ -640,3 +647,9 @@ planned.
   adopts a rewritten kernel names the input range on which SIMD identity is
   gated and the test that compares against the C outside it. Memory safety
   on any input is unaffected.
+- 2026-11-22 — O-list item "Argon conformance vectors and dav1d's place"
+  (#54): decided by the owner, the dav1d port is the default AVIF decoder
+  for 1.0 (ADR-0025 recorded exception to point 1, ADR-0031 amendment of
+  2026-11-22). The gate for the reader is bit identity of the dav1d
+  default with the libaom reference on every committed AVIF file and with
+  the C libavif/libaom outputs of the 2026-11-11 record; D1–D10 unchanged.

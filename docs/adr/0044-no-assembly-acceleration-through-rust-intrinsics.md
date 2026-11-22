@@ -2,7 +2,7 @@
 
 - **Status:** Accepted (the principle and decisions D1–D4). Its open question on the inline assembly that remained in libjxl-rs is closed (owner decisions of 2026-11-16): no assembly site is left.
 - **Date:** 2026-11-15
-- **Last reviewed:** 2026-11-16
+- **Last reviewed:** 2026-11-22
 - **Source:** owner decision of 2026-11-15 on open question O4 of [ADR-0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) (#250)
 - **Supersedes:** In part: the O4 working rules of 2026-11-13 in [ADR-0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) (assembly-only kernels stay on the C path; `rcpps` translated as the same instruction), which this record turns into decisions.
 - **Related:** [0020](0020-kernel-crate-and-isa-dispatch.md), [0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md), [supported matrix](../supported-matrix.md#simd-instruction-set-levels-v10), [unsafe review](../unsafe-review.md), libjpeg-turbo-rs [ADR 0008](../../codecs/libjpeg-turbo-rs/docs/adr/0008-x86-64-kernels-from-nasm.md), libavif-rs [ADR 0058](../../codecs/libavif-rs/docs/adr/0058-dispatch-hand-translated-x86-simd-on-gnu-linux.md), libjxl-rs [ADR 0004](../../codecs/libjxl-rs/docs/adr/0004-simd-paths.md), #242, #124
@@ -94,8 +94,9 @@ even as an optional feature.
   dav1d built with its assembly at the same level (NEON on AArch64; the
   x86-64 levels the supported matrix names), per kernel and on whole-image
   decodes. Until a kernel is rebuilt, the port runs its scalar C
-  translation. Which AV1 decoder the engine finally reads AVIF with is not
-  decided by this record.
+  translation. Since 2026-11-22 the dav1d port, with these kernels, is the
+  engine's default AVIF decoder (owner decision, ADR-0031 amendment of
+  that day); this record does not change by it.
 - libjxl-rs AVX2 output can differ between an Intel and an AMD machine, as
   the original's does. A caller who needs the same bytes on every x86-64
   machine uses the scalar path; nothing in the engine promises identity
@@ -239,6 +240,11 @@ replaced first, the six Brotli sites last (state paragraphs above).
 
 ## Amendment log
 
+- 2026-11-22 — dav1d's place: the owner made the dav1d port, with its
+  kernels rebuilt under D2, the default AVIF decoder for 1.0
+  ([ADR-0031](0031-workspace-libavif-input-experiment.md), amendment of
+  2026-11-22); its removal (2026-11-15) and the pause (2026-11-16) are
+  superseded. D1–D4 are unchanged.
 - 2026-11-16 — The six Brotli sites are replaced (owner decision of
   2026-11-16; state paragraph "6 sites became 0"). The open question is
   closed and the allowlist is empty.

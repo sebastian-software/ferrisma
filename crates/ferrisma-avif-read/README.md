@@ -8,6 +8,10 @@ its own.
 
 - The port's raw C-shaped API stays behind this crate; callers see safe
   functions only.
+- The AV1 decoder is chosen explicitly, never by libavif's `AUTO`: the dav1d
+  port by default since 2026-11-22 (owner decision), the libaom port, the
+  AV1 reference decoder, on request (`Codec::Libaom`). A test decodes every
+  AVIF file of the repository with both and requires identical output.
 - Caller-owned RGB output buffers are bounded. Codec-owned scratch memory
   stays opaque and is not bounded by Ferrisma's memory budget.
 - It builds on stable Rust 1.99 or later (see `rust-version`; the pinned

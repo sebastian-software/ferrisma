@@ -190,7 +190,8 @@ fn signalled_srgb_avif_transcodes_under_the_strict_profile_policy() {
         again.report.color_signal,
         crate::pipeline::ColorSignal::Cicp
     );
-    assert_eq!(again.report.decoder_backend, "libavif/aom");
+    // The dav1d port is the default AVIF decoder since 2026-11-22.
+    assert_eq!(again.report.decoder_backend, "libavif/dav1d");
 }
 
 #[test]

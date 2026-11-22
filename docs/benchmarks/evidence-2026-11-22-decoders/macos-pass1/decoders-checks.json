@@ -1,0 +1,586 @@
+{
+  "avif/decode/photo12-10-420": {
+    "sha256": {
+      "c-aom:t1": [
+        "cb88a520addefc26d41e65e3bba549c654e64251cbb8ca68fb19ba66cc5f3057"
+      ],
+      "c-aom:tN": [
+        "cb88a520addefc26d41e65e3bba549c654e64251cbb8ca68fb19ba66cc5f3057"
+      ],
+      "c-dav1d-v1:t1": [
+        "cb88a520addefc26d41e65e3bba549c654e64251cbb8ca68fb19ba66cc5f3057"
+      ],
+      "c-dav1d-v1:tN": [
+        "cb88a520addefc26d41e65e3bba549c654e64251cbb8ca68fb19ba66cc5f3057"
+      ],
+      "c-dav1d:t1": [
+        "cb88a520addefc26d41e65e3bba549c654e64251cbb8ca68fb19ba66cc5f3057"
+      ],
+      "c-dav1d:tN": [
+        "cb88a520addefc26d41e65e3bba549c654e64251cbb8ca68fb19ba66cc5f3057"
+      ],
+      "port-aom:t1": [
+        "dbaab86b39329c810193017eb5b216a646ea77b627dd7a3a92ba7f97052e4fc8"
+      ],
+      "port-aom:tN": [
+        "dbaab86b39329c810193017eb5b216a646ea77b627dd7a3a92ba7f97052e4fc8"
+      ],
+      "port-dav1d:t1": [
+        "dbaab86b39329c810193017eb5b216a646ea77b627dd7a3a92ba7f97052e4fc8"
+      ],
+      "port-dav1d:tN": [
+        "dbaab86b39329c810193017eb5b216a646ea77b627dd7a3a92ba7f97052e4fc8"
+      ]
+    },
+    "all_identical": false
+  },
+  "avif/decode/photo12-10-444": {
+    "sha256": {
+      "c-aom:t1": [
+        "a5d9e12b08e06bdb6b49cfeb3e53014da2799b65b71a0f3de77a26c329334ed6"
+      ],
+      "c-aom:tN": [
+        "a5d9e12b08e06bdb6b49cfeb3e53014da2799b65b71a0f3de77a26c329334ed6"
+      ],
+      "c-dav1d-v1:t1": [
+        "a5d9e12b08e06bdb6b49cfeb3e53014da2799b65b71a0f3de77a26c329334ed6"
+      ],
+      "c-dav1d-v1:tN": [
+        "a5d9e12b08e06bdb6b49cfeb3e53014da2799b65b71a0f3de77a26c329334ed6"
+      ],
+      "c-dav1d:t1": [
+        "a5d9e12b08e06bdb6b49cfeb3e53014da2799b65b71a0f3de77a26c329334ed6"
+      ],
+      "c-dav1d:tN": [
+        "a5d9e12b08e06bdb6b49cfeb3e53014da2799b65b71a0f3de77a26c329334ed6"
+      ],
+      "port-aom:t1": [
+        "bd29c7030419bf82b564dd0a6757cde818ab1242fb644c8c9e6d2d3d9a9098a8"
+      ],
+      "port-aom:tN": [
+        "bd29c7030419bf82b564dd0a6757cde818ab1242fb644c8c9e6d2d3d9a9098a8"
+      ],
+      "port-dav1d:t1": [
+        "bd29c7030419bf82b564dd0a6757cde818ab1242fb644c8c9e6d2d3d9a9098a8"
+      ],
+      "port-dav1d:tN": [
+        "bd29c7030419bf82b564dd0a6757cde818ab1242fb644c8c9e6d2d3d9a9098a8"
+      ]
+    },
+    "all_identical": false
+  },
+  "avif/decode/photo12-8-420": {
+    "sha256": {
+      "c-aom:t1": [
+        "82d87694438af1c5168f7271ae93b19a170c5456e68ed6f8919a6f9b74e73f06"
+      ],
+      "c-aom:tN": [
+        "82d87694438af1c5168f7271ae93b19a170c5456e68ed6f8919a6f9b74e73f06"
+      ],
+      "c-dav1d-v1:t1": [
+        "82d87694438af1c5168f7271ae93b19a170c5456e68ed6f8919a6f9b74e73f06"
+      ],
+      "c-dav1d-v1:tN": [
+        "82d87694438af1c5168f7271ae93b19a170c5456e68ed6f8919a6f9b74e73f06"
+      ],
+      "c-dav1d:t1": [
+        "82d87694438af1c5168f7271ae93b19a170c5456e68ed6f8919a6f9b74e73f06"
+      ],
+      "c-dav1d:tN": [
+        "82d87694438af1c5168f7271ae93b19a170c5456e68ed6f8919a6f9b74e73f06"
+      ],
+      "port-aom:t1": [
+        "82d87694438af1c5168f7271ae93b19a170c5456e68ed6f8919a6f9b74e73f06"
+      ],
+      "port-aom:tN": [
+        "82d87694438af1c5168f7271ae93b19a170c5456e68ed6f8919a6f9b74e73f06"
+      ],
+      "port-dav1d:t1": [
+        "82d87694438af1c5168f7271ae93b19a170c5456e68ed6f8919a6f9b74e73f06"
+      ],
+      "port-dav1d:tN": [
+        "82d87694438af1c5168f7271ae93b19a170c5456e68ed6f8919a6f9b74e73f06"
+      ],
+      "port-aom-reader:t1": [
+        "82d87694438af1c5168f7271ae93b19a170c5456e68ed6f8919a6f9b74e73f06"
+      ]
+    },
+    "all_identical": true
+  },
+  "avif/decode/photo12-8-444": {
+    "sha256": {
+      "c-aom:t1": [
+        "4ca7747419b19aa4535cd1c3756c8952611d89f26a3ec690c042dcac0ad0674c"
+      ],
+      "c-aom:tN": [
+        "4ca7747419b19aa4535cd1c3756c8952611d89f26a3ec690c042dcac0ad0674c"
+      ],
+      "c-dav1d-v1:t1": [
+        "4ca7747419b19aa4535cd1c3756c8952611d89f26a3ec690c042dcac0ad0674c"
+      ],
+      "c-dav1d-v1:tN": [
+        "4ca7747419b19aa4535cd1c3756c8952611d89f26a3ec690c042dcac0ad0674c"
+      ],
+      "c-dav1d:t1": [
+        "4ca7747419b19aa4535cd1c3756c8952611d89f26a3ec690c042dcac0ad0674c"
+      ],
+      "c-dav1d:tN": [
+        "4ca7747419b19aa4535cd1c3756c8952611d89f26a3ec690c042dcac0ad0674c"
+      ],
+      "port-aom:t1": [
+        "4ca7747419b19aa4535cd1c3756c8952611d89f26a3ec690c042dcac0ad0674c"
+      ],
+      "port-aom:tN": [
+        "4ca7747419b19aa4535cd1c3756c8952611d89f26a3ec690c042dcac0ad0674c"
+      ],
+      "port-dav1d:t1": [
+        "4ca7747419b19aa4535cd1c3756c8952611d89f26a3ec690c042dcac0ad0674c"
+      ],
+      "port-dav1d:tN": [
+        "4ca7747419b19aa4535cd1c3756c8952611d89f26a3ec690c042dcac0ad0674c"
+      ],
+      "port-aom-reader:t1": [
+        "4ca7747419b19aa4535cd1c3756c8952611d89f26a3ec690c042dcac0ad0674c"
+      ]
+    },
+    "all_identical": true
+  },
+  "avif/decode/photo24-10-420": {
+    "sha256": {
+      "c-aom:t1": [
+        "a24bb5ef1da04c94bf016b24beedd8f106f44e66877ed25f81ac3238627c9242"
+      ],
+      "c-aom:tN": [
+        "a24bb5ef1da04c94bf016b24beedd8f106f44e66877ed25f81ac3238627c9242"
+      ],
+      "c-dav1d-v1:t1": [
+        "a24bb5ef1da04c94bf016b24beedd8f106f44e66877ed25f81ac3238627c9242"
+      ],
+      "c-dav1d-v1:tN": [
+        "a24bb5ef1da04c94bf016b24beedd8f106f44e66877ed25f81ac3238627c9242"
+      ],
+      "c-dav1d:t1": [
+        "a24bb5ef1da04c94bf016b24beedd8f106f44e66877ed25f81ac3238627c9242"
+      ],
+      "c-dav1d:tN": [
+        "a24bb5ef1da04c94bf016b24beedd8f106f44e66877ed25f81ac3238627c9242"
+      ],
+      "port-aom:t1": [
+        "5643fc06044f687400d21b1556f0bf044a9c7af99806ec0958bb42804e0437a5"
+      ],
+      "port-aom:tN": [
+        "5643fc06044f687400d21b1556f0bf044a9c7af99806ec0958bb42804e0437a5"
+      ],
+      "port-dav1d:t1": [
+        "5643fc06044f687400d21b1556f0bf044a9c7af99806ec0958bb42804e0437a5"
+      ],
+      "port-dav1d:tN": [
+        "5643fc06044f687400d21b1556f0bf044a9c7af99806ec0958bb42804e0437a5"
+      ]
+    },
+    "all_identical": false
+  },
+  "avif/decode/photo24-10-444": {
+    "sha256": {
+      "c-aom:t1": [
+        "cd5c2f68c961afc064908b477ef9ad469aaad197af797ffbb65c29460283d852"
+      ],
+      "c-aom:tN": [
+        "cd5c2f68c961afc064908b477ef9ad469aaad197af797ffbb65c29460283d852"
+      ],
+      "c-dav1d-v1:t1": [
+        "cd5c2f68c961afc064908b477ef9ad469aaad197af797ffbb65c29460283d852"
+      ],
+      "c-dav1d-v1:tN": [
+        "cd5c2f68c961afc064908b477ef9ad469aaad197af797ffbb65c29460283d852"
+      ],
+      "c-dav1d:t1": [
+        "cd5c2f68c961afc064908b477ef9ad469aaad197af797ffbb65c29460283d852"
+      ],
+      "c-dav1d:tN": [
+        "cd5c2f68c961afc064908b477ef9ad469aaad197af797ffbb65c29460283d852"
+      ],
+      "port-aom:t1": [
+        "f1ce01f2783f81f7e454c30d3e439af48c65586726d17a76e15070bfd9eb29c3"
+      ],
+      "port-aom:tN": [
+        "f1ce01f2783f81f7e454c30d3e439af48c65586726d17a76e15070bfd9eb29c3"
+      ],
+      "port-dav1d:t1": [
+        "f1ce01f2783f81f7e454c30d3e439af48c65586726d17a76e15070bfd9eb29c3"
+      ],
+      "port-dav1d:tN": [
+        "f1ce01f2783f81f7e454c30d3e439af48c65586726d17a76e15070bfd9eb29c3"
+      ]
+    },
+    "all_identical": false
+  },
+  "avif/decode/photo24-8-420": {
+    "sha256": {
+      "c-aom:t1": [
+        "b9c4f89ae486d3c15cc4c598e6843eccb8b6640119747527976f764b9f03ecb9"
+      ],
+      "c-aom:tN": [
+        "b9c4f89ae486d3c15cc4c598e6843eccb8b6640119747527976f764b9f03ecb9"
+      ],
+      "c-dav1d-v1:t1": [
+        "b9c4f89ae486d3c15cc4c598e6843eccb8b6640119747527976f764b9f03ecb9"
+      ],
+      "c-dav1d-v1:tN": [
+        "b9c4f89ae486d3c15cc4c598e6843eccb8b6640119747527976f764b9f03ecb9"
+      ],
+      "c-dav1d:t1": [
+        "b9c4f89ae486d3c15cc4c598e6843eccb8b6640119747527976f764b9f03ecb9"
+      ],
+      "c-dav1d:tN": [
+        "b9c4f89ae486d3c15cc4c598e6843eccb8b6640119747527976f764b9f03ecb9"
+      ],
+      "port-aom:t1": [
+        "b9c4f89ae486d3c15cc4c598e6843eccb8b6640119747527976f764b9f03ecb9"
+      ],
+      "port-aom:tN": [
+        "b9c4f89ae486d3c15cc4c598e6843eccb8b6640119747527976f764b9f03ecb9"
+      ],
+      "port-dav1d:t1": [
+        "b9c4f89ae486d3c15cc4c598e6843eccb8b6640119747527976f764b9f03ecb9"
+      ],
+      "port-dav1d:tN": [
+        "b9c4f89ae486d3c15cc4c598e6843eccb8b6640119747527976f764b9f03ecb9"
+      ],
+      "port-aom-reader:t1": [
+        "b9c4f89ae486d3c15cc4c598e6843eccb8b6640119747527976f764b9f03ecb9"
+      ]
+    },
+    "all_identical": true
+  },
+  "avif/decode/photo24-8-444": {
+    "sha256": {
+      "c-aom:t1": [
+        "d964d7c760d822a7ef2aca5498259a6258f86062b26a4085df229ccd9c99e73f"
+      ],
+      "c-aom:tN": [
+        "d964d7c760d822a7ef2aca5498259a6258f86062b26a4085df229ccd9c99e73f"
+      ],
+      "c-dav1d-v1:t1": [
+        "d964d7c760d822a7ef2aca5498259a6258f86062b26a4085df229ccd9c99e73f"
+      ],
+      "c-dav1d-v1:tN": [
+        "d964d7c760d822a7ef2aca5498259a6258f86062b26a4085df229ccd9c99e73f"
+      ],
+      "c-dav1d:t1": [
+        "d964d7c760d822a7ef2aca5498259a6258f86062b26a4085df229ccd9c99e73f"
+      ],
+      "c-dav1d:tN": [
+        "d964d7c760d822a7ef2aca5498259a6258f86062b26a4085df229ccd9c99e73f"
+      ],
+      "port-aom:t1": [
+        "d964d7c760d822a7ef2aca5498259a6258f86062b26a4085df229ccd9c99e73f"
+      ],
+      "port-aom:tN": [
+        "d964d7c760d822a7ef2aca5498259a6258f86062b26a4085df229ccd9c99e73f"
+      ],
+      "port-dav1d:t1": [
+        "d964d7c760d822a7ef2aca5498259a6258f86062b26a4085df229ccd9c99e73f"
+      ],
+      "port-dav1d:tN": [
+        "d964d7c760d822a7ef2aca5498259a6258f86062b26a4085df229ccd9c99e73f"
+      ],
+      "port-aom-reader:t1": [
+        "d964d7c760d822a7ef2aca5498259a6258f86062b26a4085df229ccd9c99e73f"
+      ]
+    },
+    "all_identical": true
+  },
+  "avif/decode/photoweb03-10-420": {
+    "sha256": {
+      "c-aom:t1": [
+        "1733251e59e26a35ee48882e7a342f518b4b64207cc50c3ddc3e715cb21c8fc3"
+      ],
+      "c-aom:tN": [
+        "1733251e59e26a35ee48882e7a342f518b4b64207cc50c3ddc3e715cb21c8fc3"
+      ],
+      "c-dav1d-v1:t1": [
+        "1733251e59e26a35ee48882e7a342f518b4b64207cc50c3ddc3e715cb21c8fc3"
+      ],
+      "c-dav1d-v1:tN": [
+        "1733251e59e26a35ee48882e7a342f518b4b64207cc50c3ddc3e715cb21c8fc3"
+      ],
+      "c-dav1d:t1": [
+        "1733251e59e26a35ee48882e7a342f518b4b64207cc50c3ddc3e715cb21c8fc3"
+      ],
+      "c-dav1d:tN": [
+        "1733251e59e26a35ee48882e7a342f518b4b64207cc50c3ddc3e715cb21c8fc3"
+      ],
+      "port-aom:t1": [
+        "1733251e59e26a35ee48882e7a342f518b4b64207cc50c3ddc3e715cb21c8fc3"
+      ],
+      "port-aom:tN": [
+        "1733251e59e26a35ee48882e7a342f518b4b64207cc50c3ddc3e715cb21c8fc3"
+      ],
+      "port-dav1d:t1": [
+        "1733251e59e26a35ee48882e7a342f518b4b64207cc50c3ddc3e715cb21c8fc3"
+      ],
+      "port-dav1d:tN": [
+        "1733251e59e26a35ee48882e7a342f518b4b64207cc50c3ddc3e715cb21c8fc3"
+      ]
+    },
+    "all_identical": true
+  },
+  "avif/decode/photoweb03-10-444": {
+    "sha256": {
+      "c-aom:t1": [
+        "0cefcce8cf2bf22b380f9e2fe22ff0b4d7a0f838de70a08e98d8399e6f9d24b5"
+      ],
+      "c-aom:tN": [
+        "0cefcce8cf2bf22b380f9e2fe22ff0b4d7a0f838de70a08e98d8399e6f9d24b5"
+      ],
+      "c-dav1d-v1:t1": [
+        "0cefcce8cf2bf22b380f9e2fe22ff0b4d7a0f838de70a08e98d8399e6f9d24b5"
+      ],
+      "c-dav1d-v1:tN": [
+        "0cefcce8cf2bf22b380f9e2fe22ff0b4d7a0f838de70a08e98d8399e6f9d24b5"
+      ],
+      "c-dav1d:t1": [
+        "0cefcce8cf2bf22b380f9e2fe22ff0b4d7a0f838de70a08e98d8399e6f9d24b5"
+      ],
+      "c-dav1d:tN": [
+        "0cefcce8cf2bf22b380f9e2fe22ff0b4d7a0f838de70a08e98d8399e6f9d24b5"
+      ],
+      "port-aom:t1": [
+        "0cefcce8cf2bf22b380f9e2fe22ff0b4d7a0f838de70a08e98d8399e6f9d24b5"
+      ],
+      "port-aom:tN": [
+        "0cefcce8cf2bf22b380f9e2fe22ff0b4d7a0f838de70a08e98d8399e6f9d24b5"
+      ],
+      "port-dav1d:t1": [
+        "0cefcce8cf2bf22b380f9e2fe22ff0b4d7a0f838de70a08e98d8399e6f9d24b5"
+      ],
+      "port-dav1d:tN": [
+        "0cefcce8cf2bf22b380f9e2fe22ff0b4d7a0f838de70a08e98d8399e6f9d24b5"
+      ]
+    },
+    "all_identical": true
+  },
+  "avif/decode/photoweb03-8-420": {
+    "sha256": {
+      "c-aom:t1": [
+        "bcb6a2f9481f7c519c668ae740ae52fdd004b1b538adfcb0be97dcb2c7dfad13"
+      ],
+      "c-aom:tN": [
+        "bcb6a2f9481f7c519c668ae740ae52fdd004b1b538adfcb0be97dcb2c7dfad13"
+      ],
+      "c-dav1d-v1:t1": [
+        "bcb6a2f9481f7c519c668ae740ae52fdd004b1b538adfcb0be97dcb2c7dfad13"
+      ],
+      "c-dav1d-v1:tN": [
+        "bcb6a2f9481f7c519c668ae740ae52fdd004b1b538adfcb0be97dcb2c7dfad13"
+      ],
+      "c-dav1d:t1": [
+        "bcb6a2f9481f7c519c668ae740ae52fdd004b1b538adfcb0be97dcb2c7dfad13"
+      ],
+      "c-dav1d:tN": [
+        "bcb6a2f9481f7c519c668ae740ae52fdd004b1b538adfcb0be97dcb2c7dfad13"
+      ],
+      "port-aom:t1": [
+        "bcb6a2f9481f7c519c668ae740ae52fdd004b1b538adfcb0be97dcb2c7dfad13"
+      ],
+      "port-aom:tN": [
+        "bcb6a2f9481f7c519c668ae740ae52fdd004b1b538adfcb0be97dcb2c7dfad13"
+      ],
+      "port-dav1d:t1": [
+        "bcb6a2f9481f7c519c668ae740ae52fdd004b1b538adfcb0be97dcb2c7dfad13"
+      ],
+      "port-dav1d:tN": [
+        "bcb6a2f9481f7c519c668ae740ae52fdd004b1b538adfcb0be97dcb2c7dfad13"
+      ],
+      "port-aom-reader:t1": [
+        "bcb6a2f9481f7c519c668ae740ae52fdd004b1b538adfcb0be97dcb2c7dfad13"
+      ]
+    },
+    "all_identical": true
+  },
+  "avif/decode/photoweb03-8-444": {
+    "sha256": {
+      "c-aom:t1": [
+        "393c1f627c683dd52da509aeb087962d955bf79699f2e442d60c91b93a0f7808"
+      ],
+      "c-aom:tN": [
+        "393c1f627c683dd52da509aeb087962d955bf79699f2e442d60c91b93a0f7808"
+      ],
+      "c-dav1d-v1:t1": [
+        "393c1f627c683dd52da509aeb087962d955bf79699f2e442d60c91b93a0f7808"
+      ],
+      "c-dav1d-v1:tN": [
+        "393c1f627c683dd52da509aeb087962d955bf79699f2e442d60c91b93a0f7808"
+      ],
+      "c-dav1d:t1": [
+        "393c1f627c683dd52da509aeb087962d955bf79699f2e442d60c91b93a0f7808"
+      ],
+      "c-dav1d:tN": [
+        "393c1f627c683dd52da509aeb087962d955bf79699f2e442d60c91b93a0f7808"
+      ],
+      "port-aom:t1": [
+        "393c1f627c683dd52da509aeb087962d955bf79699f2e442d60c91b93a0f7808"
+      ],
+      "port-aom:tN": [
+        "393c1f627c683dd52da509aeb087962d955bf79699f2e442d60c91b93a0f7808"
+      ],
+      "port-dav1d:t1": [
+        "393c1f627c683dd52da509aeb087962d955bf79699f2e442d60c91b93a0f7808"
+      ],
+      "port-dav1d:tN": [
+        "393c1f627c683dd52da509aeb087962d955bf79699f2e442d60c91b93a0f7808"
+      ],
+      "port-aom-reader:t1": [
+        "393c1f627c683dd52da509aeb087962d955bf79699f2e442d60c91b93a0f7808"
+      ]
+    },
+    "all_identical": true
+  },
+  "avif/decode/photoweb14-10-420": {
+    "sha256": {
+      "c-aom:t1": [
+        "67b45e6e5e0d6aa51591aa6d0cf4a9ca419374eb866b9811502c6a66fffbd047"
+      ],
+      "c-aom:tN": [
+        "67b45e6e5e0d6aa51591aa6d0cf4a9ca419374eb866b9811502c6a66fffbd047"
+      ],
+      "c-dav1d-v1:t1": [
+        "67b45e6e5e0d6aa51591aa6d0cf4a9ca419374eb866b9811502c6a66fffbd047"
+      ],
+      "c-dav1d-v1:tN": [
+        "67b45e6e5e0d6aa51591aa6d0cf4a9ca419374eb866b9811502c6a66fffbd047"
+      ],
+      "c-dav1d:t1": [
+        "67b45e6e5e0d6aa51591aa6d0cf4a9ca419374eb866b9811502c6a66fffbd047"
+      ],
+      "c-dav1d:tN": [
+        "67b45e6e5e0d6aa51591aa6d0cf4a9ca419374eb866b9811502c6a66fffbd047"
+      ],
+      "port-aom:t1": [
+        "67b45e6e5e0d6aa51591aa6d0cf4a9ca419374eb866b9811502c6a66fffbd047"
+      ],
+      "port-aom:tN": [
+        "67b45e6e5e0d6aa51591aa6d0cf4a9ca419374eb866b9811502c6a66fffbd047"
+      ],
+      "port-dav1d:t1": [
+        "67b45e6e5e0d6aa51591aa6d0cf4a9ca419374eb866b9811502c6a66fffbd047"
+      ],
+      "port-dav1d:tN": [
+        "67b45e6e5e0d6aa51591aa6d0cf4a9ca419374eb866b9811502c6a66fffbd047"
+      ]
+    },
+    "all_identical": true
+  },
+  "avif/decode/photoweb14-10-444": {
+    "sha256": {
+      "c-aom:t1": [
+        "37b02ac3ca465902f83ee26685bcec5c98a09951b268b81c14ee788ecb9da7ac"
+      ],
+      "c-aom:tN": [
+        "37b02ac3ca465902f83ee26685bcec5c98a09951b268b81c14ee788ecb9da7ac"
+      ],
+      "c-dav1d-v1:t1": [
+        "37b02ac3ca465902f83ee26685bcec5c98a09951b268b81c14ee788ecb9da7ac"
+      ],
+      "c-dav1d-v1:tN": [
+        "37b02ac3ca465902f83ee26685bcec5c98a09951b268b81c14ee788ecb9da7ac"
+      ],
+      "c-dav1d:t1": [
+        "37b02ac3ca465902f83ee26685bcec5c98a09951b268b81c14ee788ecb9da7ac"
+      ],
+      "c-dav1d:tN": [
+        "37b02ac3ca465902f83ee26685bcec5c98a09951b268b81c14ee788ecb9da7ac"
+      ],
+      "port-aom:t1": [
+        "bf7a605481bdbed24cd073c47f1d4cc971d3ec74384424cc09b5477326df078d"
+      ],
+      "port-aom:tN": [
+        "bf7a605481bdbed24cd073c47f1d4cc971d3ec74384424cc09b5477326df078d"
+      ],
+      "port-dav1d:t1": [
+        "bf7a605481bdbed24cd073c47f1d4cc971d3ec74384424cc09b5477326df078d"
+      ],
+      "port-dav1d:tN": [
+        "bf7a605481bdbed24cd073c47f1d4cc971d3ec74384424cc09b5477326df078d"
+      ]
+    },
+    "all_identical": false
+  },
+  "avif/decode/photoweb14-8-420": {
+    "sha256": {
+      "c-aom:t1": [
+        "d1262388337af3e039e1ef6d2edd24e3ab4e4ceed2fe62a3ce66aa7dc113563b"
+      ],
+      "c-aom:tN": [
+        "d1262388337af3e039e1ef6d2edd24e3ab4e4ceed2fe62a3ce66aa7dc113563b"
+      ],
+      "c-dav1d-v1:t1": [
+        "d1262388337af3e039e1ef6d2edd24e3ab4e4ceed2fe62a3ce66aa7dc113563b"
+      ],
+      "c-dav1d-v1:tN": [
+        "d1262388337af3e039e1ef6d2edd24e3ab4e4ceed2fe62a3ce66aa7dc113563b"
+      ],
+      "c-dav1d:t1": [
+        "d1262388337af3e039e1ef6d2edd24e3ab4e4ceed2fe62a3ce66aa7dc113563b"
+      ],
+      "c-dav1d:tN": [
+        "d1262388337af3e039e1ef6d2edd24e3ab4e4ceed2fe62a3ce66aa7dc113563b"
+      ],
+      "port-aom:t1": [
+        "d1262388337af3e039e1ef6d2edd24e3ab4e4ceed2fe62a3ce66aa7dc113563b"
+      ],
+      "port-aom:tN": [
+        "d1262388337af3e039e1ef6d2edd24e3ab4e4ceed2fe62a3ce66aa7dc113563b"
+      ],
+      "port-dav1d:t1": [
+        "d1262388337af3e039e1ef6d2edd24e3ab4e4ceed2fe62a3ce66aa7dc113563b"
+      ],
+      "port-dav1d:tN": [
+        "d1262388337af3e039e1ef6d2edd24e3ab4e4ceed2fe62a3ce66aa7dc113563b"
+      ],
+      "port-aom-reader:t1": [
+        "d1262388337af3e039e1ef6d2edd24e3ab4e4ceed2fe62a3ce66aa7dc113563b"
+      ]
+    },
+    "all_identical": true
+  },
+  "avif/decode/photoweb14-8-444": {
+    "sha256": {
+      "c-aom:t1": [
+        "d8b074d3c6cd41cd6b6be4488d98a982d1ae71dd02afe23408f70026c81d1af1"
+      ],
+      "c-aom:tN": [
+        "d8b074d3c6cd41cd6b6be4488d98a982d1ae71dd02afe23408f70026c81d1af1"
+      ],
+      "c-dav1d-v1:t1": [
+        "d8b074d3c6cd41cd6b6be4488d98a982d1ae71dd02afe23408f70026c81d1af1"
+      ],
+      "c-dav1d-v1:tN": [
+        "d8b074d3c6cd41cd6b6be4488d98a982d1ae71dd02afe23408f70026c81d1af1"
+      ],
+      "c-dav1d:t1": [
+        "d8b074d3c6cd41cd6b6be4488d98a982d1ae71dd02afe23408f70026c81d1af1"
+      ],
+      "c-dav1d:tN": [
+        "d8b074d3c6cd41cd6b6be4488d98a982d1ae71dd02afe23408f70026c81d1af1"
+      ],
+      "port-aom:t1": [
+        "d8b074d3c6cd41cd6b6be4488d98a982d1ae71dd02afe23408f70026c81d1af1"
+      ],
+      "port-aom:tN": [
+        "d8b074d3c6cd41cd6b6be4488d98a982d1ae71dd02afe23408f70026c81d1af1"
+      ],
+      "port-dav1d:t1": [
+        "d8b074d3c6cd41cd6b6be4488d98a982d1ae71dd02afe23408f70026c81d1af1"
+      ],
+      "port-dav1d:tN": [
+        "d8b074d3c6cd41cd6b6be4488d98a982d1ae71dd02afe23408f70026c81d1af1"
+      ],
+      "port-aom-reader:t1": [
+        "d8b074d3c6cd41cd6b6be4488d98a982d1ae71dd02afe23408f70026c81d1af1"
+      ]
+    },
+    "all_identical": true
+  }
+}

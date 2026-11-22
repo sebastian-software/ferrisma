@@ -1,9 +1,11 @@
 //! Decode one still AVIF through the safe reader, the way the engine does:
-//! the workspace libavif port with its AOM decoder, one thread, and nearest
-//! chroma upsampling to 8-bit RGB.
+//! the workspace libavif port with its default AV1 decoder (the dav1d port
+//! since 2026-11-22, the AOM decoder before), one thread, and nearest chroma
+//! upsampling to 8-bit RGB. An optional third argument chooses the decoder
+//! by name, `dav1d` or `libaom` (the engine's `--avif-decoder=`).
 //!
 //! ```sh
-//! cargo run --release -p ferrisma-avif-read --example decode_still -- input.avif output.ppm
+//! cargo run --release -p ferrisma-avif-read --example decode_still -- input.avif output.ppm [dav1d|libaom]
 //! ```
 //!
 //! The input is read into memory first. `elapsed_ms` covers parsing, AV1
@@ -12,20 +14,30 @@
 //! alpha are accepted, which is what the CI performance inputs are.
 use std::time::Instant;
 
-use ferrisma_avif_read::Decoder;
+use ferrisma_avif_read::{Codec, Decoder};
 
 /// The engine's default decoded-pixel limit (`max_input_pixels`).
 const MAX_PIXELS: u64 = 100_000_000;
 
 fn main() {
     let arguments: Vec<String> = std::env::args().skip(1).collect();
-    let [input, output] = arguments.as_slice() else {
-        panic!("usage: decode_still input.avif output.ppm");
+    let (input, output, codec) = match arguments.as_slice() {
+        [input, output] => (input, output, Codec::default()),
+        [input, output, codec] => (
+            input,
+            output,
+            match codec.as_str() {
+                "dav1d" => Codec::Dav1d,
+                "libaom" => Codec::Libaom,
+                _ => panic!("the decoder is dav1d or libaom"),
+            },
+        ),
+        _ => panic!("usage: decode_still input.avif output.ppm [dav1d|libaom]"),
     };
     let bytes = std::fs::read(input).expect("read input");
 
     let start = Instant::now();
-    let (mut decoder, info) = Decoder::parse(&bytes, MAX_PIXELS).expect("parse");
+    let (mut decoder, info) = Decoder::parse_with(&bytes, MAX_PIXELS, codec).expect("parse");
     assert!(
         info.depth == 8 && !info.alpha,
         "decode_still expects 8-bit AVIF without alpha"

@@ -33,7 +33,7 @@ The pinned nightly in `rust-toolchain.toml` is for development only
 | [JPEG port](codecs/libjpeg-turbo-rs) | In-scope 8-bit decoder with a safe row API, used by `jpeg-read` |
 | [WebP port](codecs/libwebp-rs) | Decoder, encoder, container, and SharpYUV APIs; still-image input and output are connected through `webp-read` and `webp-write` |
 | [JPEG XL port](codecs/libjxl-rs) | Reference decoder is the engine's only JPEG XL input (`jpeg-xl-read`) through a safe wrapper; lossy (d1.0 default) and lossless encoder profiles behind `jpeg-xl-write` (in `cli`); the decoder runs its NEON path on AArch64 and its AVX2 path on x86-64, the encoder is scalar; full encoder incomplete |
-| [AVIF ports](codecs/libavif-rs) | libavif and its AOM, dav1d, and SharpYUV ports; `avif-read` uses the AOM reference decoder through an [isolated safe adapter](crates/ferrisma-avif-read), with a separate [optional encoder adapter](crates/ferrisma-libavif) |
+| [AVIF ports](codecs/libavif-rs) | libavif and its AOM, dav1d, and SharpYUV ports; `avif-read` decodes with the dav1d port by default (since 2026-11-22; the AOM reference decoder stays selectable) through an [isolated safe adapter](crates/ferrisma-avif-read), with a separate [optional encoder adapter](crates/ferrisma-libavif) |
 | [Shared SharpYUV core](crates/libsharpyuv-core) | One safe numeric conversion used by WebP and AVIF through their separate API and allocation boundaries |
 | [Validation tooling](docs/codecs.md) | One Rust runner, scoped PR checks, and deeper independent oracle suites |
 
@@ -41,7 +41,7 @@ The four codec ports share the Cargo workspace, but importing them does not
 automatically select them as engine backends. Ferrisma reads JPEG and WebP
 through the workspace `ferrisma-libjpeg-turbo` and `ferrisma-libwebp` ports, JPEG XL through
 the workspace libjxl-rs reference decoder (the only JPEG XL reader since
-2026-11-15; `jxl-oxide` remains only as a test cross-check), and AVIF through the workspace libavif/AOM reader; it writes AVIF
+2026-11-15; `jxl-oxide` remains only as a test cross-check), and AVIF through the workspace libavif reader with the dav1d port (the default since 2026-11-22; `--avif-decoder=libaom` selects the AOM reference decoder); it writes AVIF
 through the workspace libavif/AOM encoder (the only AVIF writer since
 2026-11-15; `rav1e` was removed), and still WebP through the workspace
 `ferrisma-libwebp` encoder ([ADR-0032](docs/adr/0032-jpeg-xl-workspace-decoder-input.md),

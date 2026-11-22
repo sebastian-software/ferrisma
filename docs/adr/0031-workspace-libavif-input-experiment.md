@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-11
-- **Last reviewed:** 2026-11-16
+- **Last reviewed:** 2026-11-22
 - **Partially supersedes:** [0018](0018-optional-codec-and-cms-dependencies.md), the interim AVIF reader and its toolchain contract; [0024](0024-pluggable-encoders-and-libavif-rs-backend.md) and [0026](0026-codecs-in-one-repository-and-workspace.md), the AVIF reader/encoder link exclusion. [0025](0025-codec-selection-reference-conformance-and-image-scope.md)'s final selection gates remain in force.
 - **Related:** [0015](0015-typed-output-color-signals.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0019](0019-source-side-orientation.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0026](0026-codecs-in-one-repository-and-workspace.md), [issue 54](https://github.com/sebastian-software/ferrisma/issues/54)
 
@@ -18,7 +18,9 @@ Moving the raw API into Ferrisma's engine would violate its `unsafe` rule.
 
 Introduce `ferrisma-avif-read`, a small crate that depends on the local
 `libavif-rs` package but not on Ferrisma. It owns the decoder and memory reader,
-sets `AVIF_CODEC_CHOICE_AOM` explicitly, guards cleanup, and writes interleaved
+sets the AV1 decoder explicitly (`AVIF_CODEC_CHOICE_AOM` until 2026-11-22;
+since then `AVIF_CODEC_CHOICE_DAV1D` by default and libaom on request, see the
+amendment of 2026-11-22), guards cleanup, and writes interleaved
 RGB or RGBA into a caller-owned buffer. It selects the primary image item
 explicitly and rejects files carrying tracks, so container color, orientation,
 and extent metadata refer to the decoded item. Ferrisma's private AVIF source owns the
@@ -63,9 +65,10 @@ conformance or justify a universal performance claim.
 
 ## Alternatives considered
 
-- Use the port's dav1d by default. Deferred because its optional external
-  Argon conformance corpus has not been run; it can be selected deliberately
-  after the evidence and quality gates.
+- Use the port's dav1d by default. Deferred on 2026-11-11 because its
+  optional external Argon conformance corpus had not been run; adopted on
+  2026-11-22 by owner decision on bit-identity evidence, with Argon as a
+  follow-up (amendment of 2026-11-22).
 - Put raw calls in the engine. Rejected by its no-`unsafe` policy.
 - Put the reader in `ferrisma-libavif`. Rejected because that encoder adapter
   already depends on Ferrisma, creating a Cargo dependency cycle.
@@ -204,3 +207,48 @@ an AVIF feature needs another platform.
   the reader's evidence for 1.0) is unchanged, and so is the statement
   that the Argon gate remains a precondition for selecting the dav1d port
   as the reader.
+- 2026-11-22 — **Owner decision: the dav1d port is the default AVIF
+  decoder for 1.0** ("Passt: dav1d wird der Standard-Decoder für 1.0").
+  Evidence: the [decoder measurement of 2026-11-22](../benchmarks/v1.0-decoders-2026-11-22.md)
+  at current `main` with the rebuilt kernels (merged 2026-11-20): macOS
+  ARM64 local, two passes, and x86-64 Linux hosted, runs 45015543707 and
+  45016849091. The dav1d port takes 0.50–0.69 of the libaom port's time at
+  one thread (0.27–0.66 with all threads), less than half its peak memory
+  (12 MP 8-bit 4:2:0, one thread: 104–105 against 251 MB), and decodes
+  every input to the same RGB as the libaom port on every host; against
+  stock dav1d it is identical on 994 of 994 cases (libavif-rs ADR 0062).
+  This supersedes part (2) of the 2026-11-15 entry (dav1d leaves the
+  runtime and the published chain) and the 2026-11-16 pause: dav1d and
+  its kernels stay in the runtime and the published chain, and the branch
+  that removed them (`v1/avif-drop-dav1d-3`) is obsolete. **Recorded
+  exception to ADR-0025 point 1:** the Argon precondition for selecting
+  the dav1d port, which the 2026-11-12, 2026-11-15 and 2026-11-16 entries
+  kept, is set aside for this decoder by the owner; its 1.0 evidence is
+  bit identity with the libaom reference and with stock dav1d, and Argon
+  conformance is a follow-up ([#267](https://github.com/sebastian-software/ferrisma/issues/267), "AVIF: Argon conformance
+  evidence for the dav1d default decoder"). **Implemented** on
+  `v1/avif-dav1d-default`: `ferrisma-avif-read` takes a `Codec`
+  (`Dav1d`, the default, or `Libaom`) and sets it explicitly, never
+  libavif's `AUTO`; the engine has `pipeline::AvifDecoder` and
+  `TransformOptions::avif_decoder` (default `Dav1d`), the CLI
+  `--avif-decoder=dav1d|libaom`; a nondefault choice with an input that
+  is not AVIF is `InvalidOptions` (ADR-0042, options without effect). The
+  report's `decoder=` is `libavif/dav1d` by default and `libavif/aom` with
+  the libaom reference. The libaom port stays the only AVIF encoder. The
+  AV1 decode stays on one thread for both decoders; enabling dav1d's
+  threads is a separate decision. **Evidence in CI:**
+  `dav1d_and_libaom_decode_the_avif_corpus_identically` decodes every
+  committed AVIF file (95 on 2026-11-22: 81 decode, 14 are refused alike)
+  with both decoders and compares the YUV and alpha planes and the RGB
+  output; `both_decoders_reproduce_the_pinned_c_oracle` checks both
+  against the unchanged C libavif/libaom SHA-256 of the seven committed
+  fixtures of the 2026-11-11 record above; both run in `ci.yml` (`rust`,
+  Linux x86-64; `native-adapters`, macOS ARM64), next to the engine test
+  `dav1d_default_rows_equal_the_libaom_reference` and the CLI test
+  `cli_reads_avif_with_dav1d_by_default_and_libaom_on_request`. The
+  existing reader tests now run through the dav1d default with their
+  expected values unchanged; only the report name of the default reader
+  changed with the decoder. The dav1d port keeps its own parity gate
+  against stock dav1d (`avif-dav1d.yml`). Part (1) of the 2026-11-15
+  entry (bit identity with libaom as the reader's evidence) now applies to
+  the dav1d default through its identity with libaom.

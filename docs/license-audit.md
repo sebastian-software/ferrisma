@@ -107,7 +107,9 @@ On 2026-11-11, the `cli` graph for `aarch64-apple-darwin` contained 93
 packages: 86 reachable by normal edges and seven additional build-only
 packages. The `libavif-dav1d` package remains a normal dependency of the
 workspace libavif port even when the AOM decoder is selected; package presence
-alone does not establish its linked code. The captured JPEG manifest states
+alone does not establish its linked code. (Since 2026-11-22 the dav1d port,
+now `ferrisma-dav1d`, is the default AVIF decoder, so its code is linked and
+run by `avif-read`.) The captured JPEG manifest states
 `IJG AND Zlib`, and the port's source retains both IJG and zlib material. IJG
 remains `REVIEW` in the metadata gate. The registry packages `alloc-stdlib`
 0.2.4, `c2rust-bitfields` 0.3.0, `c2rust-bitfields-derive` 0.2.1,

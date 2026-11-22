@@ -49,7 +49,7 @@ Every ADR contains **Status**, **Date**, **Last reviewed**, **Context**, **Decis
 | [0028](0028-ardo-documentation-site.md) | Ardo website with the shared Ferramenta theme and canonical repository Markdown | Accepted |
 | [0029](0029-webp-still-input.md) | Still WebP input through the workspace port with explicit crop cost, color, orientation and memory limits | Experimental |
 | [0030](0030-still-webp-output-and-format-neutral-encoder-result.md) | Still WebP output, format-tagged encoder results, and backend use without `avif-write` | Experimental |
-| [0031](0031-workspace-libavif-input-experiment.md) | Experimental AVIF input through an isolated safe reader and the workspace libaom reference decoder | Experimental |
+| [0031](0031-workspace-libavif-input-experiment.md) | Experimental AVIF input through an isolated safe reader: the workspace dav1d port by default since 2026-11-22, the libaom reference decoder selectable | Experimental |
 | [0032](0032-jpeg-xl-workspace-decoder-input.md) | JPEG XL input through the workspace reference decoder, with a budgeted full-frame fallback | Experimental |
 | [0033](0033-shared-sharpyuv-conversion-core.md) | One safe SharpYUV conversion core with WebP and AVIF boundary adapters | Experimental |
 | [0034](0034-thumbnail-geometry.md) | Upright thumbnail geometry, centered cover, explicit no-enlargement behavior and bounded JPEG/WebP header inspection | Accepted |
