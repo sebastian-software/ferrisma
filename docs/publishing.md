@@ -50,8 +50,8 @@ crates.io").
 | 1 | `ferrisma-kernels` | 0.1.0 | MIT OR Apache-2.0 | no | 1.99 | yes | 18.3 KiB | Engine SIMD kernels (unconditional dependency) |
 | 1 | JPEG port, today `libjpeg-turbo-rs` | 0.1.0 | IJG AND Zlib | no | 1.93 | yes | 318.9 KiB | `jpeg-read` |
 | 1 | `libjxl-rs` | 0.1.0 | BSD-3-Clause AND MIT AND (Apache-2.0 WITH LLVM-exception) | no | 1.94 | yes | 868.2 KiB | `jpeg-xl-read`, `jpeg-xl-write` |
-| 1 | `ferrisma-libaom` | 0.1.0 | BSD-2-Clause AND BSD-3-Clause AND MIT | no (since 2026-11-15) | 1.99 | yes | 4.8 MiB (one source, 2026-11-21) | AVIF encode/decode |
-| 1 | `libavif-dav1d` | 0.1.0 | BSD-2-Clause | no (since 2026-11-15) | 1.99 | yes | 2.6 MiB | Normal dependency of `libavif-rs`; stays in the chain (its removal, decided 2026-11-15, is paused since 2026-11-16: [ADR-0031](adr/0031-workspace-libavif-input-experiment.md)) |
+| 1 | `ferrisma-libaom` | 0.1.0 | BSD-2-Clause AND BSD-3-Clause AND MIT | no (since 2026-11-15) | 1.99 | yes | 4.8 MiB (one source, 2026-11-21) | AVIF encode; the reference AVIF decoder (selectable since 2026-11-22) |
+| 1 | `libavif-dav1d` | 0.1.0 | BSD-2-Clause | no (since 2026-11-15) | 1.99 | yes | 2.6 MiB | Normal dependency of `libavif-rs`; the default AVIF decoder since 2026-11-22 (owner decision) and part of the chain, with `ferrisma-dav1d-kernels` (its removal, decided 2026-11-15 and paused 2026-11-16, is superseded: [ADR-0031](adr/0031-workspace-libavif-input-experiment.md)) |
 | 2 | `libwebp-rs` | 0.1.0 | BSD-3-Clause | no | 1.95 | yes | 796.9 KiB | `webp-read`, `webp-write` |
 | 2 | `libavif-sharpyuv` | 0.1.0 | BSD-3-Clause | no | 1.95 | yes | 21.8 KiB | SharpYUV C ABI for libavif |
 | 3 | `libavif-rs` | 0.1.0 | BSD-2-Clause AND BSD-3-Clause | no (since 2026-11-15) | 1.99 | yes | 4.6 MiB | libavif port |

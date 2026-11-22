@@ -48,7 +48,7 @@ function Ports() {
         }}
       >
         <p>
-          libjpeg-turbo, libwebp, libjxl, and libavif with the AV1 codec libaom are the libraries
+          libjpeg-turbo, libwebp, libjxl, and libavif with the AV1 codecs libaom and dav1d are the libraries
           their formats are measured against: reference implementations, or in JPEG's case the
           SIMD-accelerated descendant of the reference libjpeg. They hold years of careful work,
           much of the fastest of it in hand-tuned vector code, and they are written in C and C++.

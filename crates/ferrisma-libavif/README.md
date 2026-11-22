@@ -27,8 +27,9 @@ cargo run -p ferrisma-libavif --release --features cli -- input.jpg output.avif 
 - **Toolchain:** the root workspace pins the nightly required by libavif-rs. The adapter uses the local codec package and root lockfile; the engine retains explicit stable/MSRV checks (ADR-0026).
 - **Platforms:** aarch64 macOS and x86-64 GNU Linux, the targets libavif-rs validates.
 - **No native libraries.** libavif-rs builds its AOM without VMAF tuning ([libavif-rs ADR 0057](../../codecs/libavif-rs/docs/adr/0057-translate-libaom-without-vmaf-tuning.md)), so libvmaf, pkg-config and a C++ runtime are no longer needed. AOM rejects VMAF tuning modes, which Ferrisma never selects.
-- **AVIF input in the same binary:** Ferrisma's `avif-read` now selects the
-  workspace libavif/AOM decoder through `ferrisma-avif-read`. The former
+- **AVIF input in the same binary:** Ferrisma's `avif-read` decodes through
+  `ferrisma-avif-read` with the workspace dav1d port by default (since
+  2026-11-22; the libavif/AOM decoder before, still selectable). The former
   `rav1d`/dav1d duplicate-symbol path is gone. The adapter's `cli` feature
   includes JPEG, WebP, JPEG XL and AVIF input. Scoped native CI tests the
   combined build; local CLI smoke checks also cover AVIF and WebP input.

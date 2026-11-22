@@ -329,7 +329,9 @@ Cargo does not apply Ferrisma's workspace profiles to dependents.
   `IccProfile`) and `kernel_level=` the kernels crate's names. The
   `encoder=` and `decoder=` values are the report's backend strings, the
   names of the ported originals: `libjpeg-turbo`, `libwebp`, `libjxl`,
-  `libavif/aom`, or an external backend's own `name()` (since 2026-11-16,
+  `libavif/aom`, for AVIF input `libavif/dav1d` (the default decoder since
+  2026-11-22) or `libavif/aom` (the selected reference), or an external
+  backend's own `name()` (since 2026-11-16,
   owner decision; before, the package names `libjpeg-turbo-rs`,
   `libwebp-rs`, `libjxl-rs` and `libavif-rs/aom`), so renaming a package
   does not change them; experimental values. The `decoder_work:` line

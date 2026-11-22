@@ -153,7 +153,7 @@ Per adapter (all pinned by `tests/decoder_work.rs` and the adapter tests):
 | WebP lossless | request expanded to even x/y | ≥ full width × output bottom | ≥ output bottom |
 | JPEG XL, jxl-oxide 0.12.6 | exactly the request | ≥ request | ≥ request rows |
 | JPEG XL, libjxl-rs (a16d32d) | full frame | ≥ full frame | ≥ height |
-| AVIF (libavif-rs 1.4.2 with its libaom decoder) | full frame | ≥ full frame | ≥ height |
+| AVIF (libavif-rs 1.4.2 with its dav1d decoder by default since 2026-11-22, or its libaom decoder) | full frame | ≥ full frame | ≥ height |
 
 Measured on a 4:2:0 403×302 JPEG (`tests/fixtures/decoder-work/paris-420.jpg`),
 a 40×20 crop at (101, 50) returned a 46×20 codec output at x = 96: 120 pixels of

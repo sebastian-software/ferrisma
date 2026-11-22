@@ -94,10 +94,11 @@ export const PORTS: Port[] = [
   },
   {
     format: "AVIF",
-    original: "libavif with libaom",
-    pinned: "1.4.2 and 3.15.2",
-    reference: "libavif 1.4.2, libaom 3.15.2",
-    originalIs: "the AVIF library and the AV1 codec it encodes and decodes with",
+    original: "libavif, libaom, dav1d",
+    pinned: "1.4.2, 3.15.2, 1.5.4",
+    reference: "libavif 1.4.2, libaom 3.15.2, dav1d 1.5.4",
+    originalIs:
+      "the AVIF library, the AV1 codec it encodes with, and the AV1 decoder it decodes with (libaom stays selectable as the reference decoder)",
     bridge: "safe read and write wrappers",
     role: "reads and writes AVIF",
     crate: "libavif-rs",
