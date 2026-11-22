@@ -1,0 +1,16 @@
+web03-8-420 nocontract-dav1d=bcb6a2f9481f7c51 nocontract-aom=bcb6a2f9481f7c51 port-dav1d=bcb6a2f9481f7c51 port-aom=bcb6a2f9481f7c51 c-dav1d-default=bcb6a2f9481f7c51 -> nocontract vs port: IDENTICAL
+web03-8-444 nocontract-dav1d=393c1f627c683dd5 nocontract-aom=393c1f627c683dd5 port-dav1d=393c1f627c683dd5 port-aom=393c1f627c683dd5 c-dav1d-default=393c1f627c683dd5 -> nocontract vs port: IDENTICAL
+web03-10-420 nocontract-dav1d=1733251e59e26a35 nocontract-aom=1733251e59e26a35 port-dav1d=1733251e59e26a35 port-aom=1733251e59e26a35 c-dav1d-default=1733251e59e26a35 -> nocontract vs port: IDENTICAL
+web03-10-444 nocontract-dav1d=0cefcce8cf2bf22b nocontract-aom=0cefcce8cf2bf22b port-dav1d=0cefcce8cf2bf22b port-aom=0cefcce8cf2bf22b c-dav1d-default=0cefcce8cf2bf22b -> nocontract vs port: IDENTICAL
+web14-8-420 nocontract-dav1d=d1262388337af3e0 nocontract-aom=d1262388337af3e0 port-dav1d=d1262388337af3e0 port-aom=d1262388337af3e0 c-dav1d-default=d1262388337af3e0 -> nocontract vs port: IDENTICAL
+web14-8-444 nocontract-dav1d=d8b074d3c6cd41cd nocontract-aom=d8b074d3c6cd41cd port-dav1d=d8b074d3c6cd41cd port-aom=d8b074d3c6cd41cd c-dav1d-default=d8b074d3c6cd41cd -> nocontract vs port: IDENTICAL
+web14-10-420 nocontract-dav1d=67b45e6e5e0d6aa5 nocontract-aom=67b45e6e5e0d6aa5 port-dav1d=67b45e6e5e0d6aa5 port-aom=67b45e6e5e0d6aa5 c-dav1d-default=67b45e6e5e0d6aa5 -> nocontract vs port: IDENTICAL
+web14-10-444 nocontract-dav1d=bf7a605481bdbed2 nocontract-aom=bf7a605481bdbed2 port-dav1d=bf7a605481bdbed2 port-aom=bf7a605481bdbed2 c-dav1d-default=37b02ac3ca465902 -> nocontract vs port: IDENTICAL
+12-8-420 nocontract-dav1d=82d87694438af1c5 nocontract-aom=82d87694438af1c5 port-dav1d=82d87694438af1c5 port-aom=82d87694438af1c5 c-dav1d-default=82d87694438af1c5 -> nocontract vs port: IDENTICAL
+12-8-444 nocontract-dav1d=4ca7747419b19aa4 nocontract-aom=4ca7747419b19aa4 port-dav1d=4ca7747419b19aa4 port-aom=4ca7747419b19aa4 c-dav1d-default=4ca7747419b19aa4 -> nocontract vs port: IDENTICAL
+12-10-420 nocontract-dav1d=dbaab86b39329c81 nocontract-aom=dbaab86b39329c81 port-dav1d=dbaab86b39329c81 port-aom=dbaab86b39329c81 c-dav1d-default=cb88a520addefc26 -> nocontract vs port: IDENTICAL
+12-10-444 nocontract-dav1d=bd29c7030419bf82 nocontract-aom=bd29c7030419bf82 port-dav1d=bd29c7030419bf82 port-aom=bd29c7030419bf82 c-dav1d-default=a5d9e12b08e06bdb -> nocontract vs port: IDENTICAL
+24-8-420 nocontract-dav1d=b9c4f89ae486d3c1 nocontract-aom=b9c4f89ae486d3c1 port-dav1d=b9c4f89ae486d3c1 port-aom=b9c4f89ae486d3c1 c-dav1d-default=b9c4f89ae486d3c1 -> nocontract vs port: IDENTICAL
+24-8-444 nocontract-dav1d=d964d7c760d822a7 nocontract-aom=d964d7c760d822a7 port-dav1d=d964d7c760d822a7 port-aom=d964d7c760d822a7 c-dav1d-default=d964d7c760d822a7 -> nocontract vs port: IDENTICAL
+24-10-420 nocontract-dav1d=5643fc06044f6874 nocontract-aom=5643fc06044f6874 port-dav1d=5643fc06044f6874 port-aom=5643fc06044f6874 c-dav1d-default=a24bb5ef1da04c94 -> nocontract vs port: IDENTICAL
+24-10-444 nocontract-dav1d=f1ce01f2783f81f7 nocontract-aom=f1ce01f2783f81f7 port-dav1d=f1ce01f2783f81f7 port-aom=f1ce01f2783f81f7 c-dav1d-default=cd5c2f68c961afc0 -> nocontract vs port: IDENTICAL
