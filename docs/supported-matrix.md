@@ -268,8 +268,10 @@ Evidence per format:
   SHA-256 of seven fixtures, [record of 2026-11-11](benchmarks/M2-avif-input.md),
   unchanged); `codecs::avif::tests::dav1d_default_rows_equal_the_libaom_reference`
   for the engine rows; and stock dav1d, 994 of 994 (libavif-rs ADR 0062).
-  Argon AV1 conformance was not run: a recorded exception to ADR-0025
-  point 1 (owner decision of 2026-11-22), with Argon as a follow-up ([#267](https://github.com/sebastian-software/ferrisma/issues/267)).
+  Argon AV1 conformance was run on 2026-11-23 over the 2,763 streams of the
+  default set: every configuration passes for the stock C dav1d and the port
+  ([record](benchmarks/v1.0-argon-dav1d-2026-11-23.md)). This closes the
+  exception to ADR-0025 point 1 recorded on 2026-11-22.
 
 ### AVIF input: transforms, animation, channels and caps
 

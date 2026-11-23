@@ -48,7 +48,8 @@ this pipeline. The decoded image's chroma siting is interpreted by libavif's
 nearest-neighbor YUV-to-RGB converter.
 
 This is an integration experiment, not completion of issue 54. Its requested
-Argon evidence for dav1d remains open. Explicit libaom selection follows
+Argon evidence for dav1d was recorded on 2026-11-23 (amendment of that date).
+Explicit libaom selection follows
 ADR-0025's reference-origin route, but it does not establish complete AV1
 conformance or justify a universal performance claim.
 
@@ -67,8 +68,8 @@ conformance or justify a universal performance claim.
 
 - Use the port's dav1d by default. Deferred on 2026-11-11 because its
   optional external Argon conformance corpus had not been run; adopted on
-  2026-11-22 by owner decision on bit-identity evidence, with Argon as a
-  follow-up (amendment of 2026-11-22).
+  2026-11-22 by owner decision on bit-identity evidence; its Argon evidence was
+  recorded on 2026-11-23 (amendment of that date).
 - Put raw calls in the engine. Rejected by its no-`unsafe` policy.
 - Put the reader in `ferrisma-libavif`. Rejected because that encoder adapter
   already depends on Ferrisma, creating a Cargo dependency cycle.
@@ -83,9 +84,10 @@ output matches libavif's pinned C oracle byte for byte on eight fixtures. A
 frozen pre-format-neutral harness at reviewed base `f0ffebf4` retains the
 interim-reader comparison path after removal from the live dependency graph.
 Scoped PR CI checks the combined reader/encoder feature graph on native GNU
-Linux x86-64 and macOS ARM64. Wider quality and memory comparison and the
-Argon/dav1d corpus remain gates for a final decoder selection under ADR-0025
-and issue #54. The current own-reader default is experimental; it
+Linux x86-64 and macOS ARM64. Wider quality and memory comparison remains a gate
+for a final decoder selection under ADR-0025 and issue #54; the Argon/dav1d
+corpus was run on 2026-11-23 (amendment of that date). The current own-reader
+default is experimental; it
 does not mean those gates passed. Measure representative full-frame and crop
 workloads with versions, commands, time, and peak RSS; report the differences
 only for those workloads. The
@@ -280,3 +282,12 @@ an AVIF feature needs another platform.
   threads and compares YUV and alpha planes and RGB with one thread.
   The 2026-11-22 entry's "the AV1 decode stays on one thread for both
   decoders" is superseded for dav1d.
+- 2026-11-23 — **Argon evidence for the dav1d default is recorded**
+  ([record](../benchmarks/v1.0-argon-dav1d-2026-11-23.md)). The 2,763 streams of
+  the default set of dav1d's Argon test script decode to the expected MD5 with
+  stock C dav1d and with the port on every configuration: macOS ARM64 scalar and
+  NEON, x86-64 scalar and AVX2 under Rosetta, and AVX2 under `qemu-x86_64`. The
+  Argon precondition kept by the 2026-11-12, 2026-11-15 and 2026-11-16 entries
+  for selecting the dav1d port is satisfied, and the exception of 2026-11-22 to
+  ADR-0025 point 1 is resolved. The large-scale-tile, stress and error streams
+  were not run.
