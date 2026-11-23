@@ -1,0 +1,2 @@
+dav1d threads: 81 of 95 files decoded identically on 1, 2, 3, 4 and 8 threads
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 190.98s

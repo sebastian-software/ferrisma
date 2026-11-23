@@ -89,6 +89,10 @@ Current behavior and boundaries:
   decoder ([evidence](benchmarks/M2-avif-input.md)); the dav1d default
   takes 0.50–0.69 of the libaom port's decode time at one thread and less
   than half its peak memory ([2026-11-22 record](benchmarks/v1.0-decoders-2026-11-22.md)).
+  Since 2026-11-23 the dav1d decode runs on the engine's threads (output
+  identical for every count; 12 and 24 MP decode 2–3.5× faster on ten
+  threads for a few percent more memory, [record](benchmarks/v1.0-avif-dav1d-threads-2026-11-23.md));
+  the libaom reference keeps one decode thread.
 - **Planar experiments:** borrowed YUV420P10 supports even-origin crop-only
   views. It is not a general high-bit-depth pipeline, and has no planar resize
   or HDR tone-mapping policy.
@@ -269,7 +273,8 @@ universal speed claim.
   (2026-11-15) and the pause (2026-11-16) are superseded
   ([ADR-0031](adr/0031-workspace-libavif-input-experiment.md), amendment of
   2026-11-22). Open: Argon conformance evidence for the dav1d default
-  ([#267](https://github.com/sebastian-software/ferrisma/issues/267)) and whether the AV1 decode uses dav1d's threads.
+  ([#267](https://github.com/sebastian-software/ferrisma/issues/267)). The AV1 decode uses dav1d's threads since 2026-11-23
+  ([ADR-0031](adr/0031-workspace-libavif-input-experiment.md), amendment of 2026-11-23).
 - Validate the extracted shared SharpYUV core with native Linux and macOS
   API, ABI, allocation, callback, and full original-consumer oracles. Preserve
   the independent C reference and review the measured AVIF kernel cost in

@@ -252,3 +252,31 @@ an AVIF feature needs another platform.
   against stock dav1d (`avif-dav1d.yml`). Part (1) of the 2026-11-15
   entry (bit identity with libaom as the reader's evidence) now applies to
   the dav1d default through its identity with libaom.
+- 2026-11-23 — **dav1d decodes on the engine's threads** (owner approval of
+  2026-11-23: measure dav1d's decode threads and enable them for dav1d if
+  they pay off; [record](../benchmarks/v1.0-avif-dav1d-threads-2026-11-23.md)).
+  `Decoder::set_threads` now sets libavif's `maxThreads` for
+  `Codec::Dav1d`; libavif's dav1d glue passes it as `n_threads` with
+  `max_frame_delay` 1, so dav1d runs one frame context and spreads its tile
+  and superblock-row tasks over the pool. The engine's resolved
+  `transform_threads` reach the decode as before (clamped to 64 by the
+  reader); a batch item keeps one thread. The libaom reference keeps its
+  decode on one thread for the reason of the 2026-11-12 entry; `threads`
+  still drives its YUV-to-RGB row jobs and the engine's row pipeline, so
+  `--avif-decoder=libaom` with threads is not an option without effect
+  (ADR-0042). Measured on the 16 inputs of the 2026-11-22 record through
+  the engine's reader: macOS ARM64 (10 cores) 2.15–2.47× at 12 MP and
+  3.03–3.45× at 24 MP with ten threads against one, 1.06–1.30× at web
+  sizes; peak RSS grows by 1–7 % (24 MP 10-bit 4:4:4: 306 → 326 MB, against
+  597 MB for libaom on one thread). On x86-64 Colima (4 vCPUs, Rosetta, indicative) four threads gave
+  1.36–2.02× at 12 MP and 1.66–2.73× at 24 MP, RSS +0–8 %; the hosted runs
+  of 2026-11-22 (dav1d decode on four threads, serial conversion; Intel
+  and AMD) gave 1.39–1.80× at 12 and 24 MP and 0.94–1.06× at web sizes. Every output is
+  identical to the one-thread output: RGB8 of every sample, and the YUV
+  planes and full-depth RGB of every input at every thread count, natively
+  and under `qemu-x86_64 -cpu Haswell-v4`. **Evidence in CI:**
+  `dav1d_threads_decode_the_avif_corpus_identically` decodes every
+  committed AVIF file (81 of 95 decode) with dav1d on 2, 3, 4 and 8
+  threads and compares YUV and alpha planes and RGB with one thread.
+  The 2026-11-22 entry's "the AV1 decode stays on one thread for both
+  decoders" is superseded for dav1d.

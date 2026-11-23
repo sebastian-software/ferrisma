@@ -1,0 +1,3 @@
+dav1d == libaom: 81 of 95 files decoded identically, the rest refused alike
+dav1d threads: 81 of 95 files decoded identically on 1, 2, 3, 4 and 8 threads
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 35.52s

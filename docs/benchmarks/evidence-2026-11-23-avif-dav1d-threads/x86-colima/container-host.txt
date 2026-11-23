@@ -1,0 +1,2 @@
+Linux 840b40d414aa 6.8.0-117-generic #117-Ubuntu SMP PREEMPT_DYNAMIC Thu May  7 17:26:37 UTC 2026 x86_64 GNU/Linux
+model name	: VirtualApple @ 2.50GHz
