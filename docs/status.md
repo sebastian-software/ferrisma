@@ -214,10 +214,12 @@ sized like the originals' own) and are fixed on `main`; #252 is settled
   (#96, closed). The encoder's SIMD default passed its first scheduled
   nightly on `main`, [44890912987](https://github.com/sebastian-software/ferrisma/actions/runs/44890912987) at `e85ad0b9` (56 encoder
   SIMD tests against the AVX2 oracle, 0 failed; see the quality gate guide).
-- **AOM:** no workflow runs the comparison with the original's SIMD build
-  (`tools/check_aom_simd_original.py`), so no hosted run of it exists.
-  Locally its `avx2`, `sse4.1` and `scalar` levels run under QEMU emulation
-  since 2026-11-14, 82 of 82 identical each; on 2026-11-20, 420 RTCD
+- **AOM:** the comparison with the original's SIMD build
+  (`tools/check_aom_simd_original.py`) runs on hosted x86-64 hardware since
+  2026-11-23 (job `original` of `avif-aom-simd-linux.yml`, run
+  [45287751621](https://github.com/sebastian-software/ferrisma/actions/runs/45287751621): `avx2`, `sse4.1` and `scalar` 82 of 82 identical
+  each, the AVX2 cap checked on an AVX-512 runner). Locally its levels also run
+  under QEMU emulation since 2026-11-14, 82 of 82 identical each; on 2026-11-20, 420 RTCD
   functions (542 kernel assignments) dispatch on x86-64 (libavif-rs ADR 0058; [quality gate
   guide](quality-gate.md)). QEMU is not x86-64 hardware.
 - **Nightly AVIF `root / generate` (#204, closed):** the cause, an owned

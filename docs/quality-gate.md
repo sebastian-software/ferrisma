@@ -24,7 +24,7 @@ column "In short" of this table, generated at build time.
 | libwebp-rs | Identical at every level in the recorded runs: NEON and scalar on AArch64; AVX2, SSE4.1 and SSE2 on hosted x86-64 Linux, also in the nightly. | Passed (`neon`, scalar) | Passed on hosted Linux x86-64 (`avx2`, `sse41`, `sse2`; run [43471093624](https://github.com/sebastian-software/ferrisma/actions/runs/43471093624)); the nightly's hosted oracle job passed on 2026-11-15 and 2026-11-16 (runs [43698564297](https://github.com/sebastian-software/ferrisma/actions/runs/43698564297), [43840953408](https://github.com/sebastian-software/ferrisma/actions/runs/43840953408)) | Tracking issues #89 and #83 are open |
 | libjxl-rs decoder | NEON and AVX2 match the original word for word, AVX2 also in a hosted run on x86-64 hardware. | Passed (row level and public-decoder gate) | Passed on hosted Linux x86-64 at `7b48bc81`, where the decoder selects AVX2 by default (run [43656118559](https://github.com/sebastian-software/ferrisma/actions/runs/43656118559), every job successful) | `ToLinear` and `ToneMapping` only at row level |
 | libjxl-rs encoder | SIMD by default since 2026-11-16; matches the original on NEON and on AVX2 (under Rosetta 2, and on hosted x86-64 hardware in the nightly). | Passed: the encoder's SIMD path is selected by default since 2026-11-16 and matches the NEON original | Matches the AVX2 original under Rosetta 2; hosted nightly [44890912987](https://github.com/sebastian-software/ferrisma/actions/runs/44890912987) on `main` at `e85ad0b9`: 56 encoder SIMD tests, 0 failed | The hosted result is recorded in port ADR 0004's addendum of 2026-11-23 |
-| libavif-rs with libaom | Scalar and NEON identical on AArch64; scalar, SSE4.1 and AVX2 identical under QEMU emulation. A run on x86-64 hardware is open. | Passed (`neon` and `scalar`, 82 of 82) | `avx2`, `sse4.1` and `scalar` 82 of 82 each, under QEMU emulation; 420 RTCD functions dispatch on x86-64 (the kernel tests, identity and golden checks also run on hosted hardware, `AVIF: AOM x86 SIMD validation`, run [43695399177](https://github.com/sebastian-software/ferrisma/actions/runs/43695399177)) | No run on x86-64 hardware: no workflow runs `check_aom_simd_original.py`; NASM-only kernels stay on `_c` (ADR-0044 D2) |
+| libavif-rs with libaom | Scalar and NEON identical on AArch64; scalar, SSE4.1 and AVX2 identical under QEMU emulation. Hosted x86-64 run recorded 2026-11-23. | Passed (`neon` and `scalar`, 82 of 82) | `avx2`, `sse4.1` and `scalar` 82 of 82 each, under QEMU emulation, and on hosted x86-64 hardware (Intel Xeon 6975P-C, AVX-512 present, port capped at AVX2) 82 of 82 each, run [45287751621](https://github.com/sebastian-software/ferrisma/actions/runs/45287751621); 420 RTCD functions dispatch on x86-64 (the kernel tests, identity and golden checks also run on hosted hardware, `AVIF: AOM x86 SIMD validation`, run [43695399177](https://github.com/sebastian-software/ferrisma/actions/runs/43695399177)) | Open: the AVX2 cap passed on AVX-512 hardware; NASM-only kernels stay on `_c` (ADR-0044 D2) |
 
 ## The gate in one paragraph
 
@@ -129,9 +129,17 @@ or sized as their own callers do; both are fixed on `main`. Since then:
   2026-11-20, after `JXL: Checks` run 44775790284 on its branch). The logs were read for
   these counts (#252).
 - #252 does not record a libjpeg-turbo-rs result.
-- No workflow in `.github/workflows` runs the AOM SIMD-against-original gate
-  (`tools/check_aom_simd_original.py`), so no hosted run of it exists. Its
-  `avx2` level runs locally under QEMU emulation since 2026-11-14 (below).
+- The AOM SIMD-against-original gate (`tools/check_aom_simd_original.py`) runs
+  on hosted x86-64 hardware since 2026-11-23: job `AVIF: SIMD against the
+  original (x86-64 hardware)` of `avif-aom-simd-linux.yml`, run
+  [45287751621](https://github.com/sebastian-software/ferrisma/actions/runs/45287751621) on `v1/aom-gate-x86-270`: `avx2`, `sse4.1` and
+  `scalar` 82 of 82 identical each, natively (no QEMU), originals built on the
+  runner with `build_aom.py --library-only` (generic and `--simd avx2`). The
+  runner (Intel Xeon 6975P-C) reports `avx512f`; the port's RTCD reported
+  `simd(avx2)` in every `avx2` case, the check the tool makes against the
+  original built with `-DENABLE_AVX512=0`, so the AVX2 cap holds on AVX-512
+  hardware. Its `avx2` level also ran locally under QEMU emulation since
+  2026-11-14 (below).
 
 Tracking: [#241](https://github.com/sebastian-software/ferrisma/issues/241).
 The [status page](status.md#next-integration-and-release-gates) has the
@@ -440,9 +448,10 @@ python3 tools/check_aom_simd_identity.py
   `x86_64-apple-darwin` is not a target (port ADR 0058, amendment of
   2026-11-13). Rosetta for Linux does not execute AVX, so the `avx2` level
   runs under QEMU instead (since 2026-11-14), which is an emulator, not
-  x86-64 hardware: it has **never run on x86-64 hardware**. No workflow runs
-  `check_aom_simd_original.py`; `.github/workflows/avif-aom-simd-linux.yml`
-  runs the kernel tests, the identity check and the golden check only.
+  x86-64 hardware: it ran on no x86-64 hardware until the hosted run of 2026-11-23
+  ([45287751621](https://github.com/sebastian-software/ferrisma/actions/runs/45287751621)), which passed 82 of 82 at each level.
+  `.github/workflows/avif-aom-simd-linux.yml` runs it as the job `original`,
+  next to the kernel tests, the identity check and the golden check.
 - **x86-64 kernels (2026-11-16; 420 RTCD functions through 542
   assignments since 2026-11-20).** 358 RTCD functions dispatched through 444
   kernel assignments on x86-64 on 2026-11-16 (SSE2 to AVX2;
