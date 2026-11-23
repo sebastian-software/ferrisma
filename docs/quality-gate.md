@@ -481,6 +481,29 @@ python3 tools/check_aom_simd_identity.py
   `aom_quantize_b_helper` stays on `_c` because libaom calls only
   `aom_quantize_b_helper_c` by name. Kernel work: #242, #125, #124, #122.
 
+### NaN words in the other ports' gates (#274)
+
+Record of 2026-11-24, `main` at `b9416178`. ADR-0041 section 3 (the NaN rule)
+is applied in the JPEG XL gates. The other three ports were searched for tests
+and tools that compare port output with the original and whose compared data
+holds floating-point words (`f32`, `f64`, `to_bits`/`from_bits`, float buffers
+hashed or compared as bytes, float tables, float kernels). The search was by
+reading the sources: no gate was run for this record, and the C originals'
+sources were not available in the worktree (submodules not initialized), so C
+behavior is taken from the probes and the port. **Result: no gate compares a
+word that can be a NaN, so no comparison needed the rule and none was changed.**
+A new gate that compares a computed float word must apply the rule, with the
+JPEG XL comparator (`comparator_equalizes_binary32_and_binary64_nan_words_only`
+in `codecs/libjxl-rs/tests/parity.rs`) as the reference.
+
+| Port | Gates checked | Result |
+| --- | --- | --- |
+| libjpeg-turbo-rs | Every oracle comparison under `tests/` and `tools/`. The float DCT (`JDCT_FLOAT`) is exercised in `wp4_idct`, `wp4_coefidct`, `wp5_decode`, `wp6_api`, `wp7_bittests`, `wp8_decode`, `wp10_idct`, `wp11_conformance`; all compare `u8` pixel rows or PPM bytes. `jfdctflt` is in no gate. | No float comparison, except one: `tests/wp10_idct.rs` `table_bytes()` hashes the `f32` multiplier table of the float IDCT (against `tools/oracle/probes/wp10/idct.c`). NaN cannot arise: the table is the fixed product of the AAN scale constants, finite by construction. The T.83 checks in `wp11_conformance.rs` (`f64` reference DCT) and the `f64` CMYK conversion in `tests/support/djpeg.rs` end in integers and use no NaN-producing operation. |
+| libwebp-rs | All of `tests/` and `tools/oracle/probes`. Float-valued: SSIM (`wp4_ssim.rs`, `f64` bits), plane and picture distortion (`wp9_distortion.rs`, `wp13_abi.rs`, `f32` bits), encoder PSNR statistics (`wp10_encode.rs`, `wp11_encode.rs`, `wp13_*`, `wp17_encode.rs`, `f32` bits), configuration floats (`wp9_config.rs`), `log2` constants (`wp3_constants.rs`). Integer outputs of float math (gamma tables `wp5_gamma.rs`, sharpyuv matrices `wp5_matrix.rs`, segment quantizers `wp10_segments.rs`, lossless cost tables `wp11_lossless_enc.rs`, k-means `wp4_quant_levels.rs`, dithering `wp1_random.rs`, `wp9_picture.rs`) and the rescaler and upsampling gates (`wp18_*`) are integer outputs. | Float comparison, NaN cannot arise: SSIM windows have a weight sum of at least 16, so the denominator is never 0; distortion and PSNR are guarded (`v > 0 && size > 0`, else 99; `v < 1` before `log10(1 - v)`); constants are constants. One input is a NaN on purpose: `wp9_config.rs` passes `f32::NAN` as `quality` and `target_PSNR` and compares the configuration back bit for bit. That is a copy without arithmetic (ADR-0041 section 3 item 4), so the NaN must stay bit-identical, which it does. A NaN `quality` through `WebPEncode` is in no gate (the safe API refuses it, `wp17_misuse.rs`). |
+| libavif-rs, libaom | Every `crates/aom/tests/simd/*.rs`, the upstream gtests run against both builds (`tools/compare_results.py` compares pass/fail and case identities only), `tools/check_aom_*.py`, `check_aom_float_tables.py`, golden and SIMD-identity checks. | Float comparison, NaN cannot arise: `horver_correlation.rs` (`f32` bits; the divisions are guarded in `rdopt.c`), `model_rd.rs` (`f64`, a polynomial), `nn_predict.rs` and `cnn.rs` (`f32`, tolerance 1e-3 and softmax tolerances; inputs bounded and random). All of them fail on a NaN rather than pass. `nn_predict.rs` `prec_reduce_out_of_range_does_not_crash` feeds NaN and infinity to `av1_nn_output_prec_reduce` and every dispatched `av1_nn_predict` but compares only the in-range words (the original is undefined there): this is the "no crash, no memory error" case of the rule. `check_aom_float_tables.py` compares the original's `prune_2D_adaptive_thresholds` bytes against its own normalized text, not the port, and the table holds decimal constants. The AVIF byte, decoded plane and RGB checks, `check_aom_golden.py` and `check_aom_simd_identity.py` are integer or bitstream only. |
+| libavif-rs, dav1d | `crates/dav1d/src/simd/*/tests.rs`, `tools/check_dav1d_*.py`, `upstream/dav1d/tests/checkasm` (as built by the port's runtime). | No float comparison: pixels, coefficients and CDFs. The `double` forward transforms in `checkasm/itx.c` only make inputs from bounded integers; the compared words are integers. |
+| libavif-rs, sharpyuv and libavif | `crates/sharpyuv/tests`, `tools/check_sharpyuv*.py`, `tools/differential.py`, `validate_root_profile.py`, the upstream libavif gtests. | No float comparison of port output: matrices and planes are integers; the `kr`/`kb` inputs are fixed literals. The libavif gtests check floats against their own tolerances in each build (`EXPECT_NEAR`, PSNR bounds), and a NaN fails each of them. |
+
 ### Engine kernels (not part of this gate)
 
 `ferrisma-kernels` has no original. Its scalar/SIMD contract stays in

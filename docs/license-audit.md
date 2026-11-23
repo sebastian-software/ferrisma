@@ -48,6 +48,12 @@ changes to the port between the reviewed tree (`f5ba795a…`, 2026-11-11) and
 The metadata item stays `REVIEW` (IJG is not allowlisted) and the notices
 stay `FOUND_NOT_REVIEWED`, as the tool reports for every package.
 
+**Bundles regenerated on 2026-11-24** (`main` at `b9416178`, issue #273; macOS ARM64 host, no file committed, outputs under `target/`):
+
+- `python3 scripts/audit-licenses.py` (the CI license step, run with the two tool tests): exit 0, one `REVIEW` (`ferrisma-libjpeg-turbo`), as before.
+- `python3 scripts/production-license-bundle.py --features cli` for `aarch64-apple-darwin` and for `x86_64-unknown-linux-gnu`, each followed by `--verify`: 27 packages per target, generation and verification exit 0. The x86-64 bundle was generated from the macOS host with `--target`; `cargo metadata --filter-platform` and `cargo tree --target` need no Linux host.
+- `ferrisma-dav1d-kernels` 0.1.0 (BSD-2-Clause, normal edge, `dav1d` default AVIF decoder path) is in both `cli` bundles with five notice files. The generator selects packages from the `cargo tree` graph, so no list edit was needed. The new `fearless_simd` 1.2.0 (Apache-2.0 OR MIT) is in both bundles too.
+
 ## Automated metadata screening
 
 ```sh
@@ -252,7 +258,8 @@ supplied at least one notice file. It is not a completed legal review.
 > ADR-0039 also `jpeg-xl-write`. Only the macOS ARM64 `cli` bundle was
 > regenerated after that (the update paragraph above, 96 packages). The
 > `cli` rows of the table and the x86-64 `cli` row do not describe today's
-> `cli` and need a re-audit before any distribution
+> `cli` and need a re-audit before any distribution (the x86-64 `cli` bundle
+> was regenerated on 2026-11-24, see above)
 > ([#66](https://github.com/sebastian-software/ferrisma/issues/66)). No
 > license conclusion is changed by this note.
 
@@ -268,7 +275,7 @@ Workspace packages in the `cli` graph and their declared terms:
 | `libavif-rs` | BSD-2-Clause AND BSD-3-Clause | 2 | `LICENSE` (libavif, with its third-party sections) |
 | `libavif-aom` | BSD-2-Clause AND BSD-3-Clause AND MIT | 11 | `LICENSES/` (libaom `LICENSE`, `PATENTS`, `AUTHORS`, fastfeat, vector) |
 | `libavif-dav1d` | BSD-2-Clause | 5 | `LICENSES/` (`COPYING`, `doc/PATENTS`) |
-| `libavif-dav1d-kernels` (since 2026-11-20; CDEF and inverse transforms of dav1d on `fearless_simd`, Apache-2.0 OR MIT) | BSD-2-Clause | not yet in a generated bundle | `LICENSES/` (`COPYING`, `doc/PATENTS`, as `libavif-dav1d`) |
+| `ferrisma-dav1d-kernels` (since 2026-11-20; CDEF and inverse transforms of dav1d on `fearless_simd`, Apache-2.0 OR MIT) | BSD-2-Clause | 5 (in both `cli` bundles since 2026-11-24) | `LICENSES/` (`COPYING`, `doc/PATENTS`, as `ferrisma-dav1d`) |
 | `libavif-sharpyuv` | BSD-3-Clause | 7 | `LICENSES/` (libwebp `COPYING`, `PATENTS`, `AUTHORS`) |
 | `ferrisma-jxl-decoder` (`jpeg-xl-own-read`, in `cli` since 2026-11-12) | MIT OR Apache-2.0 | 2 | Project-owned |
 | `ferrisma-jxl-encoder` (`jpeg-xl-write`, in `cli` since 2026-11-12) | MIT OR Apache-2.0 | 2 | Project-owned |
