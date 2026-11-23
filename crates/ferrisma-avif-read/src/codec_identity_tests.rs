@@ -44,7 +44,13 @@ pub(crate) fn corpus() -> Vec<PathBuf> {
 /// Every plane of the decoded image as bytes, in Y, U, V, alpha order, with
 /// the image's format and depth.
 fn planes(bytes: &[u8], codec: Codec) -> (u32, u32, u32, u32, Vec<Vec<u8>>) {
+    planes_with(bytes, codec, 1)
+}
+
+/// [`planes`] with the decoder run on `threads` threads.
+fn planes_with(bytes: &[u8], codec: Codec, threads: u32) -> (u32, u32, u32, u32, Vec<Vec<u8>>) {
     let (mut decoder, _) = Decoder::parse_with(bytes, MAX_PIXELS, codec).unwrap();
+    decoder.set_threads(threads);
     let image = decoder.next_image().unwrap();
     // SAFETY: `next_image` returned the decoder's non-null decoded image,
     // which stays valid until the decoder is dropped at the end of this
@@ -111,7 +117,13 @@ fn planes(bytes: &[u8], codec: Codec) -> (u32, u32, u32, u32, Vec<Vec<u8>>) {
 /// The reader's interleaved output at the source depth: 8-bit samples, or
 /// 16-bit ones as native-endian bytes.
 pub(crate) fn rgb(bytes: &[u8], codec: Codec) -> (ImageInfo, Vec<u8>) {
+    rgb_with(bytes, codec, 1)
+}
+
+/// [`rgb`] with the decoder run on `threads` threads.
+fn rgb_with(bytes: &[u8], codec: Codec, threads: u32) -> (ImageInfo, Vec<u8>) {
     let (mut decoder, info) = Decoder::parse_with(bytes, MAX_PIXELS, codec).unwrap();
+    decoder.set_threads(threads);
     let samples = Samples::rgb(info.alpha);
     let count = info.width as usize * info.height as usize * samples.channels();
     let out = if info.depth == 8 {
@@ -181,6 +193,47 @@ fn dav1d_and_libaom_decode_the_avif_corpus_identically() {
     // The committed corpus on 2026-11-22: 95 files, 81 of them still images
     // the reader decodes (the others are animations, malformed or
     // unsupported, and both decoders refuse them alike).
+    assert!(files.len() >= 95, "corpus shrank: {} files", files.len());
+    assert!(decoded >= 81, "only {decoded} files decoded");
+}
+
+/// The dav1d default decodes every file of the corpus to the same YUV and
+/// alpha planes and the same RGB samples on 2, 3, 4 and 8 threads as on one
+/// (owner decision of 2026-11-23: the engine's `threads` reach dav1d's
+/// decode; libaom stays on one decode thread). libavif hands the thread
+/// count to the codec of every item, so grid cells and alpha items run
+/// threaded too. Like the codec test, nothing is skipped and the decoded
+/// count is asserted.
+#[test]
+fn dav1d_threads_decode_the_avif_corpus_identically() {
+    let files = corpus();
+    let mut decoded = 0;
+    for path in &files {
+        let name = path.display();
+        let bytes = std::fs::read(path).unwrap();
+        if Decoder::parse_with(&bytes, MAX_PIXELS, Codec::Dav1d).is_err() {
+            continue;
+        }
+        let (_, _, _, _, single_planes) = planes_with(&bytes, Codec::Dav1d, 1);
+        let (_, single_rgb) = rgb_with(&bytes, Codec::Dav1d, 1);
+        for threads in [2, 3, 4, 8] {
+            let (_, _, _, _, threaded) = planes_with(&bytes, Codec::Dav1d, threads);
+            assert!(
+                threaded == single_planes,
+                "{name}: planes differ on {threads} threads"
+            );
+            let (_, threaded) = rgb_with(&bytes, Codec::Dav1d, threads);
+            assert!(
+                threaded == single_rgb,
+                "{name}: RGB samples differ on {threads} threads"
+            );
+        }
+        decoded += 1;
+    }
+    eprintln!(
+        "dav1d threads: {decoded} of {} files decoded identically on 1, 2, 3, 4 and 8 threads",
+        files.len()
+    );
     assert!(files.len() >= 95, "corpus shrank: {} files", files.len());
     assert!(decoded >= 81, "only {decoded} files decoded");
 }

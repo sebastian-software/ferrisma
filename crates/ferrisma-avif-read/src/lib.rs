@@ -139,7 +139,9 @@ impl Codec {
 /// The raw decoder pointer also keeps the type `!Send` and `!Sync`.
 pub struct Decoder<'a> {
     raw: NonNull<read::avifDecoder>,
-    /// Row jobs of the YUV-to-RGB conversion.
+    /// The AV1 decoder libavif runs for every item.
+    codec: Codec,
+    /// Row jobs of the YUV-to-RGB conversion, and dav1d's worker threads.
     threads: u32,
     _input: PhantomData<&'a [u8]>,
 }
@@ -169,6 +171,7 @@ impl<'a> Decoder<'a> {
             NonNull::new(unsafe { read::avifDecoderCreate() }).ok_or(ReadError::Allocation)?;
         let owner = Self {
             raw,
+            codec,
             threads: 1,
             _input: PhantomData,
         };
@@ -315,20 +318,41 @@ impl<'a> Decoder<'a> {
         Ok((owner, info))
     }
 
-    /// Let libavif's YUV-to-RGB conversion split the frame into up to
-    /// `threads` row jobs (libavif caps it at eight and keeps one job where a
-    /// job would depend on its neighbor's rows). Each job owns disjoint
-    /// output rows, so the samples do not depend on the count.
+    /// Run the decode with up to `threads` threads (clamped to 1..=64).
     ///
-    /// The AV1 decode itself stays on one thread, with either [`Codec`]
-    /// (libavif's `maxThreads` keeps its default of one). The reason was
-    /// libaom: with more than one thread its row-based multithreading keeps
-    /// coefficient buffers for every superblock of the frame, about 1.4 GB
-    /// of opaque memory for a 24 MP image on the 2026-11-12 measurement,
-    /// whatever the thread count. Threads for the dav1d default are not
-    /// enabled by the 2026-11-22 switch; that is a separate decision.
+    /// libavif's YUV-to-RGB conversion splits the frame into up to `threads`
+    /// row jobs (libavif caps it at eight and keeps one job where a job would
+    /// depend on its neighbor's rows). Each job owns disjoint output rows, so
+    /// the samples do not depend on the count. This holds for both [`Codec`]s.
+    ///
+    /// With [`Codec::Dav1d`] the AV1 decode runs on `threads` threads too:
+    /// libavif's `maxThreads`, which its dav1d glue passes as `n_threads`
+    /// with `max_frame_delay` 1, so dav1d runs one frame context and spreads
+    /// its tile and superblock-row tasks (reconstruction, loop filter, CDEF,
+    /// loop restoration) over a pool of `threads` workers. dav1d's output
+    /// does not depend on the thread count; the reader checks that on the
+    /// committed corpus (`dav1d_threads_decode_the_avif_corpus_identically`)
+    /// and the 2026-11-23 record measured it on 12 and 24 MP photographs
+    /// (docs/benchmarks/v1.0-avif-dav1d-threads-2026-11-23.md).
+    ///
+    /// With [`Codec::Libaom`] the AV1 decode stays on one thread (`maxThreads`
+    /// keeps libavif's default of one). With more than one thread libaom's
+    /// row-based multithreading keeps coefficient buffers for every
+    /// superblock of the frame, about 1.4 GB of opaque memory for a 24 MP
+    /// image on the 2026-11-12 measurement, whatever the thread count.
+    ///
+    /// Call it after [`Self::parse_with`] and before the first decode:
+    /// libavif opens the AV1 decoder, and dav1d its thread pool, on the
+    /// first decode.
     pub fn set_threads(&mut self, threads: u32) {
         self.threads = threads.clamp(1, 64);
+        if self.codec == Codec::Dav1d {
+            // SAFETY: The decoder is live and owned by `self`; libavif copies
+            // `maxThreads` into each item's codec before that codec decodes.
+            unsafe {
+                (*self.raw.as_ptr()).maxThreads = i32::try_from(self.threads).unwrap_or(1);
+            }
+        }
     }
 
     fn next_image(&mut self) -> Result<*mut read::avifImage, ReadError> {

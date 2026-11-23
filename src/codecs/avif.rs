@@ -280,9 +280,11 @@ impl DecodeSource for AvifSource<'_> {
     }
 
     fn set_decode_threads(&mut self, threads: usize) {
-        // Only libavif's nearest-neighbor YUV-to-RGB conversion uses them:
-        // its jobs own disjoint rows, so samples are thread-independent. The
-        // AV1 decode stays single-threaded (see `Decoder::set_threads`).
+        // libavif's nearest-neighbor YUV-to-RGB conversion uses them (its
+        // jobs own disjoint rows), and with the dav1d default so does the
+        // AV1 decode (dav1d's task pool; its output does not depend on the
+        // count). The libaom reference keeps its decode on one thread for
+        // its memory (see `Decoder::set_threads`).
         self.decoder
             .set_threads(u32::try_from(threads).unwrap_or(u32::MAX));
     }
@@ -605,8 +607,8 @@ mod tests {
         samples
     }
 
-    /// Decoding with several threads (libavif's row-split YUV-to-RGB jobs)
-    /// emits exactly the single-thread samples.
+    /// Decoding with several threads (dav1d's task pool and libavif's
+    /// row-split YUV-to-RGB jobs) emits exactly the single-thread samples.
     #[test]
     fn decode_threads_do_not_change_samples() {
         use crate::pipeline::ChromaSubsampling;
