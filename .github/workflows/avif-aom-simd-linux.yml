@@ -82,9 +82,20 @@ jobs:
         persist-credentials: false
     - name: Install the pinned toolchain and ImageMagick
       run: |
-        sudo apt-get update
-        sudo apt-get install -y imagemagick
+        if ! command -v convert >/dev/null 2>&1; then
+          sudo add-apt-repository -y universe || true
+          for attempt in 1 2 3; do
+            sudo apt-get update && break
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::apt-get update failed after 3 attempts"
+              exit 1
+            fi
+            sleep 10
+          done
+          sudo apt-get install -y --no-install-recommends imagemagick
+        fi
         rustup show active-toolchain
+        command -v convert
     - name: Record the runner CPU
       run: |
         grep -m1 'model name' /proc/cpuinfo
