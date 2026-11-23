@@ -4213,3 +4213,13 @@ Open: the x86-64 test binaries under Rosetta 2 (Rosetta hung new x86-64
 processes on the machine during the change) and the hosted Linux x86-64
 run.
 <!-- end skcms hsw -->
+
+## Encoder SIMD: hosted x86-64 result (2026-11-23)
+
+The "Open: condition (e)" lines above predate the scheduled nightly of
+2026-11-21 and are kept as written. Nightly
+[44890912987](https://github.com/sebastian-software/ferrisma/actions/runs/44890912987)
+on `main` at `e85ad0b9` passed the encoder's SIMD binaries on hosted x86-64
+hardware (56 encoder tests, 0 failed), so the lossless and color-management
+kernels of #243 and the lossy kernels of #231 are translated, selected by
+default and checked there. See ADR 0004, "Addendum: condition (e)".

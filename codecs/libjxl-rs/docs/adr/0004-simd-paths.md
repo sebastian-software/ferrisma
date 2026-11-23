@@ -2637,3 +2637,19 @@ through raw row pointers; removing the checks would need unchecked access
 or restructuring the predictor around per-row slices whose lengths the
 compiler can relate to the loop bound.
 <!-- end x86 profile 4 -->
+
+## Addendum: condition (e), hosted x86-64 result (2026-11-23)
+
+The sections above that say condition (e) "is still open" were written
+before the scheduled nightly of 2026-11-21 and are kept as written. That
+nightly, run
+[44890912987](https://github.com/sebastian-software/ferrisma/actions/runs/44890912987)
+on `main` at `e85ad0b9` (Linux x86-64 hardware), passed the encoder's SIMD
+binaries against the AVX2 dispatch-build oracle: 56 encoder tests, 0 failed,
+including `simd_encoder_aq` under the named AQ NaN exception recorded on
+2026-11-20 (31bbf259). `JXL: Checks` run 44775790284 on the branch merged on
+2026-11-20 passed as well. The hosted x86-64 run of the encoder's binaries
+that condition (e) asks for therefore exists; the x86-64 speed is recorded in
+`docs/benchmarks/v1.0-jxl-encode-three-column-x86-64-2026-11-20.md`. The AVX2
+default cap on AVX-512 hardware is not covered by this and stays open
+(`docs/quality-gate.md`).

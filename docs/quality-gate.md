@@ -2,8 +2,8 @@
 
 This page turns [ADR-0041](adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md)
 into commands. The ADR owns the rules; this page only shows how to check
-them and what cannot be checked yet. **Reviewed: 2026-11-16**, `main` at
-`abd11e6a` (first written for `5004f34e` on 2026-11-14); the owner's
+them and what cannot be checked yet. **Reviewed: 2026-11-23**, `main` at
+`6205c45f` (first written for `5004f34e` on 2026-11-14); the owner's
 decisions of 2026-11-15 on O1–O9 (ADR-0041) are entered where they apply,
 and [Where each port stands](#where-each-port-stands-2026-11-16) summarizes
 the state. The commands are collected from each port's `tools/check.py`,
@@ -23,8 +23,8 @@ column "In short" of this table, generated at build time.
 | libjpeg-turbo-rs | Both halves of the check, scalar and SIMD, exist on AArch64 and x86-64; the x86-64 SIMD is written with intrinsics and compared with the original's assembly. | Both halves exist | Both halves exist (under Rosetta 2) | No recorded hosted x86-64 result (#252 records none) |
 | libwebp-rs | Identical at every level in the recorded runs: NEON and scalar on AArch64; AVX2, SSE4.1 and SSE2 on hosted x86-64 Linux, also in the nightly. | Passed (`neon`, scalar) | Passed on hosted Linux x86-64 (`avx2`, `sse41`, `sse2`; run [43471093624](https://github.com/sebastian-software/ferrisma/actions/runs/43471093624)); the nightly's hosted oracle job passed on 2026-11-15 and 2026-11-16 (runs [43698564297](https://github.com/sebastian-software/ferrisma/actions/runs/43698564297), [43840953408](https://github.com/sebastian-software/ferrisma/actions/runs/43840953408)) | Tracking issues #89 and #83 are open |
 | libjxl-rs decoder | NEON and AVX2 match the original word for word, AVX2 also in a hosted run on x86-64 hardware. | Passed (row level and public-decoder gate) | Passed on hosted Linux x86-64 at `7b48bc81`, where the decoder selects AVX2 by default (run [43656118559](https://github.com/sebastian-software/ferrisma/actions/runs/43656118559), every job successful) | `ToLinear` and `ToneMapping` only at row level |
-| libjxl-rs encoder | SIMD by default since 2026-11-16; matches the original on NEON, and on AVX2 under Rosetta 2. A run on x86-64 hardware is open. | Passed: the encoder's SIMD path is selected by default since 2026-11-16 and matches the NEON original | Matches the AVX2 original under Rosetta 2 | No run on x86-64 hardware yet (port ADR 0004, condition (e)) |
-| libavif-rs with libaom | Scalar and NEON identical on AArch64; scalar, SSE4.1 and AVX2 identical under QEMU emulation. A run on x86-64 hardware is open. | Passed (`neon` and `scalar`, 82 of 82) | `avx2`, `sse4.1` and `scalar` 82 of 82 each, under QEMU emulation; 358 RTCD functions dispatch on x86-64 | No run on x86-64 hardware: no workflow runs `check_aom_simd_original.py`; NASM-only kernels stay on `_c` (ADR-0044 D2) |
+| libjxl-rs encoder | SIMD by default since 2026-11-16; matches the original on NEON and on AVX2 (under Rosetta 2, and on hosted x86-64 hardware in the nightly). | Passed: the encoder's SIMD path is selected by default since 2026-11-16 and matches the NEON original | Matches the AVX2 original under Rosetta 2; hosted nightly [44890912987](https://github.com/sebastian-software/ferrisma/actions/runs/44890912987) on `main` at `e85ad0b9`: 56 encoder SIMD tests, 0 failed | The hosted result is recorded in port ADR 0004's addendum of 2026-11-23 |
+| libavif-rs with libaom | Scalar and NEON identical on AArch64; scalar, SSE4.1 and AVX2 identical under QEMU emulation. A run on x86-64 hardware is open. | Passed (`neon` and `scalar`, 82 of 82) | `avx2`, `sse4.1` and `scalar` 82 of 82 each, under QEMU emulation; 420 RTCD functions dispatch on x86-64 (the kernel tests, identity and golden checks also run on hosted hardware, `AVIF: AOM x86 SIMD validation`, run [43695399177](https://github.com/sebastian-software/ferrisma/actions/runs/43695399177)) | No run on x86-64 hardware: no workflow runs `check_aom_simd_original.py`; NASM-only kernels stay on `_c` (ADR-0044 D2) |
 
 ## The gate in one paragraph
 
@@ -99,8 +99,8 @@ machine too; on it, a cross link can fail with `ld: library 'c++' not found`
 unless `SDKROOT=$(xcrun --show-sdk-path)` is set. Rosetta 2 results quoted below are
 from earlier runs on another development Mac, as their sources state.
 
-**Hosted cross-check: passed for libwebp-rs and the libjxl-rs decoder, open
-for the others.** The
+**Hosted cross-check: passed for libwebp-rs and libjxl-rs (decoder and
+encoder); open for the AOM comparison with the original.** The
 first hosted Linux x86-64 run of the SIMD-against-SIMD gates, nightly run
 [43401560676](https://github.com/sebastian-software/ferrisma/actions/runs/43401560676)
 on `main` at `dbf7b095` (`ubuntu-latest`, the `ubuntu-26.04` image with
@@ -424,7 +424,7 @@ python3 tools/check_aom_simd_identity.py
 - **Recorded results.** AArch64, after four more still-image Neon kernels
   were dispatched (`aom_sum_sse_2d_i16`, `av1_get_horver_correlation_full`,
   `av1_get_nz_map_contexts`, `av1_round_shift_array`; 513 RTCD functions on
-  the arm64 overlay): `neon` 82 of 82 after each kernel, and on the final
+  the arm64 overlay at that time, 631 since 2026-11-20): `neon` 82 of 82 after each kernel, and on the final
   tree `neon` 82 of 82 and `scalar` 82 of 82 cases identical to the
   original; `cargo test --release -p libavif-aom --test simd` 152 passed;
   the PR stage passes with golden outputs 62 of 62 (port ADR 0056,
@@ -443,8 +443,9 @@ python3 tools/check_aom_simd_identity.py
   x86-64 hardware: it has **never run on x86-64 hardware**. No workflow runs
   `check_aom_simd_original.py`; `.github/workflows/avif-aom-simd-linux.yml`
   runs the kernel tests, the identity check and the golden check only.
-- **x86-64 kernels (2026-11-16).** 358 RTCD functions dispatch through 444
-  kernel assignments on x86-64 (SSE2 to AVX2;
+- **x86-64 kernels (2026-11-16; 420 RTCD functions through 542
+  assignments since 2026-11-20).** 358 RTCD functions dispatched through 444
+  kernel assignments on x86-64 on 2026-11-16 (SSE2 to AVX2;
   [`crates/aom/README.md`](../codecs/libavif-rs/crates/aom/README.md)); each
   family was committed with `avx2`, `sse4.1` and `scalar` 82 of 82
   identical under QEMU (port ADR 0058, "Still-image families on x86"). The
@@ -457,8 +458,8 @@ python3 tools/check_aom_simd_identity.py
   checks did not know the handwritten `src/read_sample_access.rs` that every
   `read` module includes; `root_production.OWNED` now declares it, with no
   unit or selector hash changed (`63d77626`, port ADR 0054 amendment,
-  working decision 2026-11-13, delegated, revisable by the owner). No
-  nightly has completed since the fix.
+  working decision 2026-11-13, delegated, revisable by the owner). #204 is
+  closed.
 - **Decided by the owner on 2026-11-15 (ADR-0041):** O2 keeps libaom's
   video code and limits SIMD work to kernels on the still-image path; the
   NASM-only kernels stay on `_c` until they are measured and rebuilt with

@@ -1,6 +1,6 @@
 # Current project status
 
-**Reviewed: 2026-11-16** (`main` at `abd11e6a`; before, 2026-11-14 at `5004f34e`). Ferrisma is an experimental image engine
+**Reviewed: 2026-11-23** (`main` at `6205c45f`; before, 2026-11-16 at `abd11e6a` and 2026-11-14 at `5004f34e`). Ferrisma is an experimental image engine
 and codec workspace. M1 is implemented in part and under validation, not a
 release candidate. This page owns the current cross-component overview;
 the linked guides and evidence records own the details.
@@ -172,20 +172,22 @@ Until then, releases are 0.x pre-releases from `main`. No port meets the
 full gate on both targets yet; [the quality gate guide](quality-gate.md)
 lists what each port can check today and the recorded results.
 
-**Hosted cross-check (state of 2026-11-16, `main` at `abd11e6a`).** The
+**Hosted cross-check (state of 2026-11-23, `main` at `6205c45f`).** The
 first hosted Linux x86-64 run of the SIMD-against-SIMD gates (nightly run
 [43401560676](https://github.com/sebastian-software/ferrisma/actions/runs/43401560676)
 on `main` at `dbf7b095`) failed for libwebp-rs and libjxl-rs in the C and C++
 oracle processes ([#252](https://github.com/sebastian-software/ferrisma/issues/252)).
 Both causes were defects of the test scaffolding (buffers not aligned or
-sized like the originals' own) and are fixed on `main`.
+sized like the originals' own) and are fixed on `main`; #252 is settled
+(the hosted results are recorded in the quality gate guide).
 
 - **libwebp-rs** passed on hosted Linux x86-64 at every level: run
   [43471093624](https://github.com/sebastian-software/ferrisma/actions/runs/43471093624)
   (`WEBP: Checks`, branch `v1/webp` at `690ad251`, whose `codecs/libwebp-rs`
   tree is identical to `main`'s), `avx2`, `sse41` and `sse2`, 1,131 tests
   each, 0 failed.
-- **libjxl-rs** is still open on x86-64 on `main`. In run
+- **libjxl-rs** failed its first hosted x86-64 run and has passed since (decoder
+  below, encoder in the nightly named at the end of this item). In run
   [43533597186](https://github.com/sebastian-software/ferrisma/actions/runs/43533597186)
   (branch `v1/jxl-merge7` at `718b32d6`) four row tests (CMS, tone mapping,
   splines, blending) differed from the static AVX2 oracle in single
@@ -215,14 +217,12 @@ sized like the originals' own) and are fixed on `main`.
 - **AOM:** no workflow runs the comparison with the original's SIMD build
   (`tools/check_aom_simd_original.py`), so no hosted run of it exists.
   Locally its `avx2`, `sse4.1` and `scalar` levels run under QEMU emulation
-  since 2026-11-14, 82 of 82 identical each; on 2026-11-16, 358 RTCD
-  functions dispatch on x86-64 (libavif-rs ADR 0058; [quality gate
+  since 2026-11-14, 82 of 82 identical each; on 2026-11-20, 420 RTCD
+  functions (542 kernel assignments) dispatch on x86-64 (libavif-rs ADR 0058; [quality gate
   guide](quality-gate.md)). QEMU is not x86-64 hardware.
-- **Nightly AVIF `root / generate` (#204):** the cause, an owned source file
-  the root profile checks did not know, is fixed on `main` (`63d77626`,
-  libavif-rs ADR 0054 amendment); no nightly has completed since (run
-  [43578105956](https://github.com/sebastian-software/ferrisma/actions/runs/43578105956)
-  was queued).
+- **Nightly AVIF `root / generate` (#204, closed):** the cause, an owned
+  source file the root profile checks did not know, is fixed on `main`
+  (`63d77626`, libavif-rs ADR 0054 amendment).
 
 **Performance records against the original** (reported, not gated): the
 [three-column record of 2026-11-17](benchmarks/v1.0-three-column-2026-11-17.md)
@@ -244,22 +244,24 @@ universal speed claim.
 - Meet the quality gate above for each port on both targets. The oracles of
   the originals exist (scalar and SIMD; x86-64 builds under Rosetta for
   libjpeg-turbo-rs, libwebp-rs, libjxl-rs and libaom). Still open: the
-  libjxl-rs encoder selects its SIMD path by default since 2026-11-16 and
-  needs a run on x86-64 hardware (port ADR 0004, condition (e)), and its
-  lossless and color-management kernels have no SIMD translation (#243);
-  the AOM port dispatches 513 RTCD functions to Neon on macOS ARM64 and 358
+  libjxl-rs encoder selects its SIMD path by default since 2026-11-16, every
+  kernel of its lossy, lossless and color-management paths is translated
+  (#231, #243), and the scheduled nightly 44890912987 passed its SIMD tests
+  on hosted x86-64 hardware;
+  the AOM port dispatches 631 RTCD functions to Neon on macOS ARM64 and 420
   on x86-64, whose kernels build only for GNU Linux x86-64; its `avx2` level
   matches the original under QEMU but has never run on x86-64 hardware
-  (#242, #125, #124, #122);
-  the hosted Linux x86-64 cross-check for libjxl-rs and AOM (#241, #252);
+  (#124, #125; #122 and #242 are settled);
+  the hosted Linux x86-64 cross-check of the AOM comparison with the original and one hosted run per release candidate (#241; #252 is settled);
   the work that follows from the owner's decisions of 2026-11-15 on O1–O9
   (ADR-0041, "Owner decisions of 2026-11-15";
   [#250](https://github.com/sebastian-software/ferrisma/issues/250)). The
   workspace JPEG XL reader and AVIF writer are the confirmed defaults
   (ADR-0041 D1); x86-64 JPEG XL conformance stays open, and lossy d1.0 JPEG
   XL output with patches off is the owner's decision of 2026-11-15 (ADR-0039);
-  the AVIF defaults follow `avifenc` since 2026-11-15 (#216, ADR-0037), with
-  the fixed default depth 8 awaiting confirmation. The
+  the AVIF defaults follow `avifenc` since 2026-11-15 (#216, ADR-0037), and
+  the output depth follows the input (owner decision of 2026-11-15, ADR-0037
+  amendment, ADR-0043). The
   [supported matrix](supported-matrix.md) lists the current defaults, their
   limits and the 2026-11-12 macOS ARM64 verification.
 - Rebuild dav1d's assembly kernels with Rust intrinsics (owner decision of
