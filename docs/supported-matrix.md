@@ -1,6 +1,6 @@
 # Supported input, output, backend, and feature matrix
 
-**Reviewed: 2026-11-15** (issue #67, base `aba85c54`): every input, output and
+**Reviewed: 2026-11-15; remainder (#275: x86-64 AVIF record, CMYK JPEG XL, cross-check with #26) 2026-11-24** (issue #67, base `aba85c54`): every input, output and
 limit row was checked against the code and against
 [`tests/supported_matrix.rs`](../tests/supported_matrix.rs), which exercises
 each claim through the public processing API with a real file from the
@@ -230,9 +230,20 @@ Evidence per format:
   `jpeg_xl_float_alpha_spot_and_extra_channels_are_rejected`,
   `jpeg_xl_animation_is_rejected`,
   `jpeg_xl_pq_and_hlg_are_rejected`,
-  `jpeg_xl_pixel_limit_is_checked_before_decoding`. CMYK JPEG XL has no
-  fixture in the repository; its rejection rests on the external conformance
-  run below.
+  `jpeg_xl_pixel_limit_is_checked_before_decoding`. CMYK JPEG XL:
+  `jpeg_xl_cmyk_is_rejected_as_a_layout` (`tests/fixtures/jxl-cmyk/cmyk_layers.jxl`,
+  the conformance corpus's CC0 `cmyk_layers`, RGB plus a Black extra channel
+  and alpha; [provenance](../tests/fixtures/jxl-cmyk/README.md)) expects
+  `UnsupportedInput`, `UnsupportedLayout` under every policy, before pixel
+  allocation. Behavior against the original: the original libjxl decodes the
+  file (the Black channel arrives as an extra channel, and the corpus
+  reference is that frame), and the decoder port reproduces the corpus
+  reference within the corpus's tolerance (conformance record below,
+  `cmyk_layers` pass). The refusal is therefore the engine's policy, not a
+  decoder error: no CMYK-to-RGB conversion is defined for the Black channel,
+  so the engine refuses it, as it refuses CMYK JPEG (ADR-0042). No
+  bit-comparison with a C++ decoder of this file ran for this item (the
+  libjxl submodule is not checked out here).
   External: the pinned JPEG XL conformance corpus passes 27/27 level-10 and
   24/24 level-5 entries on macOS ARM64; through the engine wrapper 32 accepted
   cases pass and 8 (animation, CMYK, spot colors, float samples) are rejected
@@ -594,7 +605,7 @@ internals) need the whole frame for any crop.
 | Target | Engine features on stable (Rust 1.99 or later) | `avif-read`, `avif-write`, `cli` | Verified by |
 | --- | --- | --- | --- |
 | macOS ARM64 | yes | yes (stable 1.99; before 2026-11-15 pinned nightly) | local run below; CI `native-adapters` (`macos-15`) |
-| GNU Linux x86-64 | yes | yes (stable 1.99; before 2026-11-15 pinned nightly) | CI `rust`, `minimum-rust`, `workspace`, `codecs` (`ubuntu-24.04`); **not re-run for this branch** |
+| GNU Linux x86-64 | yes | yes (stable 1.99; before 2026-11-15 pinned nightly) | CI `rust`, `minimum-rust`, `workspace`, `codecs` (`ubuntu-24.04`), green on main (CI run 45303780332 at `01dfdc80`, job `rust` 138142689404: `supported_matrix` 55, `avif_icc_nclx` 2, `own_avif_cli` 2, `animated_input` 3, `report_backends` 8 passed, `ferrisma_avif_read` lib 10 passed, no NASM installed in that job); local re-run: [record of 2026-11-24](#verification-record-2026-11-24-gnu-linux-x86-64-avif-cases-275-26) |
 | GNU Linux ARM64 | codec-free engine and kernels tested in CI | not supported | CI `kernels-arm` (`ubuntu-24.04-arm`: `cargo test -p ferrisma -p ferrisma-kernels --all-targets`, no codec features) |
 | Windows, other targets | not verified | not supported | out of v1.0 scope (#158, #159) |
 
@@ -758,6 +769,41 @@ as the JPEG XL output default (ADR-0041 O5), and whether the strict policy
 should accept transparent XYB JPEG XL written by the engine (#222, ADR-0015;
 today refused under `Strict`). Open questions of #250 are not decided here.
 
+## Verification record (2026-11-24, GNU Linux x86-64, AVIF cases; #275, #26)
+
+What the hosted job already covers: the `rust` job of `ci.yml` (Ubuntu 24.04
+x86-64, no NASM installed) runs `cargo test -p ferrisma -p ferrisma-kernels
+--all-targets --all-features`, which contains every AVIF case of
+[`tests/supported_matrix.rs`](../tests/supported_matrix.rs) with the default
+dav1d reader, plus `own_avif_cli` (dav1d by default, libaom on request),
+`avif_icc_nclx`, `animated_input` and `report_backends`; a second step runs the
+`ferrisma-avif-read` unit tests (`dav1d_and_libaom_decode_the_avif_corpus_identically`,
+`both_decoders_reproduce_the_pinned_c_oracle`). Run 45303780332 (`main`,
+`01dfdc80`) passed all of them (counts in the Native targets row); the log
+does not name the runner's CPU, so which SIMD level it exercised is not
+recorded. Nothing in the matrix is gated to another target.
+
+Local x86-64 re-run, the same five test binaries with the same command
+(`cargo test -p ferrisma --all-features --offline --locked --test
+supported_matrix --test avif_icc_nclx --test own_avif_cli --test animated_input
+--test report_backends`), in the Colima profile `dav1dx86` (Debian trixie
+container, `linux/amd64` under Rosetta 2, `uname -m` x86_64, `avx2` advertised,
+nightly-2026-09-07, debug profile, offline from cached crates) on this branch
+before the CMYK case was added to the Linux copy: all 70 tests passed
+(`supported_matrix` 55, `own_avif_cli` 2, `avif_icc_nclx` 2, `animated_input`
+3, `report_backends` 8). This is a green only; Rosetta is not authoritative
+for AVX2 correctness (a red would have needed QEMU or a hosted run), so the
+hosted green above stays the proof of record and no extra hosted run was
+dispatched. Log: `.orch/evidence/matrix-rest-275/x86-colima-run.log`.
+
+Cross-check with #26 (2026-11-24): the pinned-nightly item is obsolete (stable
+1.99 since 2026-11-15); the NASM item is answered by the `rust` job, which
+builds and tests every feature, AVIF included, on a clean Ubuntu 24.04 checkout
+without NASM (only the `workspace` job installs it, for the reference and
+translation tooling, not for the engine build); the CI revisions are linked
+above; clean builds on macOS ARM64 are `native-adapters` (`macos-15`). The
+x86-64 JPEG XL conformance run and the AVX-512 hosts stay with #276 and #270.
+
 ## Verification record (2026-11-15, macOS ARM64 and x86-64 under Rosetta 2)
 
 Host: Apple Silicon, macOS (Darwin 27.2.0) arm64, shared with other build
@@ -768,7 +814,7 @@ branch `v1/matrix` on `aba85c54`.
 | --- | --- |
 | `cargo test -p ferrisma --features cli --test supported_matrix` | pass, 57 tests |
 | `cargo test -p ferrisma --features jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-own-read,jpeg-xl-write,icc --test supported_matrix` | pass, 35 tests (the AVIF cases are gated on their adapters) |
-| the same with `--target x86_64-apple-darwin` under Rosetta 2 (`ROSETTA_ADVERTISE_AVX=1`, `SDKROOT` set) | pass, 35 tests. The AVIF adapters cannot be built for x86-64 macOS (the generated libaom/dav1d/SharpYUV sources `compile_error!` outside macOS ARM64 and GNU Linux x86-64), so the AVIF cases have no local x86-64 run; GNU Linux x86-64 stays CI's |
+| the same with `--target x86_64-apple-darwin` under Rosetta 2 (`ROSETTA_ADVERTISE_AVX=1`, `SDKROOT` set) | pass, 35 tests. The AVIF adapters cannot be built for x86-64 macOS (the generated libaom/dav1d/SharpYUV sources `compile_error!` outside macOS ARM64 and GNU Linux x86-64), so the AVIF cases had no local x86-64 run that day; the [2026-11-24 record](#verification-record-2026-11-24-gnu-linux-x86-64-avif-cases-275-26) adds one in a Linux container |
 | `cargo clippy -p ferrisma --features cli --test supported_matrix --no-deps -- -D warnings`, and with the non-AVIF set | pass |
 | `cargo test -p ferrisma --all-targets --features cli` (under the gate lock) | pass: 326 tests in 18 binaries, 0 failed, 1 ignored (pre-existing `#[ignore]`) |
 

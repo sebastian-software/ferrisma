@@ -383,6 +383,17 @@ terms; the engine's MIT OR Apache-2.0 license does not relicense that port.
 
 The choices and their remaining gates are recorded in [ADR-0018](adr/0018-optional-codec-and-cms-dependencies.md). A future JPEG XL encoder, including the AGPL-3.0/commercial `jxl-encoder` candidate, is **not** an approved default dependency and requires a separate ADR.
 
+## Test fixture from the JPEG XL conformance corpus (2026-11-24, #275)
+
+`tests/fixtures/jxl-cmyk/cmyk_layers.jxl` (387,140 bytes, SHA-256
+`d732c883…ed4a`, equal to the pin in
+`codecs/libjxl-rs/tools/conformance/MANIFEST.sha256`) is the unchanged
+`cmyk_layers` input of `libjxl/conformance` at `b1d0f990`. The corpus lists
+the case as CC0, so committing and packaging it needs no attribution; it is
+named in [THIRD-PARTY-NOTICES.md](../THIRD-PARTY-NOTICES.md) anyway. It is
+test data only: no build links it, and the other 39 corpus inputs stay
+unvendored. Only this one case's license was checked.
+
 ## M1 release prerequisites
 
 - [ ] Store an externally reviewable license inventory for an exact, reproducible version set (including NOTICE/license files). The 2026-11-12 bundles above are reproducible; storing the bundle of the exact release commit remains.

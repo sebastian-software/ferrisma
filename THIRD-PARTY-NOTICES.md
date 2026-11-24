@@ -12,6 +12,16 @@ This software is based in part on the work of the Independent JPEG Group.
 The workspace port retains [README.ijg](codecs/libjpeg-turbo-rs/README.ijg)
 and [LICENSE.md](codecs/libjpeg-turbo-rs/LICENSE.md).
 
+## CMYK JPEG XL test fixture
+
+`tests/fixtures/jxl-cmyk/cmyk_layers.jxl` is the `cmyk_layers` case of the
+public [JPEG XL conformance corpus](https://github.com/libjxl/conformance)
+(revision `b1d0f990b03e57bf6d137c365cd5dc8b470b9191`), copied unchanged and
+dedicated to the public domain under CC0 (the corpus's `testcases/README.md`
+lists the license per case). SHA-256
+`d732c8836bf1abeadf310d2e07387a32813ed4690d32650c1c25e541b80eed4a`. The
+provenance is in [tests/fixtures/jxl-cmyk/README.md](tests/fixtures/jxl-cmyk/README.md).
+
 ## sRGB2014 profile
 
 The unchanged ICC sRGB2014 profile, copyright International Color Consortium,

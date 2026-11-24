@@ -479,6 +479,30 @@ fn jpeg_xl_float_alpha_spot_and_extra_channels_are_rejected() {
     }
 }
 
+/// CMYK JPEG XL (the Black extra channel): the libjxl conformance corpus's
+/// `cmyk_layers` (CC0, `tests/fixtures/jxl-cmyk/README.md`). The decoder
+/// port reproduces the corpus reference for it; the engine refuses it before
+/// any pixel allocation, under every policy, like CMYK JPEG.
+#[test]
+fn jpeg_xl_cmyk_is_rejected_as_a_layout() {
+    let bytes = read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/jxl-cmyk/cmyk_layers.jxl"
+    ));
+    for policy in [
+        InputProfilePolicy::Strict,
+        InputProfilePolicy::AssumeSrgbIfMissing,
+        RENDERED,
+    ] {
+        refused(
+            transcode(&bytes, ImageFormat::JpegXl, &jxl_options(policy)),
+            ProcessingErrorKind::UnsupportedInput,
+            LAYOUT,
+            Some(RefusalReason::UnsupportedLayout),
+        );
+    }
+}
+
 #[test]
 fn jpeg_xl_animation_is_rejected() {
     let animated = jxl("decoder-geometry/sequence-reference-overwrite-animation-1.jxl");
