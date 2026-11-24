@@ -128,6 +128,21 @@ or sized as their own callers do; both are fixed on `main`. Since then:
   first scheduled nightly on `main` with the encoder's SIMD path (merged on
   2026-11-20, after `JXL: Checks` run 44775790284 on its branch). The logs were read for
   these counts (#252).
+- JPEG XL encoder SIMD gate (port ADR 0004, condition (e)), read from the
+  logs of the same nightly on 2026-11-24: the four ordinary-oracle shards
+  (`ubuntu-latest`, `ubuntu-26.04` image, Azure; the log prints no CPU model, the
+  probes show AVX2 and AVX-512 present) ran the encoder SIMD binaries against
+  the AVX2 dispatch-build oracle: `simd_encoder` 9, `simd_encoder_acs` 5,
+  `simd_encoder_aq` 1, `simd_encoder_cfl` 4, `simd_encoder_entropy` 11,
+  `simd_encoder_public` 14, 44 passed, 0 failed (1 diagnostic ignored by
+  design). With the encoder-path binaries `enc_gaborish` 2, `encoder_frame` 4,
+  `modular_encode` 4 and `output_encoding` 1 that is 55 passed, 56 counting the
+  ignored diagnostic, which is the "56 encoder tests" above. Condition (e) is
+  met; the AVX2 cap on AVX-512 hardware stays open.
+- JPEG XL decoder conformance corpus on hosted Linux x86-64 hardware: run
+  [45343416525](https://github.com/sebastian-software/ferrisma/actions/runs/45343416525)
+  (2026-11-24, `ubuntu-24.04`), AVX2 and forced scalar, 27 of 27 level-10 and
+  24 of 24 level-5 each ([record](../codecs/libjxl-rs/docs/CONFORMANCE.md)).
 - #252 does not record a libjpeg-turbo-rs result.
 - The AOM SIMD-against-original gate (`tools/check_aom_simd_original.py`) runs
   on hosted x86-64 hardware since 2026-11-23: job `AVIF: SIMD against the
