@@ -11,42 +11,25 @@ on:
 permissions:
   contents: read
 jobs:
-  probe:
+  instrumented:
     strategy:
       fail-fast: false
       matrix:
-        slot: [1, 2, 3, 4, 5, 6]
+        slot: [1, 2, 3, 4]
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - run: sudo apt-get update -q && sudo apt-get install -y -q gdb
       - run: cargo fetch --locked
-      - name: Probe
-        env:
-          RUNS: ${{ inputs.runs }}
-          OUT: probe-out
-        run: bash tools/segv-probe/probe.sh
-      - if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: probe-${{ matrix.slot }}
-          path: probe-out
-  valgrind:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - run: sudo apt-get update -q && sudo apt-get install -y -q valgrind
-      - run: cargo fetch --locked
-      - name: Valgrind, serial
+      - name: Gather indices of ipred_z2_8bpc outside its frame
         run: |
           grep -m1 'model name' /proc/cpuinfo
+          git apply tools/segv-probe/instrument-z2.patch
           BIN=$(cargo test --locked --offline --release -p ferrisma-dav1d --lib --no-run --message-format=json \
             | jq -r 'select(.reason == "compiler-artifact" and .executable != null and .profile.test) | .executable' | tail -1)
-          echo "BIN=$BIN"
-          valgrind --error-exitcode=99 --track-origins=no "$BIN" --test-threads=1 2>&1 | tail -200
+          "$BIN" --exact simd::x86::ipred::tests::the_kernels_read_only_the_edge_array > alone.log 2>&1; echo "alone rc=$?"
+          for i in 1 2 3 4 5; do "$BIN" > par-$i.log 2>&1; echo "par $i rc=$?"; done
+          echo "OOB lines: $(cat alone.log par-*.log | grep -c OOB)"
+          grep -h OOB alone.log | sort | uniq -c | head -60

@@ -1,0 +1,59 @@
+--- a/codecs/libavif-rs/crates/dav1d/src/simd/x86_64/ipred_avx2.rs
++++ b/codecs/libavif-rs/crates/dav1d/src/simd/x86_64/ipred_avx2.rs
+@@ -4120,6 +4120,7 @@
+             m[1] = m[7]; // mova m1, m7 ; arbitrary negative value
+                          // All four lanes are gathered (the mask is negative); the frame is zeroed whole and the
+                          // indices stay within rsp+28..rsp+192 (see FrameP4). The gather clears m1; the next line writes it.
++            dbg_gather_p4(g, lo(m[4]), m[1], 1);
+             m[3] = _mm256_mask_i32gather_epi64::<1>(m[3], g.r5 as *const i64, lo(m[4]), m[1]); // vpgatherdq m3, [r5+xm4], m1
+             m[1] = _mm256_shuffle_epi8(m[3], m[11]); // pshufb m1, m3, m11
+             m[1] = _mm256_permutevar8x32_epi32(m[1], m[12]); // vpermd m1, m12, m1
+@@ -4149,6 +4150,7 @@
+     loop {
+         // .w4_leftonly_loop:
+         m[1] = m[7]; // mova m1, m7
++        dbg_gather_p4(g, lo(m[4]), m[1], 2);
+         m[2] = _mm256_mask_i32gather_epi64::<1>(m[2], g.r5 as *const i64, lo(m[4]), m[1]); // vpgatherdq m2, [r5+xm4], m1
+         g.r5 = at(g.r5, g.dy as isize); // add r5, dyq
+         m[0] = _mm256_shuffle_epi8(m[2], m[11]); // pshufb m0, m2, m11
+@@ -4369,8 +4371,10 @@
+             // within rsp+28..rsp+192 (see FrameP4). Each gather clears its mask; m7 is restored from m5 as in the
+             // assembly, and m5 is written before it is read again.
+             m[5] = m[7]; // mova m5, m7
++            dbg_gather_p4(g, lo(m[9]), m[7], 3);
+             m[3] = _mm256_mask_i32gather_epi64::<1>(m[3], g.r5 as *const i64, lo(m[9]), m[7]); // vpgatherdq m3, [r5+xm9], m7
+             m[7] = m[5]; // mova m7, m5
++            dbg_gather_p4(g, lo(m[8]), m[5], 4);
+             m[2] = _mm256_mask_i32gather_epi64::<1>(m[2], g.r5 as *const i64, lo(m[8]), m[5]); // vpgatherdq m2, [r5+xm8], m5
+             m[3] = _mm256_shuffle_epi8(m[3], m[11]); // pshufb m3, m11
+             m[2] = _mm256_shuffle_epi8(m[2], m[11]); // pshufb m2, m11
+@@ -4408,8 +4412,10 @@
+     loop {
+         // .w8_leftonly_loop:
+         m[0] = m[7]; // mova m0, m7
++        dbg_gather_p4(g, lo(m[9]), m[7], 5);
+         m[5] = _mm256_mask_i32gather_epi64::<1>(m[5], g.r5 as *const i64, lo(m[9]), m[7]); // vpgatherdq m5, [r5+xm9], m7
+         m[7] = m[0]; // mova m7, m0
++        dbg_gather_p4(g, lo(m[8]), m[0], 6);
+         m[3] = _mm256_mask_i32gather_epi64::<1>(m[3], g.r5 as *const i64, lo(m[8]), m[0]); // vpgatherdq m3, [r5+xm8], m0
+         g.r5 = at(g.r5, g.dy as isize); // add r5, dyq
+         m[2] = _mm256_shuffle_epi8(m[5], m[11]); // pshufb m2, m5, m11
+@@ -8387,4 +8393,18 @@
+         _ => ipred_cfl_ac_444_8bpc_w32(&mut m, ac, y, stride, wpad, hpad, h),
+     }
+     ipred_cfl_ac_444_8bpc_calc_avg(&mut m, ac_bak, sz);
++}
++
++#[inline(never)]
++unsafe fn dbg_gather_p4(g: &GprP4, idx: __m128i, mask: __m256i, site: u32) {
++    let i: [i32; 4] = core::mem::transmute(idx);
++    let mk: [i64; 4] = core::mem::transmute(mask);
++    for k in 0..4 {
++        if mk[k] < 0 {
++            let a = g.r5 as isize + i[k] as isize - g.fp as isize;
++            if a < -32 || a + 8 > 224 {
++                eprintln!("OOB site {site} w {} h {} angle {:#x} lane {k} idx {} r5-fp {} addr-fp {a}", g.max_width, g.max_height, g.angle ^ 0x400, i[k], g.r5 as isize - g.fp as isize);
++            }
++        }
++    }
+ }
