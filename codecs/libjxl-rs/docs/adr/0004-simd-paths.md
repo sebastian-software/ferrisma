@@ -2653,3 +2653,13 @@ that condition (e) asks for therefore exists; the x86-64 speed is recorded in
 `docs/benchmarks/v1.0-jxl-encode-three-column-x86-64-2026-11-20.md`. The AVX2
 default cap on AVX-512 hardware is not covered by this and stays open
 (`docs/quality-gate.md`).
+
+Count, read again from the logs on 2026-11-24: the 56 are the passed tests of
+the encoder binaries over the four shards (55) plus one `#[ignore]`d
+diagnostic in `simd_encoder_public`: `simd_encoder` 9, `simd_encoder_acs` 5,
+`simd_encoder_aq` 1, `simd_encoder_cfl` 4, `simd_encoder_entropy` 11,
+`simd_encoder_public` 14 (44 in the `simd_encoder*` binaries), plus
+`enc_gaborish` 2, `encoder_frame` 4, `modular_encode` 4 and
+`output_encoding` 1; 0 failed. The SIMD binaries compare against the AVX2
+dispatch-build oracle (`-DORACLE_HWY_TARGET=AVX2`); the logs do not print the
+runner's CPU model.

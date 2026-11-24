@@ -114,7 +114,32 @@ of that workflow on `main` at `b3f29a71` (`ubuntu-24.04`, x86-64 hardware):
 
 The path is the decoder-path log of the 30 level-10 decodes of each job. The
 run's logs and result files are its artifacts (kept seven days); this table
-is the record. Peak error of `alpha_premultiplied`: 3.07e-06 on AVX2 and
+is the record.
+
+Repeated on 2026-11-24 at the current tree: hosted run
+[45343416525](https://github.com/sebastian-software/ferrisma/actions/runs/45343416525)
+of the same workflow on branch `v1/jxl-x86-conformance-276` (`01dfdc80`, the tip of
+`main` at the time, `ubuntu-24.04`, x86-64 hardware; the runner does
+not print its CPU model). Both jobs succeeded:
+
+| Configuration | Path (every decode) | Level 10 | Level 5 |
+| --- | --- | --- | --- |
+| Linux x86-64, default | AVX2, SIMD kernels ran (30 and 27 decodes) | 27 / 27 | 24 / 24 |
+| Linux x86-64, forced scalar | scalar, no SIMD kernel (30 and 27 decodes) | 27 / 27 | 24 / 24 |
+
+The `alpha_premultiplied` peak error is 3.07e-06 (AVX2) and 3.04e-06
+(scalar), the same as on 2026-11-15. This is the external corpus's own runner
+on x86-64 hardware: no Rosetta 2 result stands in for it. The AVX2 cap on
+AVX-512 hardware is a separate item (`docs/quality-gate.md`).
+
+The wrapper row of that run reads 31 of 40, not 32: `alpha_premultiplied`
+fails in `--lax` mode on both paths (RMSE 0.468 against a limit of 3.815e-06).
+This is not a hardware difference. Commit `ebc0c5a7` (2026-11-15, after the
+`b3f29a71` run above) made the wrapper hand out straight alpha through
+libjxl's own un-premultiply step, while the corpus reference of that case is
+premultiplied and the runner's lax mode compares samples as emitted. The
+decoder rows above, which keep premultiplied alpha, pass. The eight
+by-design `Unsupported` rejections are unchanged. Peak error of `alpha_premultiplied`: 3.07e-06 on AVX2 and
 3.04e-06 on the scalar path.
 
 Peak error per case, the maximum over frames and channels, and in
