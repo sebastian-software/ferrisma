@@ -1,26 +1,52 @@
-name: Blacksmith runner probe
-
-# One-off availability probe for the v1.0 CI performance work: does a
-# Blacksmith runner pick up jobs for this repository? Cancel if it queues.
+# Throwaway diagnosis workflow (branch v1/dav1d-x86-segv only, never main): the ferrisma-dav1d lib tests'
+# SIGSEGV of ci.yml run 45292330807 on hosted Linux x86-64.
+# (Overwrites bench-blacksmith-probe.yml on this branch only, so that it can be dispatched by its path.)
+name: dav1d x86 SIGSEGV probe
 on:
-  push:
-    branches: ["bench/**"]
   workflow_dispatch:
-
+    inputs:
+      runs:
+        description: Parallel test-binary runs per job
+        default: "30"
 permissions:
   contents: read
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   probe:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        slot: [1, 2, 3, 4, 5, 6]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
-      - run: |
-          uname -a
-          nproc
-          lscpu | head -20
-          uptime
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - run: sudo apt-get update -q && sudo apt-get install -y -q gdb
+      - run: cargo fetch --locked
+      - name: Probe
+        env:
+          RUNS: ${{ inputs.runs }}
+          OUT: probe-out
+        run: bash tools/segv-probe/probe.sh
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: probe-${{ matrix.slot }}
+          path: probe-out
+  valgrind:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - run: sudo apt-get update -q && sudo apt-get install -y -q valgrind
+      - run: cargo fetch --locked
+      - name: Valgrind, serial
+        run: |
+          grep -m1 'model name' /proc/cpuinfo
+          BIN=$(cargo test --locked --offline --release -p ferrisma-dav1d --lib --no-run --message-format=json \
+            | jq -r 'select(.reason == "compiler-artifact" and .executable != null and .profile.test) | .executable' | tail -1)
+          echo "BIN=$BIN"
+          valgrind --error-exitcode=99 --track-origins=no "$BIN" --test-threads=1 2>&1 | tail -200
