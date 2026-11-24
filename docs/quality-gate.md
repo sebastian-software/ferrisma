@@ -24,7 +24,7 @@ column "In short" of this table, generated at build time.
 | libwebp-rs | Identical at every level in the recorded runs: NEON and scalar on AArch64; AVX2, SSE4.1 and SSE2 on hosted x86-64 Linux, also in the nightly. | Passed (`neon`, scalar) | Passed on hosted Linux x86-64 (`avx2`, `sse41`, `sse2`; run [43471093624](https://github.com/sebastian-software/ferrisma/actions/runs/43471093624)); the nightly's hosted oracle job passed on 2026-11-15 and 2026-11-16 (runs [43698564297](https://github.com/sebastian-software/ferrisma/actions/runs/43698564297), [43840953408](https://github.com/sebastian-software/ferrisma/actions/runs/43840953408)) | Tracking issues #89 and #83 are open |
 | libjxl-rs decoder | NEON and AVX2 match the original word for word, AVX2 also in a hosted run on x86-64 hardware. | Passed (row level and public-decoder gate) | Passed on hosted Linux x86-64 at `7b48bc81`, where the decoder selects AVX2 by default (run [43656118559](https://github.com/sebastian-software/ferrisma/actions/runs/43656118559), every job successful) | `ToLinear` and `ToneMapping` only at row level |
 | libjxl-rs encoder | SIMD by default since 2026-11-16; matches the original on NEON and on AVX2 (under Rosetta 2, and on hosted x86-64 hardware in the nightly). | Passed: the encoder's SIMD path is selected by default since 2026-11-16 and matches the NEON original | Matches the AVX2 original under Rosetta 2; hosted nightly [44890912987](https://github.com/sebastian-software/ferrisma/actions/runs/44890912987) on `main` at `e85ad0b9`: 56 encoder SIMD tests, 0 failed | The hosted result is recorded in port ADR 0004's addendum of 2026-11-23 |
-| libavif-rs with libaom | Scalar and NEON identical on AArch64; scalar, SSE4.1 and AVX2 identical under QEMU emulation. A run on x86-64 hardware is open. | Passed (`neon` and `scalar`, 82 of 82) | `avx2`, `sse4.1` and `scalar` 82 of 82 each, under QEMU emulation; 420 RTCD functions dispatch on x86-64 (the kernel tests, identity and golden checks also run on hosted hardware, `AVIF: AOM x86 SIMD validation`, run [43695399177](https://github.com/sebastian-software/ferrisma/actions/runs/43695399177)) | No run on x86-64 hardware: no workflow runs `check_aom_simd_original.py`; NASM-only kernels stay on `_c` (ADR-0044 D2) |
+| libavif-rs with libaom | Scalar and NEON identical on AArch64; scalar, SSE4.1 and AVX2 identical under QEMU emulation. Hosted x86-64 run recorded 2026-11-23. | Passed (`neon` and `scalar`, 82 of 82) | `avx2`, `sse4.1` and `scalar` 82 of 82 each, under QEMU emulation, and on hosted x86-64 hardware (Intel Xeon 6975P-C, AVX-512 present, port capped at AVX2) 82 of 82 each, run [45287751621](https://github.com/sebastian-software/ferrisma/actions/runs/45287751621); 420 RTCD functions dispatch on x86-64 (the kernel tests, identity and golden checks also run on hosted hardware, `AVIF: AOM x86 SIMD validation`, run [43695399177](https://github.com/sebastian-software/ferrisma/actions/runs/43695399177)) | Open: the AVX2 cap passed on AVX-512 hardware; NASM-only kernels stay on `_c` (ADR-0044 D2) |
 
 ## The gate in one paragraph
 
@@ -129,9 +129,17 @@ or sized as their own callers do; both are fixed on `main`. Since then:
   2026-11-20, after `JXL: Checks` run 44775790284 on its branch). The logs were read for
   these counts (#252).
 - #252 does not record a libjpeg-turbo-rs result.
-- No workflow in `.github/workflows` runs the AOM SIMD-against-original gate
-  (`tools/check_aom_simd_original.py`), so no hosted run of it exists. Its
-  `avx2` level runs locally under QEMU emulation since 2026-11-14 (below).
+- The AOM SIMD-against-original gate (`tools/check_aom_simd_original.py`) runs
+  on hosted x86-64 hardware since 2026-11-23: job `AVIF: SIMD against the
+  original (x86-64 hardware)` of `avif-aom-simd-linux.yml`, run
+  [45287751621](https://github.com/sebastian-software/ferrisma/actions/runs/45287751621) on `v1/aom-gate-x86-270`: `avx2`, `sse4.1` and
+  `scalar` 82 of 82 identical each, natively (no QEMU), originals built on the
+  runner with `build_aom.py --library-only` (generic and `--simd avx2`). The
+  runner (Intel Xeon 6975P-C) reports `avx512f`; the port's RTCD reported
+  `simd(avx2)` in every `avx2` case, the check the tool makes against the
+  original built with `-DENABLE_AVX512=0`, so the AVX2 cap holds on AVX-512
+  hardware. Its `avx2` level also ran locally under QEMU emulation since
+  2026-11-14 (below).
 
 Tracking: [#241](https://github.com/sebastian-software/ferrisma/issues/241).
 The [status page](status.md#next-integration-and-release-gates) has the
@@ -440,9 +448,10 @@ python3 tools/check_aom_simd_identity.py
   `x86_64-apple-darwin` is not a target (port ADR 0058, amendment of
   2026-11-13). Rosetta for Linux does not execute AVX, so the `avx2` level
   runs under QEMU instead (since 2026-11-14), which is an emulator, not
-  x86-64 hardware: it has **never run on x86-64 hardware**. No workflow runs
-  `check_aom_simd_original.py`; `.github/workflows/avif-aom-simd-linux.yml`
-  runs the kernel tests, the identity check and the golden check only.
+  x86-64 hardware: it ran on no x86-64 hardware until the hosted run of 2026-11-23
+  ([45287751621](https://github.com/sebastian-software/ferrisma/actions/runs/45287751621)), which passed 82 of 82 at each level.
+  `.github/workflows/avif-aom-simd-linux.yml` runs it as the job `original`,
+  next to the kernel tests, the identity check and the golden check.
 - **x86-64 kernels (2026-11-16; 420 RTCD functions through 542
   assignments since 2026-11-20).** 358 RTCD functions dispatched through 444
   kernel assignments on x86-64 on 2026-11-16 (SSE2 to AVX2;
@@ -471,6 +480,29 @@ python3 tools/check_aom_simd_identity.py
   `av1_round_shift_array`) are dispatched to Neon since the amendment above;
   `aom_quantize_b_helper` stays on `_c` because libaom calls only
   `aom_quantize_b_helper_c` by name. Kernel work: #242, #125, #124, #122.
+
+### NaN words in the other ports' gates (#274)
+
+Record of 2026-11-24, `main` at `b9416178`. ADR-0041 section 3 (the NaN rule)
+is applied in the JPEG XL gates. The other three ports were searched for tests
+and tools that compare port output with the original and whose compared data
+holds floating-point words (`f32`, `f64`, `to_bits`/`from_bits`, float buffers
+hashed or compared as bytes, float tables, float kernels). The search was by
+reading the sources: no gate was run for this record, and the C originals'
+sources were not available in the worktree (submodules not initialized), so C
+behavior is taken from the probes and the port. **Result: no gate compares a
+word that can be a NaN, so no comparison needed the rule and none was changed.**
+A new gate that compares a computed float word must apply the rule, with the
+JPEG XL comparator (`comparator_equalizes_binary32_and_binary64_nan_words_only`
+in `codecs/libjxl-rs/tests/parity.rs`) as the reference.
+
+| Port | Gates checked | Result |
+| --- | --- | --- |
+| libjpeg-turbo-rs | Every oracle comparison under `tests/` and `tools/`. The float DCT (`JDCT_FLOAT`) is exercised in `wp4_idct`, `wp4_coefidct`, `wp5_decode`, `wp6_api`, `wp7_bittests`, `wp8_decode`, `wp10_idct`, `wp11_conformance`; all compare `u8` pixel rows or PPM bytes. `jfdctflt` is in no gate. | No float comparison, except one: `tests/wp10_idct.rs` `table_bytes()` hashes the `f32` multiplier table of the float IDCT (against `tools/oracle/probes/wp10/idct.c`). NaN cannot arise: the table is the fixed product of the AAN scale constants, finite by construction. The T.83 checks in `wp11_conformance.rs` (`f64` reference DCT) and the `f64` CMYK conversion in `tests/support/djpeg.rs` end in integers and use no NaN-producing operation. |
+| libwebp-rs | All of `tests/` and `tools/oracle/probes`. Float-valued: SSIM (`wp4_ssim.rs`, `f64` bits), plane and picture distortion (`wp9_distortion.rs`, `wp13_abi.rs`, `f32` bits), encoder PSNR statistics (`wp10_encode.rs`, `wp11_encode.rs`, `wp13_*`, `wp17_encode.rs`, `f32` bits), configuration floats (`wp9_config.rs`), `log2` constants (`wp3_constants.rs`). Integer outputs of float math (gamma tables `wp5_gamma.rs`, sharpyuv matrices `wp5_matrix.rs`, segment quantizers `wp10_segments.rs`, lossless cost tables `wp11_lossless_enc.rs`, k-means `wp4_quant_levels.rs`, dithering `wp1_random.rs`, `wp9_picture.rs`) and the rescaler and upsampling gates (`wp18_*`) are integer outputs. | Float comparison, NaN cannot arise: SSIM windows have a weight sum of at least 16, so the denominator is never 0; distortion and PSNR are guarded (`v > 0 && size > 0`, else 99; `v < 1` before `log10(1 - v)`); constants are constants. One input is a NaN on purpose: `wp9_config.rs` passes `f32::NAN` as `quality` and `target_PSNR` and compares the configuration back bit for bit. That is a copy without arithmetic (ADR-0041 section 3 item 4), so the NaN must stay bit-identical, which it does. A NaN `quality` through `WebPEncode` is in no gate (the safe API refuses it, `wp17_misuse.rs`). |
+| libavif-rs, libaom | Every `crates/aom/tests/simd/*.rs`, the upstream gtests run against both builds (`tools/compare_results.py` compares pass/fail and case identities only), `tools/check_aom_*.py`, `check_aom_float_tables.py`, golden and SIMD-identity checks. | Float comparison, NaN cannot arise: `horver_correlation.rs` (`f32` bits; the divisions are guarded in `rdopt.c`), `model_rd.rs` (`f64`, a polynomial), `nn_predict.rs` and `cnn.rs` (`f32`, tolerance 1e-3 and softmax tolerances; inputs bounded and random). All of them fail on a NaN rather than pass. `nn_predict.rs` `prec_reduce_out_of_range_does_not_crash` feeds NaN and infinity to `av1_nn_output_prec_reduce` and every dispatched `av1_nn_predict` but compares only the in-range words (the original is undefined there): this is the "no crash, no memory error" case of the rule. `check_aom_float_tables.py` compares the original's `prune_2D_adaptive_thresholds` bytes against its own normalized text, not the port, and the table holds decimal constants. The AVIF byte, decoded plane and RGB checks, `check_aom_golden.py` and `check_aom_simd_identity.py` are integer or bitstream only. |
+| libavif-rs, dav1d | `crates/dav1d/src/simd/*/tests.rs`, `tools/check_dav1d_*.py`, `upstream/dav1d/tests/checkasm` (as built by the port's runtime). | No float comparison: pixels, coefficients and CDFs. The `double` forward transforms in `checkasm/itx.c` only make inputs from bounded integers; the compared words are integers. |
+| libavif-rs, sharpyuv and libavif | `crates/sharpyuv/tests`, `tools/check_sharpyuv*.py`, `tools/differential.py`, `validate_root_profile.py`, the upstream libavif gtests. | No float comparison of port output: matrices and planes are integers; the `kr`/`kb` inputs are fixed literals. The libavif gtests check floats against their own tolerances in each build (`EXPECT_NEAR`, PSNR bounds), and a NaN fails each of them. |
 
 ### Engine kernels (not part of this gate)
 
