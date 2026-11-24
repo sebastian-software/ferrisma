@@ -233,7 +233,8 @@ mod tests {
         // The blocks are compared with the C kernel's for the kernels that run on a copy of the edge. The others
         // run against the guard pages only: the per-kernel gate compares them with the original's assembly, and
         // z2 differs from C on some of these inputs (first: 4x4, angle 147 with the edge filter, `max_width` =
-        // `max_height` = 4; not investigated here).
+        // `max_height` = 4): 147 is not an AV1 angle, and the derivative table holds 0 for it (see
+        // `gather_index_p4` in `simd/x86_64/ipred_avx2.rs`).
         let compared = |mode: usize| matches!(mode, Z1_PRED | Z3_PRED | SMOOTH_PRED | SMOOTH_H_PRED);
         {
             use crate::b8::ipred_tmpl::{dav1d_intra_pred_dsp_init_8bpc, Dav1dIntraPredDSPContext as Translated};

@@ -4066,6 +4066,21 @@ unsafe fn ipred_z2_8bpc_w4_filter_left(m: &mut M, g: &mut GprP4) {
     st128_p4(at(g.fp, 48), lo(m[0])); // mova [rsp+48], xm0
 } // jmp .w4_main
 
+/// The gather indices of `.w4_main`/`.w8_main` from the four `base_y` words in the low half of `x`: their
+/// dwords, sign-extended (`pmovsxwd`). The assembly zero-extends them (`punpcklwd` with a zero register). The
+/// two agree for every `base_y` in `0..=0x7fff`, and `base_y` is `-((dy * k) >> 6)` (`k` = 1..=8, `dy` negated
+/// at the entry), or `-((2 * dy * k + 64) >> 6)` after `.upsample_left`: at least 0 whenever the derivative of
+/// the angle (`dav1d_dr_intra_derivative`) is not 0, which holds for every AV1 angle. The table holds 0 for the
+/// angles AV1 does not have ("Values that are 0 will never be used", src/tables.c). With such an angle and the
+/// upsampled left edge, `base_y` is -1: zero-extended, the index 65535 makes the assembly's gather read 8
+/// bytes 64 KiB above its frame on the stack, which faults where nothing is mapped there (the unit tests'
+/// angles include such angles, `crate::simd::edge_test::check`); sign-extended, the gather reads `r5-1`
+/// inside the frame. Not in the original.
+#[inline(always)]
+unsafe fn gather_index_p4(x: __m128i) -> __m128i {
+    _mm_cvtepi16_epi32(x)
+}
+
 /// `.w4_main` with `.w4_loop`, `.w4_toponly`, `.w4_leftonly_loop` and `.w4_end`.
 #[inline(always)]
 unsafe fn ipred_z2_8bpc_w4_main(m: &mut M, g: &mut GprP4) {
@@ -4082,7 +4097,9 @@ unsafe fn ipred_z2_8bpc_w4_main(m: &mut M, g: &mut GprP4) {
     m[4] = zx(_mm_sub_epi16(lo(m[2]), lo(m[1]))); // psubw xm4, xm2, xm1 ; base_y
     m[0] = _mm256_blend_epi32::<0xcc>(m[0], m[7]); // vpblendd m0, m7, 0xcc
     m[1] = zx(lo(m[7])); // mova xm1, xm7
-    m[4] = zx(_mm_unpacklo_epi16(lo(m[4]), lo(m[2]))); // punpcklwd xm4, xm2
+    // punpcklwd xm4, xm2: the assembly zero-extends base_y to the gather indices; the rebuild sign-extends it
+    // (`gather_index_p4`), the same indices for every AV1 angle (see there).
+    m[4] = zx(gather_index_p4(lo(m[4]))); // punpcklwd xm4, xm2
     m[0] = _mm256_add_epi16(m[0], m[1]); // paddw m0, m1 ; xpos2 xpos3 xpos0 xpos1
     m[1] = zx(_mm_sub_epi16(lo(m[15]), lo(m[5]))); // psubw xm1, xm15, xm5 ; 64-frac_y
     m[5] = zx(_mm_slli_epi16::<8>(lo(m[5]))); // psllw xm5, 8
@@ -4330,10 +4347,11 @@ unsafe fn ipred_z2_8bpc_w8_main(m: &mut M, g: &mut GprP4) {
     m[7] = _mm256_add_epi16(m[3], m[3]); // paddw m7, m3, m3
     m[9] = zx(_mm_sub_epi16(lo(m[0]), lo(m[1]))); // psubw xm9, xm0, xm1 ; base_y
     m[5] = zx(_mm_slli_epi16::<8>(lo(m[5]))); // psllw xm5, 8
-    m[8] = zx(_mm_unpacklo_epi16(lo(m[9]), lo(m[0]))); // punpcklwd xm8, xm9, xm0 ; base_y 0, 1, 4, 5
+    // punpcklwd/punpckhwd with xm0 = 0: zero-extended in the assembly, sign-extended here (`gather_index_p4`).
+    m[8] = zx(gather_index_p4(lo(m[9]))); // punpcklwd xm8, xm9, xm0 ; base_y 0, 1, 4, 5
     m[3] = _mm256_blend_epi32::<0xf0>(m[3], m[7]); // vpblendd m3, m7, 0xf0 ; xpos0 xpos1
     m[5] = zx(_mm_or_si128(lo(m[5]), lo(m[2]))); // por xm5, xm2 ; 64-frac_y, frac_y
-    m[9] = zx(_mm_unpackhi_epi16(lo(m[9]), lo(m[0]))); // punpckhwd xm9, xm0 ; base_y 2, 3, 6, 7
+    m[9] = zx(gather_index_p4(_mm_unpackhi_epi64(lo(m[9]), lo(m[9])))); // punpckhwd xm9, xm0 ; base_y 2, 3, 6, 7
     m[6] = _mm256_add_epi16(m[6], m[3]); // paddw m6, m3
     m[12] = _mm256_inserti128_si256::<1>(m[5], lo(m[5])); // vinserti128 m12, m5, xm5, 1
     loop {
