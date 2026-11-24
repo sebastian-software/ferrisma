@@ -1,6 +1,6 @@
 # Fuzzing and hostile-input policy
 
-**Status:** Harness and four-job ASan campaign workflow exist (eight jobs until 2026-11-15). The first hosted campaign ([run 43117625746](https://github.com/sebastian-software/ferrisma/actions/runs/43117625746), 2026-11-11) found one JPEG XL panic and three macOS link failures; both are fixed. Bounded 10-minute local ASan runs of all three lanes on macOS ARM64 (2026-11-12) found no further failure; a 20-minute local ASan run of the JPEG XL output lane `transcode_jxl_out` (2026-11-15) found none either. The hosted smoke [run 43690971661](https://github.com/sebastian-software/ferrisma/actions/runs/43690971661) (2026-11-15) found a 1 GiB allocation request in jxl-oxide from an 11-byte JPEG XL codestream; it was bounded by the input cap the same day ([details](#hosted-smoke-run-43690971661-2026-11-15)), and on 2026-11-15 jxl-oxide left the engine's runtime altogether (owner decision, [ADR-0032](adr/0032-jpeg-xl-workspace-decoder-input.md)): every lane now reads JPEG XL through the workspace libjxl-rs reader, and the `transcode_own_jxl` lane, which differed only by that reader, is merged into `transcode` ([lanes since 2026-11-15](#lanes-since-2026-11-15)). The hosted ten-lane ASan campaign [run 43699233171](https://github.com/sebastian-software/ferrisma/actions/runs/43699233171) (2026-11-15) found no crash, timeout, out-of-memory or sanitizer report; its per-lane review with peak RSS is [written below](#hosted-campaign-run-43699233171-2026-11-15). A campaign on the merged lanes and the dav1d default decoder has not run yet; see [results](#campaign-results).
+**Status:** Harness and four-job ASan campaign workflow exist (eight jobs until 2026-11-15). The first hosted campaign ([run 43117625746](https://github.com/sebastian-software/ferrisma/actions/runs/43117625746), 2026-11-11) found one JPEG XL panic and three macOS link failures; both are fixed. Bounded 10-minute local ASan runs of all three lanes on macOS ARM64 (2026-11-12) found no further failure; a 20-minute local ASan run of the JPEG XL output lane `transcode_jxl_out` (2026-11-15) found none either. The hosted smoke [run 43690971661](https://github.com/sebastian-software/ferrisma/actions/runs/43690971661) (2026-11-15) found a 1 GiB allocation request in jxl-oxide from an 11-byte JPEG XL codestream; it was bounded by the input cap the same day ([details](#hosted-smoke-run-43690971661-2026-11-15)), and on 2026-11-15 jxl-oxide left the engine's runtime altogether (owner decision, [ADR-0032](adr/0032-jpeg-xl-workspace-decoder-input.md)): every lane now reads JPEG XL through the workspace libjxl-rs reader, and the `transcode_own_jxl` lane, which differed only by that reader, is merged into `transcode` ([lanes since 2026-11-15](#lanes-since-2026-11-15)). The hosted ten-lane ASan campaign [run 43699233171](https://github.com/sebastian-software/ferrisma/actions/runs/43699233171) (2026-11-15) found no crash, timeout, out-of-memory or sanitizer report; its per-lane review with peak RSS is [written below](#hosted-campaign-run-43699233171-2026-11-15). The campaign on the merged lanes with the dav1d default decoder, [run 45288062218](#hosted-campaign-run-45288062218-dav1d-default-2026-11-24) (2026-11-24), found nothing either; see [results](#campaign-results).
 
 Ferrisma's public processing facade accepts untrusted JPEG, WebP, JPEG XL, and AVIF bytes. The core forbids unsafe Rust; optional decoder, assembler, SIMD and encoder dependencies do **not** inherit that guarantee. The workspace AVIF reader checks dimensions and reserves the emitted RGB frame before pixel decoding, but libavif/AOM still allocate opaque parser and codec buffers outside the engine budget.
 
@@ -215,6 +215,55 @@ allocation bound) and the unknown colour space is `MalformedInput` (before:
 campaign runs the remaining lanes on Linux x86-64 and macOS ARM64. The
 records below are kept as they were measured; they name the readers of
 their day.
+
+### Hosted campaign, run 45288062218 (dav1d default, 2026-11-24)
+
+[Run 45288062218](https://github.com/sebastian-software/ferrisma/actions/runs/45288062218)
+of the M1 Sustained Fuzz Campaign, dispatched on branch `v1/fuzz-review-272` at
+`c2d0e178` (tree `7e9b4d09`, identical to `main` at the time), succeeded in all six
+jobs. It is the first hosted campaign that covers the **dav1d AVIF decoder, the
+default since `7875d539`**, with libjxl-rs as the only JPEG XL reader and the
+libavif/AOM writer as the only AVIF encoder; rav1e, jxl-oxide and the
+`transcode_own_jxl` and `transcode_own_avif` lanes no longer exist. Same
+settings as [run 43699233171](#hosted-campaign-run-43699233171-2026-11-15):
+`nightly-2026-09-07`, cargo-fuzz 0.13.2, AddressSanitizer with
+`--cfg libavif_rs_asan`, `-seed=1`, `-max_total_time=1800`, `-timeout=10`,
+`-rss_limit_mb=2048`; no workflow change. Starting corpora: 73 seeds for the
+engine lanes (`seeds.sha256` digest `a5bbe32638b0`; the merged `transcode` set)
+and 30 for the JPEG port (`6ad7dac125a9`); seed replay passed in every job. No
+`fuzz/artifacts/` directory contained a file.
+
+**Review result:** no crash, no timeout, no out-of-memory, no sanitizer report
+and no `slowest_unit_time_sec` above 0 in any lane.
+
+| Lane (target) | Platform | Executions | Exec/s | Crashes | Timeouts | OOMs | Corpus (inputs, size) | Features (final) | Peak RSS |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |
+| `transcode` | Linux x86-64 | 300,789 | 167 | 0 | 0 | 0 | 3,956, 15 MB | 143,495 | 620 MB |
+| `transcode` | macOS ARM64 | 638,045 | 354 | 0 | 0 | 0 | 5,038, 17 MB | 148,730 | 805 MB |
+| `transcode_jxl_out` | Linux x86-64 | 74,701 | 41 | 0 | 0 | 0 | 2,563, 9.2 MB | 192,811 | 632 MB |
+| `transcode_jxl_out` | macOS ARM64 | 128,397 | 71 | 0 | 0 | 0 | 3,014, 13.1 MB | 235,269 | 820 MB |
+| JPEG port `decode` | Linux x86-64 | 49,783 | 27 | 0 | 0 | 0 | 1,173, 14.1 MB | 15,547 | 824 MB |
+| JPEG port `decode` | macOS ARM64 | 67,728 | 37 | 0 | 0 | 0 | 1,305, 11.9 MB | 18,829 | 834 MB |
+
+Peak RSS is libFuzzer's `stat::peak_rss_mb` of the whole fuzz process on an
+ASan build (highest 834 MB, below the 2 GiB limit); the same caveats as for the
+earlier run apply, and exec/s must not be compared across platforms or lanes.
+Compared with the earlier run, the engine lanes execute fewer inputs per second
+on both platforms and reach more coverage points; the lanes differ in decoder
+and encoder, so no throughput conclusion is drawn.
+
+| Lane (target) | Platform | Regions | Functions | Lines |
+| --- | --- | ---: | ---: | ---: |
+| `transcode` | Linux x86-64 | 13.56% of 828,612 | 16.11% of 34,155 | 15.43% of 830,891 |
+| `transcode` | macOS ARM64 | 16.32% of 678,027 | 25.49% of 22,934 | 18.86% of 730,405 |
+| `transcode_jxl_out` | Linux x86-64 | 12.07% of 828,612 | 14.75% of 34,155 | 10.42% of 830,891 |
+| `transcode_jxl_out` | macOS ARM64 | 14.48% of 678,027 | 22.77% of 22,934 | 12.38% of 730,405 |
+| JPEG port `decode` | Linux x86-64 | 55.02% of 24,693 | 77.69% of 641 | 63.36% of 16,020 |
+| JPEG port `decode` | macOS ARM64 | 61.78% of 20,357 | 80.00% of 610 | 69.91% of 14,142 |
+
+As before, the engine rows cover the whole instrumented binary (every linked
+codec), so they compare lanes, not codecs; the Linux and macOS binaries differ
+in size (different linked code), so their totals are not comparable either.
 
 ### Hosted campaign, run 43699233171 (2026-11-15)
 
@@ -483,11 +532,11 @@ JPEG XL decoder rejected the hostile seed as `MalformedInput`.
 
 ## M1 exit evidence still needed
 
-- [x] Record a sustained, coverage-reviewed fuzz campaign (duration, seed corpus, architecture/toolchain, sanitizer configuration, coverage and unique crashes): [run 43699233171](#hosted-campaign-run-43699233171-2026-11-15) on 2026-11-15. A rerun on the merged lanes with the dav1d default decoder is still open.
+- [x] Record a sustained, coverage-reviewed fuzz campaign (duration, seed corpus, architecture/toolchain, sanitizer configuration, coverage and unique crashes): [run 43699233171](#hosted-campaign-run-43699233171-2026-11-15) on 2026-11-15. The rerun on the merged lanes with the dav1d default decoder is [run 45288062218](#hosted-campaign-run-45288062218-dav1d-default-2026-11-24).
 - [ ] Audit decompression bombs and allocation ceilings at the **decoder preflight** stage before an untrusted frame is fully decoded. The [preflight audit](#preflight-and-resource-audit-2026-11-12) records the current state per decoder.
 - [ ] Verify JPEG EXIF orientation, JPEG XL orientation/region coordinate mapping and AVIF orientation are not silently lost.
 - [x] Verify ICC parsing with hostile profiles, not only short headers (deterministic corpus above). Output-profile contradictions remain with #17/#41.
-- [x] Recheck memory limits with actual process RSS, not just `MemoryBudget` snapshots: [run 43699233171](#hosted-campaign-run-43699233171-2026-11-15) records the peak RSS of every lane (583 to 946 MB under a 2 GiB limit). Those figures are the fuzzers' process peaks on ASan builds, not the engine's report on a production decode, and predate the 2 GiB default budget and the dav1d default decoder.
+- [x] Recheck memory limits with actual process RSS, not just `MemoryBudget` snapshots: [run 43699233171](#hosted-campaign-run-43699233171-2026-11-15) records the peak RSS of every lane (583 to 946 MB in the 2026-11-15 run, 620 to 834 MB in the dav1d run, under a 2 GiB limit). Those figures are the fuzzers' process peaks on ASan builds, not the engine's report on a production decode.
 
 The existence of a fuzz target alone does not satisfy the M1 hardening acceptance criteria.
 
