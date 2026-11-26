@@ -428,24 +428,37 @@ where
     T: Send + 'scope,
 {
     #[cfg(test)]
-    if FAIL_SPAWN_AFTER.with(|remaining| match remaining.get() {
-        Some(0) => true,
-        Some(n) => {
-            remaining.set(Some(n - 1));
-            false
+    if let Some(action) = FAIL_SPAWN_AFTER.with(|remaining| match remaining.get() {
+        Some((0, action)) => Some(action),
+        Some((n, action)) => {
+            remaining.set(Some((n - 1, action)));
+            None
         }
-        None => false,
+        None => None,
     }) {
-        return Err(std::io::Error::other(
-            "injected scoped thread spawn failure",
-        ));
+        match action {
+            SpawnFault::Error => {
+                return Err(std::io::Error::other(
+                    "injected scoped thread spawn failure",
+                ));
+            }
+            SpawnFault::Panic => panic!("injected scoped thread spawn panic"),
+        }
     }
     std::thread::Builder::new().spawn_scoped(scope, worker)
 }
 
 #[cfg(test)]
+#[derive(Clone, Copy)]
+enum SpawnFault {
+    Error,
+    Panic,
+}
+
+#[cfg(test)]
 thread_local! {
-    static FAIL_SPAWN_AFTER: std::cell::Cell<Option<usize>> = const { std::cell::Cell::new(None) };
+    static FAIL_SPAWN_AFTER: std::cell::Cell<Option<(usize, SpawnFault)>> =
+        const { std::cell::Cell::new(None) };
 }
 
 /// Convert one band of RGBA rows into `target`'s planes.
@@ -562,7 +575,33 @@ fn rgb_to_yuv(
         std::sync::Mutex::new(None::<bool>),
         std::sync::Condvar::new(),
     );
+    struct GateGuard<'a>(&'a (std::sync::Mutex<Option<bool>>, std::sync::Condvar));
+    impl GateGuard<'_> {
+        fn release(self, proceed: bool) {
+            let (lock, condvar) = self.0;
+            let mut state = lock
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            *state = Some(proceed);
+            condvar.notify_all();
+        }
+    }
+    impl Drop for GateGuard<'_> {
+        fn drop(&mut self) {
+            let (lock, condvar) = self.0;
+            let mut state = lock
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            if state.is_none() {
+                *state = Some(false);
+                condvar.notify_all();
+            }
+        }
+    }
     std::thread::scope(|scope| {
+        // Ensures already-spawned workers waiting on `gate` are cancelled and
+        // woken even if the spawn loop unwinds before `release` runs.
+        let gate_guard = GateGuard(&gate);
         let mut handles = Vec::with_capacity(rows.len() - 1);
         let mut spawn_error = None;
         for (view, band) in jobs_iter {
@@ -573,15 +612,13 @@ fn rgb_to_yuv(
                 let view = view;
                 let proceed = {
                     let (lock, condvar) = gate;
-                    let mut state = match lock.lock() {
-                        Ok(guard) => guard,
-                        Err(poisoned) => poisoned.into_inner(),
-                    };
+                    let mut state = lock
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner);
                     while state.is_none() {
-                        state = match condvar.wait(state) {
-                            Ok(guard) => guard,
-                            Err(poisoned) => poisoned.into_inner(),
-                        };
+                        state = condvar
+                            .wait(state)
+                            .unwrap_or_else(std::sync::PoisonError::into_inner);
                     }
                     state.unwrap_or(false)
                 };
@@ -597,15 +634,7 @@ fn rgb_to_yuv(
                 }
             }
         }
-        {
-            let (lock, condvar) = &gate;
-            let mut state = match lock.lock() {
-                Ok(guard) => guard,
-                Err(poisoned) => poisoned.into_inner(),
-            };
-            *state = Some(spawn_error.is_none());
-            condvar.notify_all();
-        }
+        gate_guard.release(spawn_error.is_none());
         if let Some(error) = spawn_error {
             for handle in handles {
                 let _ = handle.join();
@@ -1005,7 +1034,7 @@ mod tests {
         assert_eq!(conversion_bands(130, 20), 2);
     }
 
-    struct FailSpawnGuard(Option<usize>);
+    struct FailSpawnGuard(Option<(usize, SpawnFault)>);
     impl Drop for FailSpawnGuard {
         fn drop(&mut self) {
             FAIL_SPAWN_AFTER.with(|limit| limit.set(self.0));
@@ -1013,7 +1042,14 @@ mod tests {
     }
 
     fn fail_spawn_after(successful: usize) -> FailSpawnGuard {
-        let previous = FAIL_SPAWN_AFTER.with(|limit| limit.replace(Some(successful)));
+        let previous =
+            FAIL_SPAWN_AFTER.with(|limit| limit.replace(Some((successful, SpawnFault::Error))));
+        FailSpawnGuard(previous)
+    }
+
+    fn panic_spawn_after(successful: usize) -> FailSpawnGuard {
+        let previous =
+            FAIL_SPAWN_AFTER.with(|limit| limit.replace(Some((successful, SpawnFault::Panic))));
         FailSpawnGuard(previous)
     }
 
@@ -1105,8 +1141,19 @@ mod tests {
         // runs on the calling thread instead of spawning a dedicated worker.
         let _guard = fail_spawn_after(actual_bands - 1);
         let image = new_image(&request, AVIF_PIXEL_FORMAT_YUV420).unwrap();
-        let mut frame = FrameSamples::U16(samples);
+        let mut frame = FrameSamples::U16(samples.clone());
         rgb_to_yuv(&image, &request, frame.as_band_mut(), row_bytes, bands).unwrap();
         assert_eq!(planes(&image, &request), expected_planes);
+
+        // If the spawn loop unwinds after at least one worker is waiting on the
+        // startup gate, the drop guard cancels and wakes it so `thread::scope`
+        // joins without deadlocking.
+        let panicked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = panic_spawn_after(1);
+            let image = new_image(&request, AVIF_PIXEL_FORMAT_YUV420).unwrap();
+            let mut frame = FrameSamples::U16(samples);
+            let _ = rgb_to_yuv(&image, &request, frame.as_band_mut(), row_bytes, bands);
+        }));
+        assert!(panicked.is_err());
     }
 }

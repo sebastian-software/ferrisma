@@ -95,18 +95,23 @@ fn main() {
             )
             .unwrap();
         }
-    } else if args[3] == "lossless" {
-        encode_lossless(image, raw, &mut out, usize::MAX).unwrap();
     } else {
-        let distance: f32 = args[3].parse().unwrap();
-        encode(
-            image,
-            FrameOptions::with_distance(distance),
-            raw,
-            &mut out,
-            usize::MAX,
-        )
-        .unwrap();
+        // Retain the separate copy of 8-bit pixels so `run_memory.sh` and
+        // `fit.py --old-deep` keep the same 8-bit control allocation baseline.
+        let pixels = raw.to_vec();
+        if args[3] == "lossless" {
+            encode_lossless(image, &pixels, &mut out, usize::MAX).unwrap();
+        } else {
+            let distance: f32 = args[3].parse().unwrap();
+            encode(
+                image,
+                FrameOptions::with_distance(distance),
+                &pixels,
+                &mut out,
+                usize::MAX,
+            )
+            .unwrap();
+        }
     }
     std::fs::write(&args[2], &out).unwrap();
     println!("{} bytes", out.len());
