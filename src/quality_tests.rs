@@ -127,11 +127,14 @@ fn footprint_matches_exhaustive_taps_scan_for_both_filters() {
 
 #[test]
 fn taps_into_reuses_buffer_and_matches_taps() {
-    let mut scratch = Vec::new();
+    let mut scratch = Vec::with_capacity(64);
+    let (ptr, cap) = (scratch.as_ptr(), scratch.capacity());
     for filter in [Filter::Area, Filter::Lanczos3] {
         for (input, output) in [(1, 1), (7, 7), (23, 7), (7, 23), (100, 37)] {
             for at in 0..output {
                 taps_into(input, output, at, filter, &mut scratch).unwrap();
+                assert_eq!(scratch.as_ptr(), ptr);
+                assert_eq!(scratch.capacity(), cap);
                 let expected = taps(input, output, at, filter).unwrap();
                 assert_eq!(
                     scratch, expected,
