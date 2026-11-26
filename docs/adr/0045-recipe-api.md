@@ -75,7 +75,7 @@ The planner sees all targets at once.
 2. `Focus::Metadata`: an IPTC Image Region or an MWG region (face, focus) read from the image's XMP;
 3. the center.
 
-A JSON sidecar is the caller's business: the caller reads it and passes an explicit focus.
+There is no sidecar format (owner, 2026-11-26). A separate tool, for example a face or object detector, writes the region into the image's XMP, and Ferrisma reads it from there.
 The recipe records which focus was used in the report.
 
 ### 5. One quality scale
@@ -144,3 +144,4 @@ The engine provides what a server, and Ardo's cache, need without becoming a ser
 ## Amendment log
 
 - 2026-11-26 — Initial proposal from the owner's design session.
+- 2026-11-26 — Owner review: no JSON sidecar for focus, regions live in XMP only; SSIMULACRA 2 as the calibration metric and quality as displayed for dense screens (decisions 5 and 6) confirmed.
