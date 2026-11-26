@@ -36,7 +36,7 @@ fn riff_total_bytes(first_chunk: &[u8]) -> Option<usize> {
     8_usize.checked_add(padded)
 }
 
-struct WebpChunkWriter {
+pub(crate) struct WebpChunkWriter {
     bytes: Vec<u8>,
     max_output_bytes: usize,
     max_codec_bytes: usize,
@@ -44,7 +44,7 @@ struct WebpChunkWriter {
 }
 
 impl WebpChunkWriter {
-    fn new(max_output_bytes: usize) -> Self {
+    pub(crate) fn new(max_output_bytes: usize) -> Self {
         Self {
             bytes: Vec::new(),
             max_output_bytes,
@@ -53,7 +53,7 @@ impl WebpChunkWriter {
         }
     }
 
-    fn push_chunk(&mut self, chunk: &[u8]) -> bool {
+    pub(crate) fn push_chunk(&mut self, chunk: &[u8]) -> bool {
         let Some(new_len) = self.bytes.len().checked_add(chunk.len()) else {
             self.failure = Some(Error::GeometryOverflow);
             return false;
@@ -91,6 +91,16 @@ impl WebpChunkWriter {
         }
         self.bytes.extend_from_slice(chunk);
         true
+    }
+
+    #[cfg(all(test, feature = "webp-read"))]
+    pub(crate) fn bytes(&self) -> &Vec<u8> {
+        &self.bytes
+    }
+
+    #[cfg(all(test, feature = "webp-read"))]
+    pub(crate) fn into_bytes(self) -> Vec<u8> {
+        self.bytes
     }
 }
 

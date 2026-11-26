@@ -49,22 +49,22 @@ Review if WebP's API exposes bounded scratch, a lower-copy mux path, a real stre
 
 ## 2026-11-26: WebP chunk writer pre-reservation measurement (#282)
 
-### Multi-chunk writer reallocations and time
+### Multi-chunk writer growth, pointer moves, and time
 
-Run the committed `#[ignore]` harness in `src/webp_output_tests.rs` (1 warmup + 7 interleaved repetitions, comparing pre-#282 per-chunk `try_reserve_exact(chunk.len())` against live `encode_webp_chunks_for_test` on multi-chunk odd-padded lossless and lossy WebP encodes):
+Run the committed `#[ignore]` harness in `src/webp_output_tests.rs` (collecting capacity-growth and pointer-move counters outside the timing loops, then timing 1 warmup + 7 interleaved repetitions comparing pre-#282 per-chunk `try_reserve_exact(chunk.len())` against the production `WebpChunkWriter::push_chunk` on multi-chunk odd-padded lossless and lossy WebP encodes):
 
 ```sh
 cargo test --release -p ferrisma --lib --no-default-features --features webp-read,webp-write \
   -- --ignored --nocapture --exact webp_output_tests::bench_webp_chunk_writer_growth_and_peak
 ```
 
-Results (**indicative; loaded host**, Apple M1 Ultra, `arm64`, 20 cores, load averages 38.86 / 23.11 / 18.71; identical output bytes across baseline and candidate):
+Results (**indicative; loaded host**, Apple M1 Ultra, `arm64`, 20 cores, load averages 20.37 / 16.98 / 17.48; identical output bytes across baseline and candidate; "moved bytes" counts `before_len` only when `as_ptr()` changed, and "copy upper bound" sums `before_len` across all capacity-growth requests in case another allocator cannot grow in place):
 
-| Case | Encoded bytes | Chunks | Baseline reallocs (copied on realloc) | Candidate reallocs | Peak capacity (baseline / candidate) | Writer median (baseline / candidate) |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `lossless-alpha-1024x768-padded` | 1,716,960 B | 3 (`21, 1716938, 1`) | 2 (1,716,980 B) | 0 | 1,716,960 B / 1,716,960 B | 35.9 µs / 37.7 µs |
-| `lossy-alpha-2048x1536` | 1,024,278 B | 9 (`12, 18, 8, 10647, 1, 8, 10, 28609, 984965`) | 8 (82,162 B) | 0 | 1,024,278 B / 1,024,278 B | 21.1 µs / 19.3 µs |
-| `lossy-opaque-2048x1536` | 1,003,422 B | 5 (`12, 8, 10, 28607, 974785`) | 4 (28,699 B) | 0 | 1,003,422 B / 1,003,422 B | 22.0 µs / 20.5 µs |
+| Case | Encoded bytes | Chunks | Baseline growths / ptr moves (moved B; copy upper bound) | Candidate growths / ptr moves | Peak capacity (baseline / candidate) | Writer median (baseline / candidate) |
+| --- | ---: | ---: | --- | ---: | ---: | ---: |
+| `lossless-alpha-1024x768-padded` | 1,716,960 B | 3 (`21, 1716938, 1`) | 2 / 1 (21 B; upper bound 1,716,980 B) | 0 / 0 | 1,716,960 B / 1,716,960 B | 38.1 µs / 37.1 µs |
+| `lossy-alpha-2048x1536` | 1,024,278 B | 9 (`12, 18, 8, 10647, 1, 8, 10, 28609, 984965`) | 8 / 4 (10,784 B; upper bound 82,162 B) | 0 / 0 | 1,024,278 B / 1,024,278 B | 23.7 µs / 22.0 µs |
+| `lossy-opaque-2048x1536` | 1,003,422 B | 5 (`12, 8, 10, 28607, 974785`) | 4 / 3 (28,679 B; upper bound 28,699 B) | 0 / 0 | 1,003,422 B / 1,003,422 B | 22.1 µs / 20.9 µs |
 
 ### End-to-end 24 Mpx CLI peak RSS (`6000×4000`)
 

@@ -9,7 +9,7 @@ use crate::pipeline::{
     WebpOptions, transcode, transcode_with,
 };
 use crate::pipeline::{OutputGeometry, OutputSettings, WebpLossless};
-use crate::webp_sink::{WebpSink, encode_webp_chunks_for_test};
+use crate::webp_sink::{WebpChunkWriter, WebpSink, encode_webp_chunks_for_test};
 
 struct RgbaBackend;
 struct RgbaRows(Vec<u8>);
@@ -547,65 +547,94 @@ fn bench_webp_chunk_writer_growth_and_peak() {
             .filter(|w| w[0].0 != w[1].0 || w[0].1 != w[1].1)
             .count();
 
-        // Measure writer-only time and reallocations across 1 warmup + 7 interleaved reps.
+        // 1. Collect allocation counters outside the timing loops: distinguish
+        // capacity-growth requests from actual pointer moves.
+        let mut base_bytes = Vec::new();
+        let mut base_growths = 0_usize;
+        let mut base_moves = 0_usize;
+        let mut base_moved_bytes = 0_usize;
+        let mut base_max_growth_copy_bound = 0_usize;
+        let mut prev: Option<(usize, usize)> = None;
+        for c in &chunks {
+            let before_len = base_bytes.len();
+            base_bytes.try_reserve_exact(c.len()).unwrap();
+            base_bytes.extend_from_slice(c);
+            let cur = (base_bytes.capacity(), base_bytes.as_ptr() as usize);
+            if let Some((prev_cap, prev_ptr)) = prev {
+                if cur.0 != prev_cap {
+                    base_growths += 1;
+                    base_max_growth_copy_bound += before_len;
+                }
+                if cur.1 != prev_ptr {
+                    base_moves += 1;
+                    base_moved_bytes += before_len;
+                }
+            }
+            prev = Some(cur);
+        }
+        assert_eq!(base_bytes, live_out);
+        let base_peak_cap = base_bytes.capacity();
+
+        let mut cand_writer = WebpChunkWriter::new(64 << 20);
+        let mut cand_growths = 0_usize;
+        let mut cand_moves = 0_usize;
+        let mut cand_moved_bytes = 0_usize;
+        let mut prev: Option<(usize, usize)> = None;
+        for c in &chunks {
+            let before_len = cand_writer.bytes().len();
+            assert!(cand_writer.push_chunk(c));
+            let cur = (
+                cand_writer.bytes().capacity(),
+                cand_writer.bytes().as_ptr() as usize,
+            );
+            if let Some((prev_cap, prev_ptr)) = prev {
+                if cur.0 != prev_cap {
+                    cand_growths += 1;
+                }
+                if cur.1 != prev_ptr {
+                    cand_moves += 1;
+                    cand_moved_bytes += before_len;
+                }
+            }
+            prev = Some(cur);
+        }
+        let cand_peak_cap = cand_writer.bytes().capacity();
+        assert_eq!(cand_writer.into_bytes(), live_out);
+
+        // 2. Time both writers with zero counter overhead (1 warmup + 7 interleaved reps),
+        // replaying the captured chunks through the production `WebpChunkWriter`.
         let mut old_us = Vec::new();
         let mut new_us = Vec::new();
-        let mut old_reallocs = 0_usize;
-        let mut old_copied_on_realloc = 0_usize;
-        let mut old_peak_cap = 0_usize;
         for rep in 0..8 {
-            // Baseline: per-chunk try_reserve_exact(chunk.len()).
             let t0 = Instant::now();
             let mut bytes = Vec::new();
-            let mut prev: Option<(usize, usize)> = None;
-            let mut reallocs = 0_usize;
-            let mut copied = 0_usize;
             for c in &chunks {
-                let before_len = bytes.len();
                 bytes.try_reserve_exact(c.len()).unwrap();
-                bytes.extend_from_slice(c);
-                let cur = (bytes.capacity(), bytes.as_ptr() as usize);
-                if let Some(p) = prev
-                    && p != cur
-                {
-                    reallocs += 1;
-                    copied += before_len;
-                }
-                prev = Some(cur);
+                bytes.extend_from_slice(std::hint::black_box(c));
             }
             let elapsed = t0.elapsed().as_secs_f64() * 1e6;
+            let bytes = std::hint::black_box(bytes);
             assert_eq!(bytes, live_out);
             if rep > 0 {
                 old_us.push(elapsed);
-                old_reallocs = reallocs;
-                old_copied_on_realloc = copied;
-                old_peak_cap = bytes.capacity();
             }
 
-            // Candidate: upfront RIFF padded pre-reservation + try_reserve fallback.
             let t0 = Instant::now();
-            let mut bytes = Vec::new();
+            let mut writer = WebpChunkWriter::new(64 << 20);
             for c in &chunks {
-                if bytes.is_empty() && c.len() >= 12 && &c[..4] == b"RIFF" && &c[8..12] == b"WEBP" {
-                    let payload = u32::from_le_bytes(c[4..8].try_into().unwrap()) as usize;
-                    let total = 8 + payload + (payload & 1);
-                    bytes.try_reserve_exact(total.max(c.len())).unwrap();
-                } else {
-                    bytes.try_reserve(c.len()).unwrap();
-                }
-                bytes.extend_from_slice(c);
+                assert!(writer.push_chunk(std::hint::black_box(c)));
             }
             let elapsed = t0.elapsed().as_secs_f64() * 1e6;
+            let bytes = std::hint::black_box(writer.into_bytes());
             assert_eq!(bytes, live_out);
             if rep > 0 {
                 new_us.push(elapsed);
             }
         }
         println!(
-            "{label}: len={}B chunks={chunk_lens:?} | baseline reallocs={old_reallocs} realloc_copied={old_copied_on_realloc}B peak_cap={old_peak_cap}B writer_med={:.1}us | candidate reallocs={live_reallocs} peak_cap={}B writer_med={:.1}us",
+            "{label}: len={}B chunks={chunk_lens:?} | baseline cap_growths={base_growths} ptr_moves={base_moves} moved_bytes={base_moved_bytes}B (upper_bound={base_max_growth_copy_bound}B) peak_cap={base_peak_cap}B writer_med={:.1}us | candidate cap_growths={cand_growths} ptr_moves={cand_moves} moved_bytes={cand_moved_bytes}B peak_cap={cand_peak_cap}B writer_med={:.1}us (live_reallocs={live_reallocs})",
             live_out.len(),
             median_us(old_us),
-            live_out.capacity(),
             median_us(new_us),
         );
     }
