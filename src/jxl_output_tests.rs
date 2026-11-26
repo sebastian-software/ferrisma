@@ -1024,3 +1024,48 @@ fn a_sixteen_bit_lossless_round_trip_is_exact() {
         assert!(output.bytes == reference, "alpha={alpha}: samples changed");
     }
 }
+
+#[test]
+fn deep_sink_uses_aligned_u16_storage_and_exact_byte_budget() {
+    let (width, height) = (17_usize, 11_usize);
+    let expected_frame_bytes = width * height * 4 * 2;
+    for depth in [10_u8, 12, 16] {
+        let budget = MemoryBudget::new(256 << 20);
+        let mut sink = JxlSink::with_depth(
+            Size::new(width as u32, height as u32).unwrap(),
+            &options(width as u32, height as u32),
+            &budget,
+            depth,
+        )
+        .unwrap();
+        assert!(
+            sink.is_u16_aligned(),
+            "depth {depth} must store u16 samples"
+        );
+        assert_eq!(
+            budget.snapshot().live,
+            expected_frame_bytes,
+            "depth {depth} live reservation must equal width * height * 4 * 2 bytes"
+        );
+        // Rejects 8-bit rows on a deep sink.
+        assert_eq!(
+            sink.write_output_row(
+                0,
+                crate::output_depth::OutputRow::U8(&vec![0_u8; width * 4])
+            ),
+            Err(Error::IncompleteOutput)
+        );
+        let rows = deep_rows(width, height, depth, true);
+        for (y, row) in rows.chunks(width * 4).enumerate() {
+            sink.write_output_row(y as u32, crate::output_depth::OutputRow::U16(row))
+                .unwrap();
+        }
+        let encoded = sink.finish().unwrap();
+        let codec_bytes = lossless_codec_reservation_bytes(width, height, true, depth).unwrap();
+        assert_eq!(
+            encoded.frame_materialization_bytes,
+            expected_frame_bytes + codec_bytes
+        );
+        assert_eq!(budget.snapshot().live, 0);
+    }
+}

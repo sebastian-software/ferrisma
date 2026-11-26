@@ -329,15 +329,40 @@ enum Mode {
     Lossy { distance: f32 },
 }
 
+/// Native-depth frame buffer backed by a budgeted allocation. Storing
+/// depths above 8 bits in `ManagedBuffer<u16>` keeps `align_of::<u16>()`
+/// alignment and avoids per-sample byte serialization.
+enum FrameBuffer {
+    U8(ManagedBuffer<u8>),
+    U16(ManagedBuffer<u16>),
+}
+
+impl FrameBuffer {
+    fn allocated_bytes(&self) -> usize {
+        match self {
+            Self::U8(buf) => std::mem::size_of_val(buf.as_slice()),
+            Self::U16(buf) => std::mem::size_of_val(buf.as_slice()),
+        }
+    }
+}
+
+fn compact_rgba_to_rgb<T: Copy>(frame: &mut [T], pixels: usize) {
+    // Opaque output carries no alpha channel. Compact in place; each
+    // destination index is at most its source index.
+    for pixel in 0..pixels {
+        frame.copy_within(pixel * 4..pixel * 4 + 3, pixel * 3);
+    }
+}
+
 pub(crate) struct JxlSink {
     width: usize,
     height: usize,
     next_y: usize,
     /// Output bits per sample, 8 to 16 (ADR-0021 amendment of 2026-11-15).
     depth: u8,
-    /// Straight-alpha RGBA rows (`u8`, or native-endian `u16` bytes above 8
-    /// bits), compacted to RGB in place when opaque.
-    frame: ManagedBuffer<u8>,
+    /// Straight-alpha RGBA rows (`u8` at 8 bits, native `u16` above 8 bits),
+    /// compacted to RGB in place when opaque.
+    frame: FrameBuffer,
     budget: MemoryBudget,
     has_alpha: bool,
     mode: Mode,
@@ -428,15 +453,18 @@ impl JxlSink {
                 |_| Error::UnsupportedEncoderProfile("the encoder rejected the image size"),
             )?;
         }
-        let bytes = pixels
-            .checked_mul(4 * sample_bytes(depth))
-            .ok_or(Error::GeometryOverflow)?;
+        let samples = pixels.checked_mul(4).ok_or(Error::GeometryOverflow)?;
+        let frame = if depth > 8 {
+            FrameBuffer::U16(budget.allocate_typed::<u16>(samples)?)
+        } else {
+            FrameBuffer::U8(budget.allocate_typed::<u8>(samples)?)
+        };
         Ok(Self {
             width,
             height,
             next_y: 0,
             depth,
-            frame: budget.allocate_typed::<u8>(bytes)?,
+            frame,
             budget: budget.clone(),
             has_alpha: false,
             mode,
@@ -450,34 +478,40 @@ impl JxlSink {
         self.write_output_row(y, OutputRow::U8(bytes))
     }
 
+    /// Whether this sink stores native `u16` samples and their buffer alignment.
+    #[cfg(test)]
+    pub(crate) fn is_u16_aligned(&self) -> bool {
+        match &self.frame {
+            FrameBuffer::U16(buf) => {
+                buf.as_slice()
+                    .as_ptr()
+                    .align_offset(std::mem::align_of::<u16>())
+                    == 0
+            }
+            FrameBuffer::U8(_) => false,
+        }
+    }
+
     /// One row at the sink's depth.
     pub(crate) fn write_output_row(&mut self, y: u32, row: OutputRow<'_>) -> Result<(), Error> {
         let samples = self.width.checked_mul(4).ok_or(Error::GeometryOverflow)?;
-        let deep = self.depth > 8;
         if usize::try_from(y).map_err(|_| Error::GeometryOverflow)? != self.next_y
             || self.next_y >= self.height
-            || match row {
-                OutputRow::U8(bytes) => deep || bytes.len() != samples,
-                OutputRow::U16(values) => !deep || values.len() != samples,
-            }
         {
             return Err(Error::IncompleteOutput);
         }
-        let row_bytes = samples * sample_bytes(self.depth);
-        let start = self.next_y * row_bytes;
-        let target = &mut self.frame.as_mut_slice()[start..start + row_bytes];
-        let transparent = match row {
-            OutputRow::U8(bytes) => {
-                target.copy_from_slice(bytes);
+        let start = self.next_y * samples;
+        let transparent = match (&mut self.frame, row) {
+            (FrameBuffer::U8(frame), OutputRow::U8(bytes)) if bytes.len() == samples => {
+                frame.as_mut_slice()[start..start + samples].copy_from_slice(bytes);
                 bytes.as_chunks::<4>().0.iter().any(|rgba| rgba[3] != 255)
             }
-            OutputRow::U16(values) => {
-                for (out, value) in target.as_chunks_mut::<2>().0.iter_mut().zip(values) {
-                    *out = value.to_ne_bytes();
-                }
+            (FrameBuffer::U16(frame), OutputRow::U16(values)) if values.len() == samples => {
+                frame.as_mut_slice()[start..start + samples].copy_from_slice(values);
                 let max = crate::output_depth::max_code(self.depth);
                 values.as_chunks::<4>().0.iter().any(|rgba| rgba[3] != max)
             }
+            _ => return Err(Error::IncompleteOutput),
         };
         self.has_alpha |= transparent;
         self.next_y += 1;
@@ -490,22 +524,16 @@ impl JxlSink {
         }
         let pixels = self.width * self.height;
         let channels = if self.has_alpha { 4 } else { 3 };
-        let sample = sample_bytes(self.depth);
-        let frame = self.frame.as_mut_slice();
         if !self.has_alpha {
-            // Opaque output carries no alpha channel. Compact in place; each
-            // destination index is at most its source index.
-            for pixel in 0..pixels {
-                frame.copy_within(
-                    pixel * 4 * sample..(pixel * 4 + 3) * sample,
-                    pixel * 3 * sample,
-                );
+            match &mut self.frame {
+                FrameBuffer::U8(frame) => compact_rgba_to_rgb(frame.as_mut_slice(), pixels),
+                FrameBuffer::U16(frame) => compact_rgba_to_rgb(frame.as_mut_slice(), pixels),
             }
         }
-        let bytes = pixels * channels * sample;
+        let samples = pixels * channels;
         match self.mode {
-            Mode::Lossless => self.finish_lossless(bytes),
-            Mode::Lossy { distance } => self.finish_lossy(bytes, distance),
+            Mode::Lossless => self.finish_lossless(samples),
+            Mode::Lossy { distance } => self.finish_lossy(samples, distance),
         }
     }
 
@@ -518,14 +546,19 @@ impl JxlSink {
         // No limit here: as before, the facade checks `max_output_bytes`
         // after the encoder returns ("encoded output exceeds
         // max_output_bytes").
-        bridge::encode_lossless(
-            image,
-            &self.frame.as_slice()[..samples],
-            &mut bytes,
-            usize::MAX,
-        )
-        .map_err(|error| match error {
-            // Not reachable for the admitted request (effort 2, 8-bit RGB
+        let result = match &self.frame {
+            FrameBuffer::U8(frame) => {
+                bridge::encode_lossless(image, &frame.as_slice()[..samples], &mut bytes, usize::MAX)
+            }
+            FrameBuffer::U16(frame) => bridge::encode_lossless_u16(
+                image,
+                &frame.as_slice()[..samples],
+                &mut bytes,
+                usize::MAX,
+            ),
+        };
+        result.map_err(|error| match error {
+            // Not reachable for the admitted request (effort 2, 8-to-16-bit RGB
             // with optional straight alpha, enum sRGB); typed, never a
             // fallback.
             bridge::Error::NotAdmitted(_) => Error::UnsupportedEncoderProfile(
@@ -537,7 +570,7 @@ impl JxlSink {
         Ok(EncodedImage::new(
             OutputFormat::JpegXl,
             bytes,
-            self.frame.as_slice().len() + codec_bytes,
+            self.frame.allocated_bytes() + codec_bytes,
             true,
         ))
     }
@@ -548,16 +581,26 @@ impl JxlSink {
         let _codec_frames: ExternalReservation = self.budget.reserve_external(codec_bytes)?;
         let image = bridge_image(self.width, self.height, self.has_alpha, self.depth)?;
         let mut bytes = Vec::new();
-        bridge::encode(
-            image,
-            // Patches off, always: see the module documentation.
-            bridge::FrameOptions::with_distance(distance).with_patches(false),
-            &self.frame.as_slice()[..samples],
-            &mut bytes,
-            self.max_output_bytes,
-        )
-        .map_err(|error| match error {
-            // Not reachable for the admitted request (patches off, 8-bit
+        // Patches off, always: see the module documentation.
+        let frame_options = bridge::FrameOptions::with_distance(distance).with_patches(false);
+        let result = match &self.frame {
+            FrameBuffer::U8(frame) => bridge::encode(
+                image,
+                frame_options,
+                &frame.as_slice()[..samples],
+                &mut bytes,
+                self.max_output_bytes,
+            ),
+            FrameBuffer::U16(frame) => bridge::encode_u16(
+                image,
+                frame_options,
+                &frame.as_slice()[..samples],
+                &mut bytes,
+                self.max_output_bytes,
+            ),
+        };
+        result.map_err(|error| match error {
+            // Not reachable for the admitted request (patches off, 8-to-16-bit
             // straight alpha, enum sRGB); kept typed, never a fallback.
             bridge::Error::NotAdmitted(_) => Error::UnsupportedEncoderProfile(
                 "the workspace encoder does not admit this lossy request",
@@ -572,7 +615,7 @@ impl JxlSink {
         Ok(EncodedImage::new(
             OutputFormat::JpegXl,
             bytes,
-            self.frame.as_slice().len() + codec_bytes,
+            self.frame.allocated_bytes() + codec_bytes,
             true,
         ))
     }
