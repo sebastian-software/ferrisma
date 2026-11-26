@@ -351,12 +351,15 @@ mod consumer {
                 Some(ProcessingErrorKind::InputLimitExceeded),
             ),
             (
+                // Strictly below one 7-pixel RGBA8 output row (28 bytes); the
+                // 1:1 sRGB identity pass-through allocates no resize tables or
+                // ring buffers, so the 7x5 fixture fits in 199 bytes total.
                 "managed budget below one working row",
                 run(
                     &jpeg,
                     ImageFormat::Jpeg,
                     limited(Limits {
-                        managed_bytes: 1024,
+                        managed_bytes: 16,
                         ..SERVICE_LIMITS
                     }),
                 ),
