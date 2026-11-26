@@ -79,7 +79,7 @@ impl<'a> JpegSource<'a> {
         }
         // EXIF orientation describes how the stored samples are displayed;
         // the pipeline applies it (ADR-0019). Unknown values fail closed.
-        let orientation = match decoder.exif().map(exif_orientation) {
+        let orientation = match decoder.exif().map(super::exif::orientation) {
             None | Some(Ok(None)) => Orientation::IDENTITY,
             Some(Ok(Some(value))) => {
                 Orientation::from_exif(value).ok_or(Error::UnsupportedImageTransform)?
@@ -194,64 +194,6 @@ fn finish_with_tail(
 /// Pixel width of one RGB8 scanline of `row_bytes`.
 fn scanlines_width(row_bytes: usize, channels: usize) -> Result<u32, Error> {
     u32::try_from(row_bytes / channels).map_err(|_| Error::GeometryOverflow)
-}
-
-/// Read the IFD0 `Orientation` tag (0x0112) from EXIF data starting at its
-/// TIFF header. `Ok(None)` means the tag is absent; `Err` means the TIFF
-/// structure needed to find it is malformed.
-pub(crate) fn exif_orientation(tiff: &[u8]) -> Result<Option<u16>, ()> {
-    let little = match tiff.get(..2) {
-        Some(b"II") => true,
-        Some(b"MM") => false,
-        _ => return Err(()),
-    };
-    let u16_at = |offset: usize| -> Result<u16, ()> {
-        let bytes: [u8; 2] = tiff
-            .get(offset..offset.checked_add(2).ok_or(())?)
-            .ok_or(())?
-            .try_into()
-            .map_err(|_| ())?;
-        Ok(if little {
-            u16::from_le_bytes(bytes)
-        } else {
-            u16::from_be_bytes(bytes)
-        })
-    };
-    let u32_at = |offset: usize| -> Result<u32, ()> {
-        let bytes: [u8; 4] = tiff
-            .get(offset..offset.checked_add(4).ok_or(())?)
-            .ok_or(())?
-            .try_into()
-            .map_err(|_| ())?;
-        Ok(if little {
-            u32::from_le_bytes(bytes)
-        } else {
-            u32::from_be_bytes(bytes)
-        })
-    };
-    if u16_at(2)? != 42 {
-        return Err(());
-    }
-    let ifd = usize::try_from(u32_at(4)?).map_err(|_| ())?;
-    let entries = usize::from(u16_at(ifd)?);
-    for index in 0..entries {
-        let entry = ifd + 2 + index * 12;
-        if u16_at(entry)? != 0x0112 {
-            continue;
-        }
-        // One value, stored inline. EXIF specifies SHORT (type 3); real
-        // camera files also store it as LONG (type 4), which TIFF readers
-        // accept for integer fields. Any other type or count is malformed.
-        if u32_at(entry + 4)? != 1 {
-            return Err(());
-        }
-        return match u16_at(entry + 2)? {
-            3 => u16_at(entry + 8).map(Some),
-            4 => u16::try_from(u32_at(entry + 8)?).map(Some).map_err(|_| ()),
-            _ => Err(()),
-        };
-    }
-    Ok(None)
 }
 
 impl DecodeSource for JpegSource<'_> {
@@ -387,7 +329,7 @@ impl DecodeSource for JpegSource<'_> {
 
 #[cfg(test)]
 mod tests {
-    use super::{JpegSource, exif_orientation};
+    use super::JpegSource;
     use crate::error::Error;
 
     fn put16(data: &mut Vec<u8>, little: bool, value: u16) {
@@ -655,44 +597,15 @@ mod tests {
     }
 
     #[test]
-    fn reads_orientation_in_both_byte_orders() {
-        assert_eq!(exif_orientation(&tiff(true, 0x0112, 3, 1, 6)), Ok(Some(6)));
-        assert_eq!(exif_orientation(&tiff(false, 0x0112, 3, 1, 8)), Ok(Some(8)));
-        assert_eq!(exif_orientation(&tiff(true, 0x010f, 2, 4, 0)), Ok(None));
-    }
-
-    #[test]
     fn reads_an_orientation_stored_as_long() {
         use crate::decoder::DecodeSource;
         use crate::orientation::Orientation;
         // Some cameras write the tag as LONG; such photos must not fail closed.
-        assert_eq!(exif_orientation(&tiff(true, 0x0112, 4, 1, 6)), Ok(Some(6)));
-        // Big-endian LONG: the value sits in the last two of the four bytes.
-        let mut big = tiff(false, 0x0112, 4, 1, 0);
-        big[21] = 8;
-        assert_eq!(exif_orientation(&big), Ok(Some(8)));
         let file = with_exif(&tiff(true, 0x0112, 4, 1, 6));
         assert_eq!(
             JpegSource::new(&file).unwrap().orientation(),
             Orientation::from_exif(6).unwrap()
         );
-    }
-
-    #[test]
-    fn rejects_malformed_tiff_structures() {
-        assert_eq!(exif_orientation(b"XX*\0"), Err(()));
-        let mut magic = tiff(true, 0x0112, 3, 1, 1);
-        magic[2] = 41;
-        assert_eq!(exif_orientation(&magic), Err(()));
-        // A RATIONAL or a second value is not an orientation.
-        assert_eq!(exif_orientation(&tiff(true, 0x0112, 5, 1, 1)), Err(()));
-        assert_eq!(exif_orientation(&tiff(true, 0x0112, 4, 2, 1)), Err(()));
-        // A LONG that does not fit an orientation code is malformed.
-        let mut wide = tiff(true, 0x0112, 4, 1, 1);
-        wide[20] = 1;
-        assert_eq!(exif_orientation(&wide), Err(()));
-        let truncated = tiff(true, 0x0112, 3, 1, 1);
-        assert_eq!(exif_orientation(&truncated[..12]), Err(()));
     }
 
     #[test]

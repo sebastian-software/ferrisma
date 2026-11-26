@@ -1,4 +1,6 @@
 //! Optional read-only codec adapters; no codec depends on the graph itself.
+#[cfg(any(feature = "jpeg-read", feature = "webp-read"))]
+mod exif;
 #[cfg(feature = "jpeg-read")]
 pub(crate) mod jpeg;
 #[cfg(feature = "jpeg-xl-read")]

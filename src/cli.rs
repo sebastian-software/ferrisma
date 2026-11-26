@@ -79,6 +79,22 @@ fn parse_format(path: &Path) -> Result<ImageFormat, Box<dyn Error>> {
     }
 }
 
+fn parse_output_format(path: &Path) -> Result<OutputFormat, Box<dyn Error>> {
+    let extension = path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    match extension.as_str() {
+        "avif" => Ok(OutputFormat::Avif),
+        "webp" => Ok(OutputFormat::WebP),
+        // Lossy d1.0 by default, or --jxl-distance / --jxl-lossless;
+        // requires the jpeg-xl-write feature (ADR-0039).
+        "jxl" => Ok(OutputFormat::JpegXl),
+        _ => Err(usage("output must have a .avif, .webp or .jxl extension")),
+    }
+}
+
 fn parse_crop(value: &str) -> Result<Crop, Box<dyn Error>> {
     let parts: Vec<u32> = value
         .split(',')
@@ -503,15 +519,7 @@ pub fn run(
     }
     let input_path = Path::new(&args[1]);
     let output_path = Path::new(&args[2]);
-    let output_extension = output_path.extension().and_then(|ext| ext.to_str());
-    let output_format = match output_extension {
-        Some("avif") => OutputFormat::Avif,
-        Some("webp") => OutputFormat::WebP,
-        // Lossy d1.0 by default, or --jxl-distance / --jxl-lossless;
-        // requires the jpeg-xl-write feature (ADR-0039).
-        Some("jxl") => OutputFormat::JpegXl,
-        _ => return Err(usage("output must have a .avif, .webp or .jxl extension")),
-    };
+    let output_format = parse_output_format(output_path)?;
     let dimension = |name: &str, value: &str| {
         value
             .parse::<u32>()
@@ -1239,6 +1247,62 @@ mod tests {
         ] {
             let error = apply_option(options(OutputFormat::Avif), flag).unwrap_err();
             assert!(error.to_string().starts_with("unknown option"), "{error}");
+        }
+    }
+
+    #[test]
+    fn output_extensions_are_case_insensitive() {
+        use super::{exit_status, parse_output_format};
+        use std::path::Path;
+
+        for (name, expected) in [
+            ("out.avif", OutputFormat::Avif),
+            ("OUT.AVIF", OutputFormat::Avif),
+            ("out.Avif", OutputFormat::Avif),
+            ("out.webp", OutputFormat::WebP),
+            ("OUT.WEBP", OutputFormat::WebP),
+            ("out.WebP", OutputFormat::WebP),
+            ("out.jxl", OutputFormat::JpegXl),
+            ("OUT.JXL", OutputFormat::JpegXl),
+            ("out.JxL", OutputFormat::JpegXl),
+        ] {
+            assert_eq!(
+                parse_output_format(Path::new(name)).unwrap(),
+                expected,
+                "{name}"
+            );
+        }
+
+        for invalid in ["out", "out.png", "OUT.JPG"] {
+            let error = parse_output_format(Path::new(invalid)).unwrap_err();
+            assert_eq!(exit_status(&*error), 2, "{invalid}: {error}");
+            assert_eq!(
+                error.to_string(),
+                "output must have a .avif, .webp or .jxl extension",
+                "{invalid}"
+            );
+        }
+
+        // End-to-end through `run`: uppercase and mixed-case output paths
+        // select their format and accept format-specific flags rather than
+        // failing with a usage error on the extension.
+        for (output, flag) in [
+            ("OUT.AVIF", "--avif-quality=70"),
+            ("out.Avif", "--avif-speed=6"),
+            ("OUT.WEBP", "--webp-quality=80"),
+            ("out.WebP", "--webp-lossless"),
+            ("OUT.JXL", "--jxl-lossless"),
+            ("out.JxL", "--jxl-distance=1.0"),
+        ] {
+            let args: Vec<String> = ["ferrisma", "MISSING.JPG", output, "8", "8", flag]
+                .map(String::from)
+                .to_vec();
+            let error = super::run(&args, None).unwrap_err();
+            assert_eq!(exit_status(&*error), 1, "{output} {flag}: {error}");
+            assert!(
+                error.to_string().starts_with("cannot read MISSING.JPG:"),
+                "{output} {flag}: {error}"
+            );
         }
     }
 }

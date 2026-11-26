@@ -50,7 +50,9 @@ impl<'a> WebpSource<'a> {
         // Container metadata is attached to the image, while the codec's RGB
         // conversion has already produced the samples it describes.
         let container = Container::new(bytes).map_err(decode_error)?;
-        let orientation = match container.exif().map(read_exif_orientation) {
+        let orientation = match container.exif().map(|payload| {
+            super::exif::orientation(payload.strip_prefix(b"Exif\0\0").unwrap_or(payload))
+        }) {
             None | Some(Ok(None)) => Orientation::IDENTITY,
             Some(Ok(Some(value))) => {
                 Orientation::from_exif(value).ok_or(Error::UnsupportedImageTransform)?
@@ -260,62 +262,6 @@ fn webp_work(request: Rect, size: Size, codec_output: Rect) -> CodecWork {
         reconstructed_pixels: WorkCount::AtLeast(rows * u64::from(size.width)),
         entropy_rows: WorkCount::AtLeast(rows),
     }
-}
-
-fn read_exif_orientation(payload: &[u8]) -> Result<Option<u16>, ()> {
-    let tiff = payload.strip_prefix(b"Exif\0\0").unwrap_or(payload);
-    let little = match tiff.get(..2) {
-        Some(b"II") => true,
-        Some(b"MM") => false,
-        _ => return Err(()),
-    };
-    let u16_at = |offset: usize| -> Result<u16, ()> {
-        let bytes: [u8; 2] = tiff
-            .get(offset..offset.checked_add(2).ok_or(())?)
-            .ok_or(())?
-            .try_into()
-            .map_err(|_| ())?;
-        Ok(if little {
-            u16::from_le_bytes(bytes)
-        } else {
-            u16::from_be_bytes(bytes)
-        })
-    };
-    let u32_at = |offset: usize| -> Result<u32, ()> {
-        let bytes: [u8; 4] = tiff
-            .get(offset..offset.checked_add(4).ok_or(())?)
-            .ok_or(())?
-            .try_into()
-            .map_err(|_| ())?;
-        Ok(if little {
-            u32::from_le_bytes(bytes)
-        } else {
-            u32::from_be_bytes(bytes)
-        })
-    };
-    if u16_at(2)? != 42 {
-        return Err(());
-    }
-    let ifd = usize::try_from(u32_at(4)?).map_err(|_| ())?;
-    let entries = usize::from(u16_at(ifd)?);
-    for index in 0..entries {
-        let entry = ifd
-            .checked_add(2)
-            .and_then(|n| n.checked_add(index.checked_mul(12)?))
-            .ok_or(())?;
-        if u16_at(entry)? == 0x0112 {
-            // SHORT per EXIF; LONG occurs in real files (see the JPEG adapter).
-            if u32_at(entry + 4)? != 1 {
-                return Err(());
-            }
-            return match u16_at(entry + 2)? {
-                3 => u16_at(entry + 8).map(Some),
-                4 => u16::try_from(u32_at(entry + 8)?).map(Some).map_err(|_| ()),
-                _ => Err(()),
-            };
-        }
-    }
-    Ok(None)
 }
 
 #[cfg(test)]
@@ -609,6 +555,13 @@ mod tests {
         );
         assert_eq!(source.info().rendered_cicp, None);
         assert_eq!(source.orientation(), Orientation::from_exif(6).unwrap());
+        let prefixed = [b"Exif\0\0".as_slice(), &tiff].concat();
+        let prefixed_file = extended(&image, 0x08, None, Some(&prefixed));
+        let prefixed_source = WebpSource::new_bounded(&prefixed_file, 35).unwrap();
+        assert_eq!(
+            prefixed_source.orientation(),
+            Orientation::from_exif(6).unwrap()
+        );
         let bad = extended(&image, 0x08, None, Some(&tiff_orientation(9)));
         assert_eq!(
             WebpSource::new_bounded(&bad, 35).err(),
