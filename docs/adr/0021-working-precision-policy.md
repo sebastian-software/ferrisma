@@ -291,23 +291,23 @@ nearest admitted depth below where the output cannot hold the input's
 - **U8 → U16 (depths 9–16):** maps each byte through a 256-entry exact table `round((v / 255.0) * max)`, applying transparent black when `alpha == 0`.
 - **F32 → U8/U16:** validates straight alpha (`0.0..=1.0`, finite) and RGB finiteness in the same order as `working_color`, clamps to `[0.0, 1.0]`, zeroes RGB when the output alpha code is `0`, and quantizes via `round(f64::from(x) * max)`.
 
-Display P3 (`[12, 13, 0, 1]`), linear sRGB (`[1, 8, 0, 1]`), and deferred ICC transforms are explicitly excluded and continue to run the full linear-light executor. `HiddenColorProbe` wraps the decoder source upstream of the executor, so `Discarded::HiddenColor` reporting is unchanged. Output is byte-identical across thread counts and verified bit-exact against the `f64` oracle across all `256 × 256` U8 `(value, alpha)` pairs at depths 8, 10, 12, and 16 (`identity_passthrough_u8_rgba_and_rgb_match_f64_oracle_exhaustively`), across all 10-, 12-, and 16-bit F32 codes (`every_deep_code_survives_an_identity_transform_at_its_depth`), and within ADR-0021 rule A on arbitrary `F32` inputs.
+Display P3 (`[12, 13, 0, 1]`), linear sRGB (`[1, 8, 0, 1]`), and deferred ICC transforms are explicitly excluded and continue to run the full linear-light executor. `HiddenColorProbe` wraps the decoder source upstream of the executor, so `Discarded::HiddenColor` reporting is unchanged. Because the identity pass-through processes every row on the decoder callback thread, `ProcessingReport::transform_threads` reports `1` (without reducing the decoder's own thread allowance). Output is byte-identical across thread counts and verified bit-exact against the `f64` oracle across all `256 × 256` U8 `(value, alpha)` pairs at depths 8, 10, 12, and 16 (`identity_passthrough_u8_rgba_and_rgb_match_f64_oracle_exhaustively`), across all 10-, 12-, and 16-bit F32 codes (`every_deep_code_survives_an_identity_transform_at_its_depth`), and within ADR-0021 rule A on arbitrary `F32` inputs.
 
 **2. Single-pass tap planning.** `quality::footprint` previously evaluated `taps()` (calling `sin()` and allocating a temporary `Vec<Tap>`) for every output column and row solely to determine min/max source indices, after which `TapTable::build` recomputed every tap with fresh temporary vectors. `quality::footprint` now short-circuits `input == output` in O(1) and otherwise scans from the output ROI edges inward using exact filter-support monotonicity (handling Lanczos3 sinc zero crossings without scanning interior positions and with zero heap allocations). `TapTable::build` reuses a single `Vec<Tap>` scratch buffer per axis via `quality::taps_into`. Verified against the brute-force `taps()` scan across both filters and all small/interior/boundary geometries (`quality_tests::footprint_matches_exhaustive_taps_scan_for_both_filters`).
 
 **3. Measurements (2026-11-26, Apple M1 Ultra, macOS arm64, release build; indicative).**
 
-Micro-benchmark (`cargo test --release -p ferrisma --lib bench_issue_284 -- --ignored --nocapture`):
+Interleaved base (`cef60399`) vs head micro-benchmark (5 interleaved process runs of the identical `bench_issue_284_planning_and_identity` workload: `footprint` + `TapTable::build` for both axes, 3 warmup + 15 timed iterations median; plus synthetic 1:1 `execute_fast` runs; `cargo test --release -p ferrisma --lib bench_issue_284 -- --ignored --nocapture`):
 
-| benchmark | baseline | after #284 | change |
-| --- | ---: | ---: | ---: |
-| plan `6000×4000 → 1600×1067` Lanczos3 | 1,501 µs | 795 µs | −47 % (1.89×) |
-| plan `6000×4000 → 1600×1067` Area | 232 µs | 58 µs | −75 % (4.00×) |
-| plan `6000×4000 → 6000×4000` Lanczos3 | 357 µs | 48 µs | −87 % (7.44×) |
-| identity `24 MP U8 RGB → U8` | — | 4.2 ms (24 KB managed) | single output row |
-| identity `24 MP U8 RGBA → U8` | — | 6.2 ms (24 KB managed) | single output row |
-| identity `12 MP F32 RGB → U16` | — | 35.2 ms (32 KB managed) | single output row |
-| identity `12 MP F32 RGBA → U16` | — | 46.7 ms (32 KB managed) | single output row |
+| benchmark (median of 5 interleaved runs) | base (`cef60399`) | after #284 | speedup / delta | managed peak before → after |
+| --- | ---: | ---: | ---: | ---: |
+| plan `6000×4000 → 1600×1067` Lanczos3 | 1,564 µs | 778 µs | 2.01× (−50.3 %) | — |
+| plan `6000×4000 → 1600×1067` Area | 239 µs | 55 µs | 4.35× (−77.0 %) | — |
+| plan `6000×4000 → 6000×4000` Lanczos3 | 1,252 µs | 44 µs | 28.45× (−96.5 %) | — |
+| identity `24 MP U8 RGB → U8` | 152,784 µs | 2,425 µs | 63.00× (−98.4 %) | 31,672,112 → 24,000 B |
+| identity `24 MP U8 RGBA → U8` | 210,460 µs | 4,716 µs | 44.63× (−97.8 %) | 31,672,112 → 24,000 B |
+| identity `12 MP F32 RGB → U16` | 851,933 µs | 32,675 µs | 26.07× (−96.2 %) | 22,176,112 → 32,000 B |
+| identity `12 MP F32 RGBA → U16` | 928,860 µs | 42,773 µs | 21.72× (−95.4 %) | 22,176,112 → 32,000 B |
 
 Interleaved CLI A/B (5 repetitions, `/usr/bin/time -l`, bit-identical output SHA-256 on every case; synthetic 24 MP 8-bit AVIF and 12 MP 16-bit lossless JXL derived from committed `tests/fixtures/decoder-work/paris-420.jpg`, plus committed `tests/fixtures/jxl-deep/d16-2049x40-a1-lossless.jxl`):
 

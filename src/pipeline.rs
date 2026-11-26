@@ -2400,7 +2400,7 @@ fn run(
         kernel_level,
         kernel_level_reason,
         encoder_threads,
-        transform_threads,
+        transform_threads: processed.transform_threads,
         decoder_backend,
         encoder_backend,
         input_depth,

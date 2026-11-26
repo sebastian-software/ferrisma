@@ -28,6 +28,9 @@ pub(crate) struct QualityReport {
     pub decoder_requests: u32,
     pub peak_engine_managed_bytes: usize,
     pub explicit_full_frame_intermediates: u32,
+    /// Transform pipeline threads actually used by the executor (`1` for the
+    /// sequential, identity and `f64` reference paths).
+    pub transform_threads: usize,
     /// Wall-clock time inside the source's region reader, excluding the
     /// per-row transform callback: codec decode plus any source wrapper work
     /// such as reorientation or ICC conversion.
@@ -486,6 +489,7 @@ pub(crate) fn execute_quality(
         decoder_requests: 1,
         peak_engine_managed_bytes: budget.snapshot().peak,
         explicit_full_frame_intermediates: 0,
+        transform_threads: 1,
         source_time,
         transform_time,
     })

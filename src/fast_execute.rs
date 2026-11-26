@@ -798,18 +798,23 @@ fn run<const C: usize>(
     let plan = RowPlan::from_prepared::<C>(
         prepared, sample, depth, conversion, requested, primaries, color,
     )?;
-    let (report, source_time, transform_time) =
-        if threads > 1 && plan.needed.len() >= PARALLEL_MIN_ROWS {
-            crate::parallel_execute::run::<C>(&plan, source, budget, kernels, threads, sink)?
-        } else {
-            run_sequential::<C>(&plan, source, budget, kernels, sink)?
-        };
+    let used_threads = if threads > 1 && plan.needed.len() >= PARALLEL_MIN_ROWS {
+        threads
+    } else {
+        1
+    };
+    let (report, source_time, transform_time) = if used_threads > 1 {
+        crate::parallel_execute::run::<C>(&plan, source, budget, kernels, used_threads, sink)?
+    } else {
+        run_sequential::<C>(&plan, source, budget, kernels, sink)?
+    };
     Ok(QualityReport {
         decoder: report,
         output_rows: u64::try_from(plan.output_rows).map_err(|_| Error::GeometryOverflow)?,
         decoder_requests: 1,
         peak_engine_managed_bytes: budget.snapshot().peak,
         explicit_full_frame_intermediates: 0,
+        transform_threads: used_threads,
         source_time,
         transform_time,
     })
@@ -1030,7 +1035,11 @@ fn run_identity<const C: usize>(
     let read_started = Instant::now();
     let report = source.read_region(plan.source, budget, &mut |decoder_y, row| {
         let row_started = Instant::now();
-        if decoder_y != expected_y || row.len() != source_samples || row.sample_type() != sample {
+        if emitted >= output_rows
+            || decoder_y != expected_y
+            || row.len() != source_samples
+            || row.sample_type() != sample
+        {
             return Err(Error::IncompleteDecoderOutput);
         }
         decoded_rows += 1;
@@ -1060,6 +1069,7 @@ fn run_identity<const C: usize>(
         decoder_requests: 1,
         peak_engine_managed_bytes: budget.snapshot().peak,
         explicit_full_frame_intermediates: 0,
+        transform_threads: 1,
         source_time,
         transform_time,
     })

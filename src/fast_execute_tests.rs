@@ -1874,24 +1874,151 @@ fn identity_passthrough_does_not_bypass_deferred_icc_at_1_to_1() {
     assert_ne!(&fast1[..3], &[180, 90, 40]);
 }
 
+/// 1:1 sRGB identity pass-through executes on the decoder callback thread, so
+/// `QualityReport::transform_threads` reports `1` even when `threads > 1` and
+/// `height >= PARALLEL_MIN_ROWS`, while non-identity and P3 paths report `threads`.
+#[test]
+fn identity_passthrough_reports_one_transform_thread() {
+    let size = Size::new(80, 100).unwrap();
+    let kernels = Kernels::best();
+    let srgb = TestSource::new(
+        size,
+        ChannelLayout::Rgb,
+        SRGB,
+        Samples::U8(vec![100; 80 * 100 * 3]),
+    );
+    let p3 = TestSource::new(
+        size,
+        ChannelLayout::Rgb,
+        P3,
+        Samples::U8(vec![100; 80 * 100 * 3]),
+    );
+    let run_report = |source: &TestSource, out: Size, threads: usize| {
+        let (graph, input, target) = graph_for(source, None, out, Filter::Lanczos3);
+        let mut src = source.clone();
+        let budget = MemoryBudget::new(64 << 20);
+        execute_fast(
+            &graph,
+            target,
+            input,
+            &mut src,
+            Rect::new(0, 0, out.width, out.height).unwrap(),
+            &budget,
+            &kernels,
+            threads,
+            8,
+            |_, _| Ok(()),
+        )
+        .unwrap()
+    };
+
+    assert_eq!(run_report(&srgb, size, 4).transform_threads, 1);
+    assert_eq!(
+        run_report(&srgb, Size::new(40, 80).unwrap(), 4).transform_threads,
+        4
+    );
+    assert_eq!(run_report(&p3, size, 4).transform_threads, 4);
+}
+
+/// An overproducing decoder delivering an extra row must be rejected with
+/// `IncompleteDecoderOutput` BEFORE the sink is invoked outside the requested
+/// rectangle, so an encoder's out-of-range error cannot mask the decoder defect.
+#[test]
+fn identity_passthrough_rejects_surplus_decoder_rows_before_calling_sink() {
+    struct OverproducingSource {
+        info: DecoderInfo,
+        row: Vec<u8>,
+    }
+
+    impl DecodeSource for OverproducingSource {
+        fn info(&self) -> &DecoderInfo {
+            &self.info
+        }
+
+        fn read_region(
+            &mut self,
+            region: Rect,
+            _budget: &MemoryBudget,
+            sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
+        ) -> Result<DecodeReport, Error> {
+            // Deliver one extra correctly numbered row past `region.bottom()`.
+            for y in region.y..=region.bottom() {
+                sink(y, DecodedRow::U8(&self.row))?;
+            }
+            Ok(DecodeReport {
+                requested: region,
+                access: DecodeAccess::CodecRegionRequest,
+                rows: u64::from(region.height) + 1,
+                output_sample_bytes: 0,
+                known_full_frame_buffers: 0,
+                peak_engine_managed_bytes: 0,
+                opaque_codec_memory_unbounded: false,
+                engine_buffer_bytes: 0,
+                engine_copied_bytes: 0,
+                work: crate::decoder::CodecWork::region_at_least(region),
+            })
+        }
+    }
+
+    let size = Size::new(8, 4).unwrap();
+    let mut source = OverproducingSource {
+        info: DecoderInfo {
+            depth: 8,
+            size,
+            layout: ChannelLayout::Rgb,
+            sample: SampleType::U8,
+            access: DecodeAccess::CodecRegionRequest,
+            alpha: AlphaMode::Opaque,
+            rendered_icc: None,
+            rendered_cicp: Some(SRGB),
+        },
+        row: vec![42; 8 * 3],
+    };
+    let (graph, input, target) = graph_for_info(&source.info, None, size, Filter::Lanczos3);
+    let budget = MemoryBudget::new(1 << 20);
+    let mut sink_calls = 0_u32;
+    let result = execute_fast(
+        &graph,
+        target,
+        input,
+        &mut source,
+        Rect::new(0, 0, size.width, size.height).unwrap(),
+        &budget,
+        &Kernels::best(),
+        1,
+        8,
+        |y, _| {
+            if y >= size.height {
+                return Err(Error::EncodeFailed);
+            }
+            sink_calls += 1;
+            Ok(())
+        },
+    );
+    assert_eq!(result, Err(Error::IncompleteDecoderOutput));
+    assert_eq!(sink_calls, size.height);
+    assert_eq!(budget.snapshot().live, 0);
+}
+
 /// Reproducible micro-benchmark for issue #284: planning (`footprint` +
-/// `TapTable::build`) on 6000×4000 geometries and 1:1 identity execution on
-/// 24 MP 8-bit and 12 MP 16-bit synthetic sources.
+/// `TapTable::build` for both axes) on 6000×4000 geometries and 1:1 identity
+/// execution on 24 MP 8-bit and 12 MP 16-bit synthetic sources.
 ///
-/// Run with:
+/// Run on both base and head revisions to compare identical planning work:
 /// `cargo test --release -p ferrisma --lib bench_issue_284 -- --ignored --nocapture`
 #[test]
 #[ignore = "manual benchmark for issue #284"]
 #[allow(clippy::too_many_lines)] // Self-contained micro-benchmark driver.
 fn bench_issue_284_planning_and_identity() {
     use crate::fast_execute::TapTable;
-    use crate::quality::{footprint, taps};
+    use crate::quality::footprint;
     use std::hint::black_box;
     use std::time::Instant;
 
-    const ITERS: u32 = 10;
+    const WARMUP: usize = 3;
+    const ITERS: usize = 15;
 
-    // 1. Planning: new footprint + TapTable::build vs old full-scan footprint + per-position taps().
+    // 1. Planning: exact `footprint` + `TapTable::build` for both axes.
     for (label, iw, ih, ow, oh, filter) in [
         (
             "6000x4000->1600x1067 Lanczos3",
@@ -1918,35 +2045,22 @@ fn bench_issue_284_planning_and_identity() {
             Filter::Lanczos3,
         ),
     ] {
-        let old_started = Instant::now();
-        for _ in 0..ITERS {
-            // Simulate previous footprint (full taps() scan per axis) + TapTable::build (taps() per pos).
-            for (inp, out) in [(iw, ow), (ih, oh)] {
-                let mut first = u32::MAX;
-                let mut last = 0_u32;
-                for at in 0..out {
-                    let w = taps(inp, out, at, filter).unwrap();
-                    first = first.min(w.first().unwrap().index);
-                    last = last.max(w.last().unwrap().index);
-                }
-                black_box((first, last));
-                for at in 0..out {
-                    black_box(taps(inp, out, at, filter).unwrap());
-                }
-            }
-        }
-        let old_us = old_started.elapsed().as_micros() / u128::from(ITERS);
-
-        let new_started = Instant::now();
-        for _ in 0..ITERS {
+        let mut samples = Vec::with_capacity(ITERS);
+        for rep in 0..(WARMUP + ITERS) {
+            let started = Instant::now();
             let fx = footprint(iw, ow, 0, ow, filter).unwrap();
             let fy = footprint(ih, oh, 0, oh, filter).unwrap();
             let cols = TapTable::build(iw, ow, 0, ow, filter, fx.0).unwrap();
             let rows = TapTable::build(ih, oh, 0, oh, filter, 0).unwrap();
             black_box((fx, fy, cols, rows));
+            let elapsed = started.elapsed().as_micros();
+            if rep >= WARMUP {
+                samples.push(elapsed);
+            }
         }
-        let new_us = new_started.elapsed().as_micros() / u128::from(ITERS);
-        eprintln!("plan {label}: baseline={old_us} us, new={new_us} us");
+        samples.sort_unstable();
+        let median_us = samples[samples.len() / 2];
+        eprintln!("plan {label}: median={median_us} us");
     }
 
     // 2. 1:1 identity execution on 24 MP U8 RGB/RGBA and 12 MP F32 16-bit RGB/RGBA.
