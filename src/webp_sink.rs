@@ -150,7 +150,7 @@ impl WebpSink {
                 });
                 return false;
             }
-            if bytes.try_reserve_exact(chunk.len()).is_err() {
+            if bytes.try_reserve(chunk.len()).is_err() {
                 output_failure = Some(Error::AllocationFailed);
                 return false;
             }

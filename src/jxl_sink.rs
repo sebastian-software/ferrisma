@@ -41,6 +41,7 @@ use crate::memory::{ExternalReservation, ManagedBuffer, MemoryBudget};
 use crate::output_depth::OutputRow;
 
 /// Bytes of one frame sample: 1 at 8 bits, 2 (`u16`) above.
+#[cfg(test)]
 fn sample_bytes(depth: u8) -> usize {
     if depth > 8 { 2 } else { 1 }
 }
@@ -218,11 +219,18 @@ pub(crate) fn peak_model(lossless: bool, alpha: bool, depth: u8) -> PeakModel {
     table[usize::from(depth > 8)][usize::from(alpha)]
 }
 
-/// The engine's frame: four samples per pixel, 1 or 2 bytes each.
-fn frame_bytes(width: usize, height: usize, depth: u8) -> Result<usize, Error> {
+/// The engine's frame: `channels` samples per pixel (3 when the input is known
+/// opaque, 4 when it may carry alpha), 1 or 2 bytes each.
+#[cfg(test)]
+pub(crate) fn frame_bytes(
+    width: usize,
+    height: usize,
+    channels: usize,
+    depth: u8,
+) -> Result<usize, Error> {
     width
         .checked_mul(height)
-        .and_then(|pixels| pixels.checked_mul(4 * sample_bytes(depth)))
+        .and_then(|pixels| pixels.checked_mul(channels.checked_mul(sample_bytes(depth))?))
         .ok_or(Error::GeometryOverflow)
 }
 
@@ -236,24 +244,26 @@ fn codec_reservation_bytes(
     height: usize,
     alpha: bool,
     depth: u8,
+    sink_frame_bytes: usize,
 ) -> Result<usize, Error> {
     let streams = bridge_image(width, height, alpha, depth)?.streaming();
     let peak = peak_model(lossless, alpha, depth).peak_bytes(width, height, streams)?;
-    Ok(peak.saturating_sub(frame_bytes(width, height, depth)?))
+    Ok(peak.saturating_sub(sink_frame_bytes))
 }
 
-/// The budget reservation for the lossless codec, on top of the engine's
-/// RGBA input frame (4 B/px at 8 bits, 8 B/px above, reserved when the sink
-/// is created): the measured-peak model [`LOSSLESS_PEAK`] minus that frame.
-/// For one-shot frames the planes known from the source path
-/// (`known_codec_frame_bytes`) stay a floor.
-pub(crate) fn lossless_codec_reservation_bytes(
+/// The budget reservation for the lossless codec, on top of `sink_frame_bytes`
+/// (the engine's RGB or RGBA input frame, reserved when the sink is created):
+/// the measured-peak model [`LOSSLESS_PEAK`] minus that frame. For one-shot
+/// frames the planes known from the source path (`known_codec_frame_bytes`)
+/// stay a floor.
+pub(crate) fn lossless_codec_reservation_bytes_for_frame(
     width: usize,
     height: usize,
     alpha: bool,
     depth: u8,
+    sink_frame_bytes: usize,
 ) -> Result<usize, Error> {
-    let measured = codec_reservation_bytes(true, width, height, alpha, depth)?;
+    let measured = codec_reservation_bytes(true, width, height, alpha, depth, sink_frame_bytes)?;
     if bridge_image(width, height, alpha, depth)?.streaming() {
         Ok(measured)
     } else {
@@ -261,15 +271,54 @@ pub(crate) fn lossless_codec_reservation_bytes(
     }
 }
 
-/// The budget reservation for the lossy codec, on top of the engine's frame:
+/// The budget reservation for the lossless codec with a 4-channel RGBA input
+/// frame (4 B/px at 8 bits, 8 B/px above), as held by the 2026-11-16 memory
+/// probe.
+#[cfg(test)]
+pub(crate) fn lossless_codec_reservation_bytes(
+    width: usize,
+    height: usize,
+    alpha: bool,
+    depth: u8,
+) -> Result<usize, Error> {
+    lossless_codec_reservation_bytes_for_frame(
+        width,
+        height,
+        alpha,
+        depth,
+        frame_bytes(width, height, 4, depth)?,
+    )
+}
+
+/// The budget reservation for the lossy codec, on top of `sink_frame_bytes`:
 /// the measured-peak model [`LOSSY_PEAK`] minus that frame.
+pub(crate) fn lossy_codec_reservation_bytes_for_frame(
+    width: usize,
+    height: usize,
+    alpha: bool,
+    depth: u8,
+    sink_frame_bytes: usize,
+) -> Result<usize, Error> {
+    codec_reservation_bytes(false, width, height, alpha, depth, sink_frame_bytes)
+}
+
+/// The budget reservation for the lossy codec with a 4-channel RGBA input
+/// frame (4 B/px at 8 bits, 8 B/px above), as held by the 2026-11-16 memory
+/// probe.
+#[cfg(test)]
 pub(crate) fn lossy_codec_reservation_bytes(
     width: usize,
     height: usize,
     alpha: bool,
     depth: u8,
 ) -> Result<usize, Error> {
-    codec_reservation_bytes(false, width, height, alpha, depth)
+    lossy_codec_reservation_bytes_for_frame(
+        width,
+        height,
+        alpha,
+        depth,
+        frame_bytes(width, height, 4, depth)?,
+    )
 }
 
 /// Codec-allocated planes that exist at the same time as the input frame in
@@ -346,11 +395,60 @@ impl FrameBuffer {
     }
 }
 
+fn copy_rgba_row_to_rgb<T: Copy>(src: &[T], dst: &mut [T]) {
+    debug_assert_eq!(src.len() % 4, 0);
+    debug_assert_eq!(dst.len() % 3, 0);
+    debug_assert_eq!(src.len() / 4, dst.len() / 3);
+    for (out, rgba) in dst
+        .as_chunks_mut::<3>()
+        .0
+        .iter_mut()
+        .zip(src.as_chunks::<4>().0)
+    {
+        *out = [rgba[0], rgba[1], rgba[2]];
+    }
+}
+
 fn compact_rgba_to_rgb<T: Copy>(frame: &mut [T], pixels: usize) {
-    // Opaque output carries no alpha channel. Compact in place; each
-    // destination index is at most its source index.
-    for pixel in 0..pixels {
-        frame.copy_within(pixel * 4..pixel * 4 + 3, pixel * 3);
+    // Opaque output carries no alpha channel. Compact in place in a single
+    // linear pass: reading 4 pixels (16 samples) into a stack array before
+    // writing 12 RGB samples never overwrites unread data because
+    // `12 * i + 12 <= 16 * (i + 1)` for every `i >= 0`.
+    if pixels <= 1 {
+        return;
+    }
+    let cells = std::cell::Cell::from_mut(&mut frame[..pixels * 4]).as_slice_of_cells();
+    let (dst_quads, dst_rem) = cells[..pixels * 3].as_chunks::<12>();
+    let (src_quads, src_rem) = cells[..pixels * 4].as_chunks::<16>();
+    for (out, rgba) in dst_quads.iter().zip(src_quads) {
+        let rgb = [
+            rgba[0].get(),
+            rgba[1].get(),
+            rgba[2].get(),
+            rgba[4].get(),
+            rgba[5].get(),
+            rgba[6].get(),
+            rgba[8].get(),
+            rgba[9].get(),
+            rgba[10].get(),
+            rgba[12].get(),
+            rgba[13].get(),
+            rgba[14].get(),
+        ];
+        for (cell, value) in out.iter().zip(rgb) {
+            cell.set(value);
+        }
+    }
+    for (out, rgba) in dst_rem
+        .as_chunks::<3>()
+        .0
+        .iter()
+        .zip(src_rem.as_chunks::<4>().0)
+    {
+        let rgb = [rgba[0].get(), rgba[1].get(), rgba[2].get()];
+        out[0].set(rgb[0]);
+        out[1].set(rgb[1]);
+        out[2].set(rgb[2]);
     }
 }
 
@@ -360,8 +458,14 @@ pub(crate) struct JxlSink {
     next_y: usize,
     /// Output bits per sample, 8 to 16 (ADR-0021 amendment of 2026-11-15).
     depth: u8,
-    /// Straight-alpha RGBA rows (`u8` at 8 bits, native `u16` above 8 bits),
-    /// compacted to RGB in place when opaque.
+    /// `true` when the input layout carries an alpha channel and the frame
+    /// stores 4-channel RGBA rows (compacted to RGB in place if every pixel
+    /// turns out opaque); `false` when the pipeline guarantees opaque output
+    /// and the frame stores 3-channel RGB rows directly.
+    may_have_alpha: bool,
+    /// RGB (when `!may_have_alpha`) or straight-alpha RGBA rows (`u8` at 8
+    /// bits, native `u16` above 8 bits), compacted to RGB in place when
+    /// `may_have_alpha && !has_alpha`.
     frame: FrameBuffer,
     budget: MemoryBudget,
     has_alpha: bool,
@@ -414,22 +518,26 @@ impl JxlSink {
 
     /// Validate the request against the admitted profile and reserve the
     /// engine-owned input frame before any pixel is decoded.
-    /// An 8-bit sink (the contract of the 8-bit tests).
+    /// An 8-bit alpha-capable sink (the contract of the 8-bit tests).
     #[cfg(test)]
     pub(crate) fn new(
         size: Size,
         options: &TransformOptions,
         budget: &MemoryBudget,
     ) -> Result<Self, Error> {
-        Self::with_depth(size, options, budget, crate::output_depth::EIGHT)
+        Self::with_depth(size, options, budget, crate::output_depth::EIGHT, true)
     }
 
-    /// A sink at `depth` bits per sample (8 to 16).
+    /// A sink at `depth` bits per sample (8 to 16). When `may_have_alpha` is
+    /// `false`, the caller guarantees every finished pixel is opaque so the
+    /// sink allocates a 3-channel RGB frame and skips alpha scanning and
+    /// finish-time compaction.
     pub(crate) fn with_depth(
         size: Size,
         options: &TransformOptions,
         budget: &MemoryBudget,
         depth: u8,
+        may_have_alpha: bool,
     ) -> Result<Self, Error> {
         if !(8..=16).contains(&depth) {
             return Err(Error::InvalidEncodeOptions);
@@ -453,7 +561,10 @@ impl JxlSink {
                 |_| Error::UnsupportedEncoderProfile("the encoder rejected the image size"),
             )?;
         }
-        let samples = pixels.checked_mul(4).ok_or(Error::GeometryOverflow)?;
+        let stored_channels = if may_have_alpha { 4 } else { 3 };
+        let samples = pixels
+            .checked_mul(stored_channels)
+            .ok_or(Error::GeometryOverflow)?;
         let frame = if depth > 8 {
             FrameBuffer::U16(budget.allocate_typed::<u16>(samples)?)
         } else {
@@ -464,6 +575,7 @@ impl JxlSink {
             height,
             next_y: 0,
             depth,
+            may_have_alpha,
             frame,
             budget: budget.clone(),
             has_alpha: false,
@@ -476,6 +588,12 @@ impl JxlSink {
     #[cfg(test)]
     pub(crate) fn write_row(&mut self, y: u32, bytes: &[u8]) -> Result<(), Error> {
         self.write_output_row(y, OutputRow::U8(bytes))
+    }
+
+    /// Bytes allocated for the sink's frame buffer.
+    #[cfg(test)]
+    pub(crate) fn allocated_frame_bytes(&self) -> usize {
+        self.frame.allocated_bytes()
     }
 
     /// Whether this sink stores native `u16` samples and their buffer alignment.
@@ -494,22 +612,45 @@ impl JxlSink {
 
     /// One row at the sink's depth.
     pub(crate) fn write_output_row(&mut self, y: u32, row: OutputRow<'_>) -> Result<(), Error> {
-        let samples = self.width.checked_mul(4).ok_or(Error::GeometryOverflow)?;
+        let row_samples = self.width.checked_mul(4).ok_or(Error::GeometryOverflow)?;
         if usize::try_from(y).map_err(|_| Error::GeometryOverflow)? != self.next_y
             || self.next_y >= self.height
         {
             return Err(Error::IncompleteOutput);
         }
-        let start = self.next_y * samples;
-        let transparent = match (&mut self.frame, row) {
-            (FrameBuffer::U8(frame), OutputRow::U8(bytes)) if bytes.len() == samples => {
-                frame.as_mut_slice()[start..start + samples].copy_from_slice(bytes);
-                bytes.as_chunks::<4>().0.iter().any(|rgba| rgba[3] != 255)
+        if !self.may_have_alpha {
+            let dst_samples = self.width.checked_mul(3).ok_or(Error::GeometryOverflow)?;
+            let start = self.next_y * dst_samples;
+            match (&mut self.frame, row) {
+                (FrameBuffer::U8(frame), OutputRow::U8(bytes)) if bytes.len() == row_samples => {
+                    copy_rgba_row_to_rgb(
+                        bytes,
+                        &mut frame.as_mut_slice()[start..start + dst_samples],
+                    );
+                }
+                (FrameBuffer::U16(frame), OutputRow::U16(values))
+                    if values.len() == row_samples =>
+                {
+                    copy_rgba_row_to_rgb(
+                        values,
+                        &mut frame.as_mut_slice()[start..start + dst_samples],
+                    );
+                }
+                _ => return Err(Error::IncompleteOutput),
             }
-            (FrameBuffer::U16(frame), OutputRow::U16(values)) if values.len() == samples => {
-                frame.as_mut_slice()[start..start + samples].copy_from_slice(values);
+            self.next_y += 1;
+            return Ok(());
+        }
+        let start = self.next_y * row_samples;
+        let transparent = match (&mut self.frame, row) {
+            (FrameBuffer::U8(frame), OutputRow::U8(bytes)) if bytes.len() == row_samples => {
+                frame.as_mut_slice()[start..start + row_samples].copy_from_slice(bytes);
+                !self.has_alpha && bytes.as_chunks::<4>().0.iter().any(|rgba| rgba[3] != 255)
+            }
+            (FrameBuffer::U16(frame), OutputRow::U16(values)) if values.len() == row_samples => {
+                frame.as_mut_slice()[start..start + row_samples].copy_from_slice(values);
                 let max = crate::output_depth::max_code(self.depth);
-                values.as_chunks::<4>().0.iter().any(|rgba| rgba[3] != max)
+                !self.has_alpha && values.as_chunks::<4>().0.iter().any(|rgba| rgba[3] != max)
             }
             _ => return Err(Error::IncompleteOutput),
         };
@@ -524,7 +665,7 @@ impl JxlSink {
         }
         let pixels = self.width * self.height;
         let channels = if self.has_alpha { 4 } else { 3 };
-        if !self.has_alpha {
+        if self.may_have_alpha && !self.has_alpha {
             match &mut self.frame {
                 FrameBuffer::U8(frame) => compact_rgba_to_rgb(frame.as_mut_slice(), pixels),
                 FrameBuffer::U16(frame) => compact_rgba_to_rgb(frame.as_mut_slice(), pixels),
@@ -538,8 +679,13 @@ impl JxlSink {
     }
 
     fn finish_lossless(&self, samples: usize) -> Result<EncodedImage, Error> {
-        let codec_bytes =
-            lossless_codec_reservation_bytes(self.width, self.height, self.has_alpha, self.depth)?;
+        let codec_bytes = lossless_codec_reservation_bytes_for_frame(
+            self.width,
+            self.height,
+            self.has_alpha,
+            self.depth,
+            self.frame.allocated_bytes(),
+        )?;
         let _codec_frames: ExternalReservation = self.budget.reserve_external(codec_bytes)?;
         let image = bridge_image(self.width, self.height, self.has_alpha, self.depth)?;
         let mut bytes = Vec::new();
@@ -576,8 +722,13 @@ impl JxlSink {
     }
 
     fn finish_lossy(&self, samples: usize, distance: f32) -> Result<EncodedImage, Error> {
-        let codec_bytes =
-            lossy_codec_reservation_bytes(self.width, self.height, self.has_alpha, self.depth)?;
+        let codec_bytes = lossy_codec_reservation_bytes_for_frame(
+            self.width,
+            self.height,
+            self.has_alpha,
+            self.depth,
+            self.frame.allocated_bytes(),
+        )?;
         let _codec_frames: ExternalReservation = self.budget.reserve_external(codec_bytes)?;
         let image = bridge_image(self.width, self.height, self.has_alpha, self.depth)?;
         let mut bytes = Vec::new();

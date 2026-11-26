@@ -112,9 +112,14 @@ distances of 3.0 and above.
 
 ### Memory
 
-The sink allocates one RGBA8 frame (4 bytes per pixel) from the managed
-budget when it is created. Before encoding it compacts an opaque frame to
-RGB8 in place.
+When the pipeline knows the input carries no alpha channel (RGB or expanded
+gray), the sink allocates a 3-channel RGB frame (`3` samples per pixel: 3 B/px
+at 8 bits, 6 B/px above 8 bits) from the managed budget and writes RGB samples
+directly without scanning alpha or compacting at finish (issue #282). When the
+input carries an alpha channel, the sink allocates a 4-channel RGBA frame (`4`
+samples per pixel: 4 B/px at 8 bits, 8 B/px above 8 bits); if every finished
+pixel turns out opaque, it compacts the buffer to RGB in place in a single
+linear pass before encoding.
 
 **Since 2026-11-16 (amendment of that date), both profiles reserve a
 measured peak model** (`PeakModel` in `src/jxl_sink.rs`,
@@ -648,3 +653,4 @@ amendment), or the port's encoder starts selecting SIMD by default.
   model is an envelope of one host's measurements, not a bound for other
   hosts or allocators.
 - 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.
+- 2026-11-26 — Opaque-frame 3-channel allocation and linear compaction (#282). When the pipeline guarantees opaque output (`ChannelLayout::Rgb` after gray expansion), `JxlSink` allocates a 3-channel RGB frame (`3 * sample_bytes` per pixel, eliminating the 25 % over-allocation) and writes RGB directly in `write_output_row`, skipping both the per-row alpha scan and finish-time compaction. When the input carries an alpha channel and every pixel turns out opaque, `compact_rgba_to_rgb` compacts in place with a single linear safe pass instead of per-pixel `copy_within`. The codec reservation remains `PeakModel - frame_bytes` against the committed 2026-11-16 measured peak model.

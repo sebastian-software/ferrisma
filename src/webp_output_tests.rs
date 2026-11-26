@@ -262,3 +262,87 @@ fn multithreaded_webp_transcode_matches_single_threaded_for_lossy_and_lossless()
         assert_eq!(batched.report.transform_threads, 1);
     }
 }
+
+#[test]
+fn multi_chunk_webp_sink_output_is_exact_and_deterministic() {
+    let (width, height) = (128_u32, 96_u32);
+    let size = Size::new(width, height).unwrap();
+    let row_bytes = width as usize * 4;
+    let make_rgba = |alpha: bool| -> Vec<u8> {
+        let mut pixels = Vec::with_capacity(width as usize * height as usize * 4);
+        for y in 0..height {
+            for x in 0..width {
+                let hash = x.wrapping_mul(2_654_435_761) ^ y.wrapping_mul(40_503);
+                let noise = u8::try_from((hash >> 13) & 0x3f).unwrap();
+                let r = u8::try_from((x * 2) % 256).unwrap() ^ noise;
+                let g = u8::try_from((y * 2) % 256).unwrap();
+                let b = u8::try_from((x + y) % 256).unwrap() ^ (noise << 1);
+                let a = if !alpha {
+                    255
+                } else if x % 17 == 0 {
+                    0
+                } else {
+                    u8::try_from((x * 5 + y * 3) % 255 + 1).unwrap()
+                };
+                pixels.extend_from_slice(&[r, g, b, a]);
+            }
+        }
+        pixels
+    };
+
+    for (alpha, lossless) in [(false, false), (true, false), (true, true)] {
+        let rgba = make_rgba(alpha);
+        let opts = TransformOptions::new(OutputGeometry::Exact { width, height }).with_output(
+            OutputSettings::WebP(if lossless {
+                WebpOptions::Lossless(WebpLossless::new(4))
+            } else {
+                WebpOptions::default()
+            }),
+        );
+
+        let run_sink = |max_output_bytes: usize| {
+            let budget = MemoryBudget::new(16 << 20);
+            let mut sink = WebpSink::new(
+                size,
+                &opts.clone().with_max_output_bytes(max_output_bytes),
+                &budget,
+            )
+            .unwrap();
+            for (y, row) in rgba.chunks_exact(row_bytes).enumerate() {
+                sink.write_row(u32::try_from(y).unwrap(), row).unwrap();
+            }
+            let result = sink.finish();
+            assert_eq!(budget.snapshot().live, 0);
+            result
+        };
+
+        let first = run_sink(opts.max_output_bytes()).unwrap();
+        let second = run_sink(opts.max_output_bytes()).unwrap();
+        assert_eq!(first.bytes, second.bytes);
+        assert_eq!(&first.bytes[..4], b"RIFF");
+        assert_eq!(&first.bytes[8..12], b"WEBP");
+
+        // Exact output byte limit still holds with geometric Vec::try_reserve.
+        let at_limit = run_sink(first.bytes.len()).unwrap();
+        assert_eq!(at_limit.bytes, first.bytes);
+        assert!(matches!(
+            run_sink(first.bytes.len() - 1),
+            Err(crate::error::Error::OutputLimitExceeded { .. })
+        ));
+
+        let container = Container::new(&first.bytes).unwrap();
+        assert_eq!(
+            container.icc_profile().unwrap(),
+            include_bytes!("../assets/icc/sRGB2014.icc")
+        );
+        let decoded = decode(&first.bytes, &DecodeConfig::new(ColorMode::Rgba)).unwrap();
+        assert_eq!((decoded.width(), decoded.height()), (width, height));
+        if lossless {
+            let rows = decoded.rows().unwrap();
+            let actual: Vec<u8> = (0..height)
+                .flat_map(|y| rows.row(y).unwrap().to_vec())
+                .collect();
+            assert_eq!(actual, rgba);
+        }
+    }
+}
