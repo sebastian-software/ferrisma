@@ -451,6 +451,51 @@ fn a_backend_receives_the_request_and_every_output_row() {
 }
 
 #[test]
+fn identity_passthrough_reports_one_transform_thread_through_facade() {
+    use crate::pipeline::{KernelLevel, KernelLevelReason, transcode_with};
+    let jpeg = include_bytes!("../tests/fixtures/decoder-work/paris-420.jpg");
+    let four = Threads::Count(std::num::NonZeroUsize::new(4).unwrap());
+    let recorder = backend::Recorder::default();
+
+    let identity = transcode_with(
+        jpeg,
+        ImageFormat::Jpeg,
+        &TransformOptions::new(OutputGeometry::Exact {
+            width: 403,
+            height: 302,
+        })
+        .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
+        .with_transform_threads(four),
+        &recorder,
+    )
+    .unwrap();
+    assert_eq!(identity.report.transform_threads, 1);
+    assert_eq!(identity.report.kernel_level, KernelLevel::Scalar);
+    assert_eq!(
+        identity.report.kernel_level_reason,
+        KernelLevelReason::Bypassed
+    );
+
+    let resized = transcode_with(
+        jpeg,
+        ImageFormat::Jpeg,
+        &TransformOptions::new(OutputGeometry::Exact {
+            width: 200,
+            height: 150,
+        })
+        .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
+        .with_transform_threads(four),
+        &recorder,
+    )
+    .unwrap();
+    assert_eq!(resized.report.transform_threads, 4);
+    assert_ne!(
+        resized.report.kernel_level_reason,
+        KernelLevelReason::Bypassed
+    );
+}
+
+#[test]
 fn backend_errors_keep_their_kind_and_message() {
     use crate::pipeline::transcode_with;
     let jpeg = include_bytes!("../tests/fixtures/sample.jpg");

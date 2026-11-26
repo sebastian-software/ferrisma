@@ -1,4 +1,4 @@
-use crate::quality::{Filter, footprint, taps};
+use crate::quality::{Filter, footprint, taps, taps_into};
 
 #[test]
 fn exact_area_average() {
@@ -66,4 +66,100 @@ fn lanczos_zero_crossings_do_not_hide_interior_tap_indices() {
             }
         }
     }
+}
+
+/// Brute-force reference footprint computed by scanning `taps()` for every
+/// output position in `start..start + count`.
+fn reference_footprint(
+    input: u32,
+    output: u32,
+    start: u32,
+    count: u32,
+    filter: Filter,
+) -> (u32, u32) {
+    let mut first = u32::MAX;
+    let mut last = 0_u32;
+    for at in start..start + count {
+        let weights = taps(input, output, at, filter).unwrap();
+        first = first.min(weights.first().unwrap().index);
+        last = last.max(weights.last().unwrap().index);
+    }
+    (first, last - first + 1)
+}
+
+#[test]
+fn footprint_matches_exhaustive_taps_scan_for_both_filters() {
+    for filter in [Filter::Area, Filter::Lanczos3] {
+        for input in [1, 2, 3, 4, 5, 7, 8, 9, 13, 17, 23, 31] {
+            for output in [1, 2, 3, 4, 5, 7, 8, 11, 16, 29] {
+                for start in 0..output {
+                    for count in 1..=output - start {
+                        let actual = footprint(input, output, start, count, filter).unwrap();
+                        let expected = reference_footprint(input, output, start, count, filter);
+                        assert_eq!(
+                            actual, expected,
+                            "filter={filter:?} input={input} output={output} start={start} count={count}"
+                        );
+                    }
+                }
+            }
+        }
+        // Larger ratios and interior ROIs, including exact 1:1.
+        for (input, output, start, count) in [
+            (6000, 6000, 0, 6000),
+            (6000, 6000, 123, 456),
+            (6000, 1600, 0, 1600),
+            (6000, 1600, 317, 211),
+            (1600, 6000, 0, 6000),
+            (1600, 6000, 1500, 900),
+            (4000, 3, 1, 2),
+            (3, 4000, 1998, 5),
+        ] {
+            let actual = footprint(input, output, start, count, filter).unwrap();
+            let expected = reference_footprint(input, output, start, count, filter);
+            assert_eq!(
+                actual, expected,
+                "filter={filter:?} input={input} output={output} start={start} count={count}"
+            );
+        }
+    }
+}
+
+#[test]
+fn taps_into_reuses_buffer_and_matches_taps() {
+    let mut scratch = Vec::with_capacity(64);
+    let (ptr, cap) = (scratch.as_ptr(), scratch.capacity());
+    for filter in [Filter::Area, Filter::Lanczos3] {
+        for (input, output) in [(1, 1), (7, 7), (23, 7), (7, 23), (100, 37)] {
+            for at in 0..output {
+                taps_into(input, output, at, filter, &mut scratch).unwrap();
+                assert_eq!(scratch.as_ptr(), ptr);
+                assert_eq!(scratch.capacity(), cap);
+                let expected = taps(input, output, at, filter).unwrap();
+                assert_eq!(
+                    scratch, expected,
+                    "filter={filter:?} input={input} output={output} at={at}"
+                );
+            }
+        }
+    }
+    assert!(taps_into(0, 4, 0, Filter::Area, &mut scratch).is_err());
+    assert!(taps_into(4, 0, 0, Filter::Area, &mut scratch).is_err());
+    assert!(taps_into(4, 4, 4, Filter::Area, &mut scratch).is_err());
+}
+
+#[test]
+fn footprint_handles_u32_max_bounds_in_constant_time() {
+    assert_eq!(
+        footprint(u32::MAX, u32::MAX, 100, 50, Filter::Lanczos3).unwrap(),
+        (100, 50)
+    );
+    assert_eq!(
+        footprint(1, u32::MAX, 1_000_000, 1_000, Filter::Lanczos3).unwrap(),
+        (0, 1)
+    );
+    let (start, width) = footprint(u32::MAX, 10, 5, 2, Filter::Lanczos3).unwrap();
+    assert!(width > 0);
+    assert!(start.checked_add(width).is_some());
+    assert!(footprint(0, 10, 0, 1, Filter::Area).is_err());
 }

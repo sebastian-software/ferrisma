@@ -34,8 +34,10 @@ use crate::geometry::Rect;
 use crate::graph::{Graph, NodeId};
 use crate::memory::{MemoryBudget, try_filled_vec, try_vec};
 use crate::output_depth::{EIGHT, OutputBuffer, OutputRow, max_code};
-use crate::quality::taps;
-use crate::quality_execute::{QualityReport, prepare, reserve_resize_plan, tap_entry_bound};
+use crate::quality::taps_into;
+use crate::quality_execute::{
+    Prepared, QualityReport, prepare, reserve_resize_plan, tap_entry_bound,
+};
 use crate::working_color::{
     decode_srgb, decode_straight_to_premultiplied_linear_srgb, decode_to_linear_srgb,
     encode_linear_srgb, encode_linear_srgb8, p3_to_srgb_matrix,
@@ -136,7 +138,7 @@ pub(crate) struct TapTable {
 }
 
 impl TapTable {
-    fn build(
+    pub(crate) fn build(
         input: u32,
         output: u32,
         first: u32,
@@ -155,9 +157,11 @@ impl TapTable {
             weight: try_vec(tap_entry_bound(input, output, count, filter)?)?,
         };
         table.start.push(0);
+        let mut scratch = Vec::new();
         for offset in 0..count {
             let at = first.checked_add(offset).ok_or(Error::GeometryOverflow)?;
-            for tap in taps(input, output, at, filter)? {
+            taps_into(input, output, at, filter, &mut scratch)?;
+            for tap in &scratch {
                 table
                     .index
                     .push(tap.index.checked_sub(origin).ok_or(Error::OutOfBounds)?);
@@ -271,7 +275,6 @@ pub(crate) fn execute_fast(
         return Err(Error::InvalidEncodeOptions);
     }
     let info = source.info().clone();
-    let _plan_reservation = reserve_resize_plan(graph, target, requested, budget)?;
     match (info.layout, info.alpha) {
         (ChannelLayout::Rgb, AlphaMode::Opaque) => run::<3>(
             graph,
@@ -298,11 +301,13 @@ pub(crate) fn execute_fast(
             sink,
         ),
         (ChannelLayout::Rgb | ChannelLayout::Rgba, _) => {
-            // Same order of checks as the reference: binding first.
+            // Same order of checks as the reference: reservation and binding first.
+            let _plan_reservation = reserve_resize_plan(graph, target, requested, budget)?;
             prepare(graph, target, bound_source, source, requested)?;
             Err(Error::UnsupportedAlphaMode)
         }
         _ => {
+            let _plan_reservation = reserve_resize_plan(graph, target, requested, budget)?;
             prepare(graph, target, bound_source, source, requested)?;
             Err(Error::UnsupportedPixelOperation)
         }
@@ -598,23 +603,43 @@ pub(crate) struct RowPlan {
     pub capacity: usize,
 }
 
+fn primaries_from_color(color: &ColorEncoding) -> Result<Primaries, Error> {
+    match color {
+        ColorEncoding::Cicp([1, 13, 0, 1]) => Ok(Primaries::Srgb),
+        ColorEncoding::Cicp([12, 13, 0, 1]) => Ok(Primaries::DisplayP3),
+        ColorEncoding::Cicp([1, 8, 0, 1]) => Ok(Primaries::LinearSrgb),
+        _ => Err(Error::UnsupportedColorEncoding),
+    }
+}
+
+/// True when the resize stage is a 1:1 pixel-for-pixel identity on sRGB-encoded
+/// samples with no deferred color conversion: every pixel maps directly from
+/// its single source pixel without linearization, resampling or re-encoding.
+fn is_identity_eligible(
+    plan: &Prepared,
+    requested: Rect,
+    primaries: Primaries,
+    conversion: Option<&Arc<dyn RowConversion>>,
+) -> bool {
+    conversion.is_none()
+        && primaries == Primaries::Srgb
+        && plan.input == plan.output
+        && plan.footprint == plan.resize
+        && plan.source.width == requested.width
+        && plan.source.height == requested.height
+}
+
 impl RowPlan {
-    fn new<const C: usize>(
-        graph: &Graph,
-        target: NodeId,
-        bound_source: NodeId,
-        source: &dyn DecodeSource,
+    #[allow(clippy::too_many_arguments)] // Prepared plan plus validated source/output parameters.
+    fn from_prepared<const C: usize>(
+        plan: Prepared,
+        sample: SampleType,
+        depth: u8,
+        conversion: Option<Arc<dyn RowConversion>>,
         requested: Rect,
+        primaries: Primaries,
+        color: ColorEncoding,
     ) -> Result<Self, Error> {
-        let info = source.info().clone();
-        let plan = prepare(graph, target, bound_source, source, requested)?;
-        let color = info.semantics().color;
-        let primaries = match color {
-            ColorEncoding::Cicp([1, 13, 0, 1]) => Primaries::Srgb,
-            ColorEncoding::Cicp([12, 13, 0, 1]) => Primaries::DisplayP3,
-            ColorEncoding::Cicp([1, 8, 0, 1]) => Primaries::LinearSrgb,
-            _ => return Err(Error::UnsupportedColorEncoding),
-        };
         #[allow(clippy::cast_possible_truncation)]
         let p3 = p3_to_srgb_matrix().map(|row| row.map(|value| value as f32));
 
@@ -691,9 +716,9 @@ impl RowPlan {
             capacity = capacity.max(rank(ready[row])? - rank(future_min[row])? + 1);
         }
         Ok(Self {
-            sample: info.sample,
-            depth: EIGHT,
-            conversion: None,
+            sample,
+            depth,
+            conversion,
             source_region: plan.source,
             source_y: plan.source.y,
             source_height: plan.source.height,
@@ -754,26 +779,299 @@ fn run<const C: usize>(
     depth: u8,
     sink: impl FnMut(u32, OutputRow<'_>) -> Result<(), Error>,
 ) -> Result<QualityReport, Error> {
-    let mut plan = RowPlan::new::<C>(graph, target, bound_source, source, requested)?;
-    plan.depth = depth;
+    let prepared = prepare(graph, target, bound_source, source, requested)?;
+    let info = source.info().clone();
+    let color = info.semantics().color;
+    let primaries = primaries_from_color(&color)?;
     // Take over the source's per-row conversion (the ICC transform) so that
     // it runs where the rows are linearized, on the workers when parallel.
-    if let Some(conversion) = source.defer_conversion() {
-        plan.sample = conversion.input_sample();
-        plan.conversion = Some(conversion);
+    let conversion = source.defer_conversion();
+    let sample = conversion
+        .as_ref()
+        .map_or(info.sample, |conv| conv.input_sample());
+
+    if is_identity_eligible(&prepared, requested, primaries, conversion.as_ref()) {
+        return run_identity::<C>(&prepared, sample, requested, source, budget, depth, sink);
     }
-    let (report, source_time, transform_time) =
-        if threads > 1 && plan.needed.len() >= PARALLEL_MIN_ROWS {
-            crate::parallel_execute::run::<C>(&plan, source, budget, kernels, threads, sink)?
-        } else {
-            run_sequential::<C>(&plan, source, budget, kernels, sink)?
-        };
+
+    let _plan_reservation = reserve_resize_plan(graph, target, requested, budget)?;
+    let plan = RowPlan::from_prepared::<C>(
+        prepared, sample, depth, conversion, requested, primaries, color,
+    )?;
+    let used_threads = if threads > 1 && plan.needed.len() >= PARALLEL_MIN_ROWS {
+        threads
+    } else {
+        1
+    };
+    let (report, source_time, transform_time) = if used_threads > 1 {
+        crate::parallel_execute::run::<C>(&plan, source, budget, kernels, used_threads, sink)?
+    } else {
+        run_sequential::<C>(&plan, source, budget, kernels, sink)?
+    };
     Ok(QualityReport {
         decoder: report,
         output_rows: u64::try_from(plan.output_rows).map_err(|_| Error::GeometryOverflow)?,
         decoder_requests: 1,
         peak_engine_managed_bytes: budget.snapshot().peak,
         explicit_full_frame_intermediates: 0,
+        transform_threads: used_threads,
+        used_kernels: true,
+        source_time,
+        transform_time,
+    })
+}
+
+/// Convert one 1:1 sRGB source row straight to the output row representation
+/// without linearization, resampling or re-encoding. Preserves ADR-0014
+/// transparent black (zero RGB when output alpha code is 0) and float sample
+/// validation (`InvalidAlphaValue`, `NonFinitePixelSample`).
+#[allow(clippy::too_many_lines)] // Four (input sample, output depth) arms kept explicit.
+fn identity_row<const C: usize>(
+    row: DecodedRow<'_>,
+    output: &mut OutputBuffer,
+    depth: u8,
+    u8_to_deep: &[u16; 256],
+) -> Result<(), Error> {
+    match (row, output) {
+        (DecodedRow::U8(src), OutputBuffer::U8(dst)) => {
+            let dst = dst.as_mut_slice();
+            if C == 3 {
+                for (pixel, out) in src
+                    .as_chunks::<3>()
+                    .0
+                    .iter()
+                    .zip(dst.as_chunks_mut::<4>().0)
+                {
+                    *out = [pixel[0], pixel[1], pixel[2], u8::MAX];
+                }
+            } else {
+                for (pixel, out) in src
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .zip(dst.as_chunks_mut::<4>().0)
+                {
+                    // ADR-0014: alpha byte 0 is transparent black.
+                    let mask = u8::from(pixel[3] != 0).wrapping_neg();
+                    *out = [pixel[0] & mask, pixel[1] & mask, pixel[2] & mask, pixel[3]];
+                }
+            }
+            Ok(())
+        }
+        (DecodedRow::U8(src), OutputBuffer::U16(dst)) => {
+            let max = max_code(depth);
+            let dst = dst.as_mut_slice();
+            if C == 3 {
+                for (pixel, out) in src
+                    .as_chunks::<3>()
+                    .0
+                    .iter()
+                    .zip(dst.as_chunks_mut::<4>().0)
+                {
+                    *out = [
+                        u8_to_deep[usize::from(pixel[0])],
+                        u8_to_deep[usize::from(pixel[1])],
+                        u8_to_deep[usize::from(pixel[2])],
+                        max,
+                    ];
+                }
+            } else {
+                for (pixel, out) in src
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .zip(dst.as_chunks_mut::<4>().0)
+                {
+                    // ADR-0014: alpha code 0 is transparent black. For every
+                    // depth >= 8, `u8_to_deep[a] == 0` iff `a == 0`.
+                    *out = if pixel[3] == 0 {
+                        [0, 0, 0, 0]
+                    } else {
+                        [
+                            u8_to_deep[usize::from(pixel[0])],
+                            u8_to_deep[usize::from(pixel[1])],
+                            u8_to_deep[usize::from(pixel[2])],
+                            u8_to_deep[usize::from(pixel[3])],
+                        ]
+                    };
+                }
+            }
+            Ok(())
+        }
+        (DecodedRow::F32(src), OutputBuffer::U8(dst)) => {
+            let dst = dst.as_mut_slice();
+            for (pixel, out) in src
+                .as_chunks::<C>()
+                .0
+                .iter()
+                .zip(dst.as_chunks_mut::<4>().0)
+            {
+                if C == 4 {
+                    let alpha = pixel[3];
+                    if !alpha.is_finite() || !(0.0..=1.0).contains(&alpha) {
+                        return Err(Error::InvalidAlphaValue);
+                    }
+                    if !pixel[0].is_finite() || !pixel[1].is_finite() || !pixel[2].is_finite() {
+                        return Err(Error::NonFinitePixelSample);
+                    }
+                    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                    let alpha_code = (f64::from(alpha) * 255.0).round() as u8;
+                    if alpha_code == 0 {
+                        *out = [0, 0, 0, 0];
+                    } else {
+                        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                        {
+                            *out = [
+                                (f64::from(pixel[0].clamp(0.0, 1.0)) * 255.0).round() as u8,
+                                (f64::from(pixel[1].clamp(0.0, 1.0)) * 255.0).round() as u8,
+                                (f64::from(pixel[2].clamp(0.0, 1.0)) * 255.0).round() as u8,
+                                alpha_code,
+                            ];
+                        }
+                    }
+                } else {
+                    if !pixel[0].is_finite() || !pixel[1].is_finite() || !pixel[2].is_finite() {
+                        return Err(Error::NonFinitePixelSample);
+                    }
+                    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                    {
+                        *out = [
+                            (f64::from(pixel[0].clamp(0.0, 1.0)) * 255.0).round() as u8,
+                            (f64::from(pixel[1].clamp(0.0, 1.0)) * 255.0).round() as u8,
+                            (f64::from(pixel[2].clamp(0.0, 1.0)) * 255.0).round() as u8,
+                            u8::MAX,
+                        ];
+                    }
+                }
+            }
+            Ok(())
+        }
+        (DecodedRow::F32(src), OutputBuffer::U16(dst)) => {
+            let max = max_code(depth);
+            let scale = f64::from(max);
+            let dst = dst.as_mut_slice();
+            for (pixel, out) in src
+                .as_chunks::<C>()
+                .0
+                .iter()
+                .zip(dst.as_chunks_mut::<4>().0)
+            {
+                if C == 4 {
+                    let alpha = pixel[3];
+                    if !alpha.is_finite() || !(0.0..=1.0).contains(&alpha) {
+                        return Err(Error::InvalidAlphaValue);
+                    }
+                    if !pixel[0].is_finite() || !pixel[1].is_finite() || !pixel[2].is_finite() {
+                        return Err(Error::NonFinitePixelSample);
+                    }
+                    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                    let alpha_code = (f64::from(alpha) * scale).round() as u16;
+                    if alpha_code == 0 {
+                        *out = [0, 0, 0, 0];
+                    } else {
+                        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                        {
+                            *out = [
+                                (f64::from(pixel[0].clamp(0.0, 1.0)) * scale).round() as u16,
+                                (f64::from(pixel[1].clamp(0.0, 1.0)) * scale).round() as u16,
+                                (f64::from(pixel[2].clamp(0.0, 1.0)) * scale).round() as u16,
+                                alpha_code,
+                            ];
+                        }
+                    }
+                } else {
+                    if !pixel[0].is_finite() || !pixel[1].is_finite() || !pixel[2].is_finite() {
+                        return Err(Error::NonFinitePixelSample);
+                    }
+                    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                    {
+                        *out = [
+                            (f64::from(pixel[0].clamp(0.0, 1.0)) * scale).round() as u16,
+                            (f64::from(pixel[1].clamp(0.0, 1.0)) * scale).round() as u16,
+                            (f64::from(pixel[2].clamp(0.0, 1.0)) * scale).round() as u16,
+                            max,
+                        ];
+                    }
+                }
+            }
+            Ok(())
+        }
+    }
+}
+
+/// 1:1 sRGB pass-through: streams rows straight from the decoder to the sink
+/// with only one output row buffer and no tap tables, linearization or ring
+/// buffer. Byte-identical across thread counts.
+fn run_identity<const C: usize>(
+    plan: &Prepared,
+    sample: SampleType,
+    requested: Rect,
+    source: &mut dyn DecodeSource,
+    budget: &MemoryBudget,
+    depth: u8,
+    mut sink: impl FnMut(u32, OutputRow<'_>) -> Result<(), Error>,
+) -> Result<QualityReport, Error> {
+    let output_width = usize::try_from(requested.width).map_err(|_| Error::GeometryOverflow)?;
+    let row_samples = output_width.checked_mul(4).ok_or(Error::GeometryOverflow)?;
+    let source_samples = output_width.checked_mul(C).ok_or(Error::GeometryOverflow)?;
+    let output_rows = usize::try_from(requested.height).map_err(|_| Error::GeometryOverflow)?;
+
+    let mut output = OutputBuffer::allocate(depth, row_samples, budget)?;
+    let u8_to_deep: [u16; 256] = if sample == SampleType::U8 && depth > EIGHT {
+        let max = f64::from(max_code(depth));
+        std::array::from_fn(|code| {
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            {
+                ((f64::from(u8::try_from(code).unwrap_or(u8::MAX)) / 255.0) * max).round() as u16
+            }
+        })
+    } else {
+        [0; 256]
+    };
+
+    let mut emitted = 0_usize;
+    let mut decoded_rows = 0_u32;
+    let mut expected_y = plan.source.y;
+    let mut transform_time = Duration::ZERO;
+    let read_started = Instant::now();
+    let report = source.read_region(plan.source, budget, &mut |decoder_y, row| {
+        let row_started = Instant::now();
+        if emitted >= output_rows
+            || decoder_y != expected_y
+            || row.len() != source_samples
+            || row.sample_type() != sample
+        {
+            return Err(Error::IncompleteDecoderOutput);
+        }
+        decoded_rows += 1;
+        expected_y = expected_y.checked_add(1).ok_or(Error::GeometryOverflow)?;
+
+        identity_row::<C>(row, &mut output, depth, &u8_to_deep)?;
+        let out_y = u32::try_from(emitted)
+            .ok()
+            .and_then(|offset| requested.y.checked_add(offset))
+            .ok_or(Error::GeometryOverflow)?;
+        sink(out_y, output.row())?;
+        emitted += 1;
+        transform_time += row_started.elapsed();
+        Ok(())
+    })?;
+    let source_time = read_started.elapsed().saturating_sub(transform_time);
+
+    if decoded_rows != plan.source.height
+        || emitted != output_rows
+        || report.rows != u64::from(decoded_rows)
+    {
+        return Err(Error::IncompleteDecoderOutput);
+    }
+    Ok(QualityReport {
+        decoder: report,
+        output_rows: u64::try_from(output_rows).map_err(|_| Error::GeometryOverflow)?,
+        decoder_requests: 1,
+        peak_engine_managed_bytes: budget.snapshot().peak,
+        explicit_full_frame_intermediates: 0,
+        transform_threads: 1,
+        used_kernels: false,
         source_time,
         transform_time,
     })

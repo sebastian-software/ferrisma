@@ -207,3 +207,4 @@ lowers it.
 
 - 2026-11-16 — Default budget 2 GiB (owner decision); see the amendment above.
 - 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.
+- 2026-11-26 — Under #284 (ADR-0021 amendment), `quality::footprint` no longer allocates per-position temporary tap vectors, `TapTable::build` reuses one scratch vector per axis, and 1:1 sRGB identity pass-through allocates no tap tables or scheduling vectors and therefore omits `reserve_resize_plan` (charging only its single `OutputBuffer`, reducing `peak_managed_bytes` by 30–42 MiB on 24 MP 1:1 runs).

@@ -618,6 +618,10 @@ pub enum KernelLevelReason {
     /// the machine supports an implemented level above it, which runs only
     /// on explicit request.
     DefaultCeiling,
+    /// The 1:1 sRGB identity pass-through ran without invoking the resample
+    /// kernels; [`ProcessingReport::kernel_level`] is [`KernelLevel::Scalar`]
+    /// and the CLI prints `kernel_level=none`.
+    Bypassed,
 }
 
 impl KernelLevel {
@@ -1185,7 +1189,8 @@ pub struct ProcessingReport {
     /// The executor that produced the pixels.
     pub working_precision: WorkingPrecision,
     /// SIMD level of the resample kernels and why it was chosen; the `f64`
-    /// reference executor always reports `Scalar`.
+    /// reference executor always reports `Scalar` (`Ceiling`), and the 1:1
+    /// sRGB identity pass-through reports `Scalar` (`Bypassed`).
     pub kernel_level: KernelLevel,
     /// Why `kernel_level` was selected.
     pub kernel_level_reason: KernelLevelReason,
@@ -2350,6 +2355,12 @@ fn run(
         ),
     };
     let processed = processed.map_err(|error| output_sink.explain(error))?;
+    let (kernel_level, kernel_level_reason) =
+        if options.precision == WorkingPrecision::F32 && !processed.used_kernels {
+            (KernelLevel::Scalar, KernelLevelReason::Bypassed)
+        } else {
+            (kernel_level, kernel_level_reason)
+        };
     let encode_started = Instant::now();
     let encoded_image = output_sink.finish()?;
     if encoded_image.format != output_format {
@@ -2400,7 +2411,7 @@ fn run(
         kernel_level,
         kernel_level_reason,
         encoder_threads,
-        transform_threads,
+        transform_threads: processed.transform_threads,
         decoder_backend,
         encoder_backend,
         input_depth,

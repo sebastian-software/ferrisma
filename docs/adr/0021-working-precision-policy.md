@@ -283,6 +283,59 @@ at `:82`); its PNM reader takes the depth from `maxval`
 nearest admitted depth below where the output cannot hold the input's
 (16-bit to AVIF gives 12, as `avifenc` does for a 16-bit PNG).
 
+## Amendment: 1:1 sRGB identity pass-through and single-pass tap planning (2026-11-26, #284)
+
+**1. 1:1 sRGB identity pass-through.** When the fast executor receives an exact 1:1 resize (`plan.input == plan.output`, `plan.footprint == plan.resize`, `plan.source.{width,height} == requested.{width,height}`) on sRGB-encoded samples (`ColorEncoding::Cicp([1, 13, 0, 1])`) with no deferred row conversion (`conversion.is_none()`), it streams rows directly through a single budgeted `OutputBuffer` without building tap tables, linearizing to 4×`f32`, running 1-tap horizontal/vertical resample passes, or re-encoding:
+
+- **U8 → U8:** opaque RGB packs `[r, g, b, 255]`; straight RGBA masks RGB to zero whenever `alpha == 0` (ADR-0014 transparent black).
+- **U8 → U16 (depths 9–16):** maps each byte through a 256-entry exact table `round((v / 255.0) * max)`, applying transparent black when `alpha == 0`.
+- **F32 → U8/U16:** validates straight alpha (`0.0..=1.0`, finite) and RGB finiteness in the same order as `working_color`, clamps to `[0.0, 1.0]`, zeroes RGB when the output alpha code is `0`, and quantizes via `round(f64::from(x) * max)`.
+
+Display P3 (`[12, 13, 0, 1]`), linear sRGB (`[1, 8, 0, 1]`), and deferred ICC transforms are explicitly excluded and continue to run the full linear-light executor. `HiddenColorProbe` wraps the decoder source upstream of the executor, so `Discarded::HiddenColor` reporting is unchanged. Because the identity pass-through processes every row on the decoder callback thread without invoking `ferrisma-kernels`, `ProcessingReport::transform_threads` reports `1` (without reducing the decoder's own thread allowance), `ProcessingReport::kernel_level` reports `KernelLevel::Scalar` with `KernelLevelReason::Bypassed`, and the CLI prints `kernel_level=none`. Output is byte-identical across thread counts and verified bit-exact against the `f64` oracle across all `256 × 256` U8 `(value, alpha)` pairs at depths 8, 10, 12, and 16 (`identity_passthrough_u8_rgba_and_rgb_match_f64_oracle_exhaustively`), across all 10-, 12-, and 16-bit F32 codes (`every_deep_code_survives_an_identity_transform_at_its_depth`), and within ADR-0021 rule A on arbitrary `F32` inputs.
+
+**2. Single-pass tap planning.** `quality::footprint` previously evaluated `taps()` (calling `sin()` and allocating a temporary `Vec<Tap>`) for every output column and row solely to determine min/max source indices, after which `TapTable::build` recomputed every tap with fresh temporary vectors. `quality::footprint` now short-circuits `input == output` in O(1) and otherwise scans from the output ROI edges inward using exact filter-support monotonicity (handling Lanczos3 sinc zero crossings without scanning interior positions and with zero heap allocations). `TapTable::build` reuses a single `Vec<Tap>` scratch buffer per axis via `quality::taps_into`. Verified against the brute-force `taps()` scan across both filters and all small/interior/boundary geometries (`quality_tests::footprint_matches_exhaustive_taps_scan_for_both_filters`).
+
+**3. Measurements (2026-11-26, Apple M1 Ultra, macOS arm64, release build; indicative).**
+
+Interleaved base (`cef60399`) vs head micro-benchmark (5 interleaved process runs of the identical `bench_issue_284_planning_and_identity` workload: `footprint` + `TapTable::build` for both axes, 3 warmup + 15 timed iterations median; plus synthetic 1:1 `execute_fast` runs). On this branch, run:
+
+```sh
+cargo test --release -p ferrisma --lib bench_issue_284 -- --ignored --nocapture
+```
+
+To reproduce the `cef60399` baseline column on the identical workload, check out `cef60399` in a temporary worktree, apply the minimal harness-only change (make `TapTable::build` `pub(crate)` in `src/fast_execute.rs` and append `bench_issue_284_planning_and_identity` from this branch's `src/fast_execute_tests.rs`), and run the same command:
+
+| benchmark (median of 5 interleaved runs) | base (`cef60399`) | after #284 | speedup / delta | managed peak before → after |
+| --- | ---: | ---: | ---: | ---: |
+| plan `6000×4000 → 1600×1067` Lanczos3 | 1,564 µs | 778 µs | 2.01× (−50.3 %) | — |
+| plan `6000×4000 → 1600×1067` Area | 239 µs | 55 µs | 4.35× (−77.0 %) | — |
+| plan `6000×4000 → 6000×4000` Lanczos3 | 1,252 µs | 44 µs | 28.45× (−96.5 %) | — |
+| identity `24 MP U8 RGB → U8` | 152,784 µs | 2,425 µs | 63.00× (−98.4 %) | 31,672,112 → 24,000 B |
+| identity `24 MP U8 RGBA → U8` | 210,460 µs | 4,716 µs | 44.63× (−97.8 %) | 31,672,112 → 24,000 B |
+| identity `12 MP F32 RGB → U16` | 851,933 µs | 32,675 µs | 26.07× (−96.2 %) | 22,176,112 → 32,000 B |
+| identity `12 MP F32 RGBA → U16` | 928,860 µs | 42,773 µs | 21.72× (−95.4 %) | 22,176,112 → 32,000 B |
+
+Interleaved CLI A/B (5 repetitions, `/usr/bin/time -l`, bit-identical output SHA-256 on every case; synthetic 24 MP 8-bit AVIF and 12 MP 16-bit lossless JXL derived from committed `tests/fixtures/decoder-work/paris-420.jpg`, plus committed `tests/fixtures/jxl-deep/d16-2049x40-a1-lossless.jxl`):
+
+```sh
+# Generate deterministic inputs from committed fixture:
+target/release/ferrisma tests/fixtures/decoder-work/paris-420.jpg /tmp/bench-24mp-8b.avif 6000 4000 --assume-srgb --avif-depth=8 --avif-speed=10 --avif-chroma=420 --encoder-threads=0
+target/release/ferrisma tests/fixtures/decoder-work/paris-420.jpg /tmp/bench-12mp-16b.jxl 4000 3000 --assume-srgb --jxl-lossless --jxl-depth=16
+
+# 1:1 cases timed under /usr/bin/time -l (t1 = --transform-threads=1, t0 = --transform-threads=0):
+target/release/ferrisma /tmp/bench-24mp-8b.avif /tmp/out.webp 6000 4000 --webp-quality=75 --webp-method=0 --transform-threads=1
+target/release/ferrisma /tmp/bench-12mp-16b.jxl /tmp/out.jxl 4000 3000 --jxl-lossless --transform-threads=1
+target/release/ferrisma tests/fixtures/jxl-deep/d16-2049x40-a1-lossless.jxl /tmp/out.jxl 2049 40 --jxl-lossless --transform-threads=1
+```
+
+| case (median of 5 interleaved runs) | `transform_us` before → after | `total_us` before → after | `peak_managed_bytes` before → after | max RSS before → after | output SHA-256 |
+| --- | ---: | ---: | ---: | ---: | --- |
+| 24 MP 8-bit AVIF → WebP 1:1 (`t1`) | 164,079 → 8,885 (−94.6 %, 18.5×) | 774,270 → 606,723 (−21.6 %) | 199.7 → 168.0 MB (−30.2 MiB) | 309.3 → 308.7 MiB | identical |
+| 24 MP 8-bit AVIF → WebP 1:1 (`t0`) | 25,848 → 8,804 (−65.9 %, 2.9×) | 489,719 → 457,329 (−6.6 %) | 212.1 → 168.0 MB (−42.0 MiB) | 333.9 → 319.4 MiB (−14.5 MiB) | identical |
+| 12 MP 16-bit JXL → JXL 1:1 (`t1`) | 850,336 → 34,407 (−96.0 %, 24.7×) | 2,234,323 → 1,435,981 (−35.7 %) | 778.7 → 778.7 MB | 681.5 → 694.9 MiB | identical |
+| 12 MP 16-bit JXL → JXL 1:1 (`t0`) | 75,016 → 33,497 (−55.3 %, 2.2×) | 1,452,269 → 1,419,498 (−2.3 %) | 778.7 → 778.7 MB | 664.4 → 666.8 MiB | identical |
+| `d16-2049x40-a1-lossless.jxl` 1:1 (`t1`) | 6,303 → 275 (−95.6 %, 22.9×) | 21,894 → 15,028 (−31.4 %) | 21.2 → 21.2 MB | 15.8 → 14.5 MiB (−1.3 MiB) | identical |
+
 ## Amendment log
 
 - 2026-11-05 — Initial proposal: `f32` as the working type, a Q1.14 fixed-point path for opaque 8-bit sRGB and Display P3 input with a per-plan integer interval bound, exact lookup tables, and a testable bound, backed by the precision experiment.
@@ -291,3 +344,4 @@ nearest admitted depth below where the output cannot hold the input's
 - 2026-11-06 — **Q1.14 dropped (rule 2 withdrawn).** The first review trigger fired: work package 3 measured the Q1.14 chain below 1.25× the `f32` chain on every hardware class. Prototype kernels (`i16` samples and weights, `i32` sums, one rounding shift; plain loops vectorized by LLVM inside each level's `#[target_feature]` entry, bit-identical across levels) were timed by `crates/ferrisma-kernels/examples/bench.rs` on a 6000×4000 to 1600×1067 Lanczos3 resample, horizontal + vertical ms, f32 against Q1.14: Apple M1 NEON 61.7 + 13.6 against 61.9 + 11.3 (1.03×); x86-64 hosted runner ([run 42179398696](https://github.com/sebastian-software/ferrisma/actions/runs/42179398696)) AVX2 53.2 + 15.6 against 126.9 + 8.0 (0.51×) and AVX-512 37.7 + 13.2 against 83.8 + 5.9 (0.57×); `ubuntu-24.04-arm` (Neoverse with SVE2) NEON 78.3 + 20.1 against 124.7 + 14.5 (0.71×). The vertical integer pass was faster everywhere (1.2–2.2×), the horizontal integer pass slower everywhere: one tap per pixel costs one instruction in both formats on NEON, and the `f32` FMA kernels with two or four taps per vector beat LLVM's integer code on x86-64. A hand-written `vpmaddwd` horizontal kernel was not tried; it is the condition for reopening rule 2 (new review trigger: a hand-written integer horizontal kernel measured faster than the `f32` one on some hardware class). Rule 1 (`f32` everywhere), rule 3's `f32` tables and the bound of rule 4 for `f32` paths stand and are implemented; the Q1.14 tables, eligibility rules and report fields are not built. The precision experiment stays as evidence.
 - 2026-11-15 — Output depth follows the input (owner decision): one quantization for every depth, `u16` rows above 8 bits, per-depth shares of rules B to D with rule A unchanged, the public depth fields and the backend additions; see the amendment above. The 8-bit path is unchanged bit for bit.
 - 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.
+- 2026-11-26 — Added 1:1 sRGB identity pass-through in `fast_execute` and zero-allocation boundary `quality::footprint` / scratch-reusing `TapTable::build` (#284); see the amendment above for semantics and reproducible benchmarks.

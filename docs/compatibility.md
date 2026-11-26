@@ -318,8 +318,9 @@ Cargo does not apply Ferrisma's workspace profiles to dependents.
   name taken from an enum is the command's own lower-case, hyphenated
   value, so renaming a Rust variant cannot change it: `precision=` `f32` or
   `f64-reference`; `kernel_level=` `scalar`, `neon`, `avx2`,
-  `avx512` (the names of `--kernel-level=`; `sve2`, which no run reported,
-  is no longer a value since 2026-11-16); `color_signal=` `cicp`,
+  `avx512`, or `none` when the 1:1 sRGB identity pass-through bypassed the
+  resample kernels (the level names match `--kernel-level=`; `sve2`, which no
+  run reported, is no longer a value since 2026-11-16); `color_signal=` `cicp`,
   `assumed-srgb`, `rendered-icc`, `rendered-icc-with-agreeing-cicp`;
   `discarded=` a comma-separated list of `gain-map`, `exif`, `xmp`,
   `other-metadata`, `icc-profile`, `unknown-container-data`,
