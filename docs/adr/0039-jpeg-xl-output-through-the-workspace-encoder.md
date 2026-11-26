@@ -270,7 +270,7 @@ Evidence on macOS ARM64, 2026-11-12, debug profile:
   lists ported units with unrecorded `fmuladd` sites. The admitted lossless
   path converts integers exactly; the open maps matter for the lossy steps.
 
-Not verified: x86-64, a C++ decoder (`djxl`) on engine output, the hosted
+Not verified: a C++ decoder (`djxl`) on engine output, the hosted
 fuzz lanes (#65; the `transcode_jxl_out` lane and a bounded local ASan run of
 it, 2026-11-15, are in [fuzzing](../fuzzing.md#jpeg-xl-output-lane)), and any
 speed or peak-RSS figure. No performance claim is made.
@@ -319,8 +319,7 @@ Lossy evidence, macOS ARM64, 2026-11-12, debug profile:
   and the same with `--all-targets` for the engine and the bridge succeed:
   the feature stays stable-compatible.
 
-Not verified for lossy: x86-64 (the port's lossy parity is recorded on macOS
-AArch64 only), a C++ decoder on engine output, the encoder's actual peak
+Not verified for lossy: a C++ decoder on engine output, the encoder's actual peak
 allocation against the estimate, fuzzing of the encoder path, and any speed
 figure.
 
@@ -388,7 +387,7 @@ amendment), or the port's encoder starts selecting SIMD by default.
 
 - Encoder step 6 (color profiles, ICC and HDR input): #113.
 - Encoder step 13 (parallel runner, allocator, statistics): #106.
-- Not implemented and untracked: float output, ICC output, patch encoding (patches are off), and byte identity with the original on x86-64.
+- Not implemented and untracked: float output, ICC output, patch encoding (patches are off). On x86-64, the port's encoder SIMD gate (44 `simd_encoder*` and 11 further encoder tests against the AVX2 build of the original) passes on hosted hardware since nightly 44890912987 ([quality gate](../quality-gate.md), #276).
 
 ## Amendment log
 
