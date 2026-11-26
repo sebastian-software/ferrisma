@@ -63,9 +63,12 @@ const REFERENCE_CACHE: usize = 2 * std::mem::size_of::<CachedRow>();
 // this charge, as do the separately budgeted pixel payloads.
 const SHARED_ROW: usize =
     2 * (std::mem::size_of::<ManagedBuffer<f32>>() + 2 * std::mem::size_of::<usize>());
+// `Driver::ready` stores `Option<Row>` and `Job::Vertical` holds `Vec<Row>`
+// (weights come directly from `plan.vertical_taps(row)` and the vertical
+// kernels chunk rows through a fixed-size stack slice buffer).
 const PARALLEL_REFERENCES: usize =
     std::mem::size_of::<Option<std::sync::Arc<ManagedBuffer<f32>>>>()
-        + std::mem::size_of::<(std::sync::Arc<ManagedBuffer<f32>>, f32)>();
+        + std::mem::size_of::<std::sync::Arc<ManagedBuffer<f32>>>();
 const ENTRY_BYTES: usize = TAP_STORAGE
     + FLAT_AND_SIMD
     + RANK_AND_NEEDED
