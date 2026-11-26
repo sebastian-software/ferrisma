@@ -1433,3 +1433,591 @@ fn the_encoder_is_one_function_for_every_depth() {
         Err(Error::NonFinitePixelSample)
     );
 }
+
+// ---------------------------------------------------------------------------
+// 1:1 sRGB identity pass-through (#284).
+
+/// Every `(value, alpha)` pair in `0..=255 × 0..=255` through the 1:1 identity
+/// pass-through matches the `f64` oracle bit-for-bit at depths 8, 10, 12 and
+/// 16, including ADR-0014 transparent black when `alpha == 0`.
+#[test]
+fn identity_passthrough_u8_rgba_and_rgb_match_f64_oracle_exhaustively() {
+    let mut rgba_data = Vec::with_capacity(256 * 256 * 4);
+    for a in 0..=255_u8 {
+        for v in 0..=255_u8 {
+            rgba_data.extend_from_slice(&[v, v.wrapping_mul(3), 255 - v, a]);
+        }
+    }
+    let rgba_size = Size::new(256, 256).unwrap();
+    let rgba_source = TestSource::new(rgba_size, ChannelLayout::Rgba, SRGB, Samples::U8(rgba_data));
+
+    let mut opaque_data = Vec::with_capacity(256 * 3);
+    for v in 0..=255_u8 {
+        opaque_data.extend_from_slice(&[v, 255 - v, v.rotate_left(3)]);
+    }
+    let opaque_size = Size::new(256, 1).unwrap();
+    let opaque_source = TestSource::new(
+        opaque_size,
+        ChannelLayout::Rgb,
+        SRGB,
+        Samples::U8(opaque_data),
+    );
+
+    let kernels = Kernels::best();
+    for depth in [8_u8, 10, 12, 16] {
+        for (source, size) in [(&rgba_source, rgba_size), (&opaque_source, opaque_size)] {
+            let oracle = render_depth(source, None, size, Filter::Lanczos3, None, depth);
+            let fast_seq = render_depth(
+                source,
+                None,
+                size,
+                Filter::Lanczos3,
+                Some((&kernels, 1)),
+                depth,
+            );
+            let fast_par = render_depth(
+                source,
+                None,
+                size,
+                Filter::Lanczos3,
+                Some((&kernels, 4)),
+                depth,
+            );
+            assert_eq!(fast_seq, oracle, "depth={depth} size={size:?} seq");
+            assert_eq!(fast_par, oracle, "depth={depth} size={size:?} par");
+        }
+    }
+}
+
+/// 1:1 identity with a pre-resize crop and a sub-rectangle `requested` region
+/// matches the `f64` oracle, delivers exact output `y` coordinates, and
+/// allocates only a single output row buffer in the managed budget.
+#[test]
+fn identity_passthrough_crop_subrect_and_memory_match_contract() {
+    let size = Size::new(40, 30).unwrap();
+    let mut rng = Rng(0xD1B5_4A32_D192_ED03);
+    let u8_rgb: Vec<u8> = (0..(40 * 30 * 3)).map(|_| rng.byte(256)).collect();
+    let u8_rgba: Vec<u8> = (0..(40 * 30 * 4)).map(|_| rng.byte(256)).collect();
+    let f32_rgba: Vec<f32> = (0..(40 * 30 * 4))
+        .map(|i| {
+            if i % 4 == 3 {
+                if (i / 4) % 11 == 0 { 0.0 } else { rng.unit() }
+            } else {
+                rng.unit()
+            }
+        })
+        .collect();
+    let crop = Rect::new(5, 7, 23, 19).unwrap();
+    let out_size = Size::new(23, 19).unwrap();
+    let requested = Rect::new(3, 4, 11, 9).unwrap();
+    let kernels = Kernels::best();
+
+    for (name, source) in [
+        (
+            "u8 rgb",
+            TestSource::new(size, ChannelLayout::Rgb, SRGB, Samples::U8(u8_rgb)),
+        ),
+        (
+            "u8 rgba",
+            TestSource::new(size, ChannelLayout::Rgba, SRGB, Samples::U8(u8_rgba)),
+        ),
+        (
+            "f32 rgba",
+            TestSource::new(size, ChannelLayout::Rgba, SRGB, Samples::F32(f32_rgba)),
+        ),
+    ] {
+        for depth in [8_u8, 16] {
+            let (graph, input, target) = graph_for(&source, Some(crop), out_size, Filter::Lanczos3);
+
+            let mut oracle_src = source.clone();
+            let oracle_budget = MemoryBudget::new(64 << 20);
+            let mut oracle_rows = Vec::new();
+            let mut oracle_ys = Vec::new();
+            execute_quality(
+                &graph,
+                target,
+                input,
+                &mut oracle_src,
+                requested,
+                &oracle_budget,
+                depth,
+                |y, row| {
+                    oracle_ys.push(y);
+                    match row {
+                        OutputRow::U8(b) => oracle_rows.extend(b.iter().map(|&v| u16::from(v))),
+                        OutputRow::U16(s) => oracle_rows.extend_from_slice(s),
+                    }
+                    Ok(())
+                },
+            )
+            .unwrap();
+
+            let mut fast_src = source.clone();
+            let fast_budget = MemoryBudget::new(64 << 20);
+            let mut fast_rows = Vec::new();
+            let mut fast_ys = Vec::new();
+            let report = execute_fast(
+                &graph,
+                target,
+                input,
+                &mut fast_src,
+                requested,
+                &fast_budget,
+                &kernels,
+                4,
+                depth,
+                |y, row| {
+                    fast_ys.push(y);
+                    match row {
+                        OutputRow::U8(b) => fast_rows.extend(b.iter().map(|&v| u16::from(v))),
+                        OutputRow::U16(s) => fast_rows.extend_from_slice(s),
+                    }
+                    Ok(())
+                },
+            )
+            .unwrap();
+
+            assert_eq!(fast_ys, oracle_ys, "{name} depth={depth}");
+            assert_eq!(fast_src.calls, 1);
+            assert_eq!(report.decoder_requests, 1);
+            assert_eq!(report.output_rows, u64::from(requested.height));
+            assert_eq!(fast_budget.snapshot().live, 0);
+            let expected_row_bytes = (requested.width as usize) * 4 * if depth > 8 { 2 } else { 1 };
+            assert_eq!(
+                report.peak_engine_managed_bytes, expected_row_bytes,
+                "{name} depth={depth}: identity path must only allocate one output row"
+            );
+            for (expected, actual) in oracle_rows.iter().zip(&fast_rows) {
+                assert!(
+                    expected.abs_diff(*actual) <= 1,
+                    "{name} depth={depth}: oracle={expected} fast={actual}"
+                );
+            }
+            if source.info.sample == SampleType::U8 {
+                assert_eq!(fast_rows, oracle_rows, "{name} depth={depth} must be exact");
+            }
+        }
+    }
+}
+
+/// Non-finite samples and invalid alpha on the 1:1 identity path fail with the
+/// same errors as the reference executor.
+#[test]
+fn identity_passthrough_validates_float_errors() {
+    let kernels = Kernels::best();
+    let run_err = |source: &TestSource, depth: u8| -> Error {
+        let size = source.info.size;
+        let (graph, input, target) = graph_for(source, None, size, Filter::Lanczos3);
+        let mut src = source.clone();
+        let budget = MemoryBudget::new(1 << 20);
+        let err = execute_fast(
+            &graph,
+            target,
+            input,
+            &mut src,
+            Rect::new(0, 0, size.width, size.height).unwrap(),
+            &budget,
+            &kernels,
+            1,
+            depth,
+            |_, _| Ok(()),
+        )
+        .unwrap_err();
+        assert_eq!(budget.snapshot().live, 0);
+        err
+    };
+
+    // Non-finite RGB sample.
+    let nan_rgb = TestSource::new(
+        Size::new(2, 2).unwrap(),
+        ChannelLayout::Rgb,
+        SRGB,
+        Samples::F32(vec![
+            0.2,
+            0.3,
+            0.4,
+            0.5,
+            f32::NAN,
+            0.5,
+            0.1,
+            0.2,
+            0.3,
+            0.4,
+            0.5,
+            0.6,
+        ]),
+    );
+    for depth in [8_u8, 16] {
+        assert_eq!(run_err(&nan_rgb, depth), Error::NonFinitePixelSample);
+    }
+
+    // Invalid alpha takes precedence over non-finite RGB, matching `working_color`.
+    for bad_alpha in [-0.01_f32, 1.01, f32::NAN, f32::INFINITY] {
+        let bad = TestSource::new(
+            Size::new(1, 1).unwrap(),
+            ChannelLayout::Rgba,
+            SRGB,
+            Samples::F32(vec![f32::NAN, 0.0, 0.0, bad_alpha]),
+        );
+        assert_eq!(
+            run_err(&bad, 8),
+            Error::InvalidAlphaValue,
+            "alpha={bad_alpha}"
+        );
+    }
+
+    // Zero alpha with non-finite RGB is still rejected.
+    let zero_alpha_nan = TestSource::new(
+        Size::new(1, 1).unwrap(),
+        ChannelLayout::Rgba,
+        SRGB,
+        Samples::F32(vec![f32::INFINITY, 0.0, 0.0, 0.0]),
+    );
+    assert_eq!(run_err(&zero_alpha_nan, 16), Error::NonFinitePixelSample);
+}
+
+/// Transparent-black clamping, budget admission and sink cancellation on the
+/// 1:1 identity path release all managed buffers cleanly.
+#[test]
+fn identity_passthrough_enforces_clamping_budget_and_cancellation() {
+    let kernels = Kernels::best();
+    // Tiny positive alpha rounds to 0 at 8 bits (transparent black) and to 7 at 16 bits.
+    let tiny_alpha = TestSource::new(
+        Size::new(1, 1).unwrap(),
+        ChannelLayout::Rgba,
+        SRGB,
+        Samples::F32(vec![1.5, -0.5, 0.5, 1.0e-4]),
+    );
+    let out8 = render_depth(
+        &tiny_alpha,
+        None,
+        Size::new(1, 1).unwrap(),
+        Filter::Lanczos3,
+        Some((&kernels, 1)),
+        8,
+    );
+    assert_eq!(out8, vec![0, 0, 0, 0]);
+    let out16 = render_depth(
+        &tiny_alpha,
+        None,
+        Size::new(1, 1).unwrap(),
+        Filter::Lanczos3,
+        Some((&kernels, 1)),
+        16,
+    );
+    assert_eq!(out16, vec![65_535, 0, 32_768, 7]);
+
+    // Budget smaller than one output row fails before calling the decoder.
+    let valid = TestSource::new(
+        Size::new(16, 4).unwrap(),
+        ChannelLayout::Rgb,
+        SRGB,
+        Samples::U8(vec![128; 16 * 4 * 3]),
+    );
+    let (g, i, t) = graph_for(&valid, None, Size::new(16, 4).unwrap(), Filter::Lanczos3);
+    let mut src = valid.clone();
+    let tiny_budget = MemoryBudget::new(16);
+    assert!(matches!(
+        execute_fast(
+            &g,
+            t,
+            i,
+            &mut src,
+            Rect::new(0, 0, 16, 4).unwrap(),
+            &tiny_budget,
+            &kernels,
+            1,
+            8,
+            |_, _| Ok(()),
+        ),
+        Err(Error::BudgetExceeded { .. })
+    ));
+    assert_eq!(src.calls, 0);
+    assert_eq!(tiny_budget.snapshot().live, 0);
+
+    // Sink cancellation stops cleanly and releases the output row buffer.
+    let mut src = valid;
+    let budget = MemoryBudget::new(1 << 20);
+    let mut calls = 0;
+    assert_eq!(
+        execute_fast(
+            &g,
+            t,
+            i,
+            &mut src,
+            Rect::new(0, 0, 16, 4).unwrap(),
+            &budget,
+            &kernels,
+            1,
+            8,
+            |_, _| {
+                calls += 1;
+                if calls == 2 {
+                    return Err(Error::Cancelled);
+                }
+                Ok(())
+            },
+        ),
+        Err(Error::Cancelled)
+    );
+    assert_eq!(calls, 2);
+    assert_eq!(budget.snapshot().live, 0);
+}
+
+/// Display P3, Linear sRGB and deferred ICC inputs at 1:1 geometry must NEVER
+/// bypass their color transform.
+#[test]
+fn identity_passthrough_does_not_bypass_p3_or_linear_srgb() {
+    let kernels = Kernels::best();
+    let size = Size::new(4, 2).unwrap();
+
+    // Display P3 saturated green differs substantially from sRGB green.
+    let p3_src = TestSource::new(
+        size,
+        ChannelLayout::Rgb,
+        P3,
+        Samples::U8([0, 255, 0, 255, 0, 0, 0, 0, 255, 180, 90, 40].repeat(2)),
+    );
+    let p3_oracle = render_depth(&p3_src, None, size, Filter::Lanczos3, None, 8);
+    let p3_fast = render_depth(
+        &p3_src,
+        None,
+        size,
+        Filter::Lanczos3,
+        Some((&kernels, 1)),
+        8,
+    );
+    assert_eq!(p3_fast, p3_oracle);
+    // P3 red `[255, 0, 0]` maps differently in linear sRGB than raw `[255, 0, 0]`
+    // and P3 `[180, 90, 40]` must visibly shift.
+    assert_ne!(&p3_fast[12..15], &[180, 90, 40]);
+
+    // Linear sRGB mid-light 0.5 encodes to ~188 in sRGB8, not 128.
+    let linear_src = TestSource::new(
+        size,
+        ChannelLayout::Rgb,
+        [1, 8, 0, 1],
+        Samples::F32(vec![0.5; 4 * 2 * 3]),
+    );
+    let lin_oracle = render_depth(&linear_src, None, size, Filter::Lanczos3, None, 8);
+    let lin_fast = render_depth(
+        &linear_src,
+        None,
+        size,
+        Filter::Lanczos3,
+        Some((&kernels, 1)),
+        8,
+    );
+    assert_eq!(lin_fast, lin_oracle);
+    assert_eq!(lin_fast[0], 188);
+}
+
+#[cfg(feature = "icc")]
+#[test]
+fn identity_passthrough_does_not_bypass_deferred_icc_at_1_to_1() {
+    use crate::cms::IccSrgbSource;
+    let size = Size::new(8, 4).unwrap();
+    let mut raw = TestSource::new(
+        size,
+        ChannelLayout::Rgb,
+        SRGB,
+        Samples::U8([180, 90, 40, 0, 220, 50].repeat(16)),
+    );
+    raw.info.rendered_icc = Some(include_bytes!("../tests/fixtures/icc/DisplayP3-v4.icc").to_vec());
+    raw.info.rendered_cicp = None;
+
+    let kernels = Kernels::best();
+    let run_icc = |fast: Option<usize>| -> Vec<u8> {
+        let mut source = IccSrgbSource::new(Box::new(raw.clone())).unwrap();
+        let (graph, input, target) = graph_for_info(source.info(), None, size, Filter::Lanczos3);
+        let budget = MemoryBudget::new(64 << 20);
+        let request = Rect::new(0, 0, size.width, size.height).unwrap();
+        let mut pixels = Vec::new();
+        if let Some(threads) = fast {
+            execute_fast_srgb8(
+                &graph,
+                target,
+                input,
+                &mut source,
+                request,
+                &budget,
+                &kernels,
+                threads,
+                |_, row| {
+                    pixels.extend_from_slice(row);
+                    Ok(())
+                },
+            )
+            .unwrap();
+        } else {
+            execute_quality_srgb8(
+                &graph,
+                target,
+                input,
+                &mut source,
+                request,
+                &budget,
+                |_, row| {
+                    pixels.extend_from_slice(row);
+                    Ok(())
+                },
+            )
+            .unwrap();
+        }
+        pixels
+    };
+    let oracle = run_icc(None);
+    let fast1 = run_icc(Some(1));
+    let fast4 = run_icc(Some(4));
+    assert_eq!(fast1, fast4);
+    assert!(fast1.iter().zip(&oracle).all(|(&a, &b)| a.abs_diff(b) <= 1));
+    assert_ne!(&fast1[..3], &[180, 90, 40]);
+}
+
+/// Reproducible micro-benchmark for issue #284: planning (`footprint` +
+/// `TapTable::build`) on 6000×4000 geometries and 1:1 identity execution on
+/// 24 MP 8-bit and 12 MP 16-bit synthetic sources.
+///
+/// Run with:
+/// `cargo test --release -p ferrisma --lib bench_issue_284 -- --ignored --nocapture`
+#[test]
+#[ignore = "manual benchmark for issue #284"]
+#[allow(clippy::too_many_lines)] // Self-contained micro-benchmark driver.
+fn bench_issue_284_planning_and_identity() {
+    use crate::fast_execute::TapTable;
+    use crate::quality::{footprint, taps};
+    use std::hint::black_box;
+    use std::time::Instant;
+
+    const ITERS: u32 = 10;
+
+    // 1. Planning: new footprint + TapTable::build vs old full-scan footprint + per-position taps().
+    for (label, iw, ih, ow, oh, filter) in [
+        (
+            "6000x4000->1600x1067 Lanczos3",
+            6000,
+            4000,
+            1600,
+            1067,
+            Filter::Lanczos3,
+        ),
+        (
+            "6000x4000->1600x1067 Area",
+            6000,
+            4000,
+            1600,
+            1067,
+            Filter::Area,
+        ),
+        (
+            "6000x4000->6000x4000 Lanczos3",
+            6000,
+            4000,
+            6000,
+            4000,
+            Filter::Lanczos3,
+        ),
+    ] {
+        let old_started = Instant::now();
+        for _ in 0..ITERS {
+            // Simulate previous footprint (full taps() scan per axis) + TapTable::build (taps() per pos).
+            for (inp, out) in [(iw, ow), (ih, oh)] {
+                let mut first = u32::MAX;
+                let mut last = 0_u32;
+                for at in 0..out {
+                    let w = taps(inp, out, at, filter).unwrap();
+                    first = first.min(w.first().unwrap().index);
+                    last = last.max(w.last().unwrap().index);
+                }
+                black_box((first, last));
+                for at in 0..out {
+                    black_box(taps(inp, out, at, filter).unwrap());
+                }
+            }
+        }
+        let old_us = old_started.elapsed().as_micros() / u128::from(ITERS);
+
+        let new_started = Instant::now();
+        for _ in 0..ITERS {
+            let fx = footprint(iw, ow, 0, ow, filter).unwrap();
+            let fy = footprint(ih, oh, 0, oh, filter).unwrap();
+            let cols = TapTable::build(iw, ow, 0, ow, filter, fx.0).unwrap();
+            let rows = TapTable::build(ih, oh, 0, oh, filter, 0).unwrap();
+            black_box((fx, fy, cols, rows));
+        }
+        let new_us = new_started.elapsed().as_micros() / u128::from(ITERS);
+        eprintln!("plan {label}: baseline={old_us} us, new={new_us} us");
+    }
+
+    // 2. 1:1 identity execution on 24 MP U8 RGB/RGBA and 12 MP F32 16-bit RGB/RGBA.
+    let kernels = Kernels::best();
+    let run_id = |label: &str, size: Size, layout: ChannelLayout, samples: Samples, depth: u8| {
+        let mut src = TestSource::new(size, layout, SRGB, samples);
+        let (graph, input, target) = graph_for(&src, None, size, Filter::Lanczos3);
+        let budget = MemoryBudget::new(256 << 20);
+        let request = Rect::new(0, 0, size.width, size.height).unwrap();
+        let mut checksum = 0_u64;
+        let report = execute_fast(
+            &graph,
+            target,
+            input,
+            &mut src,
+            request,
+            &budget,
+            &kernels,
+            1,
+            depth,
+            |_, row| {
+                match row {
+                    OutputRow::U8(b) => {
+                        checksum =
+                            checksum.wrapping_add(u64::from(b[0]) + u64::from(b[b.len() - 1]));
+                    }
+                    OutputRow::U16(s) => {
+                        checksum =
+                            checksum.wrapping_add(u64::from(s[0]) + u64::from(s[s.len() - 1]));
+                    }
+                }
+                Ok(())
+            },
+        )
+        .unwrap();
+        black_box(checksum);
+        eprintln!(
+            "identity {label}: transform_us={} peak_managed_bytes={}",
+            report.transform_time.as_micros(),
+            report.peak_engine_managed_bytes
+        );
+    };
+
+    let s24 = Size::new(6000, 4000).unwrap();
+    run_id(
+        "24MP U8 RGB->U8",
+        s24,
+        ChannelLayout::Rgb,
+        Samples::U8(vec![123; 6000 * 4000 * 3]),
+        8,
+    );
+    run_id(
+        "24MP U8 RGBA->U8",
+        s24,
+        ChannelLayout::Rgba,
+        Samples::U8(vec![123; 6000 * 4000 * 4]),
+        8,
+    );
+    let s12 = Size::new(4000, 3000).unwrap();
+    run_id(
+        "12MP F32 RGB->U16",
+        s12,
+        ChannelLayout::Rgb,
+        Samples::F32(vec![0.5; 4000 * 3000 * 3]),
+        16,
+    );
+    run_id(
+        "12MP F32 RGBA->U16",
+        s12,
+        ChannelLayout::Rgba,
+        Samples::F32(vec![0.5; 4000 * 3000 * 4]),
+        16,
+    );
+}
