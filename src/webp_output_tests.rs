@@ -1,13 +1,12 @@
 use webp::api::decode::{ColorMode, Config as DecodeConfig, Container, decode};
-use webp::api::encode::{PixelLayout, PixelRows, encode_lossless};
+use webp::api::encode::{PixelLayout, PixelRows, encode_lossless, encode_lossy};
 
 use crate::geometry::Size;
 use crate::memory::MemoryBudget;
-use crate::pipeline::Threads;
 use crate::pipeline::{
-    EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat, InputProfilePolicy,
-    OutputFormat, ProcessingErrorKind, RowEncoder, TransformOptions, WebpOptions, transcode,
-    transcode_with,
+    BatchItem, EncodeError, EncodeRequest, EncodedImage, EncoderBackend, Engine, ImageFormat,
+    InputProfilePolicy, OutputFormat, ProcessingErrorKind, RowEncoder, Threads, TransformOptions,
+    WebpOptions, transcode, transcode_with,
 };
 use crate::pipeline::{OutputGeometry, OutputSettings, WebpLossless};
 use crate::webp_sink::WebpSink;
@@ -189,4 +188,77 @@ fn lossy_converted_planes_are_reserved_before_encoding() {
     assert!(sink.finish().is_err());
     assert_eq!(budget.snapshot().live, 0);
     assert_eq!(budget.snapshot().peak, 256);
+}
+
+#[test]
+fn multithreaded_webp_transcode_matches_single_threaded_for_lossy_and_lossless() {
+    let (width, height) = (545_u32, 81_u32);
+    let make_input = |alpha: bool, lossy: bool| -> Vec<u8> {
+        let channels = if alpha { 4 } else { 3 };
+        let mut pixels = Vec::with_capacity(width as usize * height as usize * channels);
+        for y in 0..height {
+            for x in 0..width {
+                pixels.extend_from_slice(&[
+                    u8::try_from((x * 7 + y * 13) % 256).unwrap(),
+                    u8::try_from(((x * 19) ^ (y * 29)) % 256).unwrap(),
+                    u8::try_from((x * 3 + y * 5) % 256).unwrap(),
+                ]);
+                if alpha {
+                    pixels.push(u8::try_from((x * 11 + y * 17) % 256).unwrap());
+                }
+            }
+        }
+        let rows = PixelRows {
+            layout: if alpha {
+                PixelLayout::Rgba
+            } else {
+                PixelLayout::Rgb
+            },
+            data: &pixels,
+            width,
+            height,
+            stride: width as usize * channels,
+        };
+        if lossy {
+            encode_lossy(rows, 78.0).unwrap()
+        } else {
+            encode_lossless(rows).unwrap()
+        }
+    };
+    let four = Threads::Count(std::num::NonZeroUsize::new(4).unwrap());
+    let two = Threads::Count(std::num::NonZeroUsize::new(2).unwrap());
+    let base = TransformOptions::new(OutputGeometry::Exact {
+        width: 256,
+        height: 48,
+    })
+    .with_output(OutputSettings::WebP(WebpOptions::default()))
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing);
+
+    for (alpha, lossy) in [(false, true), (true, true), (false, false), (true, false)] {
+        let encoded = make_input(alpha, lossy);
+        let single = transcode(
+            &encoded,
+            ImageFormat::WebP,
+            &base.clone().with_transform_threads(Threads::ONE),
+        )
+        .unwrap();
+        let multi = transcode(
+            &encoded,
+            ImageFormat::WebP,
+            &base.clone().with_transform_threads(four),
+        )
+        .unwrap();
+        assert_eq!(
+            multi.bytes, single.bytes,
+            "alpha={alpha} lossy={lossy}: multithreaded WebP transcode changed bytes"
+        );
+        let batch = Engine::new(two).unwrap().transcode_batch(&[BatchItem::new(
+            &encoded,
+            ImageFormat::WebP,
+            base.clone().with_transform_threads(four),
+        )]);
+        let batched = batch.into_iter().next().unwrap().unwrap();
+        assert_eq!(batched.bytes, single.bytes);
+        assert_eq!(batched.report.transform_threads, 1);
+    }
 }
