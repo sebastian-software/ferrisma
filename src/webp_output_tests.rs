@@ -9,7 +9,7 @@ use crate::pipeline::{
     WebpOptions, transcode, transcode_with,
 };
 use crate::pipeline::{OutputGeometry, OutputSettings, WebpLossless};
-use crate::webp_sink::WebpSink;
+use crate::webp_sink::{WebpSink, encode_webp_chunks};
 
 struct RgbaBackend;
 struct RgbaRows(Vec<u8>);
@@ -345,4 +345,77 @@ fn multi_chunk_webp_sink_output_is_exact_and_deterministic() {
             assert_eq!(actual, rgba);
         }
     }
+}
+
+#[test]
+fn webp_chunk_writer_reserves_padded_riff_size_without_pad_reallocation() {
+    use webp::api::encode::{Config, Picture, Preset};
+
+    // 130x96 with this generator produces an odd VP8L chunk length and a
+    // trailing 1-byte RIFF pad chunk; without reserving the checked padded RIFF
+    // size from the first header, that final byte would double Vec capacity.
+    let (width, height) = (130_u32, 96_u32);
+    let make_argb = |alpha: bool| -> Vec<u32> {
+        let mut argb = Vec::with_capacity(width as usize * height as usize);
+        for y in 0..height {
+            for x in 0..width {
+                let hash = x.wrapping_mul(2_654_435_761) ^ y.wrapping_mul(40_503);
+                let noise = u8::try_from((hash >> 13) & 0x3f).unwrap();
+                let r = u8::try_from((x * 2) % 256).unwrap() ^ noise;
+                let g = u8::try_from((y * 2) % 256).unwrap();
+                let b = u8::try_from((x + y) % 256).unwrap() ^ (noise << 1);
+                let a = if !alpha {
+                    255
+                } else if x % 17 == 0 {
+                    0
+                } else {
+                    u8::try_from((x * 5 + y * 3) % 255 + 1).unwrap()
+                };
+                argb.push(u32::from_be_bytes([a, r, g, b]));
+            }
+        }
+        argb
+    };
+
+    let mut saw_padded_vp8l = false;
+    for (alpha, config) in [
+        (true, Config::new().lossless_level(4).unwrap().exact(true)),
+        (
+            false,
+            Config::preset(Preset::Default, 75.0)
+                .unwrap()
+                .method(4)
+                .exact(true),
+        ),
+        (
+            true,
+            Config::preset(Preset::Default, 75.0)
+                .unwrap()
+                .method(4)
+                .exact(true),
+        ),
+    ] {
+        let mut argb = make_argb(alpha);
+        let mut picture = Picture::from_argb(&mut argb, width, height, width as usize).unwrap();
+        let encoded = encode_webp_chunks(&config, &mut picture, 16 << 20).unwrap();
+        assert_eq!(&encoded[..4], b"RIFF");
+        assert_eq!(&encoded[8..12], b"WEBP");
+        let riff_payload = u32::from_le_bytes(encoded[4..8].try_into().unwrap()) as usize;
+        assert_eq!(encoded.len(), 8 + riff_payload);
+        assert_eq!(
+            encoded.capacity(),
+            encoded.len(),
+            "alpha={alpha}: RIFF pre-reservation must match exact encoded length without doubling for trailing pad"
+        );
+        if &encoded[12..16] == b"VP8L" {
+            let vp8l_len = u32::from_le_bytes(encoded[16..20].try_into().unwrap()) as usize;
+            if vp8l_len % 2 == 1 {
+                saw_padded_vp8l = true;
+            }
+        }
+    }
+    assert!(
+        saw_padded_vp8l,
+        "130x96 lossless test case must exercise an odd VP8L length with a 1-byte RIFF pad"
+    );
 }
