@@ -12,6 +12,8 @@ use crate::{IsaLevel, Taps, body};
 pub(crate) struct Table {
     pub horizontal_rgba: fn(&[f32], &Taps, &mut [f32]),
     pub axpy: fn(&mut [f32], &[f32], f32),
+    pub srgb_to_linear: fn(&[f32], &mut [f64]),
+    pub linear_to_srgb_u16: fn(&[f32], u16, &mut [u16]),
 }
 
 /// The six x86-64 CPU features enabled on `avx512::*_entry`:
@@ -64,6 +66,8 @@ pub(crate) fn scalar_table() -> Table {
     Table {
         horizontal_rgba: body::horizontal_rgba::<Scalar>,
         axpy: body::axpy::<Scalar>,
+        srgb_to_linear: body::srgb_to_linear::<Scalar>,
+        linear_to_srgb_u16: body::linear_to_srgb_u16::<Scalar>,
     }
 }
 
@@ -79,16 +83,22 @@ pub(crate) fn table(level: IsaLevel) -> Option<Table> {
         IsaLevel::Neon => Some(Table {
             horizontal_rgba: neon::horizontal_rgba,
             axpy: neon::axpy,
+            srgb_to_linear: neon::srgb_to_linear,
+            linear_to_srgb_u16: neon::linear_to_srgb_u16,
         }),
         #[cfg(target_arch = "x86_64")]
         IsaLevel::Avx2 => Some(Table {
             horizontal_rgba: avx2::horizontal_rgba,
             axpy: avx2::axpy,
+            srgb_to_linear: avx2::srgb_to_linear,
+            linear_to_srgb_u16: avx2::linear_to_srgb_u16,
         }),
         #[cfg(target_arch = "x86_64")]
         IsaLevel::Avx512 => Some(Table {
             horizontal_rgba: avx512::horizontal_rgba,
             axpy: avx512::axpy,
+            srgb_to_linear: avx512::srgb_to_linear,
+            linear_to_srgb_u16: avx512::linear_to_srgb_u16,
         }),
         _ => None,
     }
@@ -109,6 +119,16 @@ mod neon {
         body::axpy::<Neon>(acc, row, weight);
     }
 
+    #[target_feature(enable = "neon")]
+    fn srgb_to_linear_entry(src: &[f32], dst: &mut [f64]) {
+        body::srgb_to_linear::<Neon>(src, dst);
+    }
+
+    #[target_feature(enable = "neon")]
+    fn linear_to_srgb_u16_entry(linear: &[f32], max: u16, out: &mut [u16]) {
+        body::linear_to_srgb_u16::<Neon>(linear, max, out);
+    }
+
     pub(super) fn horizontal_rgba(source: &[f32], taps: &Taps, out: &mut [f32]) {
         // SAFETY: this wrapper is only placed in a `Table` by `table` after
         // `supports(IsaLevel::Neon)` returned true.
@@ -118,6 +138,16 @@ mod neon {
     pub(super) fn axpy(acc: &mut [f32], row: &[f32], weight: f32) {
         // SAFETY: as for `horizontal_rgba`.
         unsafe { axpy_entry(acc, row, weight) }
+    }
+
+    pub(super) fn srgb_to_linear(src: &[f32], dst: &mut [f64]) {
+        // SAFETY: as for `horizontal_rgba`.
+        unsafe { srgb_to_linear_entry(src, dst) }
+    }
+
+    pub(super) fn linear_to_srgb_u16(linear: &[f32], max: u16, out: &mut [u16]) {
+        // SAFETY: as for `horizontal_rgba`.
+        unsafe { linear_to_srgb_u16_entry(linear, max, out) }
     }
 }
 
@@ -136,6 +166,16 @@ mod avx2 {
         body::axpy::<Avx2>(acc, row, weight);
     }
 
+    #[target_feature(enable = "avx2,fma")]
+    fn srgb_to_linear_entry(src: &[f32], dst: &mut [f64]) {
+        body::srgb_to_linear::<Avx2>(src, dst);
+    }
+
+    #[target_feature(enable = "avx2,fma")]
+    fn linear_to_srgb_u16_entry(linear: &[f32], max: u16, out: &mut [u16]) {
+        body::linear_to_srgb_u16::<Avx2>(linear, max, out);
+    }
+
     pub(super) fn horizontal_rgba(source: &[f32], taps: &Taps, out: &mut [f32]) {
         // SAFETY: this wrapper is only placed in a `Table` by `table` after
         // `supports(IsaLevel::Avx2)` confirmed AVX2 and FMA.
@@ -145,6 +185,16 @@ mod avx2 {
     pub(super) fn axpy(acc: &mut [f32], row: &[f32], weight: f32) {
         // SAFETY: as for `horizontal_rgba`.
         unsafe { axpy_entry(acc, row, weight) }
+    }
+
+    pub(super) fn srgb_to_linear(src: &[f32], dst: &mut [f64]) {
+        // SAFETY: as for `horizontal_rgba`.
+        unsafe { srgb_to_linear_entry(src, dst) }
+    }
+
+    pub(super) fn linear_to_srgb_u16(linear: &[f32], max: u16, out: &mut [u16]) {
+        // SAFETY: as for `horizontal_rgba`.
+        unsafe { linear_to_srgb_u16_entry(linear, max, out) }
     }
 }
 
@@ -163,6 +213,16 @@ mod avx512 {
         body::axpy::<Avx512>(acc, row, weight);
     }
 
+    #[target_feature(enable = "avx512f,avx512bw,avx512cd,avx512dq,avx512vl,fma")]
+    fn srgb_to_linear_entry(src: &[f32], dst: &mut [f64]) {
+        body::srgb_to_linear::<Avx512>(src, dst);
+    }
+
+    #[target_feature(enable = "avx512f,avx512bw,avx512cd,avx512dq,avx512vl,fma")]
+    fn linear_to_srgb_u16_entry(linear: &[f32], max: u16, out: &mut [u16]) {
+        body::linear_to_srgb_u16::<Avx512>(linear, max, out);
+    }
+
     pub(super) fn horizontal_rgba(source: &[f32], taps: &Taps, out: &mut [f32]) {
         // SAFETY: this wrapper is only placed in a `Table` by `table` after
         // `supports(IsaLevel::Avx512)` confirmed F, BW, CD, DQ, VL and FMA.
@@ -172,6 +232,16 @@ mod avx512 {
     pub(super) fn axpy(acc: &mut [f32], row: &[f32], weight: f32) {
         // SAFETY: as for `horizontal_rgba`.
         unsafe { axpy_entry(acc, row, weight) }
+    }
+
+    pub(super) fn srgb_to_linear(src: &[f32], dst: &mut [f64]) {
+        // SAFETY: as for `horizontal_rgba`.
+        unsafe { srgb_to_linear_entry(src, dst) }
+    }
+
+    pub(super) fn linear_to_srgb_u16(linear: &[f32], max: u16, out: &mut [u16]) {
+        // SAFETY: as for `horizontal_rgba`.
+        unsafe { linear_to_srgb_u16_entry(linear, max, out) }
     }
 }
 

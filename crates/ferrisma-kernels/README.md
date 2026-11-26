@@ -20,6 +20,8 @@ Runtime-dispatched SIMD kernels for Ferrisma behind a safe API, as decided in [A
 
 - `horizontal_rgba`: one row of a separable resample over four `f32` channels with precomputed contiguous taps.
 - `axpy`: `acc += row * weight`, the vertical resample step; bit-identical at every level.
+- `srgb_to_linear`: sign-preserving extended sRGB EOTF on `f32` samples returning `f64`, evaluated in `f64` lanes via a degree-8 Remez minimax polynomial on `[-1, 1]` (`< 1.4e-10` relative error; bit-identical in full `f64` across SIMD levels including tails and in-range lanes of mixed-range vectors, and within `< 1.4e-10` relative error / `<= 1` ULP as `f32` of `scalar`, which uses `a * b + c` to avoid software `libm::fma` on baseline x86-64); outside `[-1, 1]`, every level delegates to the target's `f64::powf` (bit-identical across ISA levels on the same target).
+- `linear_to_srgb_u16`: sRGB OETF and half-away-from-zero quantization to `0..=max` (`u16`), evaluated in `f64` lanes via a degree-8 Remez minimax polynomial with a per-lane exact `f64` OETF fallback whenever a curved-segment lane is within `1e-4` of a half-code tie `k + 0.5`; bit-identical across every level and exact against the `f64` OETF reference for every finite `f32` and `max`.
 
 ## `unsafe` budget
 
@@ -29,9 +31,10 @@ Runtime-dispatched SIMD kernels for Ferrisma behind a safe API, as decided in [A
 | --- | ---: | --- |
 | 2026-11-06 | 21 | Initial `Scalar`, `Neon` and `Avx2` levels for `horizontal_rgba` and `axpy` |
 | 2026-11-06 | 40 | `Avx512` level (lanes and dispatch) |
+| 2026-11-26 | 129 | `LanesF64` (`Neon`, `Avx2`, `Avx512`, `f64` EOTF output + per-lane half-code tie mask) and dispatch for `srgb_to_linear` and `linear_to_srgb_u16` (issue #281) |
 
 Growth without an amendment to ADR-0020 is a review finding (`grep -rn 'unsafe {' crates/ferrisma-kernels/src | wc -l`).
 
 ## Tests
 
-`tests/differential.rs` runs every level the host supports against the scalar body: `axpy` must be bit-identical, `horizontal_rgba` bit-identical for `neon` and within 4 ULP (or 4 · `f32::EPSILON` · taps for cancelling sums) for `avx2`. Levels the host cannot run are printed as untested. The engine's `fast_execute_tests` additionally hold every available level to ADR-0021's bound against the `f64` oracle after sRGB8 quantization.
+`tests/differential.rs` runs every level the host supports against the scalar body: `axpy` and `linear_to_srgb_u16` must be bit-identical across every level (with `linear_to_srgb_u16` verified exact at every half-code threshold for 8/10/12/16 bits), `srgb_to_linear` within 1 ULP of `scalar` and exact `f64::powf`, and `horizontal_rgba` bit-identical for `neon` and within 4 ULP (or 4 · `f32::EPSILON` · taps for cancelling sums) for `avx2`. Levels the host cannot run are printed as untested. The engine's `fast_execute_tests` additionally hold every available level to ADR-0021's bound against the `f64` oracle at 8, 10, 12 and 16 bits.

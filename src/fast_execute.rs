@@ -39,9 +39,270 @@ use crate::quality_execute::{
     Prepared, QualityReport, prepare, reserve_resize_plan, tap_entry_bound,
 };
 use crate::working_color::{
-    decode_srgb, decode_straight_to_premultiplied_linear_srgb, decode_to_linear_srgb,
-    encode_linear_srgb, encode_linear_srgb8, p3_to_srgb_matrix,
+    decode_srgb, display_p3_linear_to_srgb_linear, encode_linear_srgb8, p3_to_srgb_matrix,
 };
+
+/// Pixels processed per stack-buffered chunk in `linearize_row` and
+/// `quantize_row_deep` (64 * 3 = 192 `f32` = 768 bytes, L1-resident with zero
+/// heap allocation).
+const TRANSFER_CHUNK_PIXELS: usize = 64;
+
+/// Conservative absolute error factor for `display_p3_linear_to_srgb_linear`
+/// applied to polynomial-decoded in-range channels: L1 row norm (`<= 1.45`)
+/// times `1.4e-10` is `< 2.1e-10`, widened to `6.0e-10`.
+const P3_ERR_GUARD: f64 = 6.0e-10;
+
+/// Guard half-width in `f64` ULPs around the `f32` rounding midpoint
+/// (`low29 == 0x1000_0000`) for `Kernels::srgb_to_linear` on `[-1, 1]`.
+/// Max relative error is `< 1.4e-10` (plus `< 1e-14` for unfused `Scalar` and
+/// `f64` alpha multiply), which is `< 2 * 2.0e-10 * 2^52 = 1,801,440 < 0x001C_0000`
+/// `f64` ULPs; we use `0x0020_0000` (`2,097,152` ULPs, > `2.3e-10` relative).
+const SRGB_F32_TIE_GUARD: u32 = 0x0020_0000;
+
+#[cold]
+#[inline(never)]
+fn refine_srgb_channel(raw: f32, value: f64, alpha: f64) -> f32 {
+    // `srgb_to_linear` already evaluated exact `f64::powf` outside `[-1, 1]`.
+    if raw.abs() > 1.0 {
+        #[allow(clippy::cast_possible_truncation)]
+        return value as f32;
+    }
+    // Tiny nonzero alpha can produce subnormal `f32` products whose error
+    // interval does not straddle a subnormal rounding tie; avoid `powf` then.
+    let eps = value.abs() * 2.5e-10;
+    #[allow(clippy::cast_possible_truncation)]
+    let (lo, hi) = ((value - eps) as f32, (value + eps) as f32);
+    if lo.to_bits() == hi.to_bits() {
+        return lo;
+    }
+    #[allow(clippy::cast_possible_truncation)]
+    {
+        (decode_srgb(f64::from(raw)) * alpha) as f32
+    }
+}
+
+/// Narrow `decoded * alpha` to `f32`, guaranteeing bit-identity with exact
+/// `(decode_srgb(f64::from(raw)) * alpha) as f32` for both opaque (`alpha = 1.0`)
+/// and straight-alpha sRGB.
+///
+/// For normal `f32` magnitudes (`f64` biased exponent `897..=1150`), the exact
+/// `f32` round-to-nearest-even tie lies at `low29 == 0x1000_0000`. Any value
+/// further than `SRGB_F32_TIE_GUARD` `f64` ULPs from that tie is guaranteed to
+/// round to the same `f32` as `decode_srgb`; both `+0.0` and `-0.0` preserve
+/// exact sign bits directly on the fast path, and only the ~0.8% of values
+/// inside the tie band (plus subnormals) enter `refine_srgb_channel`, which
+/// also skips re-decoding extended-range (`|raw| > 1.0`) channels.
+#[inline]
+fn narrow_srgb_channel(raw: f32, decoded: f64, alpha: f64) -> f32 {
+    let value = decoded * alpha;
+    let bits = value.to_bits();
+    #[allow(clippy::cast_possible_truncation)]
+    let exp = ((bits >> 52) & 0x7FF) as u32;
+    #[allow(clippy::cast_possible_truncation)]
+    let low29 = (bits as u32) & 0x1FFF_FFFF;
+    if value == 0.0
+        || (exp.wrapping_sub(897) <= (1150 - 897)
+            && low29.wrapping_sub(0x1000_0000 - SRGB_F32_TIE_GUARD) >= 2 * SRGB_F32_TIE_GUARD)
+    {
+        #[allow(clippy::cast_possible_truncation)]
+        return value as f32;
+    }
+    refine_srgb_channel(raw, value, alpha)
+}
+
+/// Decode a Display P3 pixel once with exact `f64` `decode_srgb`, apply the
+/// exact two-step reference matrix, premultiply by `alpha`, and narrow once to
+/// `f32`.
+#[inline]
+fn decode_p3_exact(pixel: [f32; 3], alpha: f64) -> [f32; 3] {
+    let exact = [
+        decode_srgb(f64::from(pixel[0])),
+        decode_srgb(f64::from(pixel[1])),
+        decode_srgb(f64::from(pixel[2])),
+    ];
+    let rgb = display_p3_linear_to_srgb_linear(exact);
+    #[allow(clippy::cast_possible_truncation)]
+    [
+        (rgb[0] * alpha) as f32,
+        (rgb[1] * alpha) as f32,
+        (rgb[2] * alpha) as f32,
+    ]
+}
+
+#[cold]
+#[inline(never)]
+fn refine_p3_pixel(pixel: [f32; 3], alpha: f64) -> [f32; 3] {
+    decode_p3_exact(pixel, alpha)
+}
+
+/// Convert an in-range (`|pixel[c]| <= 1.0`) Display P3 linear `f64` triple
+/// through the exact two-step reference matrix and premultiply by `alpha`,
+/// refining with exact `decode_srgb` whenever the polynomial error interval
+/// could cross an `f32` rounding boundary.
+#[inline]
+fn narrow_p3_in_range(pixel: [f32; 3], decoded: [f64; 3], alpha: f64) -> [f32; 3] {
+    let rgb = display_p3_linear_to_srgb_linear(decoded);
+    let peak = decoded[0].abs().max(decoded[1].abs()).max(decoded[2].abs());
+    if peak == 0.0 {
+        // Signed zeros are decoded exactly; preserve their exact sign bits
+        // without triggering `refine_p3_pixel`.
+        #[allow(clippy::cast_possible_truncation)]
+        return [
+            (rgb[0] * alpha) as f32,
+            (rgb[1] * alpha) as f32,
+            (rgb[2] * alpha) as f32,
+        ];
+    }
+    let eps_unscaled = peak * P3_ERR_GUARD;
+    if alpha == 0.0 {
+        if rgb[0].abs() <= eps_unscaled
+            || rgb[1].abs() <= eps_unscaled
+            || rgb[2].abs() <= eps_unscaled
+        {
+            return refine_p3_pixel(pixel, alpha);
+        }
+        #[allow(clippy::cast_possible_truncation)]
+        return [
+            (rgb[0] * alpha) as f32,
+            (rgb[1] * alpha) as f32,
+            (rgb[2] * alpha) as f32,
+        ];
+    }
+    let eps = eps_unscaled * alpha;
+    let v0 = rgb[0] * alpha;
+    let v1 = rgb[1] * alpha;
+    let v2 = rgb[2] * alpha;
+    #[allow(clippy::cast_possible_truncation)]
+    let (lo0, hi0) = ((v0 - eps) as f32, (v0 + eps) as f32);
+    #[allow(clippy::cast_possible_truncation)]
+    let (lo1, hi1) = ((v1 - eps) as f32, (v1 + eps) as f32);
+    #[allow(clippy::cast_possible_truncation)]
+    let (lo2, hi2) = ((v2 - eps) as f32, (v2 + eps) as f32);
+    if lo0.to_bits() == hi0.to_bits()
+        && lo1.to_bits() == hi1.to_bits()
+        && lo2.to_bits() == hi2.to_bits()
+    {
+        [lo0, lo1, lo2]
+    } else {
+        refine_p3_pixel(pixel, alpha)
+    }
+}
+
+/// Whether a Display P3 pixel should bypass the SIMD polynomial and decode
+/// once via [`decode_p3_exact`]:
+/// - any channel is extended-range (`|c| > 1.0`), avoiding unused polynomial
+///   work on mixed-range pixels, or
+/// - blue-only (`r == 0.0 && g == 0.0 && b != 0.0`), whose two-step matrix
+///   produces near-zero red/green terms whose polynomial error band straddles
+///   zero and would otherwise double-decode via `refine_p3_pixel`.
+#[inline]
+fn p3_needs_direct_exact(pixel: [f32; 3]) -> bool {
+    let p_peak = (pixel[0].to_bits() & 0x7FFF_FFFF)
+        .max(pixel[1].to_bits() & 0x7FFF_FFFF)
+        .max(pixel[2].to_bits() & 0x7FFF_FFFF);
+    p_peak > 0x3F80_0000 || (pixel[0] == 0.0 && pixel[1] == 0.0 && pixel[2] != 0.0)
+}
+
+/// Linearize an opaque Display P3 chunk that contains extended-range or
+/// blue-only pixels: route those pixels directly through exact
+/// [`decode_p3_exact`] once, and compact any remaining in-range pixels in the
+/// chunk for one SIMD `srgb_to_linear` call.
+fn linearize_p3_direct_chunk_rgb(
+    chunk_in: &[[f32; 3]],
+    kernels: &Kernels,
+    linear_buf: &mut [f64; TRANSFER_CHUNK_PIXELS * 3],
+    chunk_out: &mut [[f32; 4]],
+) -> Result<(), Error> {
+    let mut in_range_encoded = [0.0_f32; TRANSFER_CHUNK_PIXELS * 3];
+    let mut in_range_idx = [0_usize; TRANSFER_CHUNK_PIXELS];
+    let mut count = 0_usize;
+    for (i, pixel) in chunk_in.iter().enumerate() {
+        if p3_needs_direct_exact(*pixel) {
+            let rgb = decode_p3_exact(*pixel, 1.0);
+            chunk_out[i] = [rgb[0], rgb[1], rgb[2], 0.0];
+        } else {
+            in_range_encoded[count * 3] = pixel[0];
+            in_range_encoded[count * 3 + 1] = pixel[1];
+            in_range_encoded[count * 3 + 2] = pixel[2];
+            in_range_idx[count] = i;
+            count += 1;
+        }
+    }
+    if count > 0 {
+        let rgb_len = count * 3;
+        kernels
+            .srgb_to_linear(&in_range_encoded[..rgb_len], &mut linear_buf[..rgb_len])
+            .map_err(kernel_error)?;
+        for (k, &out_idx) in in_range_idx[..count].iter().enumerate() {
+            let decoded = [
+                linear_buf[k * 3],
+                linear_buf[k * 3 + 1],
+                linear_buf[k * 3 + 2],
+            ];
+            let rgb = narrow_p3_in_range(chunk_in[out_idx], decoded, 1.0);
+            chunk_out[out_idx] = [rgb[0], rgb[1], rgb[2], 0.0];
+        }
+    }
+    Ok(())
+}
+
+/// Linearize a straight-alpha Display P3 chunk that contains extended-range or
+/// blue-only pixels without evaluating unused polynomial approximations.
+fn linearize_p3_direct_chunk_rgba(
+    chunk_in: &[[f32; 4]],
+    kernels: &Kernels,
+    encoded_buf: &mut [f32; TRANSFER_CHUNK_PIXELS * 3],
+    linear_buf: &mut [f64; TRANSFER_CHUNK_PIXELS * 3],
+    chunk_out: &mut [[f32; 4]],
+) -> Result<(), Error> {
+    let mut in_range_idx = [0_usize; TRANSFER_CHUNK_PIXELS];
+    let mut count = 0_usize;
+    for (i, pixel) in chunk_in.iter().enumerate() {
+        let rgb_in = [pixel[0], pixel[1], pixel[2]];
+        if p3_needs_direct_exact(rgb_in) {
+            let alpha = pixel[3];
+            let rgb = decode_p3_exact(rgb_in, f64::from(alpha));
+            chunk_out[i] = [rgb[0], rgb[1], rgb[2], alpha];
+        } else {
+            encoded_buf[count * 3] = pixel[0];
+            encoded_buf[count * 3 + 1] = pixel[1];
+            encoded_buf[count * 3 + 2] = pixel[2];
+            in_range_idx[count] = i;
+            count += 1;
+        }
+    }
+    if count > 0 {
+        let rgb_len = count * 3;
+        kernels
+            .srgb_to_linear(&encoded_buf[..rgb_len], &mut linear_buf[..rgb_len])
+            .map_err(kernel_error)?;
+        for (k, &out_idx) in in_range_idx[..count].iter().enumerate() {
+            let pixel = chunk_in[out_idx];
+            let alpha = pixel[3];
+            let decoded = [
+                linear_buf[k * 3],
+                linear_buf[k * 3 + 1],
+                linear_buf[k * 3 + 2],
+            ];
+            let rgb = narrow_p3_in_range([pixel[0], pixel[1], pixel[2]], decoded, f64::from(alpha));
+            chunk_out[out_idx] = [rgb[0], rgb[1], rgb[2], alpha];
+        }
+    }
+    Ok(())
+}
+
+/// Largest unsigned magnitude bit pattern across `samples`. In IEEE-754
+/// binary32, every finite sample has bits `< 0x7F80_0000` (`f32::INFINITY`),
+/// and every sample in `[-1.0, 1.0]` has bits `<= 0x3F80_0000` (`1.0_f32`).
+/// Branchless so LLVM auto-vectorizes it with `umax`.
+#[inline]
+fn max_abs_bits(samples: &[f32]) -> u32 {
+    let mut max_bits = 0_u32;
+    for &sample in samples {
+        max_bits = max_bits.max(sample.to_bits() & 0x7FFF_FFFF);
+    }
+    max_bits
+}
 
 /// Bucket count of the encoder table; every bucket spans at most one code
 /// step on the sRGB curve (the steepest slope is 12.92 * 255 codes per unit).
@@ -216,6 +477,7 @@ impl TapTable {
 pub(crate) fn kernel_error(error: KernelError) -> Error {
     match error {
         KernelError::InvalidTaps => Error::OutOfBounds,
+        KernelError::NonFiniteSample => Error::NonFinitePixelSample,
         KernelError::LengthMismatch | KernelError::UnsupportedLevel(_) => {
             Error::IncompleteDecoderOutput
         }
@@ -320,8 +582,8 @@ pub(crate) fn execute_fast(
 pub(crate) fn linearize_row<const C: usize>(
     row: DecodedRow<'_>,
     primaries: Primaries,
-    color: &ColorEncoding,
     p3: &[[f32; 3]; 3],
+    kernels: &Kernels,
     out: &mut [f32],
 ) -> Result<(), Error> {
     let lut = &tables().decode_u8;
@@ -391,39 +653,182 @@ pub(crate) fn linearize_row<const C: usize>(
             }
         }
         DecodedRow::F32(samples) => {
-            // Float input (JPEG XL) has no table; the reference transfer and
-            // matrix run once per pixel, still not once per tap.
-            for (pixel, linear) in samples
-                .as_chunks::<C>()
-                .0
+            linearize_f32_row::<C>(samples, primaries, kernels, out)?;
+        }
+    }
+    Ok(())
+}
+
+/// Float input (JPEG XL and >8-bit AVIF): decode once through the SIMD
+/// `f64`-lane sRGB EOTF kernel into L1-resident `f64` chunks, apply any
+/// Display P3 two-step primaries matrix and straight-alpha premultiplication
+/// in `f64`, and narrow the final working pixel once to `f32`. Rejects
+/// non-finite input samples, out-of-range alpha, and unrepresentable working
+/// pixels identically to the scalar reference.
+fn linearize_f32_row<const C: usize>(
+    samples: &[f32],
+    primaries: Primaries,
+    kernels: &Kernels,
+    out: &mut [f32],
+) -> Result<(), Error> {
+    if C == 3 {
+        linearize_f32_rgb_row(samples, primaries, kernels, out)
+    } else {
+        linearize_f32_rgba_row(samples, primaries, kernels, out)
+    }
+}
+
+fn linearize_f32_rgb_row(
+    samples: &[f32],
+    primaries: Primaries,
+    kernels: &Kernels,
+    out: &mut [f32],
+) -> Result<(), Error> {
+    let peak = max_abs_bits(samples);
+    if peak >= 0x7F80_0000 {
+        return Err(Error::NonFinitePixelSample);
+    }
+    let has_extended = peak > 0x3F80_0000;
+    let mut linear_buf = [0.0_f64; TRANSFER_CHUNK_PIXELS * 3];
+    let in_pixels = samples.as_chunks::<3>().0;
+    let out_pixels = out.as_chunks_mut::<4>().0;
+    for (chunk_in, chunk_out) in in_pixels
+        .chunks(TRANSFER_CHUNK_PIXELS)
+        .zip(out_pixels.chunks_mut(TRANSFER_CHUNK_PIXELS))
+    {
+        if primaries == Primaries::DisplayP3
+            && ((has_extended && max_abs_bits(chunk_in.as_flattened()) > 0x3F80_0000)
+                || chunk_in
+                    .iter()
+                    .any(|p| p[0] == 0.0 && p[1] == 0.0 && p[2] != 0.0))
+        {
+            linearize_p3_direct_chunk_rgb(chunk_in, kernels, &mut linear_buf, chunk_out)?;
+            continue;
+        }
+        let rgb_len = chunk_in.len() * 3;
+        kernels
+            .srgb_to_linear(chunk_in.as_flattened(), &mut linear_buf[..rgb_len])
+            .map_err(kernel_error)?;
+        if primaries == Primaries::DisplayP3 {
+            for ((pixel, decoded), linear) in chunk_in
                 .iter()
-                .zip(out.as_chunks_mut::<4>().0)
+                .zip(linear_buf[..rgb_len].as_chunks::<3>().0)
+                .zip(chunk_out.iter_mut())
             {
-                let rgb = [
-                    f64::from(pixel[0]),
-                    f64::from(pixel[1]),
-                    f64::from(pixel[2]),
+                let rgb = narrow_p3_in_range(*pixel, *decoded, 1.0);
+                *linear = [rgb[0], rgb[1], rgb[2], 0.0];
+            }
+        } else {
+            for ((pixel, decoded), linear) in chunk_in
+                .iter()
+                .zip(linear_buf[..rgb_len].as_chunks::<3>().0)
+                .zip(chunk_out.iter_mut())
+            {
+                *linear = [
+                    narrow_srgb_channel(pixel[0], decoded[0], 1.0),
+                    narrow_srgb_channel(pixel[1], decoded[1], 1.0),
+                    narrow_srgb_channel(pixel[2], decoded[2], 1.0),
+                    0.0,
                 ];
-                #[allow(clippy::cast_possible_truncation)]
-                if C == 4 {
-                    let premultiplied = decode_straight_to_premultiplied_linear_srgb(
-                        color,
-                        rgb,
-                        f64::from(pixel[3]),
-                    )?;
-                    for (out, value) in linear.iter_mut().zip(premultiplied.rgb) {
-                        *out = value as f32;
-                    }
-                    linear[3] = premultiplied.alpha as f32;
-                } else {
-                    let decoded = decode_to_linear_srgb(color, rgb)?;
-                    for (out, value) in linear.iter_mut().zip(decoded.rgb) {
-                        *out = value as f32;
-                    }
-                    linear[3] = 0.0;
-                }
             }
         }
+    }
+    if has_extended && max_abs_bits(out) >= 0x7F80_0000 {
+        return Err(Error::NonFinitePixelSample);
+    }
+    Ok(())
+}
+
+fn linearize_f32_rgba_row(
+    samples: &[f32],
+    primaries: Primaries,
+    kernels: &Kernels,
+    out: &mut [f32],
+) -> Result<(), Error> {
+    let mut encoded_buf = [0.0_f32; TRANSFER_CHUNK_PIXELS * 3];
+    let mut linear_buf = [0.0_f64; TRANSFER_CHUNK_PIXELS * 3];
+    let in_pixels = samples.as_chunks::<4>().0;
+    let out_pixels = out.as_chunks_mut::<4>().0;
+    let mut has_extended = false;
+    for (chunk_in, chunk_out) in in_pixels
+        .chunks(TRANSFER_CHUNK_PIXELS)
+        .zip(out_pixels.chunks_mut(TRANSFER_CHUNK_PIXELS))
+    {
+        let rgb_len = chunk_in.len() * 3;
+        let mut peak_rgb = 0_u32;
+        let mut or_bits = 0_u32;
+        let mut has_blue_only = false;
+        for (i, pixel) in chunk_in.iter().enumerate() {
+            let alpha = pixel[3];
+            if !alpha.is_finite() || !(0.0..=1.0).contains(&alpha) {
+                return Err(Error::InvalidAlphaValue);
+            }
+            let r_bits = pixel[0].to_bits();
+            let g_bits = pixel[1].to_bits();
+            let b_bits = pixel[2].to_bits();
+            let p_peak = (r_bits & 0x7FFF_FFFF)
+                .max(g_bits & 0x7FFF_FFFF)
+                .max(b_bits & 0x7FFF_FFFF);
+            if p_peak >= 0x7F80_0000 {
+                return Err(Error::NonFinitePixelSample);
+            }
+            peak_rgb = peak_rgb.max(p_peak);
+            or_bits |= r_bits | g_bits | b_bits | alpha.to_bits();
+            has_blue_only |= pixel[0] == 0.0 && pixel[1] == 0.0 && pixel[2] != 0.0;
+            encoded_buf[i * 3] = pixel[0];
+            encoded_buf[i * 3 + 1] = pixel[1];
+            encoded_buf[i * 3 + 2] = pixel[2];
+        }
+        if or_bits == 0 {
+            chunk_out.fill([0.0, 0.0, 0.0, 0.0]);
+            continue;
+        }
+        if peak_rgb > 0x3F80_0000 {
+            has_extended = true;
+        }
+        if primaries == Primaries::DisplayP3 && (peak_rgb > 0x3F80_0000 || has_blue_only) {
+            linearize_p3_direct_chunk_rgba(
+                chunk_in,
+                kernels,
+                &mut encoded_buf,
+                &mut linear_buf,
+                chunk_out,
+            )?;
+            continue;
+        }
+        kernels
+            .srgb_to_linear(&encoded_buf[..rgb_len], &mut linear_buf[..rgb_len])
+            .map_err(kernel_error)?;
+        if primaries == Primaries::DisplayP3 {
+            for ((pixel, decoded), linear) in chunk_in
+                .iter()
+                .zip(linear_buf[..rgb_len].as_chunks::<3>().0)
+                .zip(chunk_out.iter_mut())
+            {
+                let alpha = pixel[3];
+                let rgb =
+                    narrow_p3_in_range([pixel[0], pixel[1], pixel[2]], *decoded, f64::from(alpha));
+                *linear = [rgb[0], rgb[1], rgb[2], alpha];
+            }
+        } else {
+            for ((pixel, decoded), linear) in chunk_in
+                .iter()
+                .zip(linear_buf[..rgb_len].as_chunks::<3>().0)
+                .zip(chunk_out.iter_mut())
+            {
+                let alpha = pixel[3];
+                let alpha_f64 = f64::from(alpha);
+                *linear = [
+                    narrow_srgb_channel(pixel[0], decoded[0], alpha_f64),
+                    narrow_srgb_channel(pixel[1], decoded[1], alpha_f64),
+                    narrow_srgb_channel(pixel[2], decoded[2], alpha_f64),
+                    alpha,
+                ];
+            }
+        }
+    }
+    if has_extended && max_abs_bits(out) >= 0x7F80_0000 {
+        return Err(Error::NonFinitePixelSample);
     }
     Ok(())
 }
@@ -453,6 +858,7 @@ pub(crate) fn source_row_to_linear<const C: usize>(
     plan: &RowPlan,
     row: DecodedRow<'_>,
     buffers: &mut ConversionScratch,
+    kernels: &Kernels,
     linear: &mut [f32],
 ) -> Result<(), Error> {
     let row = match &plan.conversion {
@@ -466,7 +872,7 @@ pub(crate) fn source_row_to_linear<const C: usize>(
         }
         None => row,
     };
-    linearize_row::<C>(row, plan.primaries, &plan.color, &plan.p3, linear)
+    linearize_row::<C>(row, plan.primaries, &plan.p3, kernels, linear)
 }
 
 /// Encode one row of filtered linear samples to straight sRGB8 RGBA.
@@ -510,44 +916,93 @@ pub(crate) fn quantize_row<const C: usize>(
 /// Encode one row of filtered linear samples to straight sRGB RGBA at
 /// `depth` bits (above 8), scaled to `0..=2^depth - 1`. The same steps as
 /// [`quantize_row`] in the same order (clamp, alpha rounded in `f32`,
-/// division by alpha in `f32`, transparent black at alpha code 0); only the
-/// encoder differs: the 8-bit table is exact against
-/// `encode_linear_srgb8(f64::from(x))`, and here that reference function
-/// itself, `encode_linear_srgb(f64::from(x), max)`, is applied, so both are
-/// the oracle's encoder applied to the same `f32` value.
+/// division by alpha in `f32`, transparent black at alpha code 0), using
+/// `kernels.linear_to_srgb_u16` (`f64`-lane minimax OETF with exact-OETF
+/// half-code tie resolution, returning the exact code of
+/// `working_color::encode_linear_srgb` for every `f32`).
 pub(crate) fn quantize_row_deep<const C: usize>(
     acc: &[f32],
     output: &mut [u16],
     depth: u8,
+    kernels: &Kernels,
 ) -> Result<(), Error> {
+    if max_abs_bits(acc) >= 0x7F80_0000 {
+        return Err(Error::NonFinitePixelSample);
+    }
     let max = max_code(depth);
     let scale = f32::from(max);
-    for (pixel, rgba) in acc
-        .as_chunks::<4>()
-        .0
-        .iter()
-        .zip(output.as_chunks_mut::<4>().0)
+    let mut rgb_in = [0.0_f32; TRANSFER_CHUNK_PIXELS * 3];
+    let mut rgb_out = [0_u16; TRANSFER_CHUNK_PIXELS * 3];
+    let in_pixels = acc.as_chunks::<4>().0;
+    let out_pixels = output.as_chunks_mut::<4>().0;
+    for (chunk_in, chunk_out) in in_pixels
+        .chunks(TRANSFER_CHUNK_PIXELS)
+        .zip(out_pixels.chunks_mut(TRANSFER_CHUNK_PIXELS))
     {
-        if pixel.iter().any(|sample| !sample.is_finite()) {
-            return Err(Error::NonFinitePixelSample);
-        }
+        let rgb_len = chunk_in.len() * 3;
         if C == 3 {
-            for channel in 0..3 {
-                rgba[channel] = encode_linear_srgb(f64::from(pixel[channel].clamp(0.0, 1.0)), max)?;
+            for (i, pixel) in chunk_in.iter().enumerate() {
+                rgb_in[i * 3] = pixel[0];
+                rgb_in[i * 3 + 1] = pixel[1];
+                rgb_in[i * 3 + 2] = pixel[2];
             }
-            rgba[3] = max;
+            kernels
+                .linear_to_srgb_u16(&rgb_in[..rgb_len], max, &mut rgb_out[..rgb_len])
+                .map_err(kernel_error)?;
+            for (encoded, rgba) in rgb_out[..rgb_len]
+                .as_chunks::<3>()
+                .0
+                .iter()
+                .zip(chunk_out.iter_mut())
+            {
+                *rgba = [encoded[0], encoded[1], encoded[2], max];
+            }
         } else {
-            let alpha = pixel[3].clamp(0.0, 1.0);
-            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-            let alpha_code = (alpha * scale).round() as u16;
-            rgba[3] = alpha_code;
-            // ADR-0014: alpha code 0 is transparent black.
-            for channel in 0..3 {
-                rgba[channel] = if alpha_code == 0 {
-                    0
+            let mut visible_idx = [0_u8; TRANSFER_CHUNK_PIXELS];
+            let mut visible = 0_usize;
+            for ((i, pixel), rgba) in chunk_in.iter().enumerate().zip(chunk_out.iter_mut()) {
+                let alpha = pixel[3].clamp(0.0, 1.0);
+                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                let alpha_code = (alpha * scale).round() as u16;
+                // ADR-0014: alpha code 0 is transparent black (`oetf(0) == 0`).
+                if alpha_code == 0 {
+                    *rgba = [0, 0, 0, 0];
                 } else {
-                    encode_linear_srgb(f64::from((pixel[channel] / alpha).clamp(0.0, 1.0)), max)?
-                };
+                    rgba[3] = alpha_code;
+                    // Clamp after unpremultiplication so finite working pixels
+                    // whose `c / alpha` overflows `f32` to `±inf` still saturate
+                    // to `0` or `max` identically to `quantize_row` and `f64`.
+                    rgb_in[visible * 3] = (pixel[0] / alpha).clamp(0.0, 1.0);
+                    rgb_in[visible * 3 + 1] = (pixel[1] / alpha).clamp(0.0, 1.0);
+                    rgb_in[visible * 3 + 2] = (pixel[2] / alpha).clamp(0.0, 1.0);
+                    #[allow(clippy::cast_possible_truncation)]
+                    {
+                        visible_idx[visible] = i as u8;
+                    }
+                    visible += 1;
+                }
+            }
+            if visible == 0 {
+                continue;
+            }
+            let visible_rgb = visible * 3;
+            kernels
+                .linear_to_srgb_u16(&rgb_in[..visible_rgb], max, &mut rgb_out[..visible_rgb])
+                .map_err(kernel_error)?;
+            let encoded_pixels = rgb_out[..visible_rgb].as_chunks::<3>().0;
+            if visible == chunk_in.len() {
+                for (encoded, rgba) in encoded_pixels.iter().zip(chunk_out.iter_mut()) {
+                    rgba[0] = encoded[0];
+                    rgba[1] = encoded[1];
+                    rgba[2] = encoded[2];
+                }
+            } else {
+                for (encoded, &out_idx) in encoded_pixels.iter().zip(&visible_idx[..visible]) {
+                    let rgba = &mut chunk_out[usize::from(out_idx)];
+                    rgba[0] = encoded[0];
+                    rgba[1] = encoded[1];
+                    rgba[2] = encoded[2];
+                }
             }
         }
     }
@@ -560,10 +1015,13 @@ pub(crate) fn quantize_into<const C: usize>(
     output: &mut OutputBuffer,
     depth: u8,
     tables: &Tables,
+    kernels: &Kernels,
 ) -> Result<(), Error> {
     match output {
         OutputBuffer::U8(bytes) => quantize_row::<C>(acc, bytes.as_mut_slice(), tables),
-        OutputBuffer::U16(samples) => quantize_row_deep::<C>(acc, samples.as_mut_slice(), depth),
+        OutputBuffer::U16(samples) => {
+            quantize_row_deep::<C>(acc, samples.as_mut_slice(), depth, kernels)
+        }
     }
 }
 
@@ -583,7 +1041,6 @@ pub(crate) struct RowPlan {
     pub footprint_y: u32,
     pub requested_y: u32,
     pub primaries: Primaries,
-    pub color: ColorEncoding,
     pub p3: [[f32; 3]; 3],
     pub row_samples: usize,
     pub source_samples: usize,
@@ -630,7 +1087,6 @@ fn is_identity_eligible(
 }
 
 impl RowPlan {
-    #[allow(clippy::too_many_arguments)] // Prepared plan plus validated source/output parameters.
     fn from_prepared<const C: usize>(
         plan: Prepared,
         sample: SampleType,
@@ -638,7 +1094,6 @@ impl RowPlan {
         conversion: Option<Arc<dyn RowConversion>>,
         requested: Rect,
         primaries: Primaries,
-        color: ColorEncoding,
     ) -> Result<Self, Error> {
         #[allow(clippy::cast_possible_truncation)]
         let p3 = p3_to_srgb_matrix().map(|row| row.map(|value| value as f32));
@@ -725,7 +1180,6 @@ impl RowPlan {
             footprint_y: plan.footprint.y,
             requested_y: requested.y,
             primaries,
-            color,
             p3,
             row_samples,
             source_samples,
@@ -795,9 +1249,8 @@ fn run<const C: usize>(
     }
 
     let _plan_reservation = reserve_resize_plan(graph, target, requested, budget)?;
-    let plan = RowPlan::from_prepared::<C>(
-        prepared, sample, depth, conversion, requested, primaries, color,
-    )?;
+    let plan =
+        RowPlan::from_prepared::<C>(prepared, sample, depth, conversion, requested, primaries)?;
     let used_threads = if threads > 1 && plan.needed.len() >= PARALLEL_MIN_ROWS {
         threads
     } else {
@@ -1118,7 +1571,7 @@ fn run_sequential<const C: usize>(
         let semantic_y = plan.semantic_y(decoder_y)?;
 
         if let Ok(row_rank) = plan.needed.binary_search(&semantic_y) {
-            source_row_to_linear::<C>(plan, row, &mut conversion, linear.as_mut_slice())?;
+            source_row_to_linear::<C>(plan, row, &mut conversion, kernels, linear.as_mut_slice())?;
             let slot = row_rank % capacity;
             ring_rank[slot] = row_rank;
             let target = &mut ring.as_mut_slice()[slot * row_samples..(slot + 1) * row_samples];
@@ -1139,7 +1592,7 @@ fn run_sequential<const C: usize>(
                 let cached = &ring.as_slice()[slot * row_samples..(slot + 1) * row_samples];
                 kernels.axpy(acc, cached, weight).map_err(kernel_error)?;
             }
-            quantize_into::<C>(acc, &mut output, plan.depth, tables)?;
+            quantize_into::<C>(acc, &mut output, plan.depth, tables, kernels)?;
             sink(plan.output_y(emitted)?, output.row())?;
             emitted += 1;
         }

@@ -84,6 +84,37 @@ fn best_of<F: FnMut()>(runs: usize, mut body: F) -> Duration {
         .unwrap()
 }
 
+/// Scalar `f64::powf` EOTF baseline matching pre-#281 `working_color::decode_srgb`.
+fn powf_eotf(src: &[f32], dst: &mut [f64]) {
+    for (&sample, out) in src.iter().zip(dst.iter_mut()) {
+        let value = f64::from(sample);
+        let mag = value.abs();
+        let linear = if mag <= 0.04045 {
+            mag / 12.92
+        } else {
+            ((mag + 0.055) / 1.055).powf(2.4)
+        };
+        *out = linear.copysign(value);
+    }
+}
+
+/// Scalar `f64::powf` 16-bit OETF baseline matching pre-#281 `working_color::encode_linear_srgb`.
+fn powf_oetf_u16(src: &[f32], max: u16, dst: &mut [u16]) {
+    let scale = f64::from(max);
+    for (&sample, out) in src.iter().zip(dst.iter_mut()) {
+        let clamped = f64::from(sample).clamp(0.0, 1.0);
+        let encoded = if clamped <= 0.003_130_8 {
+            12.92 * clamped
+        } else {
+            1.055 * clamped.powf(1.0 / 2.4) - 0.055
+        };
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        {
+            *out = (encoded * scale).round() as u16;
+        }
+    }
+}
+
 fn main() {
     let horizontal = lanczos(SOURCE_WIDTH, OUTPUT_WIDTH);
     let vertical = lanczos(SOURCE_HEIGHT, OUTPUT_HEIGHT);
@@ -95,14 +126,46 @@ fn main() {
     let vertical_counts: Vec<usize> = vertical.iter().map(|(_, w)| w.len()).collect();
 
     println!(
-        "machine level: {}; shapes: horizontal {SOURCE_HEIGHT} rows {SOURCE_WIDTH} -> {OUTPUT_WIDTH}, vertical {OUTPUT_HEIGHT} rows of {OUTPUT_WIDTH}, Lanczos3",
+        "machine level: {}; shapes: horizontal {SOURCE_HEIGHT} rows {SOURCE_WIDTH} -> {OUTPUT_WIDTH}, vertical {OUTPUT_HEIGHT} rows of {OUTPUT_WIDTH}, Lanczos3; transfer: {SOURCE_HEIGHT} rows of {SOURCE_WIDTH}x3 (EOTF), {OUTPUT_HEIGHT} rows of {OUTPUT_WIDTH}x3 (OETF 16-bit)",
         ferrisma_kernels::machine_level()
     );
-    println!("| level | horizontal ms | vertical ms | total ms |");
-    println!("| --- | ---: | ---: | ---: |");
+    println!(
+        "| level | horizontal ms | vertical ms | eotf 24MP ms | oetf 1.7MP ms | resample ms |"
+    );
+    println!("| --- | ---: | ---: | ---: | ---: | ---: |");
+    let eotf_src: Vec<f32> = (0..SOURCE_WIDTH * 3)
+        .map(|i| f32::from(u16::try_from(i % 997).unwrap()) / 997.0)
+        .collect();
+    let oetf_src: Vec<f32> = (0..OUTPUT_WIDTH * 3)
+        .map(|i| f32::from(u16::try_from(i % 997).unwrap()) / 997.0)
+        .collect();
+    let ms = |d: Duration| d.as_secs_f64() * 1e3;
+    {
+        let mut eotf_dst = vec![0.0_f64; SOURCE_WIDTH * 3];
+        let mut oetf_dst = vec![0_u16; OUTPUT_WIDTH * 3];
+        let eotf_time = best_of(3, || {
+            for _ in 0..SOURCE_HEIGHT {
+                powf_eotf(black_box(&eotf_src), &mut eotf_dst);
+                black_box(&eotf_dst);
+            }
+        });
+        let oetf_time = best_of(3, || {
+            for _ in 0..OUTPUT_HEIGHT {
+                powf_oetf_u16(black_box(&oetf_src), 65_535, &mut oetf_dst);
+                black_box(&oetf_dst);
+            }
+        });
+        println!(
+            "| powf-ref | - | - | {:.1} | {:.1} | - |",
+            ms(eotf_time),
+            ms(oetf_time)
+        );
+    }
     for kernels in Kernels::available() {
         let mut out = vec![0.0_f32; OUTPUT_WIDTH * 4];
         let mut acc = vec![0.0_f32; OUTPUT_WIDTH * 4];
+        let mut eotf_dst = vec![0.0_f64; SOURCE_WIDTH * 3];
+        let mut oetf_dst = vec![0_u16; OUTPUT_WIDTH * 3];
         let horizontal_time = best_of(3, || {
             for _ in 0..SOURCE_HEIGHT {
                 kernels
@@ -122,12 +185,29 @@ fn main() {
                 black_box(&acc);
             }
         });
-        let ms = |d: Duration| d.as_secs_f64() * 1e3;
+        let eotf_time = best_of(3, || {
+            for _ in 0..SOURCE_HEIGHT {
+                kernels
+                    .srgb_to_linear(black_box(&eotf_src), &mut eotf_dst)
+                    .unwrap();
+                black_box(&eotf_dst);
+            }
+        });
+        let oetf_time = best_of(3, || {
+            for _ in 0..OUTPUT_HEIGHT {
+                kernels
+                    .linear_to_srgb_u16(black_box(&oetf_src), 65_535, &mut oetf_dst)
+                    .unwrap();
+                black_box(&oetf_dst);
+            }
+        });
         println!(
-            "| {} | {:.1} | {:.1} | {:.1} |",
+            "| {} | {:.1} | {:.1} | {:.1} | {:.1} | {:.1} |",
             kernels.level(),
             ms(horizontal_time),
             ms(vertical_time),
+            ms(eotf_time),
+            ms(oetf_time),
             ms(horizontal_time) + ms(vertical_time)
         );
     }
