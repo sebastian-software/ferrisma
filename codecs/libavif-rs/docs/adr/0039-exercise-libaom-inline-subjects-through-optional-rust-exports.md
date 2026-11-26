@@ -1,5 +1,7 @@
 # Exercise libaom inline subjects through optional Rust exports
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Expose reviewed original header-inline test subjects through generated wrappers
 behind the nondefault `port-test-bridges` feature. Each wrapper calls an existing
 translated inline function in the same module and retains its original ABI.

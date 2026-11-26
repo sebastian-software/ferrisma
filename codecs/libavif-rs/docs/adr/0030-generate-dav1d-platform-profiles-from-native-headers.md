@@ -1,5 +1,7 @@
 # Generate dav1d platform profiles from native headers
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Generate macOS ARM64 and Linux x86-64 translations from their own original
 reference builds and system headers. Keep Debug and Release preprocessing
 separate on each target. This preserves platform errno values, pthread details,

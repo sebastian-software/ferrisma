@@ -1,5 +1,7 @@
 # Preserve test cases when translating coupled tests
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Keep upstream tests unchanged wherever they can exercise the Rust implementation
 through a faithful boundary. Mechanically translate internally coupled C++
 tests to Rust when retaining their implementation headers would otherwise test

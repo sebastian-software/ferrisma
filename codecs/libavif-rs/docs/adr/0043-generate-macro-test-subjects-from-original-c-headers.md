@@ -1,5 +1,7 @@
 # Generate macro test subjects from the original C headers
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Translate small C wrappers around reviewed original macro subjects with the
 same C2Rust rules and preprocessing profiles as the codec. This keeps the
 algorithm in the pinned production header instead of writing a second Rust

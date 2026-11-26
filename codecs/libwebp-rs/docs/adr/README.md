@@ -5,7 +5,7 @@ records are edited in place; update their `Updated` date when their meaning
 changes. Git history preserves previous decisions. Do not create a successor
 merely to amend the same decision.
 
-Use `proposed`, `accepted`, `rejected` or `deprecated` as the status. Keep
+Use `proposed`, `accepted`, `rejected` or `deprecated` as the status. Since 2026-11-26 (owner decision) ADRs are living records: every one here is `accepted` (or `superseded` where noted in the record); `proposed` is used only for a draft before it is merged. Keep
 context, decision, consequences and review triggers concise. Implementation
 status belongs in the issues and the README, deviations in the module docs, not
 in an ADR.

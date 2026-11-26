@@ -1,5 +1,7 @@
 # Use one compatible sanitizer runtime for C and Rust parity tests
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 The host AppleClang runtime uses an Apple-specific ABI guard, while Rust's
 instrumentation uses the standard ASan v8 guard. Compile native parity consumers
 with LLVM 16 and link both implementations to the selected Rust nightly's v8

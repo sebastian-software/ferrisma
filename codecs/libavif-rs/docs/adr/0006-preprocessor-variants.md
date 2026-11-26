@@ -1,5 +1,7 @@
 # Preserve preprocessor branches as complete generated module variants
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Translate each supported experimental preprocessor combination independently
 and select changed Rust modules with Cargo `cfg` attributes. Keep unchanged
 modules shared byte-for-byte and retain complete generated variants where the

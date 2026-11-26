@@ -12,7 +12,7 @@ A five-year architecture cannot treat every early hypothesis as permanent, nor c
 
 ## Decision
 
-Maintain small, **living** ADRs with explicit status, review date, alternatives, consequences, validation and re-evaluation triggers. Accepted decisions guide changes; Proposed decisions are design hypotheses. Experimental decisions may be time-boxed in code but are not stable public contracts. Make substantial amendments in the original ADR with an amendment entry; use a new superseding ADR when the central decision changes. Update the index and relevant architecture summary together.
+Maintain small, **living** ADRs with explicit status, review date, alternatives, consequences, validation and re-evaluation triggers. Accepted decisions guide changes. Since 2026-11-26 no ADR stays Proposed or Experimental: each documents the rule that holds now and is amended when reality changes (the Proposed and Experimental states survive only in the template). Make substantial amendments in the original ADR with an amendment entry; use a new superseding ADR when the central decision changes. Update the index and relevant architecture summary together.
 
 Attach evidence and reproduce benchmark claims where possible. Do not require an ADR for trivial refactoring, formatting or implementation details consistent with an existing decision. Decision records should guide implementation, not substitute for tested code.
 
@@ -39,3 +39,4 @@ ADRs become repetitive or stale, or maintainers cannot determine the current pol
 ## Amendment log
 
 - 2026-10-31 — Accepted living ADR process.
+- 2026-11-26 — Owner decision: ADRs are living records; none stays Proposed or Experimental; open owner questions stay as an explicit list inside the Accepted record.

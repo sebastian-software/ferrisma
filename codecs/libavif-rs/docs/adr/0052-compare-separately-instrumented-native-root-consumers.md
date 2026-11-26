@@ -1,5 +1,7 @@
 # Compare separately instrumented native root consumers
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Extend ADR 0009's AddressSanitizer parity to native root profiles. Generate
 each source profile only from the ordinary original C reference. Build a
 separate sanitized C baseline whose 28 libavif units match that reference's

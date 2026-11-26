@@ -1,8 +1,8 @@
 # ADR-0032: Read JPEG XL through the workspace decoder with a full-frame fallback
 
-- **Status:** Experimental
+- **Status:** Accepted
 - **Date:** 2026-11-11
-- **Last reviewed:** 2026-11-15
+- **Last reviewed:** 2026-11-26
 - **Supersedes:** None; adds a backend alongside the interim reader in [0018](0018-optional-codec-and-cms-dependencies.md), opt-in on 2026-11-11 and the default when compiled in since 2026-11-12 (pending owner confirmation)
 - **Superseded in part by:** [0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) (the default is confirmed; comparisons with jxl-oxide are context, not a gate); the owner decision of 2026-11-15 recorded [below](#the-only-reader-2026-11-15-owner-decision) (the workspace decoder is the only JPEG XL reader; jxl-oxide leaves the runtime)
 - **Related:** [0015](0015-typed-output-color-signals.md), [0019](0019-source-side-orientation.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0026](0026-codecs-in-one-repository-and-workspace.md)
@@ -167,6 +167,16 @@ dev-dependency.
 
 Review after a change to the port's image-out callback contract or write stage, the timing phase after #96 and #100, realistic-image time/RSS comparisons, a libjxl region-decode API, a color or alpha mismatch, or a supported input that requires additional extra channels. Re-evaluate the default switch if the owner rejects the trade-off, if the idle-host timing shows a full-decode gap the owner does not accept, or if x86-64 conformance fails.
 
+## Current state (finalized 2026-11-26)
+
+This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
+
+- The workspace `libjxl-rs` reader is the only JPEG XL reader since 2026-11-15; jxl-oxide is a test-only cross-check. This supersedes the text about jxl-oxide as the default and the "pending owner confirmation" opt-in; the default was confirmed on 2026-11-13. Every crop is a budgeted full-frame fallback; a codec-local region API (#197) is not implemented.
+
+### Open questions
+
+- Binary size and process peak memory against the former reader were not recorded; the codec-local region API (#197).
+
 ## Amendment log
 
 - 2026-11-11 — Added the independent safe wrapper and explicit full-frame experimental input path. The photo-sized time/RSS comparison retained jxl-oxide as the default under ADR-0025.
@@ -179,3 +189,4 @@ Review after a change to the port's image-out callback contract or write stage, 
 - 2026-11-13 — Straight alpha reaches the rendered-ICC stage (#222, ADR-0015 2026-11-13). This reader already reported association from basic info; the jxl-oxide backend now does as well (`alpha_associated == false` is straight, anything else stays unspecified and is refused). `src/jxl_alpha_tests.rs` reads the engine's own transparent lossy output back with both readers (alpha exact) and checks that a codestream rewritten to associated alpha is declared `Premultiplied` here and refused.
 - 2026-11-15 — Owner decision: jxl-oxide leaves the runtime and the workspace decoder is the only JPEG XL reader; jxl-oxide remains a test-only cross-check. `jpeg-xl-own-read` is renamed `jpeg-xl-read` (working decision, delegated). Recorded in [The only reader](#the-only-reader-2026-11-15-owner-decision); the sections above are kept for history.
 - 2026-11-24 — The x86-64 conformance gate is settled. The external corpus passes on hosted Linux x86-64 hardware (`ubuntu-24.04`) with the corpus's own runner, on the default AVX2 path and on the forced scalar path: 27 of 27 level-10 and 24 of 24 level-5 cases each, `original.icc` and reconstructed JPEGs identical (workflow `JXL: Conformance corpus (Linux x86-64)`, run [45343416525](https://github.com/sebastian-software/ferrisma/actions/runs/45343416525) at `01dfdc80`; an earlier run, 43690766156 at `b3f29a71`, gave the same counts). The gate named under "Gates that stay open" and in the review triggers is met. See the [record](../../codecs/libjxl-rs/docs/CONFORMANCE.md).
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.

@@ -4,7 +4,7 @@ Each numbered file contains the current decision for one topic. Accepted
 records are edited in place; update their `Updated` date when their meaning
 changes. Git history preserves previous decisions.
 
-Use `proposed`, `accepted`, `rejected` or `deprecated` as the status. These
+Use `proposed`, `accepted`, `rejected` or `deprecated` as the status. Since 2026-11-26 (owner decision) ADRs are living records: every one here is `accepted` (or `superseded` where noted in the record); `proposed` is used only for a draft before it is merged. These
 records are the only place for decisions: there is no separate plan, status or
 verification document. What is verified is shown by the tests, which assert
 the measured results. Open work is tracked as

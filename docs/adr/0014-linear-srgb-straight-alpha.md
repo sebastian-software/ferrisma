@@ -1,8 +1,8 @@
 # ADR-0014: Explicit linear-light sRGB filtering with straight-alpha input
 
-- **Status:** Experimental
+- **Status:** Accepted
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-11-12
+- **Last reviewed:** 2026-11-26
 - **Supersedes:** None
 - **Related:** [0005](0005-codec-capabilities-and-pixel-contracts.md), [0011](0011-borrowed-planar-surface-contract.md), [0012](0012-codec-source-contract.md), [0013](0013-sample-domain-resize.md)
 
@@ -54,6 +54,12 @@ Unit/integration tests must establish: the black/white midpoint is sRGB 188, not
 
 An ICC color-management engine becomes available; real codecs can provide trusted sRGB output with richer metadata; HDR or F32/resampling is needed; a new alpha association is demonstrated; or measured per-pixel transfer overhead motivates LUT/SIMD specialization. Only enable fast paths with differential reference tests and reproducible measurements.
 
+## Current state (finalized 2026-11-26)
+
+This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
+
+- An explicit caller policy for untagged input exists (`InputProfilePolicy::AssumeSrgbIfMissing`, decided in ADR-0015 and later). "Profiles ... remain future work" now holds only for this reference domain: the working-linear path transforms ICC profiles through moxcms (ADR-0016). The trigger "an ICC engine becomes available" has fired.
+
 ## Amendment log
 
 - 2026-10-31 — Introduced strict, opt-in linear-sRGB bilinear reference with correct straight-alpha handling.
@@ -63,3 +69,4 @@ An ICC color-management engine becomes available; real codecs can provide truste
 ## 2026-11-12: unassociation where filtered alpha exceeds one
 
 The independent resize comparison (#18, `tests/resize_oracle.rs`) found that the output step of both engine executors clamps the filtered alpha to `[0, 1]` first and then divides the associated color by the *clamped* alpha; ImageMagick 7.1.2-35 divides by the unclamped alpha. The two agree everywhere else: their associated linear-light filter results differ by at most `1.7e-7`. They diverge only where Lanczos3 overshoot pushes alpha above one next to hard alpha edges: in the retained `alpha-up-lanczos3` case, 506 pixels differ by up to 21 codes. Ferrisma's rule keeps the visible, now opaque, result equal to the filtered associated light and matches the opaque path; ImageMagick's keeps the straight color. Neither is physically exact, because alpha above one has no meaning. The engine rule is kept and is now the documented contract of this ADR's "divides by output alpha": the output alpha is the clamped alpha. `alpha_overshoot_unassociation_differs_from_imagemagick_only_above_one` retains the difference as a regression. Re-evaluate if an encoder or compositor contract needs the straight color preserved.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.

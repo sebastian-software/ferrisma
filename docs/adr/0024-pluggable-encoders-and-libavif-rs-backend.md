@@ -1,8 +1,8 @@
 # ADR-0024: Pluggable output encoders and a libavif-rs backend
 
-- **Status:** Experimental
+- **Status:** Accepted
 - **Date:** 2026-11-06
-- **Last reviewed:** 2026-11-16
+- **Last reviewed:** 2026-11-26
 - **Supersedes:** None
 - **Partially superseded by:** [0026](0026-codecs-in-one-repository-and-workspace.md), repository/workspace placement and dependency pinning; [0030](0030-still-webp-output-and-format-neutral-encoder-result.md), output result and feature coupling; [0031](0031-workspace-libavif-input-experiment.md), AVIF input and the former duplicate-symbol exclusion
 - **Related:** [0017](0017-minimal-public-facade-and-cli.md), [0020](0020-kernel-crate-and-isa-dispatch.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0022](0022-parallel-row-pipeline-and-engine.md), [M2 milestone](../milestones/M2-performance-architecture.md) work package 2, [Sharp comparison](../benchmarks/M2-sharp-comparison.md), [libavif-rs](../../codecs/libavif-rs), [libwebp-rs plan](../research/2026-11-05-libwebp-port-plan.md)
@@ -76,6 +76,17 @@ With one thread, libavif-rs speed 6 takes 21–50 % longer than `rav1e`: its AOM
 ## Review when
 
 The remaining triggers are a stable libavif toolchain or safe API, material changes to its SIMD or AOM profile, a change in the combined AVIF input/output behavior, or evidence that a streaming YUV path to AOM is worth the materialized RGBA frame. The VMAF profile, SIMD, WebP output, and AVIF input triggers have already been reviewed in the amendments below.
+
+## Current state (finalized 2026-11-26)
+
+This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
+
+- Decision 4 (rav1e stays the default) is superseded by ADR-0037: rav1e left the engine on 2026-11-15 and the built-in AVIF writer is libavif/AOM. Decision 3 (no AVIF input) is superseded by ADR-0031. Backend rows are 8-bit or one deeper integer depth, not only sRGB8 (2026-11-15/16); `RowEncoder::finish` returns `Result<EncodedImage, EncodeError>`. The falsifier "not smaller than rav1e" is obsolete.
+
+### Open questions
+
+- A direct YUV-to-AOM path (#60) is not implemented and unmeasured.
+- The ADR-0025 acceptance criteria for libavif-rs (timing, memory, binary size, license) are not all recorded.
 
 ## Amendment log
 
@@ -162,3 +173,4 @@ The remaining triggers are a stable libavif toolchain or safe API, material chan
   With the option redesign of the same day the request carries
   `output: OutputSettings` (only the selected format's settings) instead of
   a format and the settings of all three formats.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.

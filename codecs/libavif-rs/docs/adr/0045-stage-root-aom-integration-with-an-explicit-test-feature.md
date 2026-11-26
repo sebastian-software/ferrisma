@@ -1,5 +1,7 @@
 # Stage root AOM integration with an explicit test feature
 
+Status: Accepted (historical: the `port-aom-candidate` feature was removed by [ADR 0049](0049-use-rust-aom-as-the-mandatory-root-codec.md), the Rust AOM crate is now the mandatory root codec; finalized 2026-11-26 as a living record, owner decision)
+
 [ADR 0048](0048-require-complete-release-and-focused-debug-aom-acceptance.md)
 replaces the full Debug standalone gate below with focused Debug checks.
 The complete native Release and final root integration gates still apply.

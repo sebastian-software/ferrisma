@@ -1,5 +1,7 @@
 # Use noncontracting C references for portable ports
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Set `-ffp-contract=off` explicitly in the primary original C reference and
 original C test consumers. Keep normal Rust floating-point code generation,
 unoptimized development builds, and the original translated expressions.

@@ -1,5 +1,7 @@
 # Use Rust AOM as the mandatory root codec
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Use the portable `libavif-aom` workspace crate in every normal libavif Rust
 build. Complete original native Linux x86-64 and macOS ARM64 Release suites,
 focused Debug checks, and the finite subject/oracle correspondence review

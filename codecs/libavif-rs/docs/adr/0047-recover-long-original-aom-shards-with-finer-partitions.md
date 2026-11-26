@@ -1,5 +1,7 @@
 # Recover long original AOM shards with finer partitions
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Keep the existing complete-suite runs and every successful original shard.
 Recover timed-out shards from their exact original C and Rust executable
 artifacts. Do not rebuild or optimize the codec, change assertions, shorten

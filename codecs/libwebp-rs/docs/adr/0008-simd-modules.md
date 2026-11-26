@@ -1,6 +1,6 @@
 # Translate the SIMD variants in unsafe-allowed modules behind runtime selection
 
-- Status: accepted
+- Status: accepted (superseded in part by engine ADR-0041, 2026-11-13)
 - Created: 2026-11-09
 - Updated: 2026-11-22
 

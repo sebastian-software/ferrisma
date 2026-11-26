@@ -1,5 +1,7 @@
 # Preserve single evaluation of glibc assertions
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 The native Linux Debug root profile exposes a C2Rust 0.21.0 duplication of
 glibc's assertion expansion. The original macro's `sizeof` operand is
 unevaluated; its following statement expression evaluates the predicate once.

@@ -1,8 +1,8 @@
 # ADR-0011: Experiment with borrowed, strided planar 10-bit surfaces
 
-- **Status:** Experimental
+- **Status:** Accepted
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-10-31
+- **Last reviewed:** 2026-11-26
 - **Supersedes:** None
 - **Related:** [0002](0002-semantic-graph-and-planner.md), [0003](0003-demand-driven-regions.md), [0004](0004-buffer-ownership-and-budget.md), [0005](0005-codec-capabilities-and-pixel-contracts.md), [experiment notes](../design/planar-surface-experiment.md)
 
@@ -44,6 +44,17 @@ Run differential scalar sample tests, zero-copy row identity checks, non-contigu
 
 The first real decoder requires packed/tiled data or a shorter borrowing lifetime; multiple sources require a binding registry; phase-aware crops or resampling expose different semantic geometry; or the type-specific source executor starts duplicating significant planning logic.
 
+## Current state (finalized 2026-11-26)
+
+This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
+
+- The contract is implemented as written (`Planar10Source`, `Yuv420P10`, `execute_planar10`); no real decoder produces planar data yet, only tests do. Planar resize remains refused.
+
+### Open questions
+
+- Whether a contract with no producing decoder stays as it is until the first decoder needs it (the review triggers in this ADR still apply).
+
 ## Amendment log
 
 - 2026-10-31 — Introduced a narrow borrowed YUV420P10 source and crop-only experiment. Retain broader codec and color negotiation decisions as Proposed under ADR-0005.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.

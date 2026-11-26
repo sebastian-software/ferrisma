@@ -1,5 +1,7 @@
 # Keep the translated arithmetic and expose compiler rounding differences
 
+Status: Accepted (updated by [ADR 0024](0024-use-noncontracting-c-references-for-portable-ports.md); strict byte parity across compilers is an open item, as the text says; finalized 2026-11-26 as a living record, owner decision)
+
 Updated by [ADR 0024](0024-use-noncontracting-c-references-for-portable-ports.md):
 the primary C references now explicitly disable contraction, and Rust uses
 normal arithmetic. Compiler-default differences remain separate diagnostics.

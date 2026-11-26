@@ -1,5 +1,7 @@
 # Deliver dav1d through the workspace crate
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Use the mechanical `libavif-dav1d` crate for the existing libavif dav1d adapter
 and remove native dav1d from Cargo and original-consumer link requirements.
 Keep the original headers, C reference, and C/C++ test tooling for independent

@@ -1,5 +1,7 @@
 # Keep codec implementations external and port their adapters
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Port the libgav1, rav1e, and SVT-AV1 adapter implementations into Rust, preserving
 the original codec registration order and feature guards. The codec engines
 remain the original external libraries; selecting external libyuv similarly

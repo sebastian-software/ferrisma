@@ -1,9 +1,9 @@
 # ADR-0045: Recipe API: one source, several crops, several outputs
 
-- **Status:** Proposed (owner design session, 2026-11-24 to 2026-11-26)
+- **Status:** Accepted
 - **Date:** 2026-11-26
 - **Last reviewed:** 2026-11-26
-- **Supersedes:** None yet. If accepted, it replaces the call shape of [0017](0017-minimal-public-facade-and-cli.md) (`transcode(input, options)`) and the API inventory of [0040](0040-stable-public-contract-and-compatibility-policy.md) for the items it covers.
+- **Supersedes:** None. It replaces the call shape of [0017](0017-minimal-public-facade-and-cli.md) (`transcode(input, options)`) and the API inventory of [0040](0040-stable-public-contract-and-compatibility-policy.md) for the items it covers.
 - **Related:** [0012](0012-codec-source-contract.md), [0022](0022-parallel-row-pipeline-and-engine.md), [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), [0034](0034-thumbnail-geometry.md), [0040](0040-stable-public-contract-and-compatibility-policy.md), tracker #271, [research notes](../research/2026-11-quality-and-recipe-api.md)
 
 ## Context
@@ -145,3 +145,4 @@ The engine provides what a server, and Ardo's cache, need without becoming a ser
 
 - 2026-11-26 — Initial proposal from the owner's design session.
 - 2026-11-26 — Owner review: no JSON sidecar for focus, regions live in XMP only; SSIMULACRA 2 as the calibration metric and quality as displayed for dense screens (decisions 5 and 6) confirmed.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted as is.

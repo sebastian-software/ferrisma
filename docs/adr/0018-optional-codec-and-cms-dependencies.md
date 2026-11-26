@@ -1,8 +1,8 @@
 # ADR-0018: Feature-gated codec and CMS dependencies, MSRV and lockfile
 
-- **Status:** Experimental
+- **Status:** Accepted
 - **Date:** 2026-11-05
-- **Last reviewed:** 2026-11-15
+- **Last reviewed:** 2026-11-26
 - **Supersedes:** None
 - **Partially superseded by:** [0031](0031-workspace-libavif-input-experiment.md), experimental AVIF input and its native/nightly toolchain boundary; final adoption gates remain open.
 - **Related:** [libavif-rs](../../codecs/libavif-rs), [libjxl-rs](../../codecs/libjxl-rs), [0005](0005-codec-capabilities-and-pixel-contracts.md), [0010](0010-dual-licensing.md), [0012](0012-codec-source-contract.md), [0015](0015-typed-output-color-signals.md), [0017](0017-minimal-public-facade-and-cli.md), [encoder and CMS research](../research/2026-10-31-encoder-and-cms-candidates.md), [codec adapter audit](../research/codec-adapter-audit.md), [JPEG and WebP evaluation](../research/2026-11-05-jpeg-and-webp-codec-evaluation.md), [libwebp port plan](../research/2026-11-05-libwebp-port-plan.md), [license audit](../license-audit.md)
@@ -88,6 +88,17 @@ Before **Accepted**: complete transitive license and NOTICE review for the curre
 
 Review the active dependency graph when libavif-rs or libjxl-rs meets the remaining adoption gates (safe API, stable toolchain, pinnable release), the libjxl-rs encoder lands, another decoder exposes useful planar output and container metadata, a consumer needs an older engine MSRV, a dependency changes license, the adopted libwebp-rs path changes its parity, crop, color or memory contract, or a consumer needs JPEG output or expanded WebP output. The former `avif-decode` MSRV and `avif-parse` MPL triggers apply only if that historical graph is restored.
 
+## Current state (finalized 2026-11-26)
+
+This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
+
+- Rust version is 1.99 (ADR-0040 amendment), not 1.98. `libwebp-rs` exists and is adopted (ADR-0029, 0030). The sentence that jxl-oxide and rav1e remain interim defaults is out of date: both left the runtime on 2026-11-15; jxl-oxide is a test-only dependency; `ravif` is no longer a dependency of the root crate. AVIF features build on stable (libavif-rs ADR-0060) and are restricted to native targets.
+- Adoption of the ports is recorded in ADR-0025, 0032, 0037 and 0039.
+
+### Open questions
+
+- License/NOTICE review for `jpeg-xl-write` (#66), broader ICC validation (LUT, HDR) and the final selection gates of ADR-0025 for AVIF remain open.
+
 ## Amendment log
 
 
@@ -125,3 +136,4 @@ Review the active dependency graph when libavif-rs or libjxl-rs meets the remain
 - 2026-11-15 — Owner decision (ADR-0032): `jxl-oxide` and `jxl-grid` are no longer runtime dependencies. `jpeg-xl-read` now compiles the workspace `ferrisma-jxl-decoder` → `libjxl-rs` reader, which was `jpeg-xl-own-read` (working decision on the name, delegated); `jxl-oxide` 0.12.6 stays as a `[dev-dependencies]` entry for independent cross-checks in tests, and as the existing dev-dependency of `ferrisma-jxl-decoder` for the benchmark's context column. The jxl-oxide crates (21 packages) left the fuzz crate's lockfile; the root lockfile keeps them for the dev-dependency.
 - 2026-11-15 — Owner decision (ADR-0037): `rav1e` and `avif-serialize` are no longer dependencies; `avif-write` now compiles the workspace `ferrisma-avif-write` → `libavif-rs` writer, which was `avif-own-write` (working decision on the name, delegated). NASM is no longer a prerequisite of any engine feature. `ravif` stays a test-only dev-dependency (it pulls rav1e without assembly into test builds). 62 package entries left the fuzz crate's lockfile with rav1e (83 with the jxl-oxide entry above); the root lockfile lost `nasm-rs`.
 - 2026-11-15 — Decision 5 (MSRV) is superseded by the owner's MSRV decision of this date, recorded in [ADR-0040](0040-stable-public-contract-and-compatibility-policy.md): `ferrisma` declares `rust-version = "1.99"` for every feature (AVIF's C-variadic functions), and the codec ports published on their own declare their measured floors.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.

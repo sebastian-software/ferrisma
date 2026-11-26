@@ -1,8 +1,8 @@
 # ADR-0023: Decode-side work, shrink-on-load and native layouts
 
-- **Status:** Experimental (decisions 1 and 2 implemented; 3 and 4 open)
+- **Status:** Accepted (decisions 1 and 2 implemented; 3 and 4 not implemented)
 - **Date:** 2026-11-06
-- **Last reviewed:** 2026-11-15
+- **Last reviewed:** 2026-11-26
 - **Supersedes:** None
 - **Related:** [0012](0012-codec-source-contract.md), [0014](0014-linear-srgb-straight-alpha.md), [0015](0015-typed-output-color-signals.md), [0016](0016-working-color-space-and-transform-boundaries.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0019](0019-source-side-orientation.md), [0021](0021-working-precision-policy.md), [0022](0022-parallel-row-pipeline-and-engine.md), [codec capability audit](../research/2026-11-05-decode-scaling-and-encoder-capabilities.md), [M2 milestone](../milestones/M2-performance-architecture.md) work package 5
 
@@ -54,6 +54,17 @@ Verified facts from the [codec capability audit](../research/2026-11-05-decode-s
 ## Review when
 
 The workspace JPEG adapter gains an explicit scaled-IDCT quality policy; moxcms changes its extended-range matrix-shaper or LUT behavior; a real-photo corpus shows the orientation buffer as a dominant cost; the libavif-rs or libjxl-rs ports replace the interim decoders (ADR-0018).
+
+## Current state (finalized 2026-11-26)
+
+This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
+
+- Decision 1 and 2 (the ICC matrix-shaper adapter, deferred conversion, orientation on transform threads, decoder threads for AVIF) are implemented; the JPEG decoder is now the libjpeg-turbo-rs port, so the zune-jpeg wording is out of date. Decision 3 (shrink-on-load, `DecodeScaling`) is not implemented; its route moved to the libjpeg-turbo port under ADR-0025. Decision 4: the jxl-oxide half is moot (removed from the runtime); a native YUV AVIF-to-AVIF path is not implemented.
+
+### Open questions
+
+- Decision 4, native YUV AVIF-to-AVIF: whether it will be pursued.
+- The moxcms re-evaluation against LUT profiles and more than one photograph.
 
 ## Amendment log
 
@@ -127,3 +138,4 @@ the counts above do not depend on load.
 ## 2026-11-12: ICC adapter limits observed (#17)
 
 The ICC adapter (`src/cms.rs`) now runs ADR-0015's bounded header check before moxcms (moxcms 0.9.1 accepted a declared size beyond the data), and rejects HDR, unknown or contradicting CICP beside the profile (ADR-0016, 2026-11-12). Hostile inputs (empty, truncated, oversized declared size, overflowing tag count, out-of-range tag offsets, over 4 MiB) are controlled `UnsupportedColorEncoding` errors in `cms::tests`. A real photograph with a compact sRGB ICC v4 profile, and the same crop as Display P3 with 103 out-of-sRGB samples, match LittleCMS 2.19 within `8e-4` linear (`tests/icc_photo.rs`). Observed limits: matrix-shaper RGB profiles only; LUT-based profiles keep moxcms' default path with no extended-range or LittleCMS evidence; only relative colorimetric is compared; ICC-signalled alpha input is rejected (`UnsupportedInput`); one photograph, not a corpus.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted (decision 3 partly superseded by ADR-0025).

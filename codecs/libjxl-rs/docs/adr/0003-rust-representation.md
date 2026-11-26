@@ -1,6 +1,6 @@
 # Map ownership and storage explicitly
 
-- Status: accepted
+- Status: accepted (superseded in part by engine ADR-0041, 2026-11-13)
 - Created: 2026-10-31
 - Updated: 2026-11-14
 

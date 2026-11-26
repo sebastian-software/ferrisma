@@ -1,8 +1,8 @@
 # ADR-0019: Apply orientation as an explicit source-side materialization
 
-- **Status:** Experimental
+- **Status:** Accepted
 - **Date:** 2026-11-05
-- **Last reviewed:** 2026-11-12
+- **Last reviewed:** 2026-11-26
 - **Supersedes:** None
 - **Related:** [0003](0003-demand-driven-regions.md), [0004](0004-buffer-ownership-and-budget.md), [0012](0012-codec-source-contract.md), [0016](0016-working-color-space-and-transform-boundaries.md), [0017](0017-minimal-public-facade-and-cli.md), [0018](0018-optional-codec-and-cms-dependencies.md)
 
@@ -46,6 +46,16 @@ Before **Accepted**: measure the copy cost on large images; decide whether flips
 ## Review when
 
 The JPEG XL decoder changes again; a workload shows the region copy is significant; orientation must be applied somewhere other than the source; or `clap` support is added.
+
+## Current state (finalized 2026-11-26)
+
+This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
+
+- The default JPEG XL reader named in Decision 4 is the libjxl-rs port (jxl-oxide is a test cross-check). The "before Accepted" items are done: copy cost measured, flips keep the materialization, lossy and animated JPEG XL decided (lossy measured, animation refused). Lossy JPEG XL output now exists, so the parenthetical about its absence is out of date.
+
+### Open questions
+
+- A clean, unloaded re-measurement of the orientation copy cost was deferred and is not done.
 
 ## Amendment log
 
@@ -135,3 +145,4 @@ latent. Real-file crops are covered for JPEG, WebP and AVIF through the facade
 Remaining before **Accepted**: a clean re-measurement of gather time and
 process RSS on an unloaded host, and a lossy JPEG XL photograph at camera size
 (no JPEG XL encoder for lossy output is available in the workspace).
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.

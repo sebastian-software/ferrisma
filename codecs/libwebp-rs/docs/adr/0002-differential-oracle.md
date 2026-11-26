@@ -1,6 +1,6 @@
 # Compare against the original C implementation in separate processes
 
-- Status: accepted
+- Status: accepted (superseded in part by engine ADR-0041, 2026-11-13)
 - Created: 2026-11-05
 - Updated: 2026-11-13
 

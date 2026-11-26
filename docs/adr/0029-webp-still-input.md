@@ -1,8 +1,8 @@
 # ADR-0029: Read still WebP through the workspace reference port
 
-- **Status:** Experimental
+- **Status:** Accepted
 - **Date:** 2026-11-11
-- **Last reviewed:** 2026-11-12
+- **Last reviewed:** 2026-11-26
 - **Supersedes:** The unimplemented `webp-read` target in [0018](0018-optional-codec-and-cms-dependencies.md); no prior implemented behavior
 - **Related:** [0012](0012-codec-source-contract.md), [0015](0015-typed-output-color-signals.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0019](0019-source-side-orientation.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0026](0026-codecs-in-one-repository-and-workspace.md), [WebP port plan](../research/2026-11-05-libwebp-port-plan.md)
 
@@ -40,6 +40,16 @@ Focused adapter tests compare odd and interior crops with a full decode for loss
 
 Review if the port changes crop memory or row-work behavior, its color conversion or metadata semantics change, alpha formats or association rules change, animation enters scope, or measured crop cost justifies incremental compressed-input streaming.
 
+## Current state (finalized 2026-11-26)
+
+This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
+
+- Implemented as described (`webp-read`, feature in `cli`; the package behind `libwebp-rs` is `ferrisma-libwebp`). A row-callback decode that keeps only the requested rows is not implemented; crops of lossy files use the codec region request, lossless files fall back to full frames.
+
+### Open questions
+
+- Independent publication of the port and incremental compressed-input streaming remain undecided.
+
 ## Amendment log
 
 - 2026-11-11 — Adopted still-image input through the safe, local `libwebp-rs` API under the existing private source contract; retained explicit color, orientation, budget and opaque-memory gates.
@@ -67,3 +77,4 @@ known full frame. The previous text says only that crop output is budgeted; it
 did not say how large the lossy crop buffer becomes for a low crop. A
 row-callback decode that keeps only the requested rows would remove most of that
 buffer; it is not implemented.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.

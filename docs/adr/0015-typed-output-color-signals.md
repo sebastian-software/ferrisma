@@ -1,8 +1,8 @@
 # ADR-0015: Inspect rendered color signals before selecting a color operation
 
-- **Status:** Experimental
+- **Status:** Accepted
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-11-15
+- **Last reviewed:** 2026-11-26
 - **Supersedes:** None
 - **Related:** [0005](0005-codec-capabilities-and-pixel-contracts.md), [0012](0012-codec-source-contract.md), [0013](0013-sample-domain-resize.md), [0014](0014-linear-srgb-straight-alpha.md)
 
@@ -55,6 +55,17 @@ This is an **experimental internal contract**, not a supported API, and does not
 ## Review when
 
 A real decoder exposes a usable output-profile transform API; an ICC parser/CMM is selected; a reference-white and output-intent model for PQ/HLG is defined; metadata sizes cause large allocations; or evidence demonstrates that an explicitly supported profile precedence policy can be standardized per adapter.
+
+## Current state (finalized 2026-11-26)
+
+This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
+
+- Out of date and corrected here: a CMS exists (moxcms, ADR-0016), so this ADR no longer excludes a CMM or an ICC transform; `ColorSignal`, `RefusalReason` and `ProcessingReport::color_signal` are public. ICC/CICP precedence and the XYB enum-sRGB question were decided by the owner on 2026-11-15 (see the amendment log). The default JPEG XL decoder is the libjxl-rs port. ICC-signalled JPEG XL fixtures exist under `tests/fixtures/parity`.
+- Still not implemented: HDR reference white (PQ/HLG are refused).
+
+### Open questions
+
+- A cap on the ICC payload held in `Arc` storage (only AVIF has one, 16 MiB): not implemented.
 
 ## Amendment log
 
@@ -307,3 +318,4 @@ reports any more. Evidence: `tests/fixtures/parity/rgb-icc-cicp-p3.jpg`
 `refusal_reason_tests` and `format_parity::a_contradicting_cicp_tag_inside_the_profile_is_refused`.
 `ColorSignal::RenderedIccWithAgreeingCicp` is no longer produced by a
 built-in reader and is kept for one that reports CICP beside a profile.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.

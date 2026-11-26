@@ -1,5 +1,7 @@
 # Map dav1d atomics and C address-taking mechanically
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Preserve each original C11 atomic operation and memory ordering while updating
 C2Rust's old intrinsic spelling to the pinned Rust compiler's const arguments.
 Retain strong compare/exchange, sequentially consistent defaults, explicit

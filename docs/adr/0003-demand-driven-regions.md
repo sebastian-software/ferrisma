@@ -1,8 +1,8 @@
 # ADR-0003: Model demand as regions with explicit dependencies
 
-- **Status:** Experimental
+- **Status:** Accepted
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-11-12
+- **Last reviewed:** 2026-11-26
 - **Supersedes:** None
 - **Related:** [0002](0002-semantic-graph-and-planner.md), [0004](0004-buffer-ownership-and-budget.md)
 
@@ -52,6 +52,12 @@ This is deliberately **not** a fixed scanline architecture contract: the logical
 
 **New tests:** very tall synthetic input and a severe vertical downscale request at most two source rows per output row for a single bilinear resize.
 
+## Current state (finalized 2026-11-26)
+
+This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
+
+- The sentence "full-frame fallbacks, filters beyond bilinear ... are not implemented" is out of date: full-frame fallback (`DecodeAccess::FullFrameFallback`) and the Lanczos3 and Area filters exist. Still not implemented: planner-level codec group alignment (JPEG iMCU expansion happens inside the codec adapter), repeated-ROI caching, and multiple disjoint input spans per row (one bounding rectangle per row remains).
+
 ## Amendment log
 
 - 2026-10-31 — Initial proposal.
@@ -71,3 +77,4 @@ edges, so there is no halo beyond it) in one decoder request that delivers each
 row once. Halo duplication therefore does not occur in the current executors;
 the overfetch that does occur is codec-side and is now visible. Bands with
 duplicated halos remain rejected (ADR-0022).
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.

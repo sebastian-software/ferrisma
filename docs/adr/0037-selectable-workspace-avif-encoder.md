@@ -1,8 +1,8 @@
 # ADR-0037: Select the workspace AVIF encoder through the facade
 
-- **Status:** Experimental
+- **Status:** Accepted
 - **Date:** 2026-11-11
-- **Last reviewed:** 2026-11-15
+- **Last reviewed:** 2026-11-26
 - **Superseded in part by:** [0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) (the comparison with rav1e is context, not a criterion); the owner decision of 2026-11-15 recorded [below](#the-only-avif-writer-2026-11-15-owner-decision) (the selection is gone: the workspace AOM writer is the only AVIF writer)
 - **Related:** [0018](0018-optional-codec-and-cms-dependencies.md), [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0031](0031-workspace-libavif-input-experiment.md)
 
@@ -266,6 +266,16 @@ Re-evaluate the default switch if the owner rejects the unmapped quality
 scale, if quiet-host timing shows a regression the owner does not accept, or
 if hosted x86-64 golden evidence fails.
 
+## Current state (finalized 2026-11-26)
+
+This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
+
+- Sections "Default switch" and the selection text (rav1e default, `AvifEncoder`, `avif-own-write`) are history: since 2026-11-15 libavif/AOM is the only AVIF writer, rav1e is removed, and the features are `avif-write`. Nightly is no longer required (Rust 1.99, native targets only). `AvifOptions::depth` is `BitDepth`, not `Option<u8>`. The bridge-crate decision (`ferrisma-avif-write`) is implemented.
+
+### Open questions
+
+- A direct YUV-to-AOM path (#60), hosted golden evidence (#134), wall time and peak RSS on quiet hosts, and targets beyond macOS ARM64 and GNU Linux x86-64 are open.
+
 ## Amendment log
 
 - 2026-11-11 — Added opt-in facade and CLI selection through an independent
@@ -326,3 +336,4 @@ if hosted x86-64 golden evidence fails.
   `--chroma=` removed; `LibavifBackend` without its own depth. Closes #216.
 - 2026-11-15 — The workspace AVIF port builds on stable Rust 1.99 or later (libavif-rs [ADR 0060](../../codecs/libavif-rs/docs/adr/0060-build-the-translations-on-stable-rust.md)): the "pinned nightly" requirements above and the known cost of the rav1e removal (no AVIF on a stable toolchain) no longer apply; the native-target restriction stays. CI checks `avif-read`, `avif-write` and `cli` with `cargo +1.99.0`. Working decision 2026-11-15 (delegated, revisable by the owner).
 - 2026-11-15 — The fixed default depth 8 (working decision above) is replaced by the owner's decision of the same day: the depth follows the input, as `avifenc` does (`apps/shared/avifpng.c:376`-`382`: 8 for 8-bit input, 12 for deeper PNG; Y4M keeps its own, `apps/avifenc.c:706`), 8, 10 or 12, and the writer receives `u16` rows at that depth (`avifRGBImage::depth` = image depth); `AvifOptions::depth` is `Option<u8>`. The bytes of a 10- and a 12-bit encode equal the C original's for the same samples (`ferrisma_avif_write::deep_output_equals_the_c_original`, `tests/fixtures/avif-deep/`). 8-bit input keeps its bytes. See the ADR-0021 amendment.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.

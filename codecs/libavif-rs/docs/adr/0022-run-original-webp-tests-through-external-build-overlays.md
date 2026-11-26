@@ -1,5 +1,7 @@
 # Run original WebP tests through external build overlays
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Preserve every imported WebP source, test, fixture, and CMake file. Build all
 twelve original FuzzTest consumers with the original optional mux and webpinfo
 targets enabled. Use the pinned FuzzTest revision selected by WebP and apply

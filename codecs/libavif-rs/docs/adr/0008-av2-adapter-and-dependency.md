@@ -1,5 +1,7 @@
 # Preserve experimental AV2 behavior through the original AVM adapter
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Translate the AVM adapter and the AV2-specific OBU, reader, and writer branches
 for each Mini/Extended-PIXI combination. Keep AVM v1.0.0 as the external codec,
 with its source revision and build options recorded in the dependency tooling.

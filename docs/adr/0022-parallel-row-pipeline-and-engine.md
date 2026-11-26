@@ -1,8 +1,8 @@
 # ADR-0022: Parallel row pipeline and an engine for many images
 
-- **Status:** Experimental
+- **Status:** Accepted
 - **Date:** 2026-11-06
-- **Last reviewed:** 2026-11-11
+- **Last reviewed:** 2026-11-26
 - **Supersedes:** None
 - **Related:** [0003](0003-demand-driven-regions.md), [0004](0004-buffer-ownership-and-budget.md), [0006](0006-cpu-first-gpu-capable-execution.md), [0020](0020-kernel-crate-and-isa-dispatch.md), [0021](0021-working-precision-policy.md), [M2 milestone](../milestones/M2-performance-architecture.md) work package 4, [M2 baseline](../benchmarks/M2-baseline.md)
 
@@ -57,6 +57,12 @@ The M2 plan sketched *bands with filter halos*: split the output into horizontal
 
 Decode-side scaling (package 5) gives decoders region access; the `Engine` needs nested or prioritized parallelism; the allocator shows up in profiles; a GPU backend (ADR-0024) needs a different job granularity.
 
+## Current state (finalized 2026-11-26)
+
+This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
+
+- Decision 7 differs from the code: `Engine` holds only its thread count and spawns scoped threads per batch call; a long-lived worker pool is not implemented (deferred). `TransformOptions::transform_threads` is the typed `Threads`. rayon is not used.
+
 ## Amendment log
 
 - 2026-11-11 — Per-image transform and encoder thread options now admit only 0–256 before source opening; automatic transform selection is capped at 256. This prevents oversized explicit requests from reaching the scoped worker loop. It does not make thread stacks part of the managed budget or guarantee OS thread creation; batch worker admission remains separate.
@@ -77,3 +83,4 @@ Decode-side scaling (package 5) gives decoders region access; the `Engine` needs
   output or image processing escaped the failed start, and verify managed
   buffers are released. OS thread stacks and codec scratch remain outside the
   pixel budget. Worker panics retain the prior scoped-thread behavior.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.

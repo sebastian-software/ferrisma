@@ -1,5 +1,7 @@
 # Retain explicit dav1d object alignment
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 C2Rust 0.21.0 drops alignment attributes on local and static variables as well
 as records and fields. Restore each original Clang `VarDecl` alignment with a
 single-field C-layout storage wrapper and keep all existing value operations

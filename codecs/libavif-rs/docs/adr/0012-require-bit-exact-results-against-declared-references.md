@@ -1,5 +1,7 @@
 # Require bit-exact results against declared references
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 For each port milestone, compare against a pinned original implementation and
 an explicitly declared reference configuration. Require identical encoded
 bitstreams and decoded pixels, together with matching return values and errors,

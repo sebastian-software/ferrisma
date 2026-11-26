@@ -1,8 +1,8 @@
 # ADR-0008: Validate the architecture with a minimal vertical slice
 
-- **Status:** Experimental
+- **Status:** Accepted (partly superseded by [0017](0017-minimal-public-facade-and-cli.md) for the facade and CLI and by [0026](0026-codecs-in-one-repository-and-workspace.md) for the crate layout)
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-11-05
+- **Last reviewed:** 2026-11-26
 - **Supersedes:** None
 - **Partially superseded by:** [0017](0017-minimal-public-facade-and-cli.md) (public facade and CLI for M1)
 - **Related:** [0002](0002-semantic-graph-and-planner.md), [0003](0003-demand-driven-regions.md), [0004](0004-buffer-ownership-and-budget.md)
@@ -45,9 +45,16 @@ Tests include an independent eager resize oracle, chained resize + downstream cr
 
 The subsequent [planar-source experiment](0011-borrowed-planar-surface-contract.md) validates non-contiguous, byte-strided borrowed 10-bit YUV planes and even-origin crops without changing the Gray8 executor or granting any codec capability claims. Real decoder lifetime guarantees, encoded output backpressure, phase-aware crops/resizing, and multiple consumers of a shared node are still open.
 
+## Current state (finalized 2026-11-26)
+
+This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
+
+- The slice has served its purpose. The public facade and CLI that this ADR excluded exist (ADR-0017); the single-crate rule was replaced by the workspace of ADR-0026; real files of four formats are processed. Still excluded: Node.js bindings, a GPU device abstraction, a decoder registry. Still open from the slice: phase-aware crops and resizing, and multiple consumers of a shared node (not implemented).
+
 ## Amendment log
 
 - 2026-10-31 — Initial proposal.
 - 2026-10-31 — Added a bounded scalar vertical-slice experiment; unresolved contracts remain explicitly provisional.
 - 2026-10-31 — Cross-linked the borrowed planar-source experiment (ADR-0011).
 - 2026-11-05 — The vertical slice has served its purpose for M1: [ADR-0017](0017-minimal-public-facade-and-cli.md) now admits one minimal `pipeline::transcode` facade and a `cli`-gated binary. A fluent API, Node.js bindings, GPU abstraction, decoder registry and multi-format benchmark suite remain excluded, and the single-crate rule still holds.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.

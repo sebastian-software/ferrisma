@@ -1,5 +1,7 @@
 # Map libaom's nonlocal errors to Rust unwinding
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Replace the selected original `setjmp` recovery scopes and `longjmp` error
 transfer mechanically with typed Rust unwinding keyed by the original jump
 buffer address, retaining the original recovery statements and state changes.

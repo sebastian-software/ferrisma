@@ -1,5 +1,7 @@
 # Port the complete dav1d portable configuration
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Translate dav1d 1.5.4 at `54706fc6bc0cdecab7e9593974a4039cc038fca7`
 into its own workspace crate from the original C sources. Select both upstream
 bit-depth instantiations (8 and 16, covering 8/10/12-bit decoding),

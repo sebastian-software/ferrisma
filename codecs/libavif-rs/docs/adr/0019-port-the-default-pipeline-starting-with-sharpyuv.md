@@ -1,5 +1,7 @@
 # Port the default pipeline starting with SharpYUV
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Start with the standalone portable SharpYUV library from libwebp 1.6.0, at
 commit `4fa21912338357f89e4fd51cf2368325b59e9bd9` (SharpYUV API 0.4.2).
 Use its small independent library boundary to establish source translation,

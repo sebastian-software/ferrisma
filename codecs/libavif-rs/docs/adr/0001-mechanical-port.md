@@ -1,5 +1,7 @@
 # Preserve the C implementation mechanically before redesigning it
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Port the pinned libavif source into Rust with its C ABI, names, data layout,
 control flow, numeric behavior, and allocation ownership intact. This deliberately
 retains raw pointers and unsafe C-shaped code so source correspondence and the

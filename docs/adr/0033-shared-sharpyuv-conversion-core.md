@@ -1,8 +1,8 @@
 # ADR-0033: One SharpYUV conversion core for WebP and AVIF
 
-- **Status:** Experimental
+- **Status:** Accepted
 - **Date:** 2026-11-11
-- **Last reviewed:** 2026-11-11
+- **Last reviewed:** 2026-11-26
 - **Amends:** [0026](0026-codecs-in-one-repository-and-workspace.md), SharpYUV consolidation review
 - **Related:** [0027](0027-tiered-validation-and-rust-test-orchestration.md), [extraction evidence](../research/2026-11-10-sharpyuv-extraction-evidence.md), issue [#75](https://github.com/sebastian-software/ferrisma/issues/75)
 
@@ -35,6 +35,17 @@ Local macOS ARM64 evidence: cross-port tests pass 2,880 combinations plus signed
 
 Review after native Linux and full original consumer gates, if either codec changes SharpYUV version or CPU dispatch policy, if the C ABI offers checked buffer extents, or if measured time/peak memory warrants a narrower scratch representation. Re-run the independent C oracle and immutable-source checks for every numeric change.
 
+## Current state (finalized 2026-11-26)
+
+This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
+
+- Implemented: `crates/libsharpyuv-core` (`ferrisma-sharpyuv`, `forbid(unsafe_code)`), WebP wrappers over it, and the AVIF adapter using the same loop.
+
+### Open questions
+
+- Whether the native GNU Linux and complete original WebP consumer verification gates have passed is not recorded here; adoption proceeded.
+
 ## Amendment log
 
 - 2026-11-11 — Extracted the single safe production conversion core and kept format-specific adapters and the generated mechanical reference. Adoption remains conditional on the stated gates.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.

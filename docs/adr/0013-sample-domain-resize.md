@@ -1,8 +1,8 @@
 # ADR-0013: Carry rendered color semantics and validate bounded decoded resize
 
-- **Status:** Experimental
+- **Status:** Accepted
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-11-05
+- **Last reviewed:** 2026-11-26
 - **Supersedes:** None
 - **Related:** ADR-0002, ADR-0003, ADR-0004, ADR-0005, ADR-0012, ADR-0014, ADR-0016
 
@@ -45,6 +45,13 @@ Differential tests compare nested crop and resize chains to an independent scala
 
 Codec-native scaling or regional execution offers a better tradeoff; linear-light filtering, ICC/CICP precedence, or premultiplied alpha become implemented; a real decoder exposes a new sample layout; or severe downscales reveal that the bounding-region strategy is too expensive.
 
+## Current state (finalized 2026-11-26)
+
+This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
+
+- The review triggers for linear-light filtering and premultiplied alpha have fired: ADR-0014 and ADR-0016 implement them. This ADR remains the encoded-sample baseline (`ResizeDomain::EncodedSamples`); the production path uses `WorkingLinear`. "Alpha is refused" holds for this domain only.
+- Still open: one bounding ROI can read large intervening areas under heavy downscale.
+
 ## Amendment log
 
 - 2026-10-31 — Initial bounded, codec-backed sample-domain resize experiment.
@@ -57,3 +64,4 @@ Codec-native scaling or regional execution offers a better tradeoff; linear-ligh
 ## 2026-11-05: working-linear quality domain (M1 path)
 
 [ADR-0016](0016-working-color-space-and-transform-boundaries.md)'s pipeline adds a third resize domain, `WorkingLinear(Area | Lanczos3)`, between explicit `ToLinearSrgb` and `ToSrgb8` stages. It accepts tagged sRGB and Display P3 input, filters premultiplied linear-light samples with separable antialiasing taps and keeps out-of-gamut values until final quantization. The public facade ([ADR-0017](0017-minimal-public-facade-and-cli.md)) uses only this domain. The encoded-sample bilinear resize defined here is unchanged and remains an internal baseline for controlled comparisons; it is not used for output.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.

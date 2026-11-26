@@ -6,7 +6,7 @@ changes. Git history preserves previous decisions. This makes the current
 direction easier to find, at the cost of relying on Git history for the audit
 trail. Do not create a successor merely to amend the same decision.
 
-Use `proposed`, `accepted`, `rejected`, or `deprecated` as the status. Keep
+Use `proposed`, `accepted`, `rejected`, or `deprecated` as the status. Since 2026-11-26 (owner decision) ADRs are living records: every one here is `accepted` (or `superseded` where noted in the record); `proposed` is used only for a draft before it is merged. Keep
 context, decision, consequences, and review triggers concise. Implementation
 status belongs in [PORT_STATUS.md](../PORT_STATUS.md), not in an ADR.
 

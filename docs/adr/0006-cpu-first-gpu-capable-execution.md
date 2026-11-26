@@ -1,8 +1,8 @@
 # ADR-0006: CPU-first scheduling with a conditional GPU path
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-10-31
+- **Last reviewed:** 2026-11-26
 - **Supersedes:** None
 - **Related:** [0002](0002-semantic-graph-and-planner.md), [0004](0004-buffer-ownership-and-budget.md), [0007](0007-correctness-and-performance-evidence.md)
 
@@ -39,6 +39,13 @@ Separate one-image latency from concurrent throughput. Compare scalar to SIMD wi
 
 A real GPU-resident use case dominates the target market, or CPU-only region execution cannot represent an unavoidable backend constraint.
 
+## Current state (finalized 2026-11-26)
+
+This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
+
+- The execution plan does not represent data residency, transfers or synchronization: not implemented, and no GPU backend exists. The decision stands as a constraint for a later GPU experiment, not as present behavior. CPU scheduling is the bounded parallel row pipeline of ADR-0022.
+
 ## Amendment log
 
 - 2026-10-31 — Initial proposal.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.

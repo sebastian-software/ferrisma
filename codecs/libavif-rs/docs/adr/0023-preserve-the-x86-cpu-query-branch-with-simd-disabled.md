@@ -1,5 +1,7 @@
 # Preserve the x86 CPU-query branch with SIMD disabled
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 The original x86 CPU detector remains compiled when `WEBP_ENABLE_SIMD=OFF`.
 Keep a separately generated x86 variant of `sharpyuv_cpu.c` and its included
 `src/dsp/cpu.c` body, rather than carrying ARM's NULL callback initializer onto

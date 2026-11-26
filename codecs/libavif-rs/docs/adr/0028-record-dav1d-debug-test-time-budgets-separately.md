@@ -1,5 +1,7 @@
 # Record dav1d Debug test time budgets separately
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Keep normal unoptimized Rust Debug code generation and all original test inputs,
 commands, assertions, and expected hashes. The initial Debug corpus run passed
 1,708 tests and reached the original wall-clock limit in three tests. Allow an

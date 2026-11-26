@@ -1,8 +1,8 @@
 # ADR-0016: Model a composable working-color transform boundary
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-11-15
+- **Last reviewed:** 2026-11-26
 - **Supersedes:** None
 - **Related:** [0002](0002-semantic-graph-and-planner.md), [0004](0004-buffer-ownership-and-budget.md), [0005](0005-codec-capabilities-and-pixel-contracts.md), [0014](0014-linear-srgb-straight-alpha.md), [0015](0015-typed-output-color-signals.md), [M1](../milestones/M1-complete-image-pipeline.md)
 
@@ -57,6 +57,18 @@ This ADR is **not Accepted** until the reference and at least one real codec's o
 ## Review when
 
 Real codec and encoder dataflow makes the proposed format contract too expensive, if a CMS exposes a better typed interface, or when HDR and GPU residency require distinct working-space semantics.
+
+## Current state (finalized 2026-11-26)
+
+This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
+
+- Implemented: `working_color.rs`, the `ToLinearSrgb` / `WorkingLinear` / `ToSrgb8` graph path, moxcms with extended range, relative colorimetric intent fixed (owner 2026-11-15), the 768-entry channel table with its bound, reference oracles and a photograph test (`tests/icc_photo.rs`). The acceptance condition (reference plus one real output profile validated) is met on that evidence.
+- Not implemented: data residency on image edges, declared source and destination meaning on transform nodes (the meaning lives in the semantics descriptor).
+
+### Open questions
+
+- LUT-based profiles beyond one synthesized profile, a larger photograph corpus and an HDR rejection corpus remain unvalidated.
+- Whether the ICC stage, which runs serially in front of the row pipeline, moves into the workers.
 
 ## Amendment log
 
@@ -224,3 +236,4 @@ This resolves open question 1 of [ADR-0042](0042-no-silent-loss-refuse-or-report
 - *The intent in the profile header.* The header field is often an unset
   default rather than an author's choice, so it is not a reliable signal
   of intent.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.

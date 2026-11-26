@@ -1,5 +1,7 @@
 # Retain an immutable upstream snapshot and use its original tests
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Vendor the complete tracked upstream tree at an exact commit, with a per-file
 SHA-256 manifest, and keep its tests, fixtures, headers, and CMake files unchanged.
 Build the C implementation as the reference and link the same C/C++ tests and

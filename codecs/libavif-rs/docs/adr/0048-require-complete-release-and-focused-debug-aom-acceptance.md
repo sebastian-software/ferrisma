@@ -1,5 +1,7 @@
 # Require complete Release and focused Debug AOM acceptance
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Require the complete unchanged original C/Rust Release suites on native Linux
 x86-64 and macOS ARM64 before making Rust AOM the root default. Replace the
 complete unoptimized Debug gate from ADRs 0044, 0045, and 0046 with focused

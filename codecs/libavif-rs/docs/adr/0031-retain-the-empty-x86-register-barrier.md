@@ -1,5 +1,7 @@
 # Retain the empty x86 register barrier
 
+Status: Superseded by engine [ADR-0044](../../../../docs/adr/0044-no-assembly-acceleration-through-rust-intrinsics.md) (no inline assembly; the barrier is deleted)
+
 > **2026-11-16: superseded.** Engine [ADR-0044](../../../../docs/adr/0044-no-assembly-acceleration-through-rust-intrinsics.md)
 > allows no inline assembly, and the barrier is deleted. See the
 > [amendment](#amendment-the-barrier-is-deleted-2026-11-16).

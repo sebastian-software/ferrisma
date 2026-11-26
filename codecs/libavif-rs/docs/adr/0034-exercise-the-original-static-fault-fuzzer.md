@@ -1,5 +1,7 @@
 # Exercise the original static fault fuzzer
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Retain the original `dav1d_fuzzer.c`, `main.c`, and `alloc_fail.c` bodies and
 their five allocation/thread failure hooks. Apply upstream's symbol rewriting
 to the 51 C decoder objects and all Rust decoder codegen objects; link the

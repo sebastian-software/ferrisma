@@ -1,6 +1,6 @@
 # Preserve the original VMAF float-model rejection
 
-Status: superseded by [ADR 0057](0057-translate-libaom-without-vmaf-tuning.md).
+Status: Superseded by [ADR 0057](0057-translate-libaom-without-vmaf-tuning.md).
 
 The pinned libaom passes `"1"` as the `float_motion` extractor's
 `motion_force_zero` option, while native libvmaf v3.2.1 accepts only `"true"`

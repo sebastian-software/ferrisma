@@ -1,6 +1,6 @@
 # Retain libaom's optional VMAF modes
 
-Status: superseded by [ADR 0057](0057-translate-libaom-without-vmaf-tuning.md).
+Status: Superseded by [ADR 0057](0057-translate-libaom-without-vmaf-tuning.md).
 
 Pin libaom 3.15.2 with upstream's complete generic encoder/decoder configuration
 and `CONFIG_TUNE_VMAF=1`, preserving the optional encoding modes exposed by the

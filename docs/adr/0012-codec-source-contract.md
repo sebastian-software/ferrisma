@@ -1,8 +1,8 @@
 # ADR-0012: Bind real codecs through a capability-reporting source contract
 
-- **Status:** Experimental
+- **Status:** Accepted
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-11-12
+- **Last reviewed:** 2026-11-26
 - **Supersedes:** None
 - **Related:** [0002](0002-semantic-graph-and-planner.md), [0003](0003-demand-driven-regions.md), [0004](0004-buffer-ownership-and-budget.md), [0005](0005-codec-capabilities-and-pixel-contracts.md), [0010](0010-dual-licensing.md), [0013](0013-sample-domain-resize.md), [0016](0016-working-color-space-and-transform-boundaries.md), [0018](0018-optional-codec-and-cms-dependencies.md)
 
@@ -60,6 +60,17 @@ Before promotion to Accepted: validate actual codec work avoided, orientation/IC
 ## Review when
 
 A source requires native planar output, push/pull access rather than callback rows, precise codec allocation accounting, or more complete color semantics to avoid incorrect transformations.
+
+## Current state (finalized 2026-11-26)
+
+This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
+
+- Current readers: JPEG through the workspace `libjpeg-turbo-rs` port (not zune-jpeg), JPEG XL through the workspace `libjxl-rs` port (not jxl-oxide, test-only cross-check since 2026-11-15), AVIF through `ferrisma-avif-read` (not avif-decode), WebP through the workspace port. Encoders exist (ADR-0030, 0037, 0039); the statement "no encoder yet" is out of date.
+- Color metadata is no longer only source-side: ADR-0013 put an image-semantics descriptor on graph nodes.
+
+### Open questions
+
+- Memory used inside decoders is unmeasured (see the amendment log); accepted as a known limit, not as a closed gate.
 
 ## Amendment log
 
@@ -185,3 +196,4 @@ What remains unmeasured: allocations and internal work inside the codecs
 probes recorded in ADR-0023), whole-process memory as a bound, and wall time.
 Re-evaluate when an adapter changes its codec call, when a codec exposes work
 counters, or when a measurement contradicts a lower bound above.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.

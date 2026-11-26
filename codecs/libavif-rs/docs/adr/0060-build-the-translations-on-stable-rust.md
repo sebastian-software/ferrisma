@@ -1,5 +1,7 @@
 # Build the translations on stable Rust
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 This amends [ADR 0059](0059-freeze-the-libaom-translation-and-gate-owned-code-on-golden-outputs.md)
 (the frozen translations are owned code and change through committed tools)
 and [ADR 0040](0040-use-rust-va-list-for-array-decayed-libaom-control-callbacks.md)

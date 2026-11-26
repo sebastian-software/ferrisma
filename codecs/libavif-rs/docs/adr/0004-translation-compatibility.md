@@ -1,5 +1,7 @@
 # Apply explicit mechanical corrections at the C-to-Rust boundary
 
+Status: Accepted (superseded in part by [ADR 0036](0036-map-libaom-nonlocal-errors-to-rust-unwinding.md); finalized 2026-11-26 as a living record, owner decision)
+
 Keep C2Rust's control flow and repeated header declarations, applying documented
 corrections through `tools/import_translation.py`: Darwin AArch64 `long double`
 maps to `double`, variadic diagnostics use Rust's ABI-compatible `VaList`, SDK

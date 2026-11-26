@@ -1,8 +1,8 @@
 # ADR-0005: Codec capability negotiation and explicit pixel semantics
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-10-31
+- **Last reviewed:** 2026-11-26
 - **Supersedes:** None
 - **Related:** [0001](0001-project-thesis.md), [0002](0002-semantic-graph-and-planner.md), [0003](0003-demand-driven-regions.md), [0011](0011-borrowed-planar-surface-contract.md)
 
@@ -49,6 +49,17 @@ For each adapter record decoder version/license/safety, output layout, region gr
 
 Real adapters require substantially different contracts or the model forces unnecessary color conversions in common modern-format workflows.
 
+## Current state (finalized 2026-11-26)
+
+This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
+
+- Implemented: capability-reporting source adapters (`DecoderInfo`, `DecodeAccess`), `ChannelLayout` in the pixel format, the borrowed `Yuv420P10` surface and chroma siting. Not implemented: data residency (borrowed, owned, device) in the pixel contract, layout negotiation and chroma-aware YUV resampling.
+- The color parts of this ADR are carried by ADR-0013 to 0016. The statement that linearization and premultiplied alpha stay unresolved is out of date: both are implemented (ADR-0014, ADR-0016). ICC/CICP precedence is decided per format (ADR-0015); HDR (PQ/HLG) is refused.
+
+### Open questions
+
+- Whether residency and layout negotiation stay in scope; today they are not implemented and no code needs them.
+
 ## Amendment log
 
 - 2026-10-31 — Initial proposal.
@@ -69,3 +80,4 @@ The sRGB-alpha experiment exposed a concrete architectural ambiguity: `Interleav
 ## 2026-10-31: typed output color evidence
 
 [ADR-0015](0015-typed-output-color-signals.md) adds code point classification and no-allocation ICC header inspection to distinguish sRGB, Display P3, BT.2100 PQ/HLG and untrusted/dual profile signals. Its planning result only describes **requirements**, not a working CMM. Decoder adapters must describe emitted samples after any codec-level color conversion. The decision about a full working-space, ICC precedence and HDR reference luminance remains Proposed.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.

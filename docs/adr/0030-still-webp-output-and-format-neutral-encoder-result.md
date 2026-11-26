@@ -1,8 +1,8 @@
 # ADR-0030: Still WebP output and explicit encoder format
 
-- **Status:** Experimental
+- **Status:** Accepted
 - **Date:** 2026-11-11
-- **Last reviewed:** 2026-11-11
+- **Last reviewed:** 2026-11-26
 - **Partially supersedes:** [0017](0017-minimal-public-facade-and-cli.md), AVIF-only result and feature gating; [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), backend feature coupling and result naming
 - **Related:** [0015](0015-typed-output-color-signals.md), [0017](0017-minimal-public-facade-and-cli.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), [0026](0026-codecs-in-one-repository-and-workspace.md), [0029](0029-webp-still-input.md), [M1](../milestones/M1-complete-image-pipeline.md), issues [#16](https://github.com/sebastian-software/ferrisma/issues/16) and [#60](https://github.com/sebastian-software/ferrisma/issues/60)
 
@@ -37,6 +37,17 @@ Focused tests exercise WebP lossy and lossless output, ICC payload equality, met
 
 Review if WebP's API exposes bounded scratch, a lower-copy mux path, a real streaming encode, or a supported richer color-output contract; if the committed ICC's provenance is unsuitable for distribution; or when direct AOM YUV measurement resolves the remaining part of issue #60.
 
+## Current state (finalized 2026-11-26)
+
+This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
+
+- `EncodeRequest` carries `OutputSettings` since ADR-0040's 2026-11-16 amendment, not just the format and WebP settings. Not implemented: animation, metadata passthrough, WebP SharpYUV, a direct YUV-to-AOM path.
+
+### Open questions
+
+- Issue #60's measured choice for the WebP/AVIF conversion path remains open.
+
 ## Amendment log
 
 - 2026-11-11 — Initial experimental still WebP output and encoder-result decision.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.

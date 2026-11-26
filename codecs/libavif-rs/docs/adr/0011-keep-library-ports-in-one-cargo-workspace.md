@@ -1,5 +1,7 @@
 # Keep library ports in one Cargo workspace
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Develop the independent library crates together with libavif-rs in this
 repository, using a shared Cargo workspace. This keeps cross-library changes,
 native reference builds, and integration evidence reviewable together while

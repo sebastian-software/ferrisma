@@ -1,7 +1,6 @@
 # Rebuild dav1d's assembly kernels with intrinsics
 
-- **Status:** Accepted (infrastructure and the first itx slice on AArch64 NEON;
-  amended 2026-11-20: CDEF and the inverse transforms are written from the
+- **Status:** Accepted (finalized 2026-11-26 as a living record, owner decision; the dav1d assembly rebuild is partial: infrastructure and the first itx slice on AArch64 NEON are done, kernels not yet rebuilt are compared through the port's C; amended 2026-11-20: CDEF and the inverse transforms are written from the
   algorithm on `fearless_simd`, see "Kernels written from the algorithm")
 - **Date:** 2026-11-16
 - **Source:** owner decision of 2026-11-16 (engine

@@ -1,5 +1,7 @@
 # Gate pull requests on Linux CI and local macOS checks
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Hosted macOS runners are shared and scarce across the organization. On
 2026-11-05 macOS jobs waited about 40 minutes each before starting while
 Linux jobs started at once, and every defect that hosted gates found that day

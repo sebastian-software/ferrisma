@@ -1,5 +1,7 @@
 # Generate native root engine profiles from pinned external engines
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Extend ADR 0050's native profile parity to the optional AV1 engines of ADR
 0007. Name each root configuration by its container features followed by
 its selected engines, in the order `mini`, `extended-pixi`, `libgav1`,

@@ -1,5 +1,7 @@
 # Retain C field alignment with zero-sized markers
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 C2Rust 0.21.0 omits some C field alignment attributes, changing internal decoder
 layouts and causing valid frame headers to fail. Read the original compiler's
 AST and retain each explicit field alignment with an immediately preceding

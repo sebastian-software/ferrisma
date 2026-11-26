@@ -1,9 +1,9 @@
 # ADR-0040: Stable 1.0 public contract, compatibility, versioning, and upgrade policy
 
-- **Status:** Proposed
+- **Status:** Accepted (the tiers bind from 1.0.0; items marked "Tier not decided" are experimental)
 - **Date:** 2026-11-12
-- **Last reviewed:** 2026-11-22
-- **Supersedes:** None. Once accepted, it replaces decision 6 ("no stability promise") of [ADR-0017](0017-minimal-public-facade-and-cli.md) for the items it marks stable.
+- **Last reviewed:** 2026-11-26
+- **Supersedes:** None. It replaces decision 6 ("no stability promise") of [ADR-0017](0017-minimal-public-facade-and-cli.md) for the items it marks stable.
 - **Superseded in part by:** [0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) (when the version 1.0 may be used, and the release tooling)
 - **Related:** [0010](0010-dual-licensing.md), [0017](0017-minimal-public-facade-and-cli.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0020](0020-kernel-crate-and-isa-dispatch.md), [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), [0026](0026-codecs-in-one-repository-and-workspace.md), [0034](0034-thumbnail-geometry.md), [0037](0037-selectable-workspace-avif-encoder.md), [publishing](../publishing.md), [release automation](../release-automation.md), [compatibility guide](../compatibility.md), tracker #196
 
@@ -377,6 +377,19 @@ features build on stable Rust (met since 2026-11-15; their tier is still
 open); a new output format, color policy, or backend
 is added; the first functional crates.io release is prepared; or a consumer
 reports that a stable item cannot express its use case.
+
+## Current state (finalized 2026-11-26)
+
+This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
+
+- **Release order (owner, 2026-11-24).** 0.x pre-releases come first. The SemVer tiers in this ADR bind from 1.0.0 on; until then every item is experimental in practice and may change in a 0.x release (ADR-0041 decides when 1.0.0 may be used).
+- **Items marked "Tier not decided" are treated as experimental** until the owner decides: `WebpOptions::DEFAULT_METHOD`/`MAX_METHOD`; `JpegXlOptions` distance constants, `depth()`, `with_depth()`; `BitDepth`; `ProcessingReport::decoder_work` and `DecoderWork`; `WorkCount`; `input_depth`/`output_depth`; the `avif-read` and `avif-write` features; the `cli` feature; `--jxl-depth`; the error lines on standard error; `--help`; `--version`; the `decoder_work:` line. Decisions 1 to 7 and the 2026-11-12 to 2026-11-22 API-shape amendments are the working policy.
+- Corrections: the table says thirteen `RefusalReason` variants and the code has thirteen (an amendment line says twelve); `AvifOptions::depth` is `BitDepth`, not `Option<u8>`; `cli::run` is still public without `#[doc(hidden)]`; the `--filter`/`--fit` names of problem 15 are not implemented (`--area` remains).
+
+### Open questions
+
+- The tiers listed above.
+- Problem 4 (the `_with` twins), problem 6 (additive accessors), `--version` tier, units in the compatibility guide, `cli::run` visibility, streaming entry points and CLI output atomicity.
 
 ## Amendment log
 
@@ -888,3 +901,4 @@ reports that a stable item cannot express its use case.
   and the CLI's `decoder=` for AVIF input are `libavif/dav1d` by default
   (were `libavif/aom` for every AVIF read); `libavif/aom` names the libaom
   reference when selected. Tiers unchanged.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.

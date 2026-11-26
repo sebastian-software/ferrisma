@@ -1,5 +1,7 @@
 # Run original checkasm bodies across C and Rust
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Keep all seventeen original checkasm test instantiations and their assertions,
 parameters, and random generation unchanged. Prime their original headers, then
 use test-only symbol-selection macros to obtain C pointers on checkasm's first

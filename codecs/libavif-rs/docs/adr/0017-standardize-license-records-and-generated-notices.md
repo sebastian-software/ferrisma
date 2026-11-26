@@ -1,5 +1,7 @@
 # Standardize license records and generated notices
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Use a common license-file layout, provenance records, and generated per-crate
 license summaries across the workspace. This reduces duplicated manual
 maintenance while retaining each source's original terms, attributions,

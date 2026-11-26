@@ -1,5 +1,7 @@
 # Translate libaom without VMAF tuning
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 This supersedes [ADR 0035](0035-retain-libaom-vmaf-modes-during-the-codec-port.md)
 and [ADR 0042](0042-preserve-the-original-vmaf-float-model-rejection.md).
 

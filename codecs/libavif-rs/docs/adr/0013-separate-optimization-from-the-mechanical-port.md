@@ -1,5 +1,7 @@
 # Separate optimization from the mechanical port
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 First port the upstream portable implementations mechanically and compare them
 with the corresponding portable original configuration. Keep this work
 independent from SIMD, assembly, algorithm changes, and other optimization.

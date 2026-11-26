@@ -1,5 +1,7 @@
 # Select native Linux root profiles in the production package
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Admit GNU Linux x86-64 to the production `libavif-rs` package by compiling
 the generated native profile of its identical original C configuration, as
 ADR 0050 requires. Keep the macOS ARM64 module tree and build-script output

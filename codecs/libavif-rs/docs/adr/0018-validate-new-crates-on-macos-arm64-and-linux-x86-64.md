@@ -1,5 +1,7 @@
 # Validate new crates on macOS ARM64 and Linux x86-64
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Use macOS ARM64 as the initial pilot platform and require Linux x86-64 evidence
 before releasing a new crate. Each supported target compares the Rust port
 with its declared native reference; matching each local reference does not by

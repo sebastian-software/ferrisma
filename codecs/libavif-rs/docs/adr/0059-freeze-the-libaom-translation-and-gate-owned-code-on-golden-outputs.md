@@ -1,5 +1,7 @@
 # Freeze the libaom translation and gate owned code on golden outputs
 
+Status: Accepted (superseded in part by engine [ADR-0041](../../../../docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md), 2026-11-13; finalized 2026-11-26 as a living record, owner decision)
+
 > **2026-11-15: owner decision on O8 of engine [ADR-0041](../../../../docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md).** The translated code is owned code, changed only through committed, re-runnable tools that have a check mode run in CI, never by hand; the frozen manifests stay as provenance. See [Amendment: how owned code changes](#amendment-how-owned-code-changes-2026-11-15).
 
 > **2026-11-15: amended by [ADR 0060](0060-build-the-translations-on-stable-rust.md).** The frozen translations of libaom, dav1d and libavif were rewritten for stable Rust by the committed, re-runnable `tools/stable_rust.py`, through this ADR's owned-code route (digests re-recorded with `tools/enable_aom_dispatch.py --rehash`). Tiers and golden outputs are unchanged.

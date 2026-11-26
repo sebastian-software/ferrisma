@@ -1,8 +1,8 @@
 # ADR-0002: Separate the semantic graph from the execution planner
 
-- **Status:** Experimental
+- **Status:** Accepted
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-10-31
+- **Last reviewed:** 2026-11-26
 - **Supersedes:** None
 - **Related:** [0001](0001-project-thesis.md), [0003](0003-demand-driven-regions.md), [0005](0005-codec-capabilities-and-pixel-contracts.md)
 
@@ -46,7 +46,15 @@ The experimental code uses an append-only, index-addressed graph with three inte
 
 **New tests:** a downstream crop after two resizes matches an independent eager reference; out-of-bounds requests are rejected before allocation.
 
+## Current state (finalized 2026-11-26)
+
+This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
+
+- The graph node set is no longer the three types listed in Decision: `NodeKind` in `src/graph.rs` now has Synthetic, Planar10Source, DecoderSource, ToLinearSrgb, ToSrgb8, Crop and Resize (with a `ResizeDomain`).
+- Still true: the graph is `pub(crate)`, every node has a single input, and there is no persistent execution IR. Not implemented: a public graph representation, branching or multiple inputs, a persistent IR. Scheduling and row caching exist in the executors; color and layout negotiation was settled per format in ADR-0013 to 0016 and is not a negotiation step.
+
 ## Amendment log
 
 - 2026-10-31 — Initial proposal.
 - 2026-10-31 — Added a bounded scalar vertical-slice experiment; unresolved contracts remain explicitly provisional.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.

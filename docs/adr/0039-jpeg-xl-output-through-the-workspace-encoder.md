@@ -1,8 +1,8 @@
 # ADR-0039: JPEG XL output through the workspace encoder
 
-- **Status:** Experimental
+- **Status:** Accepted
 - **Date:** 2026-11-12
-- **Last reviewed:** 2026-11-16
+- **Last reviewed:** 2026-11-26
 - **Supersedes:** None; settles the separate JPEG XL output gate left open by [0018](0018-optional-codec-and-cms-dependencies.md) and the [M1 plan](../milestones/M1-complete-image-pipeline.md)
 - **Related:** [0005](0005-codec-capabilities-and-pixel-contracts.md), [0010](0010-dual-licensing.md), [0015](0015-typed-output-color-signals.md), [0017](0017-minimal-public-facade-and-cli.md), [0019](0019-source-side-orientation.md), [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0030](0030-still-webp-output-and-format-neutral-encoder-result.md), [0032](0032-jpeg-xl-workspace-decoder-input.md), [0037](0037-selectable-workspace-avif-encoder.md), libjxl-rs [encoder plan](../../codecs/libjxl-rs/docs/ENCODER_EXPANSION.md) and [first image path](../../codecs/libjxl-rs/docs/FIRST_IMAGE.md), issues [#27](https://github.com/sebastian-software/ferrisma/issues/27), [#249](https://github.com/sebastian-software/ferrisma/issues/249), [#238](https://github.com/sebastian-software/ferrisma/issues/238), [#92](https://github.com/sebastian-software/ferrisma/issues/92), [#102](https://github.com/sebastian-software/ferrisma/issues/102), [#66](https://github.com/sebastian-software/ferrisma/issues/66)
 
@@ -386,6 +386,17 @@ appears for this profile; or if two hosts of one target at one kernel level
 write different bytes (the determinism contract of the 2026-11-15
 amendment), or the port's encoder starts selecting SIMD by default.
 
+## Current state (finalized 2026-11-26)
+
+This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
+
+- Current state: lossy VarDCT (distance 1.0 default, confirmed 2026-11-15) and the lossless profile are implemented; alpha and patches-off landed (2026-11-12). Out-of-date passages: "no complete lossy path exists", the `ResourceExhausted` result (now `OutputLimitExceeded`), 8-bit-only samples (depth follows the input, 8 to 16 bits), the old lossless reservation constant (replaced by the `PeakModel` of 2026-11-16), and the reported encoder name (`libjxl`). Not implemented: float output, ICC and HDR output, patch encoding.
+
+### Open questions
+
+- License/NOTICE review (#66) blocks distribution of `cli` builds with `jpeg-xl-write`.
+- Patches-on encoding, HDR and ICC output (#113), x86-64 byte identity, fuzzing (#65) and serial encode cost (#106).
+
 ## Amendment log
 
 - 2026-11-12 — Initial experimental decision: opt-in lossless effort-2 output
@@ -644,3 +655,4 @@ amendment), or the port's encoder starts selecting SIMD by default.
   (about 74 and 65 MP). The report still sets `opaque_encoder_memory`: the
   model is an envelope of one host's measurements, not a bound for other
   hosts or allocators.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.

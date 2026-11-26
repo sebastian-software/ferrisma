@@ -1,5 +1,7 @@
 # Map SharpYUV platform storage without changing algorithms
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Generate the portable configuration from the original Debug preprocessing and
 retain its assertions through a helper that follows Rust's debug-assertion
 configuration and calls the target C runtime. Map pthread mutex storage and

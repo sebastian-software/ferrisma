@@ -1,8 +1,8 @@
 # ADR-0021: Working precision policy for the linear-light resize chain
 
-- **Status:** Experimental (rule 1 and the `f32` tables implemented; rule 2, the Q1.14 path, dropped by its own review trigger)
+- **Status:** Accepted (rule 1 and the `f32` tables implemented; rule 2, the Q1.14 path, withdrawn 2026-11-06)
 - **Date:** 2026-11-05
-- **Last reviewed:** 2026-11-15
+- **Last reviewed:** 2026-11-26
 - **Supersedes:** None
 - **Related:** [0006](0006-cpu-first-gpu-capable-execution.md), [0007](0007-correctness-and-performance-evidence.md), [0014](0014-linear-srgb-straight-alpha.md), [0016](0016-working-color-space-and-transform-boundaries.md), [0020](0020-kernel-crate-and-isa-dispatch.md), [M2 milestone](../milestones/M2-performance-architecture.md) work packages 1 and 3, [precision experiment](../research/precision-experiment/README.md)
 
@@ -300,6 +300,17 @@ at `:82`); its PNM reader takes the depth from `maxval`
 nearest admitted depth below where the output cannot hold the input's
 (16-bit to AVIF gives 12, as `avifenc` does for a 16-bit PNG).
 
+## Current state (finalized 2026-11-26)
+
+This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
+
+- Rule 2 (the Q1.14 path) was dropped on 2026-11-06 by this ADR's own review trigger; all text describing Q1.14 tables, eligibility or kernels is withdrawn and is not how the code works. Working precision is `f32` with exact LUTs and the testable bound against the `f64` oracle (implemented in `fast_execute.rs` and `working_color.rs`). The plan reports `f32` only.
+
+### Open questions
+
+- The photograph-corpus threshold for the bound is not recorded.
+- A NEON/AVX2 deep quantizer kernel: not implemented.
+
 ## Amendment log
 
 - 2026-11-05 — Initial proposal: `f32` as the working type, a Q1.14 fixed-point path for opaque 8-bit sRGB and Display P3 input with a per-plan integer interval bound, exact lookup tables, and a testable bound, backed by the precision experiment.
@@ -307,3 +318,4 @@ nearest admitted depth below where the output cannot hold the input's
 - 2026-11-05 — First implementation: `src/fast_execute.rs` (scalar `f32`, rule 1 and the `f32` tables of rule 3) passes rules A to E in `fast_execute_tests` against the `f64` oracle on 16 inputs, 11 geometries and both filters. Rule E is restated per executor: at an exact alpha tie the oracle may round to 0 and the `f32` path to 1, which rule A permits; each side must emit RGB 0 behind its own zero alpha, and RGB is compared only where both alphas are nonzero.
 - 2026-11-06 — **Q1.14 dropped (rule 2 withdrawn).** The first review trigger fired: work package 3 measured the Q1.14 chain below 1.25× the `f32` chain on every hardware class. Prototype kernels (`i16` samples and weights, `i32` sums, one rounding shift; plain loops vectorized by LLVM inside each level's `#[target_feature]` entry, bit-identical across levels) were timed by `crates/ferrisma-kernels/examples/bench.rs` on a 6000×4000 to 1600×1067 Lanczos3 resample, horizontal + vertical ms, f32 against Q1.14: Apple M1 NEON 61.7 + 13.6 against 61.9 + 11.3 (1.03×); x86-64 hosted runner ([run 42179398696](https://github.com/sebastian-software/ferrisma/actions/runs/42179398696)) AVX2 53.2 + 15.6 against 126.9 + 8.0 (0.51×) and AVX-512 37.7 + 13.2 against 83.8 + 5.9 (0.57×); `ubuntu-24.04-arm` (Neoverse with SVE2) NEON 78.3 + 20.1 against 124.7 + 14.5 (0.71×). The vertical integer pass was faster everywhere (1.2–2.2×), the horizontal integer pass slower everywhere: one tap per pixel costs one instruction in both formats on NEON, and the `f32` FMA kernels with two or four taps per vector beat LLVM's integer code on x86-64. A hand-written `vpmaddwd` horizontal kernel was not tried; it is the condition for reopening rule 2 (new review trigger: a hand-written integer horizontal kernel measured faster than the `f32` one on some hardware class). Rule 1 (`f32` everywhere), rule 3's `f32` tables and the bound of rule 4 for `f32` paths stand and are implemented; the Q1.14 tables, eligibility rules and report fields are not built. The precision experiment stays as evidence.
 - 2026-11-15 — Output depth follows the input (owner decision): one quantization for every depth, `u16` rows above 8 bits, per-depth shares of rules B to D with rule A unchanged, the public depth fields and the backend additions; see the amendment above. The 8-bit path is unchanged bit for bit.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.

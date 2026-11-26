@@ -1,5 +1,7 @@
 # Retain independent C oracles in original libaom DSP tests
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Separate reviewed native C oracle bindings from Rust subject bindings in the
 original parameterized DSP tests. Relinking every scalar symbol to Rust can
 otherwise turn an original C-versus-C comparison into Rust-versus-Rust while

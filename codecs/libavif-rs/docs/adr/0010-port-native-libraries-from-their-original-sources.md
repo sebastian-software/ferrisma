@@ -1,5 +1,7 @@
 # Port native libraries from their original sources
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 For the follow-up program, prefer new mechanical ports of the selected codec
 and pixel conversion libraries over adopting independently evolved Rust ports.
 Correspondence with the original implementation and a verifiable 1:1 match take

@@ -1,5 +1,7 @@
 # Target Rust consumers without C++ binary compatibility
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 The follow-up library ports target Rust consumers. Preserve complete library
 functionality and the exact behavior required by
 [ADR 0012](0012-require-bit-exact-results-against-declared-references.md), but do

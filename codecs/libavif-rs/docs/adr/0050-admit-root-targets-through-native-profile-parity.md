@@ -1,5 +1,7 @@
 # Admit root targets through native profile parity
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Extend the verified macOS ARM64 root pipeline to GNU Linux x86-64 first, then
 Windows x86-64. Generate isolated profiles from each native original C build,
 with matching Debug/Release preprocessing, pinned dependencies, and unchanged

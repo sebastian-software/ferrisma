@@ -1,6 +1,6 @@
 # Compare against the original C++ implementation
 
-- Status: accepted
+- Status: accepted (superseded in part by engine ADR-0041, 2026-11-13)
 - Created: 2026-10-31
 - Updated: 2026-11-16 (results on stable toolchains; O1 confirmed by the owner on 2026-11-15)
 

@@ -1,5 +1,7 @@
 # Preserve byte-aligned high-bit-depth input validation
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 > **2026-11-21: the supplemental caller has two references.** Engine
 > [ADR-0041](../../../../docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md)
 > compares the port's scalar path with the original's scalar build and its SIMD

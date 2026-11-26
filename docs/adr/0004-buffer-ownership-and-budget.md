@@ -1,8 +1,8 @@
 # ADR-0004: Make buffer ownership and memory budgets explicit
 
-- **Status:** Experimental
+- **Status:** Accepted
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-11-16
+- **Last reviewed:** 2026-11-26
 - **Supersedes:** None
 - **Related:** [0003](0003-demand-driven-regions.md), [0006](0006-cpu-first-gpu-capable-execution.md)
 
@@ -46,6 +46,17 @@ The first executor holds at most its required input region and output region for
 An `Arc`-shared, atomically reserved byte budget tracks the **engine's owned pixel buffers**, using RAII to return reservations on success, cancellation, or allocation failure. The counter enforces a limit across concurrent holders and records a reservation high-water mark. Graph metadata, planner vectors, callback-owned data, allocator overhead and external codecs are **not** included; this is not a total process/RSS bound. Until these other allocations are explicitly modeled, claims must say *managed pixel-buffer budget*, not *strict engine memory limit*.
 
 **New tests:** allocation failure returns an error without leaked reservations, early sink cancellation releases buffers, and a shared budget prevents two simultaneous reservations from exceeding the limit.
+
+## Current state (finalized 2026-11-26)
+
+This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
+
+- The current state is the one in the 2026-11-11, 2026-11-15 and 2026-11-16 amendments (2 GiB default managed budget, conservative planning allowance, JPEG XL peak models). Stated here once: the budget covers managed pixel buffers; memory that codecs allocate internally is only partly counted.
+
+### Open questions
+
+- Codec-internal memory accounting (#48, #199): not implemented; the AVIF and WebP writers still reserve their frames only.
+- Whether the writer reservations are acceptable as they are.
 
 ## Amendment log
 
@@ -202,3 +213,4 @@ the 1 GiB default as a bound must set it explicitly; on a machine where
 lowers it.
 
 - 2026-11-16 — Default budget 2 GiB (owner decision); see the amendment above.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.

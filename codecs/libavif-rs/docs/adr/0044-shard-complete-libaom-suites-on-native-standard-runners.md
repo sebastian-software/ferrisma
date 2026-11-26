@@ -1,5 +1,7 @@
 # Shard complete libaom suites on native standard runners
 
+Status: Accepted (the complete Debug requirement is superseded by [ADR 0048](0048-require-complete-release-and-focused-debug-aom-acceptance.md); finalized 2026-11-26 as a living record, owner decision)
+
 The complete unoptimized Debug requirement is superseded by
 [ADR 0048](0048-require-complete-release-and-focused-debug-aom-acceptance.md).
 The source-preservation and complete Release requirements remain in force.

@@ -1,5 +1,7 @@
 # Retain upstream license terms for ported crates
 
+Status: Accepted (finalized 2026-11-26 as a living record, owner decision)
+
 Accept the primary upstream licenses identified in the
 [native license inventory](../NATIVE-LICENSES.md), including BSD-2-Clause,
 BSD-3-Clause, BSD-3-Clause-Clear, and Apache-2.0. Preserve the original terms,
