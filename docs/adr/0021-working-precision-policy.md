@@ -43,12 +43,12 @@ What Ferrisma takes from them: the `i16 x i16 -> i32` multiply-accumulate shape 
 
 ### 1. `f32` is the general working type
 
-Every fast path works in `f32`. `f64` remains only in the scalar reference executor and in tests. Specifically:
+Every fast path resamples and filters in `f32`. `f64` remains in the scalar reference executor, in tests, and—per the 2026-11-26 issue #281 amendment below—inside the SIMD transfer/premultiplication boundary for float (`F32`) inputs and deeper (`>8`-bit) outputs. Specifically:
 
-- 8-bit input decodes through the 256-entry `f32` table (rule 3); F32 input (JPEG XL float) decodes with the extended sign-preserving sRGB EOTF computed in `f32` per sample; Display P3 input adds the folded P3 to sRGB matrix in `f32`.
+- 8-bit input decodes through the 256-entry `f32` table (rule 3) and applies the folded Display P3 matrix and straight-alpha premultiplication in `f32` (unchanged bit for bit). *Amended 2026-11-26 (issue #281):* the original `f32` EOTF, folded `f32` P3 matrix, and `f32` premultiplication clauses for **sRGB-encoded and Display P3 float (`F32`) rows on the non-identity path** (JPEG XL and >8-bit AVIF) are superseded—those rows decode through `ferrisma_kernels::Kernels::srgb_to_linear` (`f64`-lane minimax EOTF on `[-1, 1]`, exact `f64::powf` outside), apply the two-step `f64` Display P3 matrix and `f64` premultiplication, and refine `f32` rounding-boundary ties with exact `decode_srgb` before narrowing once to `f32`. Already-linear sRGB float rows (`Primaries::LinearSrgb`, including deferred ICC row-conversion output) are unchanged: `linearize_row` copies them without an EOTF and premultiplies in `f32`.
 - Filter weights are normalized in `f64` and stored as `f32`. Kernels may sum taps in any order and with any fusion; `f32` paths are therefore *not* required to be bit-identical to each other, only bounded against the oracle (rule 4).
-- Straight alpha is premultiplied in `f32` linear light, filtered as a fourth channel, and divided out in `f32` with the oracle's `alpha > 1e-12` rule.
-- Output encodes through the exact `f32` encoder of rule 3 after clamping to `[0, 1]`.
+- Straight alpha is filtered as a fourth `f32` channel and divided out in `f32` with the oracle's `alpha > 1e-12` / zero-alpha-code transparent-black rule (for sRGB-encoded and Display P3 `F32` inputs on the non-identity path, premultiplication happens in `f64` before narrowing once to `f32`; linear-sRGB `F32` inputs, including deferred ICC output, premultiply in `f32`).
+- 8-bit output encodes through the exact `f32` encoder of rule 3 after clamping to `[0, 1]`; deeper (`10..=16`-bit) output encodes through `ferrisma_kernels::Kernels::linear_to_srgb_u16` (`f64`-lane minimax OETF with exact-OETF half-code tie resolution, bit-identical to `encode_linear_srgb` for every `f32`).
 
 ### 2. The Q1.14 fixed-point path: dropped
 
@@ -345,3 +345,47 @@ target/release/ferrisma tests/fixtures/jxl-deep/d16-2049x40-a1-lossless.jxl /tmp
 - 2026-11-15 — Output depth follows the input (owner decision): one quantization for every depth, `u16` rows above 8 bits, per-depth shares of rules B to D with rule A unchanged, the public depth fields and the backend additions; see the amendment above. The 8-bit path is unchanged bit for bit.
 - 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.
 - 2026-11-26 — Added 1:1 sRGB identity pass-through in `fast_execute` and zero-allocation boundary `quality::footprint` / scratch-reusing `TapTable::build` (#284); see the amendment above for semantics and reproducible benchmarks.
+- 2026-11-26 — **Issue #281: eliminate per-pixel scalar `f64::powf` for `F32` inputs and >8-bit outputs.** `linearize_row` (`DecodedRow::F32`, used by all JPEG XL inputs and 10/12-bit AVIF inputs) and `quantize_row_deep` (10/12/16-bit outputs) now run through `ferrisma_kernels::{Kernels::srgb_to_linear, Kernels::linear_to_srgb_u16}` in L1-resident 64-pixel chunks. Why `f64` SIMD lanes instead of `f32` polynomials: at 16-bit (`max = 65535`), `f32` rounding in either the OETF (~0.35% mismatches) or EOTF (~0.27% mismatches) exceeds the 99.8% exact-match bound of rule 4, whereas `f64`-lane Remez minimax polynomials (`srgb_to_linear`: `t^2 * P_8(t^(1/4))`, max relative error `1.39e-10`, returning `f64`; `linear_to_srgb_u16`: `P_8(x^(1/8))`, max absolute error `5.91e-11`, `3.9e-6` of a 16-bit LSB) preserve every ADR-0021 bound unchanged (10/12/16-bit identity round-trip exact on every code; `deep_output_meets_the_bound_against_the_f64_oracle` passes at every depth). To keep `quantize_row_deep` exact against `encode_linear_srgb` for every `f32` value (not just a uniform sweep), `linear_to_srgb_u16` checks `|scaled - round(scaled)| <= 0.5 - 1e-4` per vector and refines any lane inside that guard band with the exact `f64` OETF (`0` mismatches across all ~354,000 half-code threshold neighbors at 8/10/12/16 bits, including `f32::from_bits(0x3b4fad81)` at `max = 65535` → `2683`). Because `srgb_to_linear` writes `f64` directly into the L1-resident chunk buffer (evaluating exact `f64::powf` once for `|c| > 1.0`), `linearize_f32_row` applies the exact two-step Display P3 primaries matrix (`display_p3_linear_to_srgb_linear`) and straight-alpha premultiplication in `f64` and narrows each working pixel once to `f32`. Mixed-range Display P3 pixels refine their in-range channels with exact `decode_srgb` before the two-step matrix (`[0.32031983, 0.6952312, 99416.45]` → red code `2906`), and every in-range polynomial sample (opaque sRGB, straight-alpha sRGB, and Display P3) refines with exact `decode_srgb` whenever the polynomial error interval straddles an `f32` rounding boundary—while reusing the already-exact `powf` decode for `|c| > 1.0`—so `linearize_f32_row` and `quantize_row_deep` are bit-identical to the scalar `f64::powf` path across every input (`[0.40648943, 0, 0, 0.14929904]` + `[0.40648943, 0, 0, 1.0]` Lanczos3 → red code `26639`, `[20, 0x3ec56ad4, -20, -0x3ec56ad4]` Area → red code `0`, `[12.0, 3.1096375, 0.0]` → green code `847`, `[0, 0, 65504]` → exact oracle match, `[100, 0, 0, 0.2]` + `[-150, 0, 0, 0.07561396]` Area → red code `0`, `[1e20, 0, 0, 0]` and `[1e20, 0, 0, 1e-20]` succeed, and purely extended-range samples decode once). The 8-bit LUT path is unchanged bit for bit.
+
+  **Repeatable end-to-end transform benchmark and peak memory** (Apple M1 Ultra, 20 CPUs, macOS 27.2.1, `rustc 1.100.0-nightly (5a2be9f5f 2026-09-06)`, loaded host, indicative). Build merge-base `9c05ccdd` and candidate with `cargo build --release --features cli --bin ferrisma`. Generate the three inputs from the committed fixture `codecs/libavif-rs/upstream/libavif/tests/data/dog_exif_extended_xmp_icc.jpg` (`3024×4032`):
+
+  ```sh
+  ferrisma codecs/libavif-rs/upstream/libavif/tests/data/dog_exif_extended_xmp_icc.jpg /tmp/bench-12mp-8b.jxl 4000 3000 --jxl-depth=8 --jxl-distance=1.0 --use-rendered-icc
+  ferrisma codecs/libavif-rs/upstream/libavif/tests/data/dog_exif_extended_xmp_icc.jpg /tmp/bench-12mp-10b.avif 4000 3000 --avif-depth=10 --avif-speed=8 --avif-quality=80 --use-rendered-icc
+  ferrisma codecs/libavif-rs/upstream/libavif/tests/data/dog_exif_extended_xmp_icc.jpg /tmp/bench-24mp-16b.jxl 6000 4000 --jxl-depth=16 --jxl-distance=1.0 --use-rendered-icc
+  ```
+
+  Run each case 3 times under `/usr/bin/time -l` (reporting `kernel_level`, minimum `transform_us`, maximum `maximum resident set size` RSS, and `peak_managed_bytes`; the 1:1 sRGB AVIF row takes #284's `run_identity` bypass with `kernel_level=none` on both commits and is included as a control):
+
+  | Case (invocation flags) | `kernel_level` | Baseline `9c05ccdd` `transform` ms | Candidate `transform` ms | Speedup | Baseline RSS MiB | Candidate RSS MiB | Baseline `peak_managed` MiB | Candidate `peak_managed` MiB |
+  | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+  | 12 MP 8-bit JXL → `1600 1200` WebP (`--transform-threads=1`) | `neon` | 473.3 | 135.2 | 3.50× | 193.9 | 194.4 | 163.4 | 163.4 |
+  | 12 MP 8-bit JXL → `1600 1200` WebP (`--transform-threads=8`) | `neon` | 65.1 | 22.9 | 2.85× | 196.5 | 197.6 | 165.3 | 165.5 |
+  | 12 MP 10-bit AVIF → `1600 1200` 10-bit AVIF (`--avif-speed=8 --transform-threads=1`) | `neon` | 525.1 | 134.8 | 3.90× | 230.3 | 229.8 | 113.1 | 113.1 |
+  | 12 MP 10-bit AVIF → `1600 1200` 10-bit AVIF (`--avif-speed=8 --transform-threads=8`) | `neon` | 64.1 | 18.7 | 3.43× | 247.6 | 244.5 | 115.8 | 115.0 |
+  | 24 MP 16-bit JXL → `1600 1067` 16-bit JXL (`--jxl-distance=1.0 --transform-threads=1`) | `neon` | 963.1 | 244.4 | 3.94× | 479.5 | 481.4 | 307.2 | 307.2 |
+  | 24 MP 16-bit JXL → `1600 1067` 16-bit JXL (`--jxl-distance=1.0 --transform-threads=8`) | `neon` | 129.4 | 37.1 | 3.49× | 487.3 | 485.9 | 309.9 | 310.4 |
+  | 12 MP 10-bit AVIF → `3200 2400` 10-bit AVIF (`--avif-speed=8 --transform-threads=1`) | `neon` | 742.9 | 204.2 | 3.64× | 394.8 | 393.7 | 198.4 | 198.4 |
+  | 12 MP 10-bit AVIF → `4000 3000` 10-bit AVIF (`--avif-speed=8 --transform-threads=1`, 1:1 bypass control) | `none` | 59.7 | 58.9 | 1.01× | 600.9 | 601.1 | 229.0 | 229.0 |
+
+  **Synthetic corner-case benchmarks** (`cargo test --release -p ferrisma --lib bench_extended_p3_area_resize -- --ignored --nocapture`, and with `ROSETTA_ADVERTISE_AVX=1 --target x86_64-apple-darwin`; `threads=1`, best of 5):
+
+  | Synthetic case | NEON `execute_quality` ms | NEON `execute_fast` ms | NEON speedup | Rosetta AVX2 `execute_quality` ms | Rosetta AVX2 `execute_fast` ms | AVX2 speedup | Max code diff |
+  | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+  | Extended-range Display P3 RGB `1000×1000 → 500×500` Area 16-bit (`[1.1, 2.1]`) | 61.52 | 43.03 | 1.43× | 203.02 | 182.29 | 1.11× | 0 |
+  | Extended-range Display P3 RGBA `1000×1000 → 500×500` Area 16-bit (`[1.1, 2.1]`, α=0.75) | 62.63 | 43.70 | 1.43× | 203.05 | 186.05 | 1.09× | 0 |
+  | Fully transparent linear-RGBA `4096×512` Area identity 16-bit (skips OETF on zero-alpha chunks) | 43.71 | 9.03 | 4.84× | 62.45 | 19.54 | 3.20× | 0 |
+  | Sparse-alpha linear-RGBA `4096×512` Area identity 16-bit (1/64 visible; compacts visible pixels) | 44.88 | 9.98 | 4.50× | 64.89 | 21.51 | 3.02× | 0 |
+  | Dark OETF half-code linear-RGBA `4096×512` Area identity 16-bit (`4.5 / (65535 * 12.92)`, skips OETF refinement) | 52.31 | 25.75 | 2.03× | 71.20 | 34.14 | 2.09× | 0 |
+  | Mixed near-tie OETF linear-RGB `4096×512` Area identity 16-bit (`[0x3b4fad81, 0.5, 0.75]`, per-lane mask) | 114.72 | 72.57 | 1.58× | 195.18 | 175.48 | 1.11× | 0 |
+  | Mixed-range Display P3 `[1.1, 0.5, 0.6]` `4096×512` Area identity 8-bit (single exact decode) | 201.18 | 94.38 | 2.13× | 550.52 | 381.81 | 1.44× | 0 |
+  | All-dark F32 sRGB `[0, 0.01]` `4096×512 → 2048×256` Area 8-bit (linear-only EOTF loop) | 37.69 | 11.31 | 3.33× | 47.52 | 20.23 | 2.35× | 0 |
+  | Blue-only Display P3 `[0, 0, b]` `4096×512` Area identity 8-bit (direct exact decode) | 134.55 | 56.06 | 2.40× | 404.61 | 300.98 | 1.34× | 0 |
+  | Transparent-black Display P3 `[0, 0, 0, 0]` `4096×512` Area identity 8-bit (all-zero chunk fast path) | 61.97 | 13.31 | 4.65× | 220.70 | 25.47 | 8.66× | 0 |
+  | Negative-zero straight-alpha sRGB `[-0.6, -0.52, -0.3, 0]` `4096×512 → 2048×256` Area 8-bit (`value == 0.0` fast path) | 96.85 | 18.03 | 5.37× | 185.03 | 60.34 | 3.07× | 0 |
+
+  **Standalone kernel benchmark** (`crates/ferrisma-kernels/examples/bench.rs`; 4000 rows of 6000×3 = 72M EOTF samples, 1067 rows of 1600×3 = 5.12M 16-bit OETF samples, best of 3 in release, comparing the `powf-ref` baseline row against each ISA level):
+
+  - Native Apple M1 Ultra (`cargo run --release -p ferrisma-kernels --example bench`): `powf-ref` EOTF `665.0 ms` / OETF `47.6 ms`; `scalar` EOTF `125.8 ms` (5.29×) / OETF `31.8 ms` (1.50×); `neon` EOTF `83.6 ms` (7.95×) / OETF `9.9 ms` (4.81×).
+  - Baseline x86-64 under Rosetta 2 (`cargo run --release -p ferrisma-kernels --target x86_64-apple-darwin --example bench`): replacing `f64::mul_add` / `f64::round` in `Scalar` with plain `a * b + c` and `HALF_DOWN` truncation avoids out-of-line `libm::fma`/`libm::round` calls — `powf-ref` EOTF `1416.6 ms` / OETF `116.5 ms` vs `scalar` EOTF `151.2 ms` (9.37×) / OETF `30.1 ms` (3.87×).
+  - Emulated AVX2 under Rosetta 2 (`ROSETTA_ADVERTISE_AVX=1 cargo run --release -p ferrisma-kernels --target x86_64-apple-darwin --example bench`): `powf-ref` EOTF `1449.1 ms` / OETF `126.4 ms`; `scalar` EOTF `147.8 ms` (9.80×) / OETF `29.6 ms` (4.27×); `avx2` EOTF `509.8 ms` (2.84×) / OETF `48.4 ms` (2.61×).

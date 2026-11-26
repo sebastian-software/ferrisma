@@ -2,20 +2,25 @@
 //! acceptance rules of ADR-0021 section 4, plus the contracts both executors
 //! share (one decoder request, released memory, cancellation).
 
-use crate::color::AlphaMode;
+use crate::color::{AlphaMode, ColorEncoding};
 use crate::decoder::{
     ChannelLayout, DecodeAccess, DecodeReport, DecodeSource, DecodedRow, DecoderInfo, SampleType,
 };
 use crate::error::Error;
-use crate::fast_execute::{execute_fast, execute_fast_srgb8, tables};
+use crate::fast_execute::{
+    Primaries, execute_fast, execute_fast_srgb8, linearize_row, quantize_row_deep, tables,
+};
 use crate::geometry::{Rect, Size};
 use crate::graph::{Graph, NodeId};
 use crate::memory::MemoryBudget;
 use crate::output_depth::{OutputRow, max_code};
-use crate::quality::Filter;
+use crate::quality::{Filter, taps};
 use crate::quality_execute::{execute_quality, execute_quality_srgb8};
-use crate::working_color::{encode_linear_srgb, encode_linear_srgb8};
-use ferrisma_kernels::Kernels;
+use crate::working_color::{
+    decode_straight_to_premultiplied_linear_srgb, decode_to_linear_srgb, encode_linear_srgb,
+    encode_linear_srgb8,
+};
+use ferrisma_kernels::{IsaLevel, Kernels, Taps};
 
 const SRGB: [u8; 4] = [1, 13, 0, 1];
 const P3: [u8; 4] = [12, 13, 0, 1];
@@ -2145,4 +2150,1249 @@ fn bench_issue_284_planning_and_identity() {
         Samples::F32(vec![0.5; 4000 * 3000 * 4]),
         16,
     );
+}
+
+#[test]
+fn fast_executor_f32_rejects_invalid_alpha_and_overflowing_extended_samples() {
+    let size = Size::new(2, 2).unwrap();
+    let out = Size::new(1, 1).unwrap();
+    let request = Rect::new(0, 0, 1, 1).unwrap();
+    let budget = MemoryBudget::new(1 << 20);
+    let kernels = Kernels::best();
+
+    // Out-of-range alpha on F32 RGBA must return InvalidAlphaValue, even if RGB is NaN.
+    for alpha in [-0.01_f32, 1.01, f32::NAN, f32::INFINITY] {
+        let mut samples = vec![0.5_f32; 2 * 2 * 4];
+        samples[0] = f32::NAN;
+        samples[3] = alpha;
+        let mut source = TestSource::new(size, ChannelLayout::Rgba, SRGB, Samples::F32(samples));
+        let (graph, input, target) = graph_for(&source, None, out, Filter::Area);
+        let result = execute_fast(
+            &graph,
+            target,
+            input,
+            &mut source,
+            request,
+            &budget,
+            &kernels,
+            1,
+            10,
+            |_, _| Ok(()),
+        );
+        assert_eq!(result.unwrap_err(), Error::InvalidAlphaValue);
+        assert_eq!(budget.snapshot().live, 0);
+    }
+
+    // Huge finite F32 sample whose x^2.4 overflows f32 to infinity must be rejected
+    // when opaque (RGB) or when alpha keeps the premultiplied result out of f32 range (RGBA).
+    for cicp in [SRGB, P3] {
+        for layout in [ChannelLayout::Rgb, ChannelLayout::Rgba] {
+            let channels = usize::from(layout.channels());
+            let mut samples = vec![0.5_f32; 2 * 2 * channels];
+            samples[0] = 1.0e20;
+            if layout == ChannelLayout::Rgba {
+                samples[3] = 1.0;
+            }
+            let mut source = TestSource::new(size, layout, cicp, Samples::F32(samples));
+            let (graph, input, target) = graph_for(&source, None, out, Filter::Area);
+            let result = execute_fast(
+                &graph,
+                target,
+                input,
+                &mut source,
+                request,
+                &budget,
+                &kernels,
+                1,
+                16,
+                |_, _| Ok(()),
+            );
+            assert_eq!(result.unwrap_err(), Error::NonFinitePixelSample);
+            assert_eq!(budget.snapshot().live, 0);
+        }
+    }
+}
+
+/// Finding 1 regression: extended-range Display P3 pixels must stay in `f64`
+/// through the exact two-step P3 -> XYZ -> linear sRGB reference matrix before
+/// narrowing to `f32`, and mixed-range P3 pixels must decode all channels with
+/// the exact EOTF so large canceling terms (such as `[12.0, 3.1096375, 0.0]`,
+/// `[0.0, 0.0, 65504.0]`, and `[0.32031983, 0.6952312, 99416.45]`) match the
+/// `f64` oracle in both opaque RGB and straight-alpha RGBA paths.
+#[test]
+fn extended_range_p3_matches_f64_oracle_in_rgb_and_rgba() {
+    let pixels_rgb: &[[f32; 3]] = &[
+        [12.0, 3.109_637_5, 0.0],
+        [0.0, 0.0, 65_504.0],
+        [0.320_319_83, 0.695_231_2, 99_416.45],
+        [-12.0, -3.109_637_5, 0.0],
+        [4.0, 1.25, -0.5],
+        [-2.0, 3.5, 1.5],
+        [0.5, 0.25, 0.75],
+    ];
+    // Span > 64 pixels per row (multi-chunk SIMD) and >= 64 rows (PARALLEL_MIN_ROWS)
+    // so `threads = 4` genuinely exercises the parallel worker executor.
+    let width = 70_u32;
+    let height = 64_u32;
+    let size = Size::new(width, height).unwrap();
+    let mut opaque_data = Vec::with_capacity((width * height * 3) as usize);
+    let mut alpha_data = Vec::with_capacity((width * height * 4) as usize);
+    let alphas = [1.0_f32, 1.0, 1.0, 0.5, 0.25, 0.0, 0.75];
+    for i in 0..(width * height) as usize {
+        let p = pixels_rgb[i % pixels_rgb.len()];
+        opaque_data.extend_from_slice(&p);
+        let alpha = alphas[i % alphas.len()];
+        alpha_data.extend_from_slice(&[p[0], p[1], p[2], alpha]);
+    }
+
+    for (layout, data) in [
+        (ChannelLayout::Rgb, opaque_data),
+        (ChannelLayout::Rgba, alpha_data),
+    ] {
+        let source = TestSource::new(size, layout, P3, Samples::F32(data));
+        let reference = render_depth(&source, None, size, Filter::Lanczos3, None, 16);
+        // Pixel 0 is `[12.0, 3.1096375, 0.0]` (opaque or alpha 1.0): green code must be 847.
+        assert_eq!(reference[1], 847, "{layout:?} oracle green code");
+        for kernels in Kernels::available() {
+            for threads in [1, 4] {
+                let fast = render_depth(
+                    &source,
+                    None,
+                    size,
+                    Filter::Lanczos3,
+                    Some((&kernels, threads)),
+                    16,
+                );
+                assert_eq!(
+                    fast,
+                    reference,
+                    "{layout:?} {} threads={threads} 16-bit identity",
+                    kernels.level()
+                );
+            }
+        }
+        // Also verify a resampled output stays within ADR-0021's 1-code maximum.
+        let resized = Size::new(35, 32).unwrap();
+        let ref_resized = render_depth(&source, None, resized, Filter::Area, None, 16);
+        let fast_resized = render_depth(
+            &source,
+            None,
+            resized,
+            Filter::Area,
+            Some((&Kernels::best(), 4)),
+            16,
+        );
+        for (idx, (&r, &f)) in ref_resized.iter().zip(&fast_resized).enumerate() {
+            assert!(
+                r.abs_diff(f) <= 1,
+                "{layout:?} resized index {idx}: ref={r} fast={f}"
+            );
+        }
+    }
+}
+
+/// Regression for PR #292 finding 1 (P1): decoded float RGB must stay in `f64`
+/// through alpha premultiplication before narrowing once to `f32`, so canceling
+/// straight-alpha pixels such as `[100, 0, 0, 0.2]` and
+/// `[-150, 0, 0, 0.07561396]` in a 2x1 -> 1x1 Area resize emit red code 0,
+/// matching the `f64` oracle instead of drifting to 2982 from double rounding.
+#[test]
+fn rgba_f32_premultiplies_in_f64_before_narrowing() {
+    let row = [100.0_f32, 0.0, 0.0, 0.2, -150.0, 0.0, 0.0, 0.075_613_96];
+    // 2x1 -> 1x1 sequential case and 2x64 -> 1x64 parallel case.
+    for (height, threads) in [(1_u32, 1_usize), (64, 4)] {
+        let mut data = Vec::with_capacity(row.len() * height as usize);
+        for _ in 0..height {
+            data.extend_from_slice(&row);
+        }
+        let source = TestSource::new(
+            Size::new(2, height).unwrap(),
+            ChannelLayout::Rgba,
+            SRGB,
+            Samples::F32(data),
+        );
+        let out_size = Size::new(1, height).unwrap();
+        let reference = render_depth(&source, None, out_size, Filter::Area, None, 16);
+        assert_eq!(reference[0], 0, "oracle red code must be 0");
+        for kernels in Kernels::available() {
+            let fast = render_depth(
+                &source,
+                None,
+                out_size,
+                Filter::Area,
+                Some((&kernels, threads)),
+                16,
+            );
+            assert_eq!(
+                fast,
+                reference,
+                "{} height={height} threads={threads} premultiply cancellation",
+                kernels.level()
+            );
+        }
+    }
+}
+
+fn reference_linear_srgb_f32<const C: usize>(row: &[f32]) -> Vec<f32> {
+    let srgb = ColorEncoding::Cicp(SRGB);
+    let mut out = Vec::with_capacity(row.len() / C * 4);
+    for px in row.as_chunks::<C>().0 {
+        if C == 3 {
+            let lin = decode_to_linear_srgb(
+                &srgb,
+                [f64::from(px[0]), f64::from(px[1]), f64::from(px[2])],
+            )
+            .unwrap();
+            #[allow(clippy::cast_possible_truncation)]
+            out.extend_from_slice(&[lin.rgb[0] as f32, lin.rgb[1] as f32, lin.rgb[2] as f32, 0.0]);
+        } else {
+            let premul = decode_straight_to_premultiplied_linear_srgb(
+                &srgb,
+                [f64::from(px[0]), f64::from(px[1]), f64::from(px[2])],
+                f64::from(px[3]),
+            )
+            .unwrap();
+            #[allow(clippy::cast_possible_truncation)]
+            out.extend_from_slice(&[
+                premul.rgb[0] as f32,
+                premul.rgb[1] as f32,
+                premul.rgb[2] as f32,
+                px[3],
+            ]);
+        }
+    }
+    out
+}
+
+fn assert_linearize_srgb_bit_exact<const C: usize>(row: &[f32], kernels: &Kernels) -> Vec<f32> {
+    let expected = reference_linear_srgb_f32::<C>(row);
+    let mut actual = vec![0.0_f32; expected.len()];
+    let zero_p3 = [[0.0_f32; 3]; 3];
+    linearize_row::<C>(
+        DecodedRow::F32(row),
+        Primaries::Srgb,
+        &zero_p3,
+        kernels,
+        &mut actual,
+    )
+    .unwrap();
+    for (idx, (&got, &want)) in actual.iter().zip(&expected).enumerate() {
+        assert_eq!(
+            got.to_bits(),
+            want.to_bits(),
+            "{} linearize_row::<{C}> sample {idx} diverged from working_color",
+            kernels.level()
+        );
+    }
+    expected
+}
+
+/// Regression for PR #292 round-4 finding 2: when a polynomial-decoded
+/// premultiplied value lies near an `f32` rounding boundary, division by a
+/// small nonzero filtered alpha can amplify a 1-ULP rounding flip past
+/// ADR-0021's 1-code limit. Refining with exact `decode_srgb` whenever the
+/// error interval straddles an `f32` boundary keeps `linearize_row`
+/// bit-identical to `working_color` on every ISA level, keeps `2x1 -> 4x1`
+/// Lanczos3 exact (`26639`) on 1-slot levels (`Scalar`, `Neon`), and matches
+/// each SIMD level's own `horizontal_rgba` + `quantize_row_deep` fed the exact
+/// reference working pixels (isolating transfer accuracy from pre-existing
+/// AVX2/AVX-512 tap reassociation).
+#[test]
+fn straight_alpha_lanczos3_refines_premultiplied_f32_boundaries() {
+    let row = [
+        0.406_489_43_f32,
+        0.0,
+        0.0,
+        0.149_299_04,
+        0.406_489_43,
+        0.0,
+        0.0,
+        1.0,
+    ];
+    let mut starts = Vec::new();
+    let mut offsets = vec![0_u32];
+    let mut weights = Vec::new();
+    for x in 0..4_u32 {
+        let run = taps(2, 4, x, Filter::Lanczos3).unwrap();
+        let first = run[0].index;
+        starts.push(first);
+        let mut next = first;
+        for tap in run {
+            while next < tap.index {
+                weights.push(0.0);
+                next += 1;
+            }
+            #[allow(clippy::cast_possible_truncation)]
+            weights.push(tap.weight as f32);
+            next = tap.index + 1;
+        }
+        offsets.push(u32::try_from(weights.len()).unwrap());
+    }
+    let col_taps = Taps::new(2, starts, offsets, weights).unwrap();
+
+    let source = TestSource::new(
+        Size::new(2, 1).unwrap(),
+        ChannelLayout::Rgba,
+        SRGB,
+        Samples::F32(row.to_vec()),
+    );
+    let out_size = Size::new(4, 1).unwrap();
+    let reference = render_depth(&source, None, out_size, Filter::Lanczos3, None, 16);
+    assert_eq!(reference[0], 26_639, "oracle first-pixel red code");
+    for kernels in Kernels::available() {
+        let ref_linear = assert_linearize_srgb_bit_exact::<4>(&row, &kernels);
+        let mut expected_acc = [0.0_f32; 16];
+        kernels
+            .horizontal_rgba(&ref_linear, &col_taps, &mut expected_acc)
+            .unwrap();
+        let mut expected_u16 = [0_u16; 16];
+        quantize_row_deep::<4>(&expected_acc, &mut expected_u16, 16, &kernels).unwrap();
+
+        let fast = render_depth(
+            &source,
+            None,
+            out_size,
+            Filter::Lanczos3,
+            Some((&kernels, 1)),
+            16,
+        );
+        assert_eq!(
+            fast.as_slice(),
+            expected_u16.as_slice(),
+            "{} 2x1->4x1 Lanczos3 diverged from exact working_color inputs",
+            kernels.level()
+        );
+        if matches!(kernels.level(), IsaLevel::Scalar | IsaLevel::Neon) {
+            assert_eq!(
+                fast,
+                reference,
+                "{} 2x1->4x1 Lanczos3 straight-alpha boundary",
+                kernels.level()
+            );
+        }
+    }
+}
+
+/// Regression for PR #292 round-5 finding 1 (P1): opaque F32 sRGB must also
+/// refine samples near an `f32` rounding boundary before narrowing, because a
+/// 1-ULP decode flip can cross a larger accumulator rounding boundary during
+/// canceling filters (here `4x1 -> 1x1` Area of `[20, s, -20, -s]` where
+/// `s = f32::from_bits(0x3ec56ad4)` must emit red code `0`, not `13`).
+/// Also exercises extended-range sRGB boundary value `0x3f800294` in RGBA.
+#[test]
+fn opaque_srgb_refines_f32_boundaries_and_extended_rgba_matches_oracle() {
+    let s = f32::from_bits(0x3ec5_6ad4);
+    let row = [
+        20.0_f32, 0.0, 0.0, s, 0.0, 0.0, -20.0, 0.0, 0.0, -s, 0.0, 0.0,
+    ];
+    let source = TestSource::new(
+        Size::new(4, 1).unwrap(),
+        ChannelLayout::Rgb,
+        SRGB,
+        Samples::F32(row.to_vec()),
+    );
+    let out_size = Size::new(1, 1).unwrap();
+    let reference = render_depth(&source, None, out_size, Filter::Area, None, 16);
+    assert_eq!(reference[0], 0, "oracle red code must be 0");
+    for kernels in Kernels::available() {
+        assert_linearize_srgb_bit_exact::<3>(&row, &kernels);
+        let fast = render_depth(
+            &source,
+            None,
+            out_size,
+            Filter::Area,
+            Some((&kernels, 1)),
+            16,
+        );
+        assert_eq!(
+            fast,
+            reference,
+            "{} 4x1->1x1 opaque sRGB cancellation",
+            kernels.level()
+        );
+    }
+
+    // Extended-range sRGB sample near an f32 rounding boundary (`0x3f800294`)
+    // in straight-alpha RGBA must reuse the already-exact `powf` decode and
+    // match `working_color` and the oracle bit for bit. Resize `4x1 -> 2x1`
+    // and assert `report.used_kernels` so #284's 1:1 sRGB pass-through cannot
+    // bypass the transfer kernels.
+    let ext = f32::from_bits(0x3f80_0294);
+    let rgba_row = [
+        ext, 0.5, 0.25, 1.0, ext, 0.5, 0.25, 0.5, ext, 0.25, 0.5, 0.75, ext, 0.5, 0.25, 0.25,
+    ];
+    let rgba_in = Size::new(4, 1).unwrap();
+    let rgba_out = Size::new(2, 1).unwrap();
+    let rgba_rect = Rect::new(0, 0, 2, 1).unwrap();
+    let rgba_source = TestSource::new(
+        rgba_in,
+        ChannelLayout::Rgba,
+        SRGB,
+        Samples::F32(rgba_row.to_vec()),
+    );
+    let (rgba_graph, rgba_input, rgba_target) =
+        graph_for(&rgba_source, None, rgba_out, Filter::Area);
+    let rgba_ref = render_depth(&rgba_source, None, rgba_out, Filter::Area, None, 16);
+    for kernels in Kernels::available() {
+        assert_linearize_srgb_bit_exact::<4>(&rgba_row, &kernels);
+        let mut src = rgba_source.clone();
+        let budget = MemoryBudget::new(1 << 20);
+        let report = execute_fast(
+            &rgba_graph,
+            rgba_target,
+            rgba_input,
+            &mut src,
+            rgba_rect,
+            &budget,
+            &kernels,
+            1,
+            16,
+            |_, _| Ok(()),
+        )
+        .unwrap();
+        assert!(
+            report.used_kernels,
+            "{} extended RGBA 0x3f800294 must exercise transfer kernels",
+            kernels.level()
+        );
+        let fast = render_depth(
+            &rgba_source,
+            None,
+            rgba_out,
+            Filter::Area,
+            Some((&kernels, 1)),
+            16,
+        );
+        assert_eq!(
+            fast,
+            rgba_ref,
+            "{} extended RGBA 0x3f800294",
+            kernels.level()
+        );
+    }
+}
+
+/// Regressions for PR #292 round-7 findings:
+/// 1. Transparent Display P3 pixel whose matrix cancellation flips the sign of
+///    green (`[0, 0, 0x3a0c008c, 0]`): multiplying by zero alpha must preserve
+///    the exact `-0.0` sign bit of `working_color` across every ISA level.
+/// 2. Finite straight-alpha working pixel whose unpremultiplication `c / alpha`
+///    overflows `f32` to `±inf` must saturate to `0` / `max` in
+///    `quantize_row_deep` rather than failing `KernelError::NonFiniteSample`.
+#[test]
+fn transparent_p3_signed_zero_and_deep_unpremul_overflow_match_reference() {
+    let p3_zero = [0.0_f32, 0.0, f32::from_bits(0x3a0c_008c), 0.0];
+    let p3_color = ColorEncoding::Cicp(P3);
+    let premul = decode_straight_to_premultiplied_linear_srgb(
+        &p3_color,
+        [
+            f64::from(p3_zero[0]),
+            f64::from(p3_zero[1]),
+            f64::from(p3_zero[2]),
+        ],
+        f64::from(p3_zero[3]),
+    )
+    .unwrap();
+    #[allow(clippy::cast_possible_truncation)]
+    let expected_p3_zero = [
+        premul.rgb[0] as f32,
+        premul.rgb[1] as f32,
+        premul.rgb[2] as f32,
+        p3_zero[3],
+    ];
+    let zero_p3 = [[0.0_f32; 3]; 3];
+    for kernels in Kernels::available() {
+        let mut actual = [0.0_f32; 4];
+        linearize_row::<4>(
+            DecodedRow::F32(&p3_zero),
+            Primaries::DisplayP3,
+            &zero_p3,
+            &kernels,
+            &mut actual,
+        )
+        .unwrap();
+        for (ch, (&got, &want)) in actual.iter().zip(&expected_p3_zero).enumerate() {
+            assert_eq!(
+                got.to_bits(),
+                want.to_bits(),
+                "{} transparent P3 channel {ch} signed-zero mismatch",
+                kernels.level()
+            );
+        }
+
+        let acc = [f32::MAX, -f32::MAX, 0.5_f32, 0.001_f32];
+        let mut out = [0_u16; 4];
+        quantize_row_deep::<4>(&acc, &mut out, 16, &kernels).unwrap();
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let expected_alpha = (0.001_f32 * 65_535.0).round() as u16;
+        assert_eq!(
+            out,
+            [65_535, 0, 65_535, expected_alpha],
+            "{} quantize_row_deep unpremul overflow saturation",
+            kernels.level()
+        );
+    }
+}
+
+fn assert_rgba_overflow_case(
+    name: &str,
+    pixel: [f32; 4],
+    cicp: [u8; 4],
+    primaries: Primaries,
+    size: Size,
+    resized: Size,
+) {
+    let color = ColorEncoding::Cicp(cicp);
+    let premul = decode_straight_to_premultiplied_linear_srgb(
+        &color,
+        [
+            f64::from(pixel[0]),
+            f64::from(pixel[1]),
+            f64::from(pixel[2]),
+        ],
+        f64::from(pixel[3]),
+    )
+    .unwrap();
+    #[allow(clippy::cast_possible_truncation)]
+    let expected_linear = [
+        premul.rgb[0] as f32,
+        premul.rgb[1] as f32,
+        premul.rgb[2] as f32,
+        pixel[3],
+    ];
+    let mut data = Vec::with_capacity(4 * 2 * 4);
+    for i in 0..8 {
+        let px = if i % 2 == 0 {
+            pixel
+        } else {
+            [0.25, 0.5, 0.75, 1.0]
+        };
+        data.extend_from_slice(&px);
+    }
+    let source = TestSource::new(size, ChannelLayout::Rgba, cicp, Samples::F32(data));
+    let (graph, input, target) = graph_for(&source, None, resized, Filter::Area);
+    let resized_rect = Rect::new(0, 0, resized.width, resized.height).unwrap();
+    let zero_p3 = [[0.0_f32; 3]; 3];
+    for kernels in Kernels::available() {
+        let mut actual_linear = [0.0_f32; 4];
+        linearize_row::<4>(
+            DecodedRow::F32(&pixel),
+            primaries,
+            &zero_p3,
+            &kernels,
+            &mut actual_linear,
+        )
+        .unwrap();
+        for (ch, (&got, &want)) in actual_linear.iter().zip(&expected_linear).enumerate() {
+            assert_eq!(
+                got.to_bits(),
+                want.to_bits(),
+                "{name} cicp={cicp:?} {} linearize_row ch={ch}",
+                kernels.level()
+            );
+        }
+        let mut src = source.clone();
+        let budget = MemoryBudget::new(1 << 20);
+        let report = execute_fast(
+            &graph,
+            target,
+            input,
+            &mut src,
+            resized_rect,
+            &budget,
+            &kernels,
+            1,
+            16,
+            |_, _| Ok(()),
+        )
+        .unwrap();
+        assert!(
+            report.used_kernels,
+            "{name} cicp={cicp:?} {} must exercise linearize_row",
+            kernels.level()
+        );
+    }
+    for depth in [8_u8, 16] {
+        let reference = render_depth(&source, None, resized, Filter::Area, None, depth);
+        for kernels in Kernels::available() {
+            let fast = render_depth(
+                &source,
+                None,
+                resized,
+                Filter::Area,
+                Some((&kernels, 1)),
+                depth,
+            );
+            assert_eq!(
+                fast,
+                reference,
+                "{name} cicp={cicp:?} depth={depth} {}",
+                kernels.level()
+            );
+        }
+    }
+}
+
+/// Finding 2 regression: straight-alpha RGBA `F32` pixels whose pre-alpha EOTF
+/// overflows `f32` (such as `[1e20, 0, 0, 0]`, `[1e20, 0, 0, 1e-20]`, or
+/// `[2e16, 0, 0, 0.1]`) must be recomputed in `f64` through premultiplication
+/// and only rejected if the resulting working pixel is non-finite in `f32`.
+/// Uses a non-identity resize (`4x2 -> 2x2`, asserting `report.used_kernels`)
+/// plus direct `linearize_row::<4>` checks so #284's 1:1 sRGB pass-through
+/// cannot bypass `linearize_f32_rgba_row`.
+#[test]
+fn rgba_f32_overflow_is_checked_after_premultiplication() {
+    let size = Size::new(4, 2).unwrap();
+    let resized = Size::new(2, 2).unwrap();
+    let resized_rect = Rect::new(0, 0, 2, 2).unwrap();
+    let cases: &[(&str, [f32; 4])] = &[
+        (
+            "zero alpha with overflowing RGB",
+            [1.0e20, -1.0e20, 1.0e20, 0.0],
+        ),
+        (
+            "tiny alpha rescuing overflowing RGB",
+            [1.0e20, 0.0, 0.0, 1.0e-20],
+        ),
+        (
+            "ultra-tiny alpha rescuing all-channel overflow",
+            [1.0e20, 1.0e20, 1.0e20, 1.0e-25],
+        ),
+        (
+            "visible alpha rescuing f32 EOTF overflow",
+            [2.0e16, 0.0, 0.0, 0.1],
+        ),
+    ];
+    for (cicp, primaries) in [(SRGB, Primaries::Srgb), (P3, Primaries::DisplayP3)] {
+        for &(name, pixel) in cases {
+            assert_rgba_overflow_case(name, pixel, cicp, primaries, size, resized);
+        }
+        // Invalid alpha still takes precedence over overflowing finite RGB.
+        let mut samples = vec![0.5_f32; 4 * 2 * 4];
+        samples[0] = 1.0e20;
+        samples[3] = 1.5;
+        let mut source = TestSource::new(size, ChannelLayout::Rgba, cicp, Samples::F32(samples));
+        let (graph, input, target) = graph_for(&source, None, resized, Filter::Area);
+        let budget = MemoryBudget::new(1 << 20);
+        let err = execute_fast(
+            &graph,
+            target,
+            input,
+            &mut source,
+            resized_rect,
+            &budget,
+            &Kernels::best(),
+            1,
+            16,
+            |_, _| Ok(()),
+        )
+        .unwrap_err();
+        assert_eq!(err, Error::InvalidAlphaValue);
+        assert_eq!(budget.snapshot().live, 0);
+    }
+}
+
+/// Regressions for PR #292 round-11 findings 1 & 2:
+/// - All signed-zero combinations `[±0.0, ±0.0, ±0.0]` (opaque and with
+///   `alpha in [0.0, -0.0, 0.5, 1.0]`) in both sRGB and Display P3 must match
+///   `working_color` bit-for-bit on the fast path without fallback.
+/// - Straight-alpha negative sRGB (`[-0.6, -0.52, -0.3, 0.0]`, `-0.0` products)
+///   and tiny-alpha subnormal products (`[0.5, -0.5, 0.25, 1e-38]`) must match
+///   `working_color` bit-for-bit across every ISA level.
+#[test]
+fn signed_zero_srgb_and_p3_match_reference_bit_for_bit() {
+    let zero_p3 = [[0.0_f32; 3]; 3];
+    let zeros = [0.0_f32, -0.0_f32];
+    let mut opaque_pixels = Vec::new();
+    let mut alpha_pixels = Vec::new();
+    for &r in &zeros {
+        for &g in &zeros {
+            for &b in &zeros {
+                opaque_pixels.extend_from_slice(&[r, g, b]);
+                for &a in &[0.0_f32, -0.0_f32, 0.5_f32, 1.0_f32] {
+                    alpha_pixels.extend_from_slice(&[r, g, b, a]);
+                }
+            }
+        }
+    }
+    for extra in [
+        [-0.6_f32, -0.52, -0.3, 0.0],
+        [-0.6, -0.52, -0.3, -0.0],
+        [-0.6, -0.52, -0.3, 0.5],
+        [0.5, -0.5, 0.25, 1.0e-38],
+    ] {
+        alpha_pixels.extend_from_slice(&extra);
+    }
+
+    for (cicp, primaries) in [(SRGB, Primaries::Srgb), (P3, Primaries::DisplayP3)] {
+        let color = ColorEncoding::Cicp(cicp);
+        let mut expected_opaque = Vec::with_capacity(opaque_pixels.len() / 3 * 4);
+        for px in opaque_pixels.as_chunks::<3>().0 {
+            let lin = decode_to_linear_srgb(
+                &color,
+                [f64::from(px[0]), f64::from(px[1]), f64::from(px[2])],
+            )
+            .unwrap();
+            #[allow(clippy::cast_possible_truncation)]
+            expected_opaque.extend_from_slice(&[
+                lin.rgb[0] as f32,
+                lin.rgb[1] as f32,
+                lin.rgb[2] as f32,
+                0.0,
+            ]);
+        }
+        let mut expected_alpha = Vec::with_capacity(alpha_pixels.len());
+        for px in alpha_pixels.as_chunks::<4>().0 {
+            let lin = decode_straight_to_premultiplied_linear_srgb(
+                &color,
+                [f64::from(px[0]), f64::from(px[1]), f64::from(px[2])],
+                f64::from(px[3]),
+            )
+            .unwrap();
+            #[allow(clippy::cast_possible_truncation)]
+            expected_alpha.extend_from_slice(&[
+                lin.rgb[0] as f32,
+                lin.rgb[1] as f32,
+                lin.rgb[2] as f32,
+                px[3],
+            ]);
+        }
+        for kernels in Kernels::available() {
+            let mut got_opaque = vec![0.0_f32; expected_opaque.len()];
+            linearize_row::<3>(
+                DecodedRow::F32(&opaque_pixels),
+                primaries,
+                &zero_p3,
+                &kernels,
+                &mut got_opaque,
+            )
+            .unwrap();
+            for (i, (&g, &w)) in got_opaque.iter().zip(&expected_opaque).enumerate() {
+                assert_eq!(
+                    g.to_bits(),
+                    w.to_bits(),
+                    "{cicp:?} {} RGB i={i}",
+                    kernels.level()
+                );
+            }
+            let mut got_alpha = vec![0.0_f32; expected_alpha.len()];
+            linearize_row::<4>(
+                DecodedRow::F32(&alpha_pixels),
+                primaries,
+                &zero_p3,
+                &kernels,
+                &mut got_alpha,
+            )
+            .unwrap();
+            for (i, (&g, &w)) in got_alpha.iter().zip(&expected_alpha).enumerate() {
+                assert_eq!(
+                    g.to_bits(),
+                    w.to_bits(),
+                    "{cicp:?} {} RGBA i={i}",
+                    kernels.level()
+                );
+            }
+        }
+    }
+}
+
+/// Regression for PR #292 round-9 finding 2: mixed-range and in-range Display
+/// P3 pixels sharing a 64-pixel chunk must produce bit-identical working
+/// samples to `working_color` for both RGB and RGBA across every ISA level.
+#[test]
+fn mixed_p3_chunk_matches_reference() {
+    const N: usize = 70;
+    let p3_color = ColorEncoding::Cicp(P3);
+    let mut opaque_row = Vec::with_capacity(N * 3);
+    let mut alpha_row = Vec::with_capacity(N * 4);
+    let mut expected_opaque = Vec::with_capacity(N * 4);
+    let mut expected_alpha = Vec::with_capacity(N * 4);
+    let patterns: [[f32; 4]; 5] = [
+        [0.2, 0.4, 0.6, 0.5],
+        [1.1, 0.5, 0.6, 0.75],
+        [0.0, 0.0, f32::from_bits(0x3a0c_008c), 0.0],
+        [0.320_319_83, 0.695_231_2, 99_416.45, 1.0],
+        [1.5, 2.0, 1.2, 0.25],
+    ];
+    for i in 0..N {
+        let px = patterns[i % patterns.len()];
+        opaque_row.extend_from_slice(&px[..3]);
+        alpha_row.extend_from_slice(&px);
+        let lin_opaque = decode_to_linear_srgb(
+            &p3_color,
+            [f64::from(px[0]), f64::from(px[1]), f64::from(px[2])],
+        )
+        .unwrap();
+        #[allow(clippy::cast_possible_truncation)]
+        expected_opaque.extend_from_slice(&[
+            lin_opaque.rgb[0] as f32,
+            lin_opaque.rgb[1] as f32,
+            lin_opaque.rgb[2] as f32,
+            0.0,
+        ]);
+        let lin_alpha = decode_straight_to_premultiplied_linear_srgb(
+            &p3_color,
+            [f64::from(px[0]), f64::from(px[1]), f64::from(px[2])],
+            f64::from(px[3]),
+        )
+        .unwrap();
+        #[allow(clippy::cast_possible_truncation)]
+        expected_alpha.extend_from_slice(&[
+            lin_alpha.rgb[0] as f32,
+            lin_alpha.rgb[1] as f32,
+            lin_alpha.rgb[2] as f32,
+            px[3],
+        ]);
+    }
+    let zero_p3 = [[0.0_f32; 3]; 3];
+    for kernels in Kernels::available() {
+        let mut actual_opaque = vec![0.0_f32; N * 4];
+        linearize_row::<3>(
+            DecodedRow::F32(&opaque_row),
+            Primaries::DisplayP3,
+            &zero_p3,
+            &kernels,
+            &mut actual_opaque,
+        )
+        .unwrap();
+        for (idx, (&got, &want)) in actual_opaque.iter().zip(&expected_opaque).enumerate() {
+            assert_eq!(
+                got.to_bits(),
+                want.to_bits(),
+                "{} mixed P3 RGB idx={idx}",
+                kernels.level()
+            );
+        }
+        let mut actual_alpha = vec![0.0_f32; N * 4];
+        linearize_row::<4>(
+            DecodedRow::F32(&alpha_row),
+            Primaries::DisplayP3,
+            &zero_p3,
+            &kernels,
+            &mut actual_alpha,
+        )
+        .unwrap();
+        for (idx, (&got, &want)) in actual_alpha.iter().zip(&expected_alpha).enumerate() {
+            assert_eq!(
+                got.to_bits(),
+                want.to_bits(),
+                "{} mixed P3 RGBA idx={idx}",
+                kernels.level()
+            );
+        }
+    }
+}
+
+/// Regression for PR #292 round-9 finding 1: `quantize_row_deep::<4>` must
+/// skip the OETF kernel cleanly on fully transparent chunks while matching
+/// reference encoding on partially transparent chunks (visible pixel at
+/// first/middle/last lane) and still rejecting non-finite RGB behind zero alpha.
+#[test]
+fn transparent_deep_chunks_match_reference() {
+    const N: usize = 70;
+    let mut acc = vec![0.0_f32; N * 4];
+    for px in acc.as_chunks_mut::<4>().0 {
+        *px = [0.25, 0.5, 0.75, 0.0];
+    }
+    for kernels in Kernels::available() {
+        let mut out = vec![u16::MAX; N * 4];
+        quantize_row_deep::<4>(&acc, &mut out, 16, &kernels).unwrap();
+        assert!(
+            out.iter().all(|&v| v == 0),
+            "{} fully transparent row",
+            kernels.level()
+        );
+
+        for visible_idx in [0_usize, 31, 63, 69] {
+            let mut partial = acc.clone();
+            partial[visible_idx * 4..visible_idx * 4 + 4].copy_from_slice(&[0.25, 0.5, 0.125, 0.5]);
+            let mut partial_out = vec![u16::MAX; N * 4];
+            quantize_row_deep::<4>(&partial, &mut partial_out, 16, &kernels).unwrap();
+            for (idx, px) in partial_out.as_chunks::<4>().0.iter().enumerate() {
+                if idx == visible_idx {
+                    let expected = [
+                        encode_linear_srgb(0.5, 65_535).unwrap(),
+                        encode_linear_srgb(1.0, 65_535).unwrap(),
+                        encode_linear_srgb(0.25, 65_535).unwrap(),
+                        32_768_u16,
+                    ];
+                    assert_eq!(
+                        *px,
+                        expected,
+                        "{} partial visible_idx={visible_idx}",
+                        kernels.level()
+                    );
+                } else {
+                    assert_eq!(
+                        *px,
+                        [0, 0, 0, 0],
+                        "{} partial transparent idx={idx}",
+                        kernels.level()
+                    );
+                }
+            }
+        }
+
+        let mut bad = acc.clone();
+        bad[0] = f32::NAN;
+        let err = quantize_row_deep::<4>(&bad, &mut out, 16, &kernels).unwrap_err();
+        assert_eq!(err, Error::NonFinitePixelSample);
+    }
+}
+
+fn run_synthetic_bench_case(
+    label: &str,
+    source: &TestSource,
+    target_size: Size,
+    depth: u8,
+    kernels: &Kernels,
+    budget: &MemoryBudget,
+) {
+    use std::hint::black_box;
+    use std::time::{Duration, Instant};
+
+    let oracle = render_depth(source, None, target_size, Filter::Area, None, depth);
+    let fast = render_depth(
+        source,
+        None,
+        target_size,
+        Filter::Area,
+        Some((kernels, 1)),
+        depth,
+    );
+    let max_diff = oracle
+        .iter()
+        .zip(&fast)
+        .map(|(&a, &b)| a.abs_diff(b))
+        .max()
+        .unwrap_or(0);
+    assert!(
+        max_diff <= 1,
+        "{label} exceeded ADR-0021 1-code bound: {max_diff}"
+    );
+    let (graph, input, output) = graph_for(source, None, target_size, Filter::Area);
+    let request = Rect::new(0, 0, target_size.width, target_size.height).unwrap();
+    let mut src = source.clone();
+    let mut oracle_time = Duration::MAX;
+    for _ in 0..5 {
+        src.calls = 0;
+        let started = Instant::now();
+        execute_quality(
+            &graph,
+            output,
+            input,
+            &mut src,
+            request,
+            budget,
+            depth,
+            |_, row| {
+                black_box(row);
+                Ok(())
+            },
+        )
+        .unwrap();
+        oracle_time = oracle_time.min(started.elapsed());
+    }
+    let mut fast_time = Duration::MAX;
+    for _ in 0..5 {
+        src.calls = 0;
+        let started = Instant::now();
+        execute_fast(
+            &graph,
+            output,
+            input,
+            &mut src,
+            request,
+            budget,
+            kernels,
+            1,
+            depth,
+            |_, row| {
+                black_box(row);
+                Ok(())
+            },
+        )
+        .unwrap();
+        fast_time = fast_time.min(started.elapsed());
+    }
+    let oracle_ms = oracle_time.as_secs_f64() * 1e3;
+    let fast_ms = fast_time.as_secs_f64() * 1e3;
+    println!(
+        "| {label} | {oracle_ms:.2} | {fast_ms:.2} | {:.2}x | {max_diff} |",
+        oracle_ms / fast_ms
+    );
+}
+
+/// Regression for PR #292 round-10 finding 2: blue-only Display P3 ramps
+/// (`[0, 0, b]`, alone or mixed with normal P3 pixels in the same 64-pixel
+/// chunk) must match `working_color` bit-for-bit across every ISA level in
+/// both RGB and RGBA without double-decoding.
+#[test]
+fn blue_only_p3_ramp_matches_reference_bit_for_bit() {
+    const N: usize = 72;
+    let p3_color = ColorEncoding::Cicp(P3);
+    let mut opaque_row = Vec::with_capacity(N * 3);
+    let mut alpha_row = Vec::with_capacity(N * 4);
+    let mut expected_opaque = Vec::with_capacity(N * 4);
+    let mut expected_alpha = Vec::with_capacity(N * 4);
+    for i in 0..N {
+        #[allow(clippy::cast_precision_loss)]
+        let b = (i as f32) / ((N - 1) as f32);
+        let px = if i % 11 == 5 {
+            [0.2, 0.4, b]
+        } else {
+            [0.0, 0.0, b]
+        };
+        let alpha = [0.0_f32, 0.5, 1.0][i % 3];
+        opaque_row.extend_from_slice(&px);
+        alpha_row.extend_from_slice(&[px[0], px[1], px[2], alpha]);
+        let lin_opaque = decode_to_linear_srgb(
+            &p3_color,
+            [f64::from(px[0]), f64::from(px[1]), f64::from(px[2])],
+        )
+        .unwrap();
+        #[allow(clippy::cast_possible_truncation)]
+        expected_opaque.extend_from_slice(&[
+            lin_opaque.rgb[0] as f32,
+            lin_opaque.rgb[1] as f32,
+            lin_opaque.rgb[2] as f32,
+            0.0,
+        ]);
+        let lin_alpha = decode_straight_to_premultiplied_linear_srgb(
+            &p3_color,
+            [f64::from(px[0]), f64::from(px[1]), f64::from(px[2])],
+            f64::from(alpha),
+        )
+        .unwrap();
+        #[allow(clippy::cast_possible_truncation)]
+        expected_alpha.extend_from_slice(&[
+            lin_alpha.rgb[0] as f32,
+            lin_alpha.rgb[1] as f32,
+            lin_alpha.rgb[2] as f32,
+            alpha,
+        ]);
+    }
+    let zero_p3 = [[0.0_f32; 3]; 3];
+    for kernels in Kernels::available() {
+        let mut actual_opaque = vec![0.0_f32; N * 4];
+        linearize_row::<3>(
+            DecodedRow::F32(&opaque_row),
+            Primaries::DisplayP3,
+            &zero_p3,
+            &kernels,
+            &mut actual_opaque,
+        )
+        .unwrap();
+        for (idx, (&got, &want)) in actual_opaque.iter().zip(&expected_opaque).enumerate() {
+            assert_eq!(
+                got.to_bits(),
+                want.to_bits(),
+                "{} blue-only P3 RGB idx={idx}",
+                kernels.level()
+            );
+        }
+        let mut actual_alpha = vec![0.0_f32; N * 4];
+        linearize_row::<4>(
+            DecodedRow::F32(&alpha_row),
+            Primaries::DisplayP3,
+            &zero_p3,
+            &kernels,
+            &mut actual_alpha,
+        )
+        .unwrap();
+        for (idx, (&got, &want)) in actual_alpha.iter().zip(&expected_alpha).enumerate() {
+            assert_eq!(
+                got.to_bits(),
+                want.to_bits(),
+                "{} blue-only P3 RGBA idx={idx}",
+                kernels.level()
+            );
+        }
+    }
+}
+
+/// Repeatable synthetic benchmarks for ADR-0021 (issue #281):
+/// 1. Extended-range Display P3 `1000x1000 -> 500x500` Area resize (RGB/RGBA,
+///    all RGB samples in `[1.1, 2.1]`, 16-bit output).
+/// 2. Fully transparent linear-RGBA `4096x512` Area identity (16-bit output).
+/// 3. Mixed-range Display P3 `[1.1, 0.5, 0.6]` `4096x512` Area identity (8-bit).
+/// 4. All-dark `[0, 0.01]` F32 sRGB `4096x512 -> 2048x256` Area resize (8-bit,
+///    non-1:1 so it exercises `srgb_to_linear` past #284's identity bypass).
+/// 5. Blue-only Display P3 `[0, 0, b]` ramp `4096x512` Area identity (8-bit).
+/// 6. Transparent-black Display P3 `[0, 0, 0, 0]` `4096x512` Area identity (8-bit).
+/// 7. Negative-zero straight-alpha sRGB `[-0.6, -0.52, -0.3, 0]` `4096x512 -> 2048x256` Area (8-bit).
+///
+/// Run with:
+/// `cargo test --release -p ferrisma --lib bench_extended_p3_area_resize -- --ignored --nocapture`
+#[test]
+#[ignore = "manual benchmark for issue #281"]
+#[allow(clippy::too_many_lines)] // Single self-contained benchmark table of all 8 synthetic cases.
+fn bench_extended_p3_area_resize() {
+    const LINEAR_SRGB: [u8; 4] = [1, 8, 0, 1];
+    let in_size = Size::new(1000, 1000).unwrap();
+    let out_size = Size::new(500, 500).unwrap();
+    let wide_size = Size::new(4096, 512).unwrap();
+    let half_wide = Size::new(2048, 256).unwrap();
+    let wide_pixels = 4096 * 512;
+
+    let opaque_samples: Vec<f32> = (0..1000 * 1000 * 3)
+        .map(|i| 1.1 + f32::from(u16::try_from(i % 997).unwrap()) / 997.0)
+        .collect();
+    let mut alpha_samples = Vec::with_capacity(1000 * 1000 * 4);
+    for px in opaque_samples.as_chunks::<3>().0 {
+        alpha_samples.extend_from_slice(&[px[0], px[1], px[2], 0.75]);
+    }
+    let mut blue_p3_samples = Vec::with_capacity(wide_pixels * 3);
+    for i in 0..wide_pixels {
+        let b = f32::from(u16::try_from(i % 4096).unwrap()) / 4095.0;
+        blue_p3_samples.extend_from_slice(&[0.0, 0.0, b]);
+    }
+    let dark_samples: Vec<f32> = (0..wide_pixels * 3)
+        .map(|i| 0.01 * f32::from(u16::try_from(i % 256).unwrap()) / 255.0)
+        .collect();
+    let mut sparse_alpha = vec![0.0_f32; wide_pixels * 4];
+    for (idx, px) in sparse_alpha.as_chunks_mut::<4>().0.iter_mut().enumerate() {
+        if idx % 64 == 0 {
+            *px = [0.25, 0.5, 0.75, 1.0];
+        }
+    }
+    let dark_half = 4.5_f32 / (65_535.0 * 12.92);
+    let dark_oetf_samples = [dark_half, dark_half, dark_half, 1.0_f32].repeat(wide_pixels);
+    let mixed_tie_oetf_samples =
+        [f32::from_bits(0x3b4f_ad81), 0.5_f32, 0.75_f32].repeat(wide_pixels);
+
+    let kernels = Kernels::best();
+    let budget = MemoryBudget::new(64 * 1024 * 1024);
+    println!(
+        "issue #281 synthetic benchmarks (level: {}, threads=1, best of 5):",
+        kernels.level()
+    );
+    println!("| case | execute_quality ms | execute_fast ms | speedup | max_code_diff |");
+    println!("| --- | ---: | ---: | ---: | ---: |");
+    let cases = [
+        (
+            "extended-p3 RGB 1000x1000->500x500 16b",
+            TestSource::new(
+                in_size,
+                ChannelLayout::Rgb,
+                P3,
+                Samples::F32(opaque_samples),
+            ),
+            out_size,
+            16_u8,
+        ),
+        (
+            "extended-p3 RGBA 1000x1000->500x500 16b",
+            TestSource::new(
+                in_size,
+                ChannelLayout::Rgba,
+                P3,
+                Samples::F32(alpha_samples),
+            ),
+            out_size,
+            16,
+        ),
+        (
+            "transparent-linear-rgba 4096x512 16b",
+            TestSource::new(
+                wide_size,
+                ChannelLayout::Rgba,
+                LINEAR_SRGB,
+                Samples::F32([0.5_f32, 0.25, 0.75, 0.0].repeat(wide_pixels)),
+            ),
+            wide_size,
+            16,
+        ),
+        (
+            "sparse-alpha-rgba (1/64 visible) 4096x512 16b",
+            TestSource::new(
+                wide_size,
+                ChannelLayout::Rgba,
+                LINEAR_SRGB,
+                Samples::F32(sparse_alpha),
+            ),
+            wide_size,
+            16,
+        ),
+        (
+            "dark-oetf-half-code 4096x512 16b",
+            TestSource::new(
+                wide_size,
+                ChannelLayout::Rgba,
+                LINEAR_SRGB,
+                Samples::F32(dark_oetf_samples),
+            ),
+            wide_size,
+            16,
+        ),
+        (
+            "mixed-tie-oetf [0x3b4fad81,0.5,0.75] 4096x512 16b",
+            TestSource::new(
+                wide_size,
+                ChannelLayout::Rgb,
+                LINEAR_SRGB,
+                Samples::F32(mixed_tie_oetf_samples),
+            ),
+            wide_size,
+            16,
+        ),
+        (
+            "mixed-p3 [1.1,0.5,0.6] 4096x512 8b",
+            TestSource::new(
+                wide_size,
+                ChannelLayout::Rgb,
+                P3,
+                Samples::F32([1.1_f32, 0.5, 0.6].repeat(wide_pixels)),
+            ),
+            wide_size,
+            8,
+        ),
+        (
+            "dark-srgb [0,0.01] 4096x512->2048x256 8b",
+            TestSource::new(
+                wide_size,
+                ChannelLayout::Rgb,
+                SRGB,
+                Samples::F32(dark_samples),
+            ),
+            half_wide,
+            8,
+        ),
+        (
+            "blue-only-p3 [0,0,b] 4096x512 8b",
+            TestSource::new(
+                wide_size,
+                ChannelLayout::Rgb,
+                P3,
+                Samples::F32(blue_p3_samples),
+            ),
+            wide_size,
+            8,
+        ),
+        (
+            "transparent-black-p3 [0,0,0,0] 4096x512 8b",
+            TestSource::new(
+                wide_size,
+                ChannelLayout::Rgba,
+                P3,
+                Samples::F32(vec![0.0_f32; wide_pixels * 4]),
+            ),
+            wide_size,
+            8,
+        ),
+        (
+            "neg-zero-srgb [-0.6,-0.52,-0.3,0] 4096x512->2048x256 8b",
+            TestSource::new(
+                wide_size,
+                ChannelLayout::Rgba,
+                SRGB,
+                Samples::F32([-0.6_f32, -0.52, -0.3, 0.0].repeat(wide_pixels)),
+            ),
+            half_wide,
+            8,
+        ),
+    ];
+    for (label, source, target_size, depth) in &cases {
+        run_synthetic_bench_case(label, source, *target_size, *depth, &kernels, &budget);
+    }
 }

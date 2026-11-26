@@ -19,12 +19,26 @@
 //! - [`Kernels::horizontal_rgba`]: one row of a separable resample, four
 //!   `f32` channels per pixel, with precomputed contiguous taps.
 //! - [`Kernels::axpy`]: `acc += row * weight`, the vertical resample step.
+//! - [`Kernels::srgb_to_linear`]: sign-preserving extended sRGB EOTF on `f32`
+//!   samples, computed in `f64` lanes and returned as `f64` so callers can
+//!   apply a primaries matrix and alpha premultiplication before narrowing once.
+//! - [`Kernels::linear_to_srgb_u16`]: sRGB OETF and half-away-from-zero
+//!   quantization to `0..=max` (`u16`), computed in `f64` lanes.
 //!
-//! Equivalence: `axpy` is bit-identical at every level (one fused
-//! multiply-add per element in the same order). `horizontal_rgba` is
-//! bit-identical between `Scalar` and `Neon`; `Avx2` and `Avx512`
-//! sum two and four taps per vector and differ by rounding only, bounded by
-//! the differential tests.
+//! Equivalence: `axpy` and `linear_to_srgb_u16` are bit-identical at every
+//! level (`linear_to_srgb_u16` also matches the exact `f64` sRGB OETF on
+//! every `f32` and `max`). For in-range inputs `[-1, 1]` (the polynomial
+//! path, including tails and in-range lanes of mixed-range vectors),
+//! `srgb_to_linear` is bit-identical in full `f64` across all SIMD levels
+//! (`Neon`, `Avx2`, `Avx512`) and agrees within `< 1.4e-10` relative error
+//! (`<= 1` ULP when narrowed to `f32`) against `Scalar` (which uses separate
+//! `a * b + c` to avoid software `libm::fma` on baseline x86-64) and against
+//! exact `f64::powf`; outside `[-1, 1]`, every level delegates to the
+//! target's `f64::powf` (bit-identical across every ISA level on the same
+//! target, subject to platform `libm` differences across targets).
+//! `horizontal_rgba` is bit-identical between `Scalar` and `Neon`; `Avx2` and
+//! `Avx512` sum two and four taps per vector and differ by rounding only,
+//! bounded by the differential tests.
 
 // Kernel bodies and `Lanes` methods must inline into their
 // `#[target_feature]` entry; otherwise intrinsics are compiled as calls
@@ -160,7 +174,8 @@ pub fn supports(level: IsaLevel) -> bool {
     dispatch::supports(level)
 }
 
-/// Errors of the safe API: shapes that do not match the declared taps.
+/// Errors of the safe API: shapes that do not match the declared taps, or
+/// non-finite samples where finite input is required.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum KernelError {
     /// The level is not implemented or not supported by this machine.
@@ -169,6 +184,8 @@ pub enum KernelError {
     InvalidTaps,
     /// Slice lengths do not match the kernel's declared shapes.
     LengthMismatch,
+    /// A sample was `NaN` or infinite where the kernel requires finite input.
+    NonFiniteSample,
 }
 
 impl fmt::Display for KernelError {
@@ -179,6 +196,7 @@ impl fmt::Display for KernelError {
             }
             Self::InvalidTaps => formatter.write_str("invalid resample taps"),
             Self::LengthMismatch => formatter.write_str("kernel slice lengths do not match"),
+            Self::NonFiniteSample => formatter.write_str("kernel sample is not finite"),
         }
     }
 }
@@ -365,6 +383,58 @@ impl Kernels {
             return Err(KernelError::LengthMismatch);
         }
         (self.table.axpy)(acc, row, weight);
+        Ok(())
+    }
+
+    /// Sign-preserving extended sRGB electro-optical transfer function:
+    /// `dst[i] = decode_srgb(f64::from(src[i]))` for every sample, returned in
+    /// `f64` so callers can apply primaries matrices and alpha premultiplication
+    /// before narrowing once to `f32`. Samples in `[-1, 1]` run a vectorized
+    /// `f64` minimax polynomial (`< 1.4e-10` relative error) that is
+    /// bit-identical across SIMD levels (including tails and in-range lanes of
+    /// mixed-range vectors) and within `< 1.4e-10` relative error of `Scalar`
+    /// and exact `f64::powf`. Samples outside `[-1, 1]` delegate to the
+    /// target's `f64::powf` (bit-identical across every ISA level on the same
+    /// target and exact against the target-local `f64::powf` oracle).
+    ///
+    /// # Errors
+    /// [`KernelError::LengthMismatch`] if `src` and `dst` differ in length.
+    pub fn srgb_to_linear(&self, src: &[f32], dst: &mut [f64]) -> Result<(), KernelError> {
+        if src.len() != dst.len() {
+            return Err(KernelError::LengthMismatch);
+        }
+        (self.table.srgb_to_linear)(src, dst);
+        Ok(())
+    }
+
+    /// Clamp finite linear-light samples to `[0, 1]`, apply the sRGB OETF in
+    /// `f64` lanes, scale by `max` (`2^depth - 1`) and round half away from
+    /// zero to `u16`. Any lane whose polynomial value lies inside the half-code
+    /// guard band around `k + 0.5` is refined with the exact `f64` OETF, so the
+    /// output is bit-identical across every ISA level and matches the exact
+    /// `f64` reference for every finite `f32` and `max`.
+    ///
+    /// # Errors
+    /// [`KernelError::LengthMismatch`] if `linear` and `out` differ in length.
+    /// [`KernelError::NonFiniteSample`] if any sample in `linear` is `NaN` or
+    /// infinite.
+    pub fn linear_to_srgb_u16(
+        &self,
+        linear: &[f32],
+        max: u16,
+        out: &mut [u16],
+    ) -> Result<(), KernelError> {
+        if linear.len() != out.len() {
+            return Err(KernelError::LengthMismatch);
+        }
+        let mut max_bits = 0_u32;
+        for &sample in linear {
+            max_bits = max_bits.max(sample.to_bits() & 0x7FFF_FFFF);
+        }
+        if max_bits >= 0x7F80_0000 {
+            return Err(KernelError::NonFiniteSample);
+        }
+        (self.table.linear_to_srgb_u16)(linear, max, out);
         Ok(())
     }
 }

@@ -106,6 +106,13 @@ pub(crate) fn p3_to_srgb_matrix() -> [[f64; 3]; 3] {
     folded
 }
 
+/// Convert linear-light Display P3 to linear-light sRGB using the exact
+/// two-step reference path (`P3_TO_XYZ_D65`, then `XYZ_D65_TO_SRGB`).
+pub(crate) fn display_p3_linear_to_srgb_linear(linear_p3: [f64; 3]) -> [f64; 3] {
+    let xyz = transform(P3_TO_XYZ_D65, linear_p3);
+    transform(XYZ_D65_TO_SRGB, xyz)
+}
+
 /// Decode a *trusted* SDR color signal into unclipped, linear-light sRGB.
 /// Input is a floating-point encoded color triple, not inherently u8/RGBA.
 /// The result is a tiny reference value, not a materialized image surface.
@@ -119,10 +126,7 @@ pub(crate) fn decode_to_linear_srgb(
     }
     let rgb = match source {
         SdrSource::Srgb => encoded_rgb.map(decode_srgb),
-        SdrSource::DisplayP3 => {
-            let xyz = transform(P3_TO_XYZ_D65, encoded_rgb.map(decode_srgb));
-            transform(XYZ_D65_TO_SRGB, xyz)
-        }
+        SdrSource::DisplayP3 => display_p3_linear_to_srgb_linear(encoded_rgb.map(decode_srgb)),
         SdrSource::LinearSrgb => encoded_rgb,
     };
     if rgb.iter().any(|sample| !sample.is_finite()) {

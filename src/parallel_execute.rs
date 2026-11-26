@@ -160,7 +160,7 @@ fn horizontal<const C: usize>(
         Samples::U8(buffer) => DecodedRow::U8(buffer.as_slice()),
         Samples::F32(buffer) => DecodedRow::F32(buffer.as_slice()),
     };
-    source_row_to_linear::<C>(plan, row, conversion, linear)?;
+    source_row_to_linear::<C>(plan, row, conversion, kernels, linear)?;
     let mut out = budget.allocate_typed::<f32>(plan.row_samples)?;
     kernels
         .horizontal_rgba(linear, &plan.column_taps, out.as_mut_slice())
@@ -183,7 +183,7 @@ fn vertical<const C: usize>(
             .map_err(kernel_error)?;
     }
     let mut bytes = OutputBuffer::allocate(plan.depth, plan.row_samples, budget)?;
-    quantize_into::<C>(accumulator, &mut bytes, plan.depth, tables)?;
+    quantize_into::<C>(accumulator, &mut bytes, plan.depth, tables, kernels)?;
     Ok(bytes)
 }
 
