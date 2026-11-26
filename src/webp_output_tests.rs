@@ -452,3 +452,161 @@ fn webp_chunk_writer_reserves_padded_riff_size_without_pad_reallocation() {
         "130x96 lossless test case must exercise an odd VP8L length with a 1-byte RIFF pad"
     );
 }
+
+/// Reproducible multi-chunk WebP writer benchmark comparing the pre-#282
+/// per-chunk `try_reserve_exact(chunk.len())` writer against the current
+/// RIFF-header pre-reserving `encode_webp_chunks_for_test` (issue #282,
+/// ADR-0030).
+///
+/// Run in release mode:
+/// `cargo test --release -p ferrisma --lib --no-default-features --features webp-read,webp-write -- --ignored --nocapture --exact webp_output_tests::bench_webp_chunk_writer_growth_and_peak`
+#[test]
+#[ignore = "manual release benchmark for ADR-0030 (#282)"]
+#[allow(clippy::too_many_lines)] // Self-contained before/after benchmark harness.
+fn bench_webp_chunk_writer_growth_and_peak() {
+    use std::time::Instant;
+    use webp::api::encode::{Config, Encoder, Picture, Preset};
+
+    fn make_argb(width: u32, height: u32, alpha: bool) -> Vec<u32> {
+        let mut argb = Vec::with_capacity(width as usize * height as usize);
+        for y in 0..height {
+            for x in 0..width {
+                let hash = x.wrapping_mul(2_654_435_761) ^ y.wrapping_mul(40_503);
+                let noise = u8::try_from((hash >> 13) & 0x3f).unwrap();
+                let r = u8::try_from((x * 3) % 256).unwrap() ^ noise;
+                let g = u8::try_from((y * 5) % 256).unwrap() ^ (noise >> 1);
+                let b = u8::try_from((x + y * 2) % 256).unwrap() ^ (noise << 1);
+                let a = if !alpha {
+                    255
+                } else if x % 17 == 0 {
+                    0
+                } else {
+                    u8::try_from((x * 5 + y * 3) % 255 + 1).unwrap()
+                };
+                argb.push(u32::from_be_bytes([a, r, g, b]));
+            }
+        }
+        argb
+    }
+
+    fn median_us(mut xs: Vec<f64>) -> f64 {
+        xs.sort_by(f64::total_cmp);
+        xs[xs.len() / 2]
+    }
+
+    let cases = [
+        (
+            "lossless-alpha-1024x768-padded",
+            1024_u32,
+            768_u32,
+            true,
+            Config::new().lossless_level(0).unwrap().exact(true),
+        ),
+        (
+            "lossy-alpha-2048x1536",
+            2048_u32,
+            1536_u32,
+            true,
+            Config::preset(Preset::Default, 80.0)
+                .unwrap()
+                .method(0)
+                .exact(true),
+        ),
+        (
+            "lossy-opaque-2048x1536",
+            2048_u32,
+            1536_u32,
+            false,
+            Config::preset(Preset::Default, 80.0)
+                .unwrap()
+                .method(0)
+                .exact(true),
+        ),
+    ];
+
+    for (label, width, height, alpha, config) in cases {
+        let mut argb = make_argb(width, height, alpha);
+        let mut picture = Picture::from_argb(&mut argb, width, height, width as usize).unwrap();
+        let mut chunks: Vec<Vec<u8>> = Vec::new();
+        Encoder::new(&config)
+            .encode_to(&mut picture, |chunk| {
+                chunks.push(chunk.to_vec());
+                true
+            })
+            .unwrap();
+        let chunk_lens: Vec<usize> = chunks.iter().map(Vec::len).collect();
+
+        // Measure live encode_webp_chunks_for_test (RIFF pre-reservation).
+        let mut live_caps = Vec::new();
+        let live_out = encode_webp_chunks_for_test(&config, &mut picture, 64 << 20, |_, bytes| {
+            live_caps.push((bytes.capacity(), bytes.as_ptr() as usize));
+        })
+        .unwrap();
+        let live_reallocs = live_caps
+            .windows(2)
+            .filter(|w| w[0].0 != w[1].0 || w[0].1 != w[1].1)
+            .count();
+
+        // Measure writer-only time and reallocations across 1 warmup + 7 interleaved reps.
+        let mut old_us = Vec::new();
+        let mut new_us = Vec::new();
+        let mut old_reallocs = 0_usize;
+        let mut old_copied_on_realloc = 0_usize;
+        let mut old_peak_cap = 0_usize;
+        for rep in 0..8 {
+            // Baseline: per-chunk try_reserve_exact(chunk.len()).
+            let t0 = Instant::now();
+            let mut bytes = Vec::new();
+            let mut prev: Option<(usize, usize)> = None;
+            let mut reallocs = 0_usize;
+            let mut copied = 0_usize;
+            for c in &chunks {
+                let before_len = bytes.len();
+                bytes.try_reserve_exact(c.len()).unwrap();
+                bytes.extend_from_slice(c);
+                let cur = (bytes.capacity(), bytes.as_ptr() as usize);
+                if let Some(p) = prev
+                    && p != cur
+                {
+                    reallocs += 1;
+                    copied += before_len;
+                }
+                prev = Some(cur);
+            }
+            let elapsed = t0.elapsed().as_secs_f64() * 1e6;
+            assert_eq!(bytes, live_out);
+            if rep > 0 {
+                old_us.push(elapsed);
+                old_reallocs = reallocs;
+                old_copied_on_realloc = copied;
+                old_peak_cap = bytes.capacity();
+            }
+
+            // Candidate: upfront RIFF padded pre-reservation + try_reserve fallback.
+            let t0 = Instant::now();
+            let mut bytes = Vec::new();
+            for c in &chunks {
+                if bytes.is_empty() && c.len() >= 12 && &c[..4] == b"RIFF" && &c[8..12] == b"WEBP" {
+                    let payload = u32::from_le_bytes(c[4..8].try_into().unwrap()) as usize;
+                    let total = 8 + payload + (payload & 1);
+                    bytes.try_reserve_exact(total.max(c.len())).unwrap();
+                } else {
+                    bytes.try_reserve(c.len()).unwrap();
+                }
+                bytes.extend_from_slice(c);
+            }
+            let elapsed = t0.elapsed().as_secs_f64() * 1e6;
+            assert_eq!(bytes, live_out);
+            if rep > 0 {
+                new_us.push(elapsed);
+            }
+        }
+        println!(
+            "{label}: len={}B chunks={chunk_lens:?} | baseline reallocs={old_reallocs} realloc_copied={old_copied_on_realloc}B peak_cap={old_peak_cap}B writer_med={:.1}us | candidate reallocs={live_reallocs} peak_cap={}B writer_med={:.1}us",
+            live_out.len(),
+            median_us(old_us),
+            live_out.capacity(),
+            median_us(new_us),
+        );
+    }
+}

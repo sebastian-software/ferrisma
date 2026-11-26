@@ -664,6 +664,45 @@ mod independent_decode {
         (image.width(), image.height(), channels, samples)
     }
 
+    /// Decode a 16-bit lossless JPEG XL image with jxl-oxide, check the
+    /// emitted signaling and return interleaved 16-bit samples plus the
+    /// channel count.
+    pub(super) fn decode_oxide_u16(bytes: &[u8]) -> (u32, u32, usize, Vec<u16>) {
+        let image = JxlImage::builder()
+            .read(std::io::Cursor::new(bytes))
+            .unwrap();
+        let metadata = &image.image_header().metadata;
+        assert!(!metadata.xyb_encoded, "lossless samples are not XYB");
+        assert_eq!(metadata.orientation, 1);
+        assert_eq!(
+            metadata.bit_depth,
+            BitDepth::IntegerSample {
+                bits_per_sample: 16
+            }
+        );
+        for ec in &metadata.ec_info {
+            assert_eq!(
+                ec.ty,
+                ExtraChannelType::Alpha {
+                    alpha_associated: false
+                }
+            );
+            assert_eq!(
+                ec.bit_depth,
+                BitDepth::IntegerSample {
+                    bits_per_sample: 16
+                }
+            );
+        }
+        let channels = 3 + metadata.ec_info.len();
+        let render = image.render_frame(0).unwrap();
+        let mut stream = render.stream();
+        assert_eq!(stream.channels() as usize, channels);
+        let mut samples = vec![0_u16; (stream.width() * stream.height()) as usize * channels];
+        stream.write_to_buffer(&mut samples);
+        (image.width(), image.height(), channels, samples)
+    }
+
     pub(super) fn to_rgba(channels: usize, samples: &[u8]) -> Vec<u8> {
         if channels == 4 {
             return samples.to_vec();
@@ -1292,7 +1331,7 @@ fn transparent_layout_with_real_alpha_preserves_exact_alpha() {
     }
 
     // 16-bit lossless: transparency on the very last pixel keeps 4 channels
-    // and differs from the opaque encode.
+    // and decodes back to the exact 16-bit RGBA samples (including 32,768).
     let mut data16 = deep_rows(width, height, 16, false);
     let last = (width * height - 1) * 4;
     data16[last + 3] = 32_768;
@@ -1305,16 +1344,9 @@ fn transparent_layout_with_real_alpha_preserves_exact_alpha() {
             .unwrap();
     }
     let bytes16 = sink16.finish().unwrap().bytes;
-    let opaque16 = encode_deep_with_alpha_hint(
-        width,
-        height,
-        16,
-        &deep_rows(width, height, 16, false),
-        JpegXlOptions::Lossless(JpegXlLossless::default()),
-        false,
-    )
-    .unwrap();
-    assert_ne!(bytes16, opaque16);
+    let (dw, dh, channels, samples16) = independent_decode::decode_oxide_u16(&bytes16);
+    assert_eq!((dw as usize, dh as usize, channels), (width, height, 4));
+    assert_eq!(samples16, data16);
     assert_eq!(budget.snapshot().live, 0);
 }
 

@@ -126,7 +126,7 @@ fn encode_webp_chunks_observed(
     Ok(writer.bytes)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "webp-read"))]
 pub(crate) fn encode_webp_chunks_for_test(
     config: &Config,
     picture: &mut Picture<'_>,
