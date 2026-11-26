@@ -20,11 +20,21 @@ pub(crate) struct WebpSource<'a> {
     info: DecoderInfo,
     orientation: Orientation,
     discarded: DiscardedSet,
+    multithreaded: bool,
+}
+
+fn decode_error(error: decode::DecodeError) -> Error {
+    match error {
+        // libwebp uses `VP8_STATUS_OUT_OF_MEMORY` for both allocation
+        // failures and worker thread creation failures (ADR-0042 D3).
+        decode::DecodeError::OutOfMemory => Error::AllocationFailed,
+        _ => Error::DecodeFailed,
+    }
 }
 
 impl<'a> WebpSource<'a> {
     pub(crate) fn new_bounded(bytes: &'a [u8], max_pixels: u64) -> Result<Self, Error> {
-        let features = Features::parse(bytes).map_err(|_| Error::DecodeFailed)?;
+        let features = Features::parse(bytes).map_err(decode_error)?;
         if features.has_animation {
             return Err(Error::UnsupportedAnimation);
         }
@@ -39,7 +49,7 @@ impl<'a> WebpSource<'a> {
         let format = features.format.ok_or(Error::DecodeFailed)?;
         // Container metadata is attached to the image, while the codec's RGB
         // conversion has already produced the samples it describes.
-        let container = Container::new(bytes).map_err(|_| Error::DecodeFailed)?;
+        let container = Container::new(bytes).map_err(decode_error)?;
         let orientation = match container.exif().map(read_exif_orientation) {
             None | Some(Ok(None)) => Orientation::IDENTITY,
             Some(Ok(Some(value))) => {
@@ -58,6 +68,7 @@ impl<'a> WebpSource<'a> {
             features,
             orientation,
             discarded,
+            multithreaded: false,
             info: DecoderInfo {
                 depth: 8,
                 size,
@@ -78,6 +89,17 @@ impl<'a> WebpSource<'a> {
             },
         })
     }
+
+    fn decode_config(&self, left: u32, top: u32, width: u32, height: u32) -> Config {
+        let mode = if self.features.has_alpha {
+            ColorMode::Rgba
+        } else {
+            ColorMode::Rgb
+        };
+        Config::new(mode)
+            .crop(left, top, width, height)
+            .multithreaded(self.multithreaded)
+    }
 }
 
 impl DecodeSource for WebpSource<'_> {
@@ -91,6 +113,13 @@ impl DecodeSource for WebpSource<'_> {
 
     fn discarded(&self) -> DiscardedSet {
         self.discarded
+    }
+
+    fn set_decode_threads(&mut self, threads: usize) {
+        // libwebp's `use_threads` runs a second thread for lossy filtering and
+        // output when the frame is wide enough (at least 512 pixels), producing
+        // bit-identical samples; lossless ignores it.
+        self.multithreaded = threads > 1;
     }
 
     fn read_region(
@@ -127,15 +156,9 @@ impl DecodeSource for WebpSource<'_> {
             height = height.saturating_add(8).min(self.info.size.height - top);
         }
         let channels = usize::from(self.info.layout.channels());
-        let mode = if self.features.has_alpha {
-            ColorMode::Rgba
-        } else {
-            ColorMode::Rgb
-        };
-        let config = Config::new(mode).crop(left, top, width, height);
-        let (decoded_width, decoded_height) = config
-            .output_size(&self.features)
-            .map_err(|_| Error::DecodeFailed)?;
+        let config = self.decode_config(left, top, width, height);
+        let (decoded_width, decoded_height) =
+            config.output_size(&self.features).map_err(decode_error)?;
         if (decoded_width, decoded_height) != (width, height) {
             return Err(Error::UnsupportedCodecLayout);
         }
@@ -163,7 +186,7 @@ impl DecodeSource for WebpSource<'_> {
                 stride,
             },
         )
-        .map_err(|_| Error::DecodeFailed)?;
+        .map_err(decode_error)?;
         let mut rows = 0_u64;
         for y in region.y..region.bottom() {
             let local_y = usize::try_from(y - top).map_err(|_| Error::GeometryOverflow)?;
@@ -590,6 +613,108 @@ mod tests {
         assert_eq!(
             WebpSource::new_bounded(&bad, 35).err(),
             Some(Error::UnsupportedImageTransform)
+        );
+    }
+
+    fn wide_image(width: u32, height: u32, alpha: bool, lossy: bool) -> Vec<u8> {
+        let channels = if alpha { 4 } else { 3 };
+        let mut pixels = Vec::with_capacity(width as usize * height as usize * channels);
+        for y in 0..height {
+            for x in 0..width {
+                let r = u8::try_from((x * 7 + y * 13) % 256).unwrap();
+                let g = u8::try_from(((x * 19) ^ (y * 29)) % 256).unwrap();
+                let b = u8::try_from((x.wrapping_mul(y) + x * 3 + y * 5) % 256).unwrap();
+                pixels.extend_from_slice(&[r, g, b]);
+                if alpha {
+                    pixels.push(u8::try_from((x * 11 + y * 17) % 256).unwrap());
+                }
+            }
+        }
+        let rows = PixelRows {
+            layout: if alpha {
+                PixelLayout::Rgba
+            } else {
+                PixelLayout::Rgb
+            },
+            data: &pixels,
+            width,
+            height,
+            stride: width as usize * channels,
+        };
+        if lossy {
+            encode_lossy(rows, 78.0).unwrap()
+        } else {
+            encode_lossless(rows).unwrap()
+        }
+    }
+
+    fn decode_region_with_threads(bytes: &[u8], region: Rect, threads: usize) -> Vec<u8> {
+        let mut source = WebpSource::new_bounded(bytes, 1_000_000).unwrap();
+        source.set_decode_threads(threads);
+        let size = source.info().size;
+        let channels = usize::from(source.info().layout.channels());
+        let budget = MemoryBudget::new(size.width as usize * size.height as usize * channels);
+        let mut out = Vec::new();
+        source
+            .read_region(region, &budget, &mut |_, row| {
+                let DecodedRow::U8(row) = row else {
+                    panic!("unexpected sample type")
+                };
+                out.extend_from_slice(row);
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(budget.snapshot().live, 0);
+        out
+    }
+
+    #[test]
+    fn set_decode_threads_controls_libwebp_use_threads() {
+        let image = image(false, true);
+        let mut source = WebpSource::new_bounded(&image, 35).unwrap();
+        assert_eq!(source.decode_config(0, 0, 7, 5).as_raw().use_threads, 0);
+
+        for (threads, expected) in [(0, 0), (1, 0), (2, 1), (8, 1), (1, 0), (0, 0)] {
+            source.set_decode_threads(threads);
+            assert_eq!(
+                source.decode_config(0, 0, 7, 5).as_raw().use_threads,
+                expected,
+                "threads={threads}"
+            );
+        }
+    }
+
+    #[test]
+    fn decode_threads_do_not_change_samples_for_lossy_and_lossless() {
+        // Width >= 512 activates libwebp's `mt_method == 2` worker thread on
+        // lossy frames; non-multiple-of-16 dimensions cover edge macroblocks.
+        let (width, height) = (545, 81);
+        let full = Rect::new(0, 0, width, height).unwrap();
+        let crop = Rect::new(17, 19, 257, 41).unwrap();
+        for (alpha, lossy) in [(false, true), (true, true), (false, false), (true, false)] {
+            let file = wide_image(width, height, alpha, lossy);
+            for region in [full, crop] {
+                let single = decode_region_with_threads(&file, region, 1);
+                for threads in [0, 2, 8] {
+                    let actual = decode_region_with_threads(&file, region, threads);
+                    assert_eq!(
+                        actual, single,
+                        "alpha={alpha} lossy={lossy} region={region:?} threads={threads}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn out_of_memory_decode_error_maps_to_allocation_failed() {
+        assert_eq!(
+            decode_error(decode::DecodeError::OutOfMemory),
+            Error::AllocationFailed
+        );
+        assert_eq!(
+            decode_error(decode::DecodeError::BitstreamError),
+            Error::DecodeFailed
         );
     }
 }
