@@ -1,42 +1,53 @@
-"""Run the opt-in Sol/Astra review workflow for one pull request commit."""
+"""Run a restricted, subscription-authenticated Codex review."""
 
 import json
 import os
 from pathlib import Path
-import re
 import subprocess
-import sys
+from tempfile import TemporaryDirectory
 
 
-LABEL = "codex-review"
-CONTEXT = "Astra Review (pilot)"
-BOT = "github-actions[bot]"
-MARKER = re.compile(r"^<!-- ferrisma-codex-review:(sol|astra):([0-9a-f]{40}) -->\n")
-MAX_DIFF_BYTES = 400_000
+ROOT = Path(__file__).resolve().parent
+MODELS = {"sol": "gpt-6.2-sol", "astra": "gpt-6.2-astra"}
+CHATGPT_ONLY = 'forced_login_method="chatgpt"'
+ALLOWED_ENV = {"HOME", "USER", "LOGNAME", "PATH", "TMPDIR", "LANG", "CODEX_HOME"}
 
 
-class GitHubError(RuntimeError):
-    pass
+def codex_env():
+    return {name: value for name, value in os.environ.items() if name in ALLOWED_ENV}
 
 
-def github(path, *, payload=None, paginate=False):
-    args = ["gh", "api", f"repos/{os.environ['GITHUB_REPOSITORY']}/{path}"]
-    if paginate:
-        args.extend(["--paginate", "--slurp"])
-    if payload is not None:
-        args.extend(["--method", "POST", "--input", "-"])
-    response = subprocess.run(
-        args, input=json.dumps(payload) if payload is not None else None,
-        text=True, capture_output=True, check=False,
+def require_chatgpt_login():
+    result = subprocess.run(
+        ["codex", "-c", CHATGPT_ONLY, "login", "status"],
+        env=codex_env(), capture_output=True, text=True, timeout=20, check=False,
     )
-    if response.returncode:
-        raise GitHubError(response.stderr.strip())
-    return json.loads(response.stdout)
+    if result.returncode or "logged in using chatgpt" not in (result.stdout + result.stderr).lower():
+        raise RuntimeError("Sign in with ChatGPT using `codex login` on the watcher host")
 
 
-def output(name, value):
-    with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as stream:
-        stream.write(f"{name}={value}\n")
+def run_model(stage, diff, guidance, previous=""):
+    prompt = (ROOT / "review-prompt.md").read_text(encoding="utf-8")
+    prompt += "\n" + json.dumps({"base_guidance": guidance, "diff": diff, "prior_findings": previous})
+    with TemporaryDirectory(prefix="codex-pr-review-") as workspace:
+        workspace = Path(workspace).resolve()
+        result = workspace / "result.json"
+        args = [
+            "codex", "exec", "--ignore-user-config", "--ignore-rules", "--ephemeral",
+            "--skip-git-repo-check", "--strict-config", "--sandbox", "read-only",
+            "--disable", "shell_tool", "--disable", "view_image", "--disable", "image_generation",
+            "--disable", "hooks", "--disable", "plugins", "--disable", "remote_plugin",
+            "-c", CHATGPT_ONLY, "-c", 'approval_policy="never"', "-c", 'web_search="disabled"',
+            "--model", MODELS[stage], "--output-schema", str(ROOT / "review-schema.json"),
+            "--output-last-message", str(result), "-",
+        ]
+        process = subprocess.run(
+            args, input=prompt, cwd=workspace, env=codex_env(), text=True,
+            capture_output=True, timeout=600, check=False,
+        )
+        if process.returncode:
+            raise RuntimeError(f"{stage.title()} Codex run failed. Check Codex login, model access and allowance.")
+        return load_findings(result)
 
 
 def load_findings(path):
@@ -85,133 +96,3 @@ def review_payload(stage, base, head, findings):
         "commit_id": head, "event": "REQUEST_CHANGES",
         "body": "\n".join(lines), "comments": comments,
     }
-
-
-class PullRequest:
-    def __init__(self, event):
-        pull = event["pull_request"]
-        self.number = pull["number"]
-        self.base = pull["base"]["sha"]
-        self.head = pull["head"]["sha"]
-        self.branch = event["repository"]["default_branch"]
-        self.endpoint = f"pulls/{self.number}"
-        self.temp = Path(os.environ["RUNNER_TEMP"])
-
-    def is_current(self):
-        pull = github(self.endpoint)
-        return (
-            pull["head"]["sha"] == self.head
-            and pull["base"]["ref"] == self.branch
-            and pull["state"] == "open"
-            and not pull["draft"]
-            and any(label["name"] == LABEL for label in pull["labels"])
-        )
-
-    def status(self, state, description):
-        url = (
-            f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}"
-            f"/actions/runs/{os.environ['GITHUB_RUN_ID']}"
-        )
-        github(f"statuses/{self.head}", payload={
-            "context": CONTEXT, "state": state, "description": description, "target_url": url,
-        })
-
-    def reviews(self):
-        for page in github(f"{self.endpoint}/reviews?per_page=100", paginate=True):
-            for review in page:
-                marker = MARKER.match(review.get("body") or "")
-                if marker and (review.get("user") or {}).get("login") == BOT:
-                    yield marker.group(1), marker.group(2), review
-
-    def prepare(self):
-        if not self.is_current():
-            return
-        reviews = list(self.reviews())
-        for stage, base, review in reversed(reviews):
-            if base != self.base or review["commit_id"] != self.head:
-                continue
-            if stage == "astra" and review["state"] == "APPROVED":
-                self.status("success", "Astra approved this commit")
-                return
-            if review["state"] == "CHANGES_REQUESTED":
-                self.status("failure", f"{stage.title()} requested changes")
-                return
-
-        if os.environ.get("OPENAI_CONFIGURED") != "true":
-            raise RuntimeError("Add the OPENAI_API_KEY Actions secret before labeling a pilot PR")
-        self.status("pending", "Waiting for Sol and Astra")
-        output("pending", "true")
-        subprocess.run(
-            ["git", "fetch", "--no-tags", "origin", f"refs/pull/{self.number}/head"], check=True,
-        )
-        fetched = subprocess.check_output(["git", "rev-parse", "FETCH_HEAD"], text=True).strip()
-        if fetched != self.head or not self.is_current():
-            return
-
-        # Only the trusted checkout is executed. The fetched head is used as Git data.
-        diff = self.temp / "ferrisma-review.diff"
-        with diff.open("wb") as stream:
-            subprocess.run([
-                "git", "diff", "--no-color", "--no-ext-diff", "--no-textconv",
-                f"{self.base}...{self.head}", "--",
-            ], stdout=stream, check=True)
-        if diff.stat().st_size > MAX_DIFF_BYTES:
-            raise RuntimeError("The PR diff exceeds the pilot's review limit")
-
-        prompt = Path(__file__).with_name("review-prompt.md").read_text(encoding="utf-8")
-        prompt = prompt.replace("{diff}", str(diff))
-        (self.temp / "ferrisma-sol.md").write_text(prompt, encoding="utf-8")
-        previous = next((review for stage, _, review in reversed(reviews) if stage == "astra"), None)
-        if previous and previous["state"] == "CHANGES_REQUESTED":
-            history = self.temp / "ferrisma-astra-history.md"
-            history.write_text(previous["body"], encoding="utf-8")
-            prompt += f"\nRecheck the previous Astra findings in `{history}` against this patch.\n"
-        (self.temp / "ferrisma-astra.md").write_text(prompt, encoding="utf-8")
-        output("review", "true")
-
-    def publish(self, stage):
-        findings = load_findings(self.temp / f"ferrisma-{stage}.json")
-        if not self.is_current():
-            return
-        if stage == "sol" and not findings:
-            self.status("pending", "Sol found no blockers; waiting for Astra")
-            output("escalate", "true")
-            return
-
-        payload = review_payload(stage, self.base, self.head, findings)
-        endpoint = f"{self.endpoint}/reviews"
-        try:
-            github(endpoint, payload=payload)
-        except GitHubError as error:
-            if not payload.get("comments") or "HTTP 422" not in str(error):
-                raise
-            if not self.is_current():
-                return
-            # Review still has file and line references when GitHub rejects an anchor.
-            del payload["comments"]
-            github(endpoint, payload=payload)
-
-        if self.is_current():
-            if findings:
-                self.status("failure", f"{stage.title()} requested changes")
-            else:
-                self.status("success", "Astra approved this commit")
-
-
-def main():
-    event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
-    pull = PullRequest(event)
-    stage = sys.argv[1]
-    if stage == "prepare":
-        pull.prepare()
-    elif stage in {"sol", "astra"}:
-        pull.publish(stage)
-    elif stage == "error":
-        if pull.is_current():
-            pull.status("error", "Codex review could not finish; see workflow logs")
-    else:
-        raise ValueError(f"Unknown review stage: {stage}")
-
-
-if __name__ == "__main__":
-    main()
