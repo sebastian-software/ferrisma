@@ -72,4 +72,50 @@ did not say how large the lossy crop buffer becomes for a low crop. A
 row-callback decode that keeps only the requested rows would remove most of that
 buffer; it is not implemented.
 - 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.
-- 2026-11-26 — Wired `DecodeSource::set_decode_threads` on `WebpSource` to enable `libwebp-rs`'s `Config::multithreaded(threads > 1)` (`use_threads`, issue #280) and mapped `DecodeError::OutOfMemory` (which also covers libwebp worker thread spawn failure) to `Error::AllocationFailed` (`ResourceExhausted`, ADR-0042 D3). `threads <= 1` (including `Engine::transcode_batch` workers and `F64Reference`) stays single-threaded; lossless bitstreams ignore `use_threads`. Regression tests verify bit-identical samples across thread counts for wide (545×81) lossy RGB/RGBA and lossless RGB/RGBA frames and crops. Interleaved release A/B on Apple M1 Ultra (`arm64`, 7 reps, 1 warmup, host load ~4.3, `cli_subset --use-rendered-icc --webp-method=0`, identical output SHA-256 across all runs): 12 Mpx (3024×4032 → 1200×1600) lossy WebP decode median 102.65 → 66.60 ms (−35.1%, total 174.16 → 137.03 ms, peak RSS median 64.22 → 65.09 MiB); 24 Mpx (6000×4000 → 1600×1067) lossy WebP decode median 173.85 → 110.35 ms (−36.5%, total 239.26 → 175.19 ms, peak RSS median 101.66 → 102.08 MiB); `--transform-threads=1` stays at 102.24 ms and 172.75 ms.
+- 2026-11-26 — Wired `DecodeSource::set_decode_threads` on `WebpSource` to enable `libwebp-rs`'s `Config::multithreaded(threads > 1)` (`use_threads`, issue #280) and mapped `DecodeError::OutOfMemory` (which also covers libwebp worker thread spawn failure) to `Error::AllocationFailed` (`ResourceExhausted`, ADR-0042 D3). `threads <= 1` (including `Engine::transcode_batch` workers and `F64Reference`) stays single-threaded; lossless bitstreams ignore `use_threads`. Regression tests verify bit-identical samples across thread counts for wide (545×81) lossy RGB/RGBA and lossless RGB/RGBA frames and crops; reproducible benchmark below.
+
+## 2026-11-26: multithreaded lossy decode measurement (#280)
+
+Build both the baseline (`1d26db83`, saved as `/tmp/ferrisma-before`) and the candidate (saved as `/tmp/ferrisma-after`) with:
+
+```sh
+cargo build --release -p ferrisma --example cli_subset \
+  --no-default-features --features jpeg-read,webp-read,webp-write,icc
+```
+
+Generate the two lossy WebP inputs from the committed photograph `codecs/libavif-rs/upstream/libavif/tests/data/dog_exif_extended_xmp_icc.jpg`:
+
+```sh
+# 12 Mpx (3024×4032, 1,036,646 bytes)
+/tmp/ferrisma-before codecs/libavif-rs/upstream/libavif/tests/data/dog_exif_extended_xmp_icc.jpg \
+  /tmp/dog-3024x4032-q80.webp 3024 4032 --use-rendered-icc --webp-quality=80 --webp-method=4
+
+# 24 Mpx (6000×4000, 1,856,856 bytes)
+/tmp/ferrisma-before codecs/libavif-rs/upstream/libavif/tests/data/dog_exif_extended_xmp_icc.jpg \
+  /tmp/dog-6000x4000-q80.webp 6000 4000 --use-rendered-icc --webp-quality=80 --webp-method=0
+```
+
+Measure decode/total wall time from `report: decode_us=… total_us=…` and peak RSS from `/usr/bin/time -l` (`maximum resident set size`) across 1 warmup plus 7 interleaved repetitions of baseline (`auto`), candidate (`auto`), and candidate (`--transform-threads=1`):
+
+```sh
+# 12 Mpx
+/usr/bin/time -l /tmp/ferrisma-before /tmp/dog-3024x4032-q80.webp /tmp/out-bench.webp 1200 1600 --use-rendered-icc --webp-method=0
+/usr/bin/time -l /tmp/ferrisma-after  /tmp/dog-3024x4032-q80.webp /tmp/out-bench.webp 1200 1600 --use-rendered-icc --webp-method=0
+/usr/bin/time -l /tmp/ferrisma-after  /tmp/dog-3024x4032-q80.webp /tmp/out-bench.webp 1200 1600 --use-rendered-icc --webp-method=0 --transform-threads=1
+
+# 24 Mpx
+/usr/bin/time -l /tmp/ferrisma-before /tmp/dog-6000x4000-q80.webp /tmp/out-bench.webp 1600 1067 --use-rendered-icc --webp-method=0
+/usr/bin/time -l /tmp/ferrisma-after  /tmp/dog-6000x4000-q80.webp /tmp/out-bench.webp 1600 1067 --use-rendered-icc --webp-method=0
+/usr/bin/time -l /tmp/ferrisma-after  /tmp/dog-6000x4000-q80.webp /tmp/out-bench.webp 1600 1067 --use-rendered-icc --webp-method=0 --transform-threads=1
+```
+
+Results (**indicative; loaded host**, Apple M1 Ultra, `arm64`, 20 cores, load averages 4.30 / 4.63 / 4.04; output SHA-256 identical across all runs for each workload):
+
+| Workload | Configuration | Decode median (min) | Total median | Peak RSS median (max) | Managed peak | Output SHA-256 |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| 12 Mpx (`3024×4032` → `1200×1600`) | baseline (`1d26db83`, auto) | 102.65 ms (101.37 ms) | 174.16 ms | 64.22 MiB (64.83 MiB) | 64.90 MiB | `ebe4b66295619574…` |
+| 12 Mpx (`3024×4032` → `1200×1600`) | candidate (auto) | 66.60 ms (65.92 ms) | 137.03 ms | 65.09 MiB (66.33 MiB) | 66.31 MiB | `ebe4b66295619574…` |
+| 12 Mpx (`3024×4032` → `1200×1600`) | candidate (`--transform-threads=1`) | 102.24 ms (99.77 ms) | 239.77 ms | 58.92 MiB (59.17 MiB) | 60.88 MiB | `ebe4b66295619574…` |
+| 24 Mpx (`6000×4000` → `1600×1067`) | baseline (`1d26db83`, auto) | 173.85 ms (172.29 ms) | 239.26 ms | 101.66 MiB (103.27 MiB) | 106.07 MiB | `85b41be8f93e35ef…` |
+| 24 Mpx (`6000×4000` → `1600×1067`) | candidate (auto) | 110.35 ms (108.82 ms) | 175.19 ms | 102.08 MiB (104.50 MiB) | 105.74 MiB | `85b41be8f93e35ef…` |
+| 24 Mpx (`6000×4000` → `1600×1067`) | candidate (`--transform-threads=1`) | 172.75 ms (171.69 ms) | 353.88 ms | 92.03 MiB (93.00 MiB) | 98.08 MiB | `85b41be8f93e35ef…` |
