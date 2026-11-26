@@ -1,0 +1,75 @@
+name: Codex review pilot
+
+on:
+  pull_request_target:
+    types: [opened, reopened, ready_for_review, synchronize, labeled]
+
+permissions: {}
+
+jobs:
+  review:
+    if: >-
+      github.event.pull_request.base.ref == github.event.repository.default_branch &&
+      !github.event.pull_request.draft &&
+      contains(github.event.pull_request.labels.*.name, 'codex-review') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'codex-review')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    concurrency:
+      group: codex-review-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      pull-requests: write
+      statuses: write
+    steps:
+      # Use the trusted default-branch checkout. Treat the PR diff as input data.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Prepare review
+        id: prepare
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OPENAI_CONFIGURED: ${{ secrets.OPENAI_API_KEY != '' }}
+        run: python3 -I .github/codex/review.py prepare
+      - name: Review with Sol
+        if: steps.prepare.outputs.review == 'true'
+        uses: openai/codex-action@306c6a196a99dcc6582530c396a19d2672d5e9ec # v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          model: gpt-6.2-sol
+          sandbox: read-only
+          safety-strategy: drop-sudo
+          prompt-file: ${{ runner.temp }}/ferrisma-sol.md
+          output-schema-file: .github/codex/review-schema.json
+          output-file: ${{ runner.temp }}/ferrisma-sol.json
+      - name: Evaluate Sol findings
+        id: sol
+        if: steps.prepare.outputs.review == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -I .github/codex/review.py sol
+      - name: Review with Astra
+        if: steps.sol.outputs.escalate == 'true'
+        uses: openai/codex-action@306c6a196a99dcc6582530c396a19d2672d5e9ec # v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          model: gpt-6.2-astra
+          sandbox: read-only
+          safety-strategy: drop-sudo
+          prompt-file: ${{ runner.temp }}/ferrisma-astra.md
+          output-schema-file: .github/codex/review-schema.json
+          output-file: ${{ runner.temp }}/ferrisma-astra.json
+      - name: Publish Astra verdict
+        if: steps.sol.outputs.escalate == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -I .github/codex/review.py astra
+      - name: Record review failure
+        if: failure() && steps.prepare.outputs.pending == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -I .github/codex/review.py error
