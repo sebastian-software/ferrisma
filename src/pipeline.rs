@@ -2263,6 +2263,7 @@ fn run(
                         options,
                         &budget,
                         output_depth,
+                        transparent,
                     )?))
                 }
                 #[cfg(not(feature = "jpeg-xl-write"))]

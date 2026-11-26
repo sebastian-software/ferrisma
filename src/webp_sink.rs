@@ -19,6 +19,133 @@ use crate::pipeline::{OutputFormat, OutputSettings, Threads, TransformOptions, W
 const SRGB_ICC: &[u8] = include_bytes!("../assets/icc/sRGB2014.icc");
 const ICC_CHUNK_BYTES: usize = 8 + SRGB_ICC.len().next_multiple_of(2);
 
+/// Parse the total padded RIFF byte length (`8 + padded_payload`) from the
+/// first WebP chunk when it carries a RIFF/WEBP header.
+fn riff_total_bytes(first_chunk: &[u8]) -> Option<usize> {
+    if first_chunk.len() < 12 || &first_chunk[..4] != b"RIFF" || &first_chunk[8..12] != b"WEBP" {
+        return None;
+    }
+    let payload = usize::try_from(u32::from_le_bytes([
+        first_chunk[4],
+        first_chunk[5],
+        first_chunk[6],
+        first_chunk[7],
+    ]))
+    .ok()?;
+    let padded = payload.checked_add(payload & 1)?;
+    8_usize.checked_add(padded)
+}
+
+pub(crate) struct WebpChunkWriter {
+    bytes: Vec<u8>,
+    max_output_bytes: usize,
+    max_codec_bytes: usize,
+    failure: Option<Error>,
+}
+
+impl WebpChunkWriter {
+    pub(crate) fn new(max_output_bytes: usize) -> Self {
+        Self {
+            bytes: Vec::new(),
+            max_output_bytes,
+            max_codec_bytes: max_output_bytes.saturating_sub(ICC_CHUNK_BYTES),
+            failure: None,
+        }
+    }
+
+    pub(crate) fn push_chunk(&mut self, chunk: &[u8]) -> bool {
+        let Some(new_len) = self.bytes.len().checked_add(chunk.len()) else {
+            self.failure = Some(Error::GeometryOverflow);
+            return false;
+        };
+        // The ICC chunk is always added. VP8X may already be present.
+        if new_len > self.max_codec_bytes {
+            // The ICC chunk is added after the codec's chunks.
+            self.failure = Some(Error::OutputLimitExceeded {
+                needed: new_len.saturating_add(ICC_CHUNK_BYTES),
+                limit: self.max_output_bytes,
+            });
+            return false;
+        }
+        if self.bytes.is_empty()
+            && let Some(riff_total) = riff_total_bytes(chunk)
+        {
+            if riff_total > self.max_codec_bytes {
+                self.failure = Some(Error::OutputLimitExceeded {
+                    needed: riff_total.saturating_add(ICC_CHUNK_BYTES),
+                    limit: self.max_output_bytes,
+                });
+                return false;
+            }
+            if self
+                .bytes
+                .try_reserve_exact(riff_total.max(chunk.len()))
+                .is_err()
+            {
+                self.failure = Some(Error::AllocationFailed);
+                return false;
+            }
+        } else if self.bytes.try_reserve(chunk.len()).is_err() {
+            self.failure = Some(Error::AllocationFailed);
+            return false;
+        }
+        self.bytes.extend_from_slice(chunk);
+        true
+    }
+
+    #[cfg(all(test, feature = "webp-read"))]
+    pub(crate) fn bytes(&self) -> &Vec<u8> {
+        &self.bytes
+    }
+
+    #[cfg(all(test, feature = "webp-read"))]
+    pub(crate) fn into_bytes(self) -> Vec<u8> {
+        self.bytes
+    }
+}
+
+/// Encode `picture` into a `Vec<u8>`, reserving the checked padded RIFF size
+/// from the first header chunk so subsequent chunks (including a trailing
+/// 1-byte RIFF pad byte) do not reallocate.
+fn encode_webp_chunks_observed(
+    config: &Config,
+    picture: &mut Picture<'_>,
+    max_output_bytes: usize,
+    mut on_chunk: impl FnMut(&[u8], &Vec<u8>),
+) -> Result<Vec<u8>, Error> {
+    let mut writer = WebpChunkWriter::new(max_output_bytes);
+    let result = Encoder::new(config).encode_to(picture, |chunk| {
+        let ok = writer.push_chunk(chunk);
+        if ok {
+            on_chunk(chunk, &writer.bytes);
+        }
+        ok
+    });
+    if let Some(error) = writer.failure {
+        return Err(error);
+    }
+    result.map_err(|error| match error {
+        WebpError::OutOfMemory | WebpError::BitstreamOutOfMemory => Error::AllocationFailed,
+        WebpError::InvalidConfiguration
+        | WebpError::InvalidParameter { .. }
+        | WebpError::InvalidDimensions { .. }
+        | WebpError::BadDimension => Error::InvalidEncodeOptions,
+        WebpError::UserAbort => Error::Cancelled,
+        _ => Error::EncodeFailed,
+    })?;
+    Ok(writer.bytes)
+}
+
+#[cfg(all(test, feature = "webp-read"))]
+pub(crate) fn encode_webp_chunks_for_test(
+    config: &Config,
+    picture: &mut Picture<'_>,
+    max_output_bytes: usize,
+    on_chunk: impl FnMut(&[u8], &Vec<u8>),
+) -> Result<Vec<u8>, Error> {
+    encode_webp_chunks_observed(config, picture, max_output_bytes, on_chunk)
+}
+
 pub(crate) struct WebpSink {
     width: usize,
     height: usize,
@@ -134,41 +261,12 @@ impl WebpSink {
             self.width,
         )
         .map_err(|_| Error::InvalidEncodeOptions)?;
-        let mut bytes = Vec::new();
-        let mut output_failure = None;
-        let result = Encoder::new(&self.config).encode_to(&mut picture, |chunk| {
-            let Some(new_len) = bytes.len().checked_add(chunk.len()) else {
-                output_failure = Some(Error::GeometryOverflow);
-                return false;
-            };
-            // The ICC chunk is always added. VP8X may already be present.
-            if new_len > self.max_output_bytes.saturating_sub(ICC_CHUNK_BYTES) {
-                // The ICC chunk is added after the codec's chunks.
-                output_failure = Some(Error::OutputLimitExceeded {
-                    needed: new_len.saturating_add(ICC_CHUNK_BYTES),
-                    limit: self.max_output_bytes,
-                });
-                return false;
-            }
-            if bytes.try_reserve_exact(chunk.len()).is_err() {
-                output_failure = Some(Error::AllocationFailed);
-                return false;
-            }
-            bytes.extend_from_slice(chunk);
-            true
-        });
-        if let Some(error) = output_failure {
-            return Err(error);
-        }
-        result.map_err(|error| match error {
-            WebpError::OutOfMemory | WebpError::BitstreamOutOfMemory => Error::AllocationFailed,
-            WebpError::InvalidConfiguration
-            | WebpError::InvalidParameter { .. }
-            | WebpError::InvalidDimensions { .. }
-            | WebpError::BadDimension => Error::InvalidEncodeOptions,
-            WebpError::UserAbort => Error::Cancelled,
-            _ => Error::EncodeFailed,
-        })?;
+        let bytes = encode_webp_chunks_observed(
+            &self.config,
+            &mut picture,
+            self.max_output_bytes,
+            |_, _| {},
+        )?;
         let actual_converted = picture.owned_sample_bytes();
         let vp8x_bytes = if bytes.get(12..16) == Some(b"VP8X".as_slice()) {
             0

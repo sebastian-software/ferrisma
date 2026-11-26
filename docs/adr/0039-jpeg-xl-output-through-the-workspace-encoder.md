@@ -112,9 +112,14 @@ distances of 3.0 and above.
 
 ### Memory
 
-The sink allocates one RGBA8 frame (4 bytes per pixel) from the managed
-budget when it is created. Before encoding it compacts an opaque frame to
-RGB8 in place.
+When the pipeline knows the input carries no alpha channel (RGB or expanded
+gray), the sink allocates a 3-channel RGB frame (`3` samples per pixel: 3 B/px
+at 8 bits, 6 B/px above 8 bits) from the managed budget and writes RGB samples
+directly without scanning alpha or compacting at finish (issue #282). When the
+input carries an alpha channel, the sink allocates a 4-channel RGBA frame (`4`
+samples per pixel: 4 B/px at 8 bits, 8 B/px above 8 bits); if every finished
+pixel turns out opaque, it compacts the buffer to RGB in place in a single
+linear pass before encoding.
 
 **Since 2026-11-16 (amendment of that date), both profiles reserve a
 measured peak model** (`PeakModel` in `src/jxl_sink.rs`,
@@ -648,3 +653,99 @@ amendment), or the port's encoder starts selecting SIMD by default.
   model is an envelope of one host's measurements, not a bound for other
   hosts or allocators.
 - 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.
+- 2026-11-26 — Opaque-frame 3-channel allocation and linear compaction (#282). When the pipeline guarantees opaque output (`ChannelLayout::Rgb` after gray expansion), `JxlSink` allocates a 3-channel RGB frame (`3 * sample_bytes` per pixel, eliminating the 25 % over-allocation) and writes RGB directly in `write_output_row`, skipping both the per-row alpha scan and finish-time compaction. When the input carries an alpha channel and every pixel turns out opaque, `compact_rgba_to_rgb` compacts in place with a single linear safe pass instead of per-pixel `copy_within`. The codec reservation remains `PeakModel - frame_bytes` against the committed 2026-11-16 measured peak model; before/after sink time and peak-memory measurements are recorded in [2026-11-26: opaque 3-channel sink and linear compaction measurement (#282)](#2026-11-26-opaque-3-channel-sink-and-linear-compaction-measurement-282).
+
+## 2026-11-26: opaque 3-channel sink and linear compaction measurement (#282)
+
+### End-to-end 24 Mpx CLI (`6000×4000`)
+
+Build both the baseline (`cd5c63a6`, saved as `/tmp/ferrisma-before`) and the candidate (saved as `/tmp/ferrisma-after`) with:
+
+```sh
+cargo build --release -p ferrisma --example cli_subset \
+  --no-default-features --features jpeg-read,webp-read,jpeg-xl-read,jpeg-xl-write,webp-write,icc
+```
+
+Generate the all-opaque RGBA input (`ChannelLayout::Rgba` with every pixel `a = 255`, exercising the 4-channel compaction path) from the committed photograph `codecs/libavif-rs/upstream/libavif/tests/data/dog_exif_extended_xmp_icc.jpg`:
+
+```sh
+/tmp/ferrisma-after codecs/libavif-rs/upstream/libavif/tests/data/dog_exif_extended_xmp_icc.jpg \
+  /tmp/dog-6000x4000-opaque.webp 6000 4000 --use-rendered-icc --webp-lossless --webp-level=0
+python3 -c '
+data = bytearray(open("/tmp/dog-6000x4000-opaque.webp", "rb").read())
+idx = data.index(b"VP8L")
+data[idx + 12] |= 0x10          # VP8L alpha_is_used bit
+if b"VP8X" in data:
+    data[data.index(b"VP8X") + 8] |= 0x10  # VP8X alpha flag
+open("/tmp/dog-6000x4000-all-opaque-rgba.webp", "wb").write(data)
+'
+```
+
+Measure `transform_us`, `encode_us`, `total_us`, and `peak_managed_bytes` from `report:` and peak RSS from `/usr/bin/time -l` (`maximum resident set size`) across 1 warmup plus interleaved repetitions (5 lossless, 3 lossy) with `--transform-threads=1 --use-rendered-icc`:
+
+```sh
+# Known-opaque RGB (8-bit / 16-bit, lossless / lossy d=1.0)
+/usr/bin/time -l /tmp/ferrisma-before codecs/libavif-rs/upstream/libavif/tests/data/dog_exif_extended_xmp_icc.jpg /tmp/out.jxl 6000 4000 --jxl-lossless --use-rendered-icc --transform-threads=1
+/usr/bin/time -l /tmp/ferrisma-after  codecs/libavif-rs/upstream/libavif/tests/data/dog_exif_extended_xmp_icc.jpg /tmp/out.jxl 6000 4000 --jxl-lossless --use-rendered-icc --transform-threads=1
+# (repeat with --jxl-depth=16 and with --jxl-distance=1.0)
+
+# All-opaque RGBA (8-bit / 16-bit lossless; exercises compact_rgba_to_rgb)
+/usr/bin/time -l /tmp/ferrisma-before /tmp/dog-6000x4000-all-opaque-rgba.webp /tmp/out.jxl 6000 4000 --jxl-lossless --use-rendered-icc --transform-threads=1
+/usr/bin/time -l /tmp/ferrisma-after  /tmp/dog-6000x4000-all-opaque-rgba.webp /tmp/out.jxl 6000 4000 --jxl-lossless --use-rendered-icc --transform-threads=1
+# (repeat with --jxl-depth=16)
+```
+
+Results (**indicative; loaded host**, Apple M1 Ultra, `arm64`, 20 cores, load averages 22.52 / 23.38 / 20.25 lossless and 10.44 / 15.99 / 17.75 lossy; output SHA-256 byte-identical between baseline and candidate in every workload):
+
+| Workload (`6000×4000`, 24 Mpx) | Configuration | Transform median | Encode median | Total median | Peak RSS median (max) | Managed peak | Output SHA-256 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Known-opaque RGB, 8-bit lossless | baseline (`cd5c63a6`) | 349.14 ms | 1280.92 ms | 1706.27 ms | 517.33 MiB (557.61 MiB) | 688.43 MiB | `3fda5061556f59ca…` |
+| Known-opaque RGB, 8-bit lossless | candidate (`#282`) | 350.34 ms | 1278.20 ms | 1708.05 ms | 522.94 MiB (542.62 MiB) | 688.43 MiB | `3fda5061556f59ca…` |
+| Known-opaque RGB, 16-bit lossless | baseline (`cd5c63a6`) | 972.73 ms | 1663.39 ms | 2730.23 ms | 818.44 MiB (833.92 MiB) | 1017.32 MiB | `fc32377d7384e930…` |
+| Known-opaque RGB, 16-bit lossless | candidate (`#282`) | 950.36 ms | 1647.87 ms | 2696.05 ms | 778.22 MiB (802.95 MiB) | 1017.32 MiB | `fc32377d7384e930…` |
+| Known-opaque RGB, 8-bit lossy (`d=1.0`) | baseline (`cd5c63a6`) | 377.77 ms | 8600.07 ms | 9030.07 ms | 565.61 MiB (568.70 MiB) | 881.99 MiB | `bd076dde425389dc…` |
+| Known-opaque RGB, 8-bit lossy (`d=1.0`) | candidate (`#282`) | 377.49 ms | 7688.69 ms | 8110.36 ms | 545.70 MiB (553.73 MiB) | 881.99 MiB | `bd076dde425389dc…` |
+| Known-opaque RGB, 16-bit lossy (`d=1.0`) | baseline (`cd5c63a6`) | 1091.28 ms | 7957.68 ms | 9151.09 ms | 721.78 MiB (725.86 MiB) | 1050.21 MiB | `a85bdebfcb285a75…` |
+| Known-opaque RGB, 16-bit lossy (`d=1.0`) | candidate (`#282`) | 1037.76 ms | 7729.74 ms | 8851.14 ms | 680.78 MiB (683.53 MiB) | 1050.21 MiB | `a85bdebfcb285a75…` |
+| All-opaque RGBA, 8-bit lossless | baseline (`cd5c63a6`) | 284.45 ms | 1260.66 ms | 2200.74 ms | 662.58 MiB (710.02 MiB) | 688.43 MiB | `3fda5061556f59ca…` |
+| All-opaque RGBA, 8-bit lossless | candidate (`#282`) | 288.87 ms | 1270.20 ms | 2218.30 ms | 682.66 MiB (715.08 MiB) | 688.43 MiB | `3fda5061556f59ca…` |
+| All-opaque RGBA, 16-bit lossless | baseline (`cd5c63a6`) | 1033.29 ms | 1658.23 ms | 3376.75 ms | 955.53 MiB (1020.84 MiB) | 1017.32 MiB | `e63cb7272d86ee1b…` |
+| All-opaque RGBA, 16-bit lossless | candidate (`#282`) | 1038.02 ms | 1662.46 ms | 3376.33 ms | 962.23 MiB (1037.83 MiB) | 1017.32 MiB | `e63cb7272d86ee1b…` |
+
+The 8-bit lossless CLI peak RSS fluctuates by ~5–7 % between runs on macOS under allocator page retention (as documented in [the 2026-11-16 record](../benchmarks/v1.0-jxl-encoder-memory-2026-11-16.md)), masking the 22.89 MiB frame drop on 8-bit lossless while the 16-bit lossless (-40.22 MiB), 8-bit lossy (-19.91 MiB), and 16-bit lossy (-41.00 MiB) runs show the expected peak RSS reduction clearly.
+
+### Isolated 24 Mpx sink ingestion and compaction (`6000×4000`)
+
+To separate `JxlSink` frame allocation, row ingestion (`write_output_row`), and in-place compaction (`compact_rgba_to_rgb`) from `libjxl` coding and allocator retention, the committed `#[ignore]` harness in `src/jxl_output_tests.rs` exercises the live `JxlSink` and `compact_rgba_to_rgb` directly against the pre-#282 `copy_within` loop:
+
+```sh
+# 1. Warm-buffer 24 Mpx ingestion and compaction benchmark (1 warmup + 7 interleaved reps):
+cargo test --release -p ferrisma --lib --no-default-features --features jpeg-xl-write \
+  -- --ignored --nocapture --exact jxl_output_tests::bench_jxl_sink_opaque_and_compaction
+
+# 2. Fresh-process peak RSS of each 24 Mpx JxlSink frame allocation + 4,000-row ingest
+#    (using the release test binary printed by `cargo test --release ... --no-run`):
+/usr/bin/time -l <test-binary> --ignored --nocapture --exact jxl_output_tests::bench_jxl_sink_rss_u8_rgba
+/usr/bin/time -l <test-binary> --ignored --nocapture --exact jxl_output_tests::bench_jxl_sink_rss_u8_opaque
+/usr/bin/time -l <test-binary> --ignored --nocapture --exact jxl_output_tests::bench_jxl_sink_rss_u16_rgba
+/usr/bin/time -l <test-binary> --ignored --nocapture --exact jxl_output_tests::bench_jxl_sink_rss_u16_opaque
+```
+
+Results (**indicative; loaded host**, Apple M1 Ultra, `arm64`, 20 cores, load averages 12.37 / 13.67 / 16.27 for timing and 14.88 / 14.13 / 16.35 for fresh-process RSS; 1 warmup + 7 interleaved repetitions):
+
+- **Fresh-process `JxlSink` frame + 4,000-row ingest** (`/usr/bin/time -l` peak RSS):
+
+| Harness target (`6000×4000`) | Depth | Frame allocation | Peak RSS median (max) | Cold ingest median |
+| --- | ---: | ---: | ---: | ---: |
+| `bench_jxl_sink_rss_u8_rgba` (4 ch RGBA) | 8-bit | 91.55 MiB (`96,000,000` B) | 95.02 MiB (95.05 MiB) | 13.94 ms |
+| `bench_jxl_sink_rss_u8_opaque` (3 ch RGB) | 8-bit | 68.66 MiB (`72,000,000` B, -25.0 %) | 72.12 MiB (72.14 MiB, -22.90 MiB) | 10.16 ms |
+| `bench_jxl_sink_rss_u16_rgba` (4 ch RGBA) | 16-bit | 183.11 MiB (`192,000,000` B) | 186.58 MiB (186.59 MiB) | 23.41 ms |
+| `bench_jxl_sink_rss_u16_opaque` (3 ch RGB) | 16-bit | 137.33 MiB (`144,000,000` B, -25.0 %) | 140.83 MiB (140.84 MiB, -45.75 MiB) | 17.81 ms |
+
+- **In-process 24 Mpx ingestion & warm-buffer compaction** (`bench_jxl_sink_opaque_and_compaction`):
+  - **Ingest (`JxlSink::with_depth` + 4,000 `write_output_row` calls)**:
+    - 8-bit: 4-channel RGBA (`96,000,000` B) median `7.44 ms` (min `7.35 ms`) → 3-channel opaque (`72,000,000` B) median `4.86 ms` (min `4.59 ms`, **1.53× faster**, plus compaction eliminated).
+    - 16-bit: 4-channel RGBA (`192,000,000` B) median `10.09 ms` (min `9.89 ms`) → 3-channel opaque (`144,000,000` B) median `7.74 ms` (min `7.57 ms`, **1.30× faster**, plus compaction eliminated).
+  - **Warm-buffer compaction (`compact_rgba_to_rgb` vs pre-#282 `copy_within`)**:
+    - `u8` (8-bit): `copy_within` median `15.51 ms` (min `15.10 ms`) → linear `Cell` 4-pixel pass median `8.65 ms` (min `8.37 ms`, **1.79× faster**).
+    - `u16` (16-bit): `copy_within` median `15.28 ms` (min `15.06 ms`) → linear `Cell` 4-pixel pass median `9.32 ms` (min `9.22 ms`, **1.64× faster**).

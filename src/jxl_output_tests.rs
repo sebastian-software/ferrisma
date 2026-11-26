@@ -9,7 +9,8 @@ use crate::error::Error;
 use crate::geometry::Size;
 use crate::jxl_sink::{
     JxlSink, LOSSLESS_PEAK, known_codec_frame_bytes, lossless_codec_reservation_bytes,
-    lossy_codec_reservation_bytes,
+    lossless_codec_reservation_bytes_for_frame, lossy_codec_reservation_bytes,
+    lossy_codec_reservation_bytes_for_frame,
 };
 use crate::memory::MemoryBudget;
 use crate::pipeline::Threads;
@@ -555,13 +556,37 @@ fn lossless_output_equals_the_original_cjxl_bytes() {
         ),
     ] {
         let budget = MemoryBudget::new(64 << 20);
-        let encoded = encode(width, height, &rows(width, height, alpha), &budget).unwrap();
+        let data = rows(width, height, alpha);
+        let encoded = encode(width, height, &data, &budget).unwrap();
         assert!(
             encoded == reference,
             "{width}x{height} alpha={alpha}: {} bytes, cjxl wrote {}",
             encoded.len(),
             reference.len()
         );
+        if !alpha {
+            // Known-opaque 3-channel sink must produce the exact same cjxl bytes.
+            let size = Size::new(width as u32, height as u32).unwrap();
+            let mut sink = JxlSink::with_depth(
+                size,
+                &options(size.width, size.height),
+                &budget,
+                crate::output_depth::EIGHT,
+                false,
+            )
+            .unwrap();
+            assert_eq!(sink.allocated_frame_bytes(), width * height * 3);
+            for (y, row) in data.chunks_exact(width * 4).enumerate() {
+                sink.write_row(y as u32, row).unwrap();
+            }
+            let opaque_encoded = sink.finish().unwrap().bytes;
+            assert!(
+                opaque_encoded == reference,
+                "{width}x{height} opaque 3ch: {} bytes, cjxl wrote {}",
+                opaque_encoded.len(),
+                reference.len()
+            );
+        }
     }
 }
 
@@ -635,6 +660,45 @@ mod independent_decode {
         let mut stream = render.stream();
         assert_eq!(stream.channels() as usize, channels);
         let mut samples = vec![0_u8; (stream.width() * stream.height()) as usize * channels];
+        stream.write_to_buffer(&mut samples);
+        (image.width(), image.height(), channels, samples)
+    }
+
+    /// Decode a 16-bit lossless JPEG XL image with jxl-oxide, check the
+    /// emitted signaling and return interleaved 16-bit samples plus the
+    /// channel count.
+    pub(super) fn decode_oxide_u16(bytes: &[u8]) -> (u32, u32, usize, Vec<u16>) {
+        let image = JxlImage::builder()
+            .read(std::io::Cursor::new(bytes))
+            .unwrap();
+        let metadata = &image.image_header().metadata;
+        assert!(!metadata.xyb_encoded, "lossless samples are not XYB");
+        assert_eq!(metadata.orientation, 1);
+        assert_eq!(
+            metadata.bit_depth,
+            BitDepth::IntegerSample {
+                bits_per_sample: 16
+            }
+        );
+        for ec in &metadata.ec_info {
+            assert_eq!(
+                ec.ty,
+                ExtraChannelType::Alpha {
+                    alpha_associated: false
+                }
+            );
+            assert_eq!(
+                ec.bit_depth,
+                BitDepth::IntegerSample {
+                    bits_per_sample: 16
+                }
+            );
+        }
+        let channels = 3 + metadata.ec_info.len();
+        let render = image.render_frame(0).unwrap();
+        let mut stream = render.stream();
+        assert_eq!(stream.channels() as usize, channels);
+        let mut samples = vec![0_u16; (stream.width() * stream.height()) as usize * channels];
         stream.write_to_buffer(&mut samples);
         (image.width(), image.height(), channels, samples)
     }
@@ -843,12 +907,13 @@ fn deep_rows(width: usize, height: usize, depth: u8, alpha: bool) -> Vec<u16> {
     data
 }
 
-fn encode_deep(
+fn encode_deep_with_alpha_hint(
     width: usize,
     height: usize,
     depth: u8,
     data: &[u16],
     jpeg_xl: JpegXlOptions,
+    may_have_alpha: bool,
 ) -> Result<Vec<u8>, Error> {
     let budget = MemoryBudget::new(256 << 20);
     let mut sink = JxlSink::with_depth(
@@ -856,11 +921,22 @@ fn encode_deep(
         &options(width as u32, height as u32).with_output(OutputSettings::JpegXl(jpeg_xl)),
         &budget,
         depth,
+        may_have_alpha,
     )?;
     for (y, row) in data.chunks(width * 4).enumerate() {
         sink.write_output_row(y as u32, crate::output_depth::OutputRow::U16(row))?;
     }
     Ok(sink.finish()?.bytes)
+}
+
+fn encode_deep(
+    width: usize,
+    height: usize,
+    depth: u8,
+    data: &[u16],
+    jpeg_xl: JpegXlOptions,
+) -> Result<Vec<u8>, Error> {
+    encode_deep_with_alpha_hint(width, height, depth, data, jpeg_xl, true)
 }
 
 /// Deep rows give the original's bytes, lossless and lossy: each fixture was
@@ -947,20 +1023,25 @@ fn deep_output_equals_the_original_cjxl_bytes() {
             &include_bytes!("../tests/fixtures/jxl-deep/d10-2049x40-a0-d1.jxl")[..],
         ),
     ] {
-        let encoded = encode_deep(
-            width,
-            height,
-            depth,
-            &deep_rows(width, height, depth, alpha),
-            mode.clone(),
-        )
-        .unwrap();
+        let data = deep_rows(width, height, depth, alpha);
+        let encoded = encode_deep(width, height, depth, &data, mode.clone()).unwrap();
         assert!(
             encoded == reference,
             "{width}x{height} {depth}-bit alpha={alpha} {mode:?}: {} bytes, cjxl wrote {}",
             encoded.len(),
             reference.len()
         );
+        if !alpha {
+            let opaque_3ch =
+                encode_deep_with_alpha_hint(width, height, depth, &data, mode.clone(), false)
+                    .unwrap();
+            assert!(
+                opaque_3ch == reference,
+                "{width}x{height} {depth}-bit opaque 3ch {mode:?}: {} bytes, cjxl wrote {}",
+                opaque_3ch.len(),
+                reference.len()
+            );
+        }
         let container = encoded.starts_with(&[0, 0, 0, 0x0c, b'J', b'X', b'L', b' ']);
         // Level 10: lossless color or any alpha above 12 bits.
         let level10 = depth > 12 && (alpha || matches!(mode, JpegXlOptions::Lossless { .. }));
@@ -1036,6 +1117,7 @@ fn deep_sink_uses_aligned_u16_storage_and_exact_byte_budget() {
             &options(width as u32, height as u32),
             &budget,
             depth,
+            true,
         )
         .unwrap();
         assert!(
@@ -1068,4 +1150,378 @@ fn deep_sink_uses_aligned_u16_storage_and_exact_byte_budget() {
         );
         assert_eq!(budget.snapshot().live, 0);
     }
+}
+
+#[test]
+fn opaque_sink_allocates_three_channels_and_matches_four_channel_output() {
+    let (width, height) = (17_usize, 11_usize);
+    let size = Size::new(width as u32, height as u32).unwrap();
+    let modes = [
+        (true, JpegXlOptions::Lossless(JpegXlLossless::default())),
+        (
+            false,
+            JpegXlOptions::Lossy(JpegXlLossy::default().with_distance(1.0)),
+        ),
+    ];
+    for depth in [8_u8, 10, 12, 16] {
+        let sample_bytes = if depth > 8 { 2 } else { 1 };
+        let expected_3ch = width * height * 3 * sample_bytes;
+        let expected_4ch = width * height * 4 * sample_bytes;
+        for (lossless, mode) in &modes {
+            let opts =
+                options(size.width, size.height).with_output(OutputSettings::JpegXl(mode.clone()));
+            // Exact 3-channel construction boundary: fails 1 byte short,
+            // succeeds at exact 3-channel size while 4-channel still fails.
+            let too_small = MemoryBudget::new(expected_3ch - 1);
+            assert!(matches!(
+                JxlSink::with_depth(size, &opts, &too_small, depth, false),
+                Err(Error::BudgetExceeded { .. })
+            ));
+            assert_eq!(too_small.snapshot().live, 0);
+            let frame_only = MemoryBudget::new(expected_3ch);
+            assert!(matches!(
+                JxlSink::with_depth(size, &opts, &frame_only, depth, true),
+                Err(Error::BudgetExceeded { .. })
+            ));
+            {
+                let sink = JxlSink::with_depth(size, &opts, &frame_only, depth, false).unwrap();
+                assert_eq!(sink.allocated_frame_bytes(), expected_3ch);
+                assert_eq!(frame_only.snapshot().live, expected_3ch);
+                assert_eq!(sink.is_u16_aligned(), depth > 8);
+            }
+            assert_eq!(frame_only.snapshot().live, 0);
+
+            let codec_bytes = if *lossless {
+                lossless_codec_reservation_bytes_for_frame(
+                    width,
+                    height,
+                    false,
+                    depth,
+                    expected_3ch,
+                )
+            } else {
+                lossy_codec_reservation_bytes_for_frame(width, height, false, depth, expected_3ch)
+            }
+            .unwrap();
+            let exact_budget = MemoryBudget::new(expected_3ch + codec_bytes);
+            let short_budget = MemoryBudget::new(expected_3ch + codec_bytes - 1);
+            let ref_budget = MemoryBudget::new(256 << 20);
+
+            let mut opaque_sink =
+                JxlSink::with_depth(size, &opts, &exact_budget, depth, false).unwrap();
+            let mut short_sink =
+                JxlSink::with_depth(size, &opts, &short_budget, depth, false).unwrap();
+            let mut rgba_sink = JxlSink::with_depth(size, &opts, &ref_budget, depth, true).unwrap();
+            assert_eq!(opaque_sink.allocated_frame_bytes(), expected_3ch);
+            assert_eq!(rgba_sink.allocated_frame_bytes(), expected_4ch);
+
+            if depth > 8 {
+                let data = deep_rows(width, height, depth, false);
+                for (y, row) in data.chunks_exact(width * 4).enumerate() {
+                    let row = crate::output_depth::OutputRow::U16(row);
+                    opaque_sink.write_output_row(y as u32, row).unwrap();
+                    short_sink.write_output_row(y as u32, row).unwrap();
+                    rgba_sink.write_output_row(y as u32, row).unwrap();
+                }
+            } else {
+                let data = rows(width, height, false);
+                for (y, row) in data.chunks_exact(width * 4).enumerate() {
+                    opaque_sink.write_row(y as u32, row).unwrap();
+                    short_sink.write_row(y as u32, row).unwrap();
+                    rgba_sink.write_row(y as u32, row).unwrap();
+                }
+            }
+
+            assert!(matches!(
+                short_sink.finish(),
+                Err(Error::BudgetExceeded { .. })
+            ));
+            assert_eq!(short_budget.snapshot().live, 0);
+            assert_eq!(short_budget.snapshot().peak, expected_3ch);
+
+            let opaque_out = opaque_sink.finish().unwrap();
+            let rgba_out = rgba_sink.finish().unwrap();
+            assert_eq!(
+                opaque_out.bytes, rgba_out.bytes,
+                "depth={depth} lossless={lossless}: 3-channel opaque output must match 4-channel compacted output"
+            );
+            assert_eq!(
+                opaque_out.frame_materialization_bytes,
+                expected_3ch + codec_bytes
+            );
+            assert_eq!(exact_budget.snapshot().peak, expected_3ch + codec_bytes);
+            assert_eq!(exact_budget.snapshot().live, 0);
+            assert_eq!(ref_budget.snapshot().live, 0);
+        }
+    }
+}
+
+#[test]
+fn transparent_layout_all_opaque_rows_compact_to_exact_rgb_output() {
+    // Exercise every `pixels % 4` remainder (0, 1, 2, 3) plus single-pixel
+    // and multi-row images across 8-bit and 16-bit, lossless and lossy.
+    let modes = [
+        JpegXlOptions::Lossless(JpegXlLossless::default()),
+        JpegXlOptions::Lossy(JpegXlLossy::default().with_distance(1.0)),
+    ];
+    for (width, height) in [(1, 1), (2, 1), (3, 1), (4, 1), (5, 1), (7, 3), (37, 19)] {
+        let size = Size::new(width as u32, height as u32).unwrap();
+        let data8 = rows(width, height, false);
+        let data16 = deep_rows(width, height, 16, false);
+        for mode in &modes {
+            let opts =
+                options(size.width, size.height).with_output(OutputSettings::JpegXl(mode.clone()));
+            let budget = MemoryBudget::new(64 << 20);
+
+            // 8-bit: 4-channel compacted must equal 3-channel opaque byte-for-byte.
+            let mut s4 = JxlSink::with_depth(size, &opts, &budget, 8, true).unwrap();
+            let mut s3 = JxlSink::with_depth(size, &opts, &budget, 8, false).unwrap();
+            for (y, row) in data8.chunks_exact(width * 4).enumerate() {
+                s4.write_row(y as u32, row).unwrap();
+                s3.write_row(y as u32, row).unwrap();
+            }
+            let out4 = s4.finish().unwrap().bytes;
+            let out3 = s3.finish().unwrap().bytes;
+            assert_eq!(
+                out4, out3,
+                "8-bit {width}x{height} {mode:?}: compacted RGBA must match 3-channel RGB"
+            );
+            if matches!(mode, JpegXlOptions::Lossless(_)) {
+                let (dw, dh, channels, samples) = independent_decode::decode_oxide(&out4);
+                assert_eq!((dw as usize, dh as usize, channels), (width, height, 3));
+                assert_eq!(independent_decode::to_rgba(channels, &samples), data8);
+            }
+
+            // 16-bit: 4-channel compacted must equal 3-channel opaque byte-for-byte.
+            let out4_16 =
+                encode_deep_with_alpha_hint(width, height, 16, &data16, mode.clone(), true)
+                    .unwrap();
+            let out3_16 =
+                encode_deep_with_alpha_hint(width, height, 16, &data16, mode.clone(), false)
+                    .unwrap();
+            assert_eq!(
+                out4_16, out3_16,
+                "16-bit {width}x{height} {mode:?}: compacted RGBA must match 3-channel RGB"
+            );
+        }
+    }
+}
+
+#[test]
+fn transparent_layout_with_real_alpha_preserves_exact_alpha() {
+    let (width, height) = (13_usize, 7_usize);
+    let size = Size::new(width as u32, height as u32).unwrap();
+    let budget = MemoryBudget::new(64 << 20);
+
+    // 8-bit lossless: test transparency on the first pixel (subsequent rows
+    // skip scanning) AND transparency only on the very last pixel.
+    for alpha_pixel in [0_usize, width * height - 1] {
+        let mut data = rows(width, height, false);
+        data[alpha_pixel * 4 + 3] = 123;
+        let mut sink =
+            JxlSink::with_depth(size, &options(size.width, size.height), &budget, 8, true).unwrap();
+        assert_eq!(sink.allocated_frame_bytes(), width * height * 4);
+        for (y, row) in data.chunks_exact(width * 4).enumerate() {
+            sink.write_row(y as u32, row).unwrap();
+        }
+        let bytes = sink.finish().unwrap().bytes;
+        let (dw, dh, channels, samples) = independent_decode::decode_oxide(&bytes);
+        assert_eq!((dw as usize, dh as usize, channels), (width, height, 4));
+        assert_eq!(samples, data, "alpha_pixel={alpha_pixel}");
+    }
+
+    // 16-bit lossless: transparency on the very last pixel keeps 4 channels
+    // and decodes back to the exact 16-bit RGBA samples (including 32,768).
+    let mut data16 = deep_rows(width, height, 16, false);
+    let last = (width * height - 1) * 4;
+    data16[last + 3] = 32_768;
+    let mut sink16 =
+        JxlSink::with_depth(size, &options(size.width, size.height), &budget, 16, true).unwrap();
+    assert_eq!(sink16.allocated_frame_bytes(), width * height * 4 * 2);
+    for (y, row) in data16.chunks_exact(width * 4).enumerate() {
+        sink16
+            .write_output_row(y as u32, crate::output_depth::OutputRow::U16(row))
+            .unwrap();
+    }
+    let bytes16 = sink16.finish().unwrap().bytes;
+    let (dw, dh, channels, samples16) = independent_decode::decode_oxide_u16(&bytes16);
+    assert_eq!((dw as usize, dh as usize, channels), (width, height, 4));
+    assert_eq!(samples16, data16);
+    assert_eq!(budget.snapshot().live, 0);
+}
+
+fn run_jxl_sink_24mp_ingest(depth: u8, may_have_alpha: bool) -> (usize, usize, f64) {
+    let (width, height) = (6000_usize, 4000_usize);
+    let size = Size::new(width as u32, height as u32).unwrap();
+    let opts = options(size.width, size.height);
+    let budget = MemoryBudget::new(256 << 20);
+    let max = crate::output_depth::max_code(depth);
+    let row_u8: Vec<u8> = if depth <= 8 {
+        (0..width)
+            .flat_map(|x| {
+                [
+                    (x % 256) as u8,
+                    ((x * 3) % 256) as u8,
+                    ((x * 7) % 256) as u8,
+                    255,
+                ]
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+    let row_u16: Vec<u16> = if depth > 8 {
+        (0..width)
+            .flat_map(|x| {
+                [
+                    (x % 65536) as u16,
+                    ((x * 3) % 65536) as u16,
+                    ((x * 7) % 65536) as u16,
+                    max,
+                ]
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+    let start = std::time::Instant::now();
+    let mut sink = JxlSink::with_depth(size, &opts, &budget, depth, may_have_alpha).unwrap();
+    let frame_bytes = sink.allocated_frame_bytes();
+    for y in 0..height as u32 {
+        let row = if depth > 8 {
+            crate::output_depth::OutputRow::U16(std::hint::black_box(&row_u16))
+        } else {
+            crate::output_depth::OutputRow::U8(std::hint::black_box(&row_u8))
+        };
+        sink.write_output_row(y, row).unwrap();
+    }
+    let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
+    let peak_managed = budget.snapshot().peak;
+    std::hint::black_box(&sink);
+    (frame_bytes, peak_managed, elapsed_ms)
+}
+
+/// Reproducible 24 Mpx (`6000×4000`) isolated `JxlSink` ingestion and
+/// `compact_rgba_to_rgb` benchmark (issue #282, ADR-0039).
+///
+/// Run in release mode:
+/// `cargo test --release -p ferrisma --lib --no-default-features --features jpeg-xl-write -- --ignored --nocapture --exact jxl_output_tests::bench_jxl_sink_opaque_and_compaction`
+#[test]
+#[ignore = "manual release benchmark for ADR-0039 (#282)"]
+fn bench_jxl_sink_opaque_and_compaction() {
+    fn compact_copy_within_baseline<T: Copy>(frame: &mut [T], pixels: usize) {
+        for pixel in 0..pixels {
+            frame.copy_within(pixel * 4..pixel * 4 + 3, pixel * 3);
+        }
+    }
+
+    fn median_min(mut samples: Vec<f64>) -> (f64, f64) {
+        samples.sort_by(f64::total_cmp);
+        (samples[samples.len() / 2], samples[0])
+    }
+
+    // Sanity check: both compaction loops produce identical RGB output.
+    let check_pixels = 37 * 19;
+    let mut a8 = rows(37, 19, false);
+    let mut b8 = a8.clone();
+    compact_copy_within_baseline(&mut a8, check_pixels);
+    crate::jxl_sink::compact_rgba_to_rgb(&mut b8, check_pixels);
+    assert_eq!(a8[..check_pixels * 3], b8[..check_pixels * 3]);
+
+    let mut a16 = deep_rows(37, 19, 16, false);
+    let mut b16 = a16.clone();
+    compact_copy_within_baseline(&mut a16, check_pixels);
+    crate::jxl_sink::compact_rgba_to_rgb(&mut b16, check_pixels);
+    assert_eq!(a16[..check_pixels * 3], b16[..check_pixels * 3]);
+
+    // 1. Live JxlSink allocation + 4,000-row ingestion (1 warmup + 7 interleaved reps).
+    for depth in [8_u8, 16] {
+        let _ = run_jxl_sink_24mp_ingest(depth, true);
+        let _ = run_jxl_sink_24mp_ingest(depth, false);
+        let mut rgba_ms = Vec::new();
+        let mut opaque_ms = Vec::new();
+        let mut rgba_frame = 0;
+        let mut opaque_frame = 0;
+        for _ in 0..7 {
+            let (fb, _, t) = run_jxl_sink_24mp_ingest(depth, true);
+            rgba_frame = fb;
+            rgba_ms.push(t);
+            let (fb, _, t) = run_jxl_sink_24mp_ingest(depth, false);
+            opaque_frame = fb;
+            opaque_ms.push(t);
+        }
+        let (r_med, r_min) = median_min(rgba_ms);
+        let (o_med, o_min) = median_min(opaque_ms);
+        println!(
+            "ingest depth={depth}: 4ch_rgba frame={rgba_frame}B median={r_med:.2}ms (min {r_min:.2}ms) | 3ch_opaque frame={opaque_frame}B median={o_med:.2}ms (min {o_min:.2}ms)"
+        );
+    }
+
+    // 2. Warm-buffer 24 Mpx compaction: copy_within baseline vs crate::jxl_sink::compact_rgba_to_rgb.
+    let pixels = 6000 * 4000;
+    let mut buf8 = vec![128_u8; pixels * 4];
+    compact_copy_within_baseline(&mut buf8, pixels);
+    crate::jxl_sink::compact_rgba_to_rgb(&mut buf8, pixels);
+    let (mut old8, mut new8) = (Vec::new(), Vec::new());
+    for _ in 0..7 {
+        let t = std::time::Instant::now();
+        compact_copy_within_baseline(std::hint::black_box(&mut buf8), pixels);
+        old8.push(t.elapsed().as_secs_f64() * 1000.0);
+        let t = std::time::Instant::now();
+        crate::jxl_sink::compact_rgba_to_rgb(std::hint::black_box(&mut buf8), pixels);
+        new8.push(t.elapsed().as_secs_f64() * 1000.0);
+    }
+    let (old8_med, old8_min) = median_min(old8);
+    let (new8_med, new8_min) = median_min(new8);
+    println!(
+        "compact u8  24Mpx: copy_within median={old8_med:.2}ms (min {old8_min:.2}ms) | linear median={new8_med:.2}ms (min {new8_min:.2}ms) | speedup={:.2}x",
+        old8_med / new8_med
+    );
+
+    let mut buf16 = vec![32_768_u16; pixels * 4];
+    compact_copy_within_baseline(&mut buf16, pixels);
+    crate::jxl_sink::compact_rgba_to_rgb(&mut buf16, pixels);
+    let (mut old16, mut new16) = (Vec::new(), Vec::new());
+    for _ in 0..7 {
+        let t = std::time::Instant::now();
+        compact_copy_within_baseline(std::hint::black_box(&mut buf16), pixels);
+        old16.push(t.elapsed().as_secs_f64() * 1000.0);
+        let t = std::time::Instant::now();
+        crate::jxl_sink::compact_rgba_to_rgb(std::hint::black_box(&mut buf16), pixels);
+        new16.push(t.elapsed().as_secs_f64() * 1000.0);
+    }
+    let (old16_med, old16_min) = median_min(old16);
+    let (new16_med, new16_min) = median_min(new16);
+    println!(
+        "compact u16 24Mpx: copy_within median={old16_med:.2}ms (min {old16_min:.2}ms) | linear median={new16_med:.2}ms (min {new16_min:.2}ms) | speedup={:.2}x",
+        old16_med / new16_med
+    );
+}
+
+#[test]
+#[ignore = "manual fresh-process peak RSS probe for ADR-0039 (#282)"]
+fn bench_jxl_sink_rss_u8_opaque() {
+    let (frame, managed, ms) = run_jxl_sink_24mp_ingest(8, false);
+    println!("depth=8 opaque frame={frame} managed={managed} ingest_ms={ms:.2}");
+}
+
+#[test]
+#[ignore = "manual fresh-process peak RSS probe for ADR-0039 (#282)"]
+fn bench_jxl_sink_rss_u8_rgba() {
+    let (frame, managed, ms) = run_jxl_sink_24mp_ingest(8, true);
+    println!("depth=8 rgba frame={frame} managed={managed} ingest_ms={ms:.2}");
+}
+
+#[test]
+#[ignore = "manual fresh-process peak RSS probe for ADR-0039 (#282)"]
+fn bench_jxl_sink_rss_u16_opaque() {
+    let (frame, managed, ms) = run_jxl_sink_24mp_ingest(16, false);
+    println!("depth=16 opaque frame={frame} managed={managed} ingest_ms={ms:.2}");
+}
+
+#[test]
+#[ignore = "manual fresh-process peak RSS probe for ADR-0039 (#282)"]
+fn bench_jxl_sink_rss_u16_rgba() {
+    let (frame, managed, ms) = run_jxl_sink_24mp_ingest(16, true);
+    println!("depth=16 rgba frame={frame} managed={managed} ingest_ms={ms:.2}");
 }
