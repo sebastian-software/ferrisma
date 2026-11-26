@@ -1255,6 +1255,13 @@ mod tests {
         use super::{exit_status, parse_output_format};
         use std::path::Path;
 
+        struct TempDir(std::path::PathBuf);
+        impl Drop for TempDir {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+
         for (name, expected) in [
             ("out.avif", OutputFormat::Avif),
             ("OUT.AVIF", OutputFormat::Avif),
@@ -1285,7 +1292,27 @@ mod tests {
 
         // End-to-end through `run`: uppercase and mixed-case output paths
         // select their format and accept format-specific flags rather than
-        // failing with a usage error on the extension.
+        // failing with a usage error on the extension. Use a fresh temporary
+        // directory so the test never depends on working-tree files.
+        let temp_dir = {
+            let pid = std::process::id();
+            let mut attempt = 0_u32;
+            loop {
+                let candidate =
+                    std::env::temp_dir().join(format!("ferrisma-cli-ext-{pid}-{attempt}"));
+                match std::fs::create_dir(&candidate) {
+                    Ok(()) => break TempDir(candidate),
+                    Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
+                        attempt += 1;
+                    }
+                    Err(error) => panic!("create temp dir {}: {error}", candidate.display()),
+                }
+            }
+        };
+        let missing_input = temp_dir.0.join("MISSING.JPG");
+        let missing_input_arg = missing_input.to_str().unwrap().to_owned();
+        let expected_prefix = format!("cannot read {}:", missing_input.display());
+
         for (output, flag) in [
             ("OUT.AVIF", "--avif-quality=70"),
             ("out.Avif", "--avif-speed=6"),
@@ -1294,13 +1321,19 @@ mod tests {
             ("OUT.JXL", "--jxl-lossless"),
             ("out.JxL", "--jxl-distance=1.0"),
         ] {
-            let args: Vec<String> = ["ferrisma", "MISSING.JPG", output, "8", "8", flag]
-                .map(String::from)
-                .to_vec();
+            let output_arg = temp_dir.0.join(output).to_str().unwrap().to_owned();
+            let args = vec![
+                "ferrisma".to_owned(),
+                missing_input_arg.clone(),
+                output_arg,
+                "8".to_owned(),
+                "8".to_owned(),
+                flag.to_owned(),
+            ];
             let error = super::run(&args, None).unwrap_err();
             assert_eq!(exit_status(&*error), 1, "{output} {flag}: {error}");
             assert!(
-                error.to_string().starts_with("cannot read MISSING.JPG:"),
+                error.to_string().starts_with(&expected_prefix),
                 "{output} {flag}: {error}"
             );
         }
