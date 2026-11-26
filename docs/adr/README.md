@@ -61,6 +61,7 @@ Every ADR contains **Status**, **Date**, **Last reviewed**, **Context**, **Decis
 | [0042](0042-no-silent-loss-refuse-or-report.md) | No silent loss: the pipeline carries a part of the input over, refuses the input, or names in the result what it left out; errors keep their true class; readers of one format agree on refusals | Accepted (open questions pending) |
 | [0043](0043-formats-behave-alike.md) | Formats behave alike where the format allows: the same property of an image gets the same outcome, conversion and wording in every format; encoder controls stay native per format; the supported matrix is where parity is checked | Accepted |
 | [0044](0044-no-assembly-acceleration-through-rust-intrinsics.md) | No assembly in the project: acceleration only through Rust intrinsics with narrowly bounded `unsafe`; assembly-only kernels of an original run scalar until rebuilt with intrinsics; vendor-dependent instructions stay as in the original; linking an original's assembly is excluded | Accepted (one open question: the ten inline assembly sites left in libjxl-rs; `cargo xtask assembly` guards the rest) |
+| [0045](0045-recipe-api.md) | Recipe API: one source, several crops, several outputs; one quality scale calibrated on SSIMULACRA 2, quality as displayed for dense screens; encoder settings only through configuration | Proposed |
 
 ## Changing an ADR
 
