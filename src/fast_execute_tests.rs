@@ -1912,12 +1912,17 @@ fn identity_passthrough_reports_one_transform_thread() {
         .unwrap()
     };
 
-    assert_eq!(run_report(&srgb, size, 4).transform_threads, 1);
-    assert_eq!(
-        run_report(&srgb, Size::new(40, 80).unwrap(), 4).transform_threads,
-        4
-    );
-    assert_eq!(run_report(&p3, size, 4).transform_threads, 4);
+    let id = run_report(&srgb, size, 4);
+    assert_eq!(id.transform_threads, 1);
+    assert!(!id.used_kernels);
+
+    let resized = run_report(&srgb, Size::new(40, 80).unwrap(), 4);
+    assert_eq!(resized.transform_threads, 4);
+    assert!(resized.used_kernels);
+
+    let p3_id = run_report(&p3, size, 4);
+    assert_eq!(p3_id.transform_threads, 4);
+    assert!(p3_id.used_kernels);
 }
 
 /// An overproducing decoder delivering an extra row must be rejected with
@@ -2004,8 +2009,14 @@ fn identity_passthrough_rejects_surplus_decoder_rows_before_calling_sink() {
 /// `TapTable::build` for both axes) on 6000×4000 geometries and 1:1 identity
 /// execution on 24 MP 8-bit and 12 MP 16-bit synthetic sources.
 ///
-/// Run on both base and head revisions to compare identical planning work:
+/// Run on this revision:
 /// `cargo test --release -p ferrisma --lib bench_issue_284 -- --ignored --nocapture`
+///
+/// To reproduce the base (`cef60399`) column in ADR-0021 on the identical
+/// workload, check out `cef60399` in a temporary worktree, apply the two-part
+/// harness-only patch (change `fn build(` on `TapTable` in `src/fast_execute.rs`
+/// to `pub(crate) fn build(` and append this test function to
+/// `src/fast_execute_tests.rs`), and run the same command.
 #[test]
 #[ignore = "manual benchmark for issue #284"]
 #[allow(clippy::too_many_lines)] // Self-contained micro-benchmark driver.

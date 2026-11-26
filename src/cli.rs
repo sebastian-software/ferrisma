@@ -11,8 +11,8 @@ use std::str::FromStr;
 
 use crate::pipeline::{
     AvifDecoder, AvifOptions, BitDepth, ChromaSubsampling, Crop, EncoderBackend, ImageFormat,
-    InputProfilePolicy, JpegXlLossless, JpegXlLossy, JpegXlOptions, KernelLevel, Output,
-    OutputFormat, OutputGeometry, OutputSettings, ProcessingError, ProcessingErrorKind,
+    InputProfilePolicy, JpegXlLossless, JpegXlLossy, JpegXlOptions, KernelLevel, KernelLevelReason,
+    Output, OutputFormat, OutputGeometry, OutputSettings, ProcessingError, ProcessingErrorKind,
     RefusalReason, ResizeFilter, Threads, TransformOptions, WebpLossless, WebpOptions,
     WorkingPrecision, transcode, transcode_with,
 };
@@ -629,7 +629,7 @@ fn report_line(output: &Output) -> String {
         report.decoder_full_frame_buffers,
         precision_name(report.working_precision),
         report.encoder_threads,
-        kernel_level_name(report.kernel_level),
+        kernel_level_value(report.kernel_level, report.kernel_level_reason),
         report.transform_threads,
         report.encoder_backend,
         report.decoder_backend,
@@ -660,10 +660,18 @@ fn precision_name(precision: WorkingPrecision) -> &'static str {
     }
 }
 
-/// The `kernel_level=` value; the same names as `--kernel-level=`. Since
-/// 2026-11-16 `KernelLevel` is Ferrisma's own type without `Sve2`, which
+/// The `kernel_level=` value: `"none"` when the 1:1 sRGB identity pass-through
+/// bypassed the resample kernels, otherwise the same names as `--kernel-level=`.
+/// Since 2026-11-16 `KernelLevel` is Ferrisma's own type without `Sve2`, which
 /// no run ever reported (the kernels never select it), so `sve2` is no
 /// longer a value.
+fn kernel_level_value(level: KernelLevel, reason: KernelLevelReason) -> &'static str {
+    if reason == KernelLevelReason::Bypassed {
+        return "none";
+    }
+    kernel_level_name(level)
+}
+
 fn kernel_level_name(level: KernelLevel) -> &'static str {
     match level {
         KernelLevel::Scalar => "scalar",
@@ -1124,9 +1132,12 @@ mod tests {
     #[test]
     fn report_value_names_are_owned_by_the_cli() {
         use super::{
-            color_signal_name, discarded_name, kernel_level_name, precision_name, work_count_value,
+            color_signal_name, discarded_name, kernel_level_name, kernel_level_value,
+            precision_name, work_count_value,
         };
-        use crate::pipeline::{ColorSignal, Discarded, KernelLevel, WorkCount, WorkingPrecision};
+        use crate::pipeline::{
+            ColorSignal, Discarded, KernelLevel, KernelLevelReason, WorkCount, WorkingPrecision,
+        };
         assert_eq!(precision_name(WorkingPrecision::F32), "f32");
         assert_eq!(
             precision_name(WorkingPrecision::F64Reference),
@@ -1139,7 +1150,12 @@ mod tests {
             (KernelLevel::Avx512, "avx512"),
         ] {
             assert_eq!(kernel_level_name(level), name);
+            assert_eq!(kernel_level_value(level, KernelLevelReason::Detected), name);
         }
+        assert_eq!(
+            kernel_level_value(KernelLevel::Scalar, KernelLevelReason::Bypassed),
+            "none"
+        );
         for (signal, name) in [
             (ColorSignal::Cicp, "cicp"),
             (ColorSignal::AssumedSrgb, "assumed-srgb"),

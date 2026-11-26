@@ -815,6 +815,7 @@ fn run<const C: usize>(
         peak_engine_managed_bytes: budget.snapshot().peak,
         explicit_full_frame_intermediates: 0,
         transform_threads: used_threads,
+        used_kernels: true,
         source_time,
         transform_time,
     })
@@ -1070,6 +1071,7 @@ fn run_identity<const C: usize>(
         peak_engine_managed_bytes: budget.snapshot().peak,
         explicit_full_frame_intermediates: 0,
         transform_threads: 1,
+        used_kernels: false,
         source_time,
         transform_time,
     })

@@ -31,6 +31,9 @@ pub(crate) struct QualityReport {
     /// Transform pipeline threads actually used by the executor (`1` for the
     /// sequential, identity and `f64` reference paths).
     pub transform_threads: usize,
+    /// True when the executor dispatched the resample kernels (`false` on the
+    /// 1:1 sRGB identity pass-through and the `f64` reference executor).
+    pub used_kernels: bool,
     /// Wall-clock time inside the source's region reader, excluding the
     /// per-row transform callback: codec decode plus any source wrapper work
     /// such as reorientation or ICC conversion.
@@ -490,6 +493,7 @@ pub(crate) fn execute_quality(
         peak_engine_managed_bytes: budget.snapshot().peak,
         explicit_full_frame_intermediates: 0,
         transform_threads: 1,
+        used_kernels: false,
         source_time,
         transform_time,
     })

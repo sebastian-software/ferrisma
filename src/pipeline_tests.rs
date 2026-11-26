@@ -452,7 +452,7 @@ fn a_backend_receives_the_request_and_every_output_row() {
 
 #[test]
 fn identity_passthrough_reports_one_transform_thread_through_facade() {
-    use crate::pipeline::transcode_with;
+    use crate::pipeline::{KernelLevel, KernelLevelReason, transcode_with};
     let jpeg = include_bytes!("../tests/fixtures/decoder-work/paris-420.jpg");
     let four = Threads::Count(std::num::NonZeroUsize::new(4).unwrap());
     let recorder = backend::Recorder::default();
@@ -470,6 +470,11 @@ fn identity_passthrough_reports_one_transform_thread_through_facade() {
     )
     .unwrap();
     assert_eq!(identity.report.transform_threads, 1);
+    assert_eq!(identity.report.kernel_level, KernelLevel::Scalar);
+    assert_eq!(
+        identity.report.kernel_level_reason,
+        KernelLevelReason::Bypassed
+    );
 
     let resized = transcode_with(
         jpeg,
@@ -484,6 +489,10 @@ fn identity_passthrough_reports_one_transform_thread_through_facade() {
     )
     .unwrap();
     assert_eq!(resized.report.transform_threads, 4);
+    assert_ne!(
+        resized.report.kernel_level_reason,
+        KernelLevelReason::Bypassed
+    );
 }
 
 #[test]
