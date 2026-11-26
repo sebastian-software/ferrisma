@@ -54,7 +54,7 @@ Updated 2026-11-16 to the surface after the API reshaping of that date
 with a constructor or `Default` and `with_*` methods and read with getters;
 every report type is `#[non_exhaustive]` with public fields.
 
-| Item | Kind | Proposed 1.0 tier | Notes |
+| Item | Kind | Tier (binds from 1.0.0) | Notes |
 | --- | --- | --- | --- |
 | `transcode`, `inspect` | fn | Stable | Borrow their options (`&TransformOptions`, `&InspectionLimits`) since 2026-11-16; `transcode_resized` is `transcode` with `OutputGeometry::Resize` since then (ADR-0034) |
 | `InspectionLimits`, `ImageMetadata` | struct, struct | Stable | JPEG and WebP only; `InspectionLimits` in the construction style, `ImageMetadata` non-exhaustive |
@@ -101,13 +101,13 @@ foreign path).
 `cli::run(args, backend)` is public so adapter crates can ship the same
 command, and since 2026-11-16 `cli::main(args, backend) -> ExitCode` runs it
 and prints the error and chooses the exit status as the binary does (the
-binary and `ferrisma-libavif` call it). Proposed tier for both:
+binary and `ferrisma-libavif` call it). Tier for both:
 experimental and `#[doc(hidden)]` candidates (problem 12); the binary's
 command line, not these functions, is the stable CLI contract.
 
 ### Cargo features
 
-| Feature | Proposed 1.0 tier | Toolchain |
+| Feature | Tier (binds from 1.0.0) | Toolchain |
 | --- | --- | --- |
 | `jpeg-read`, `webp-read`, `webp-write`, `icc` | Stable | Stable 1.99 (1.98 before 2026-11-15) |
 | `jpeg-xl-read` | Stable as "JPEG XL input"; since 2026-11-15 the workspace libjxl-rs reader, the only one (ADR-0032) | Stable 1.99 (1.98 before 2026-11-15) |
@@ -117,7 +117,7 @@ command line, not these functions, is the stable CLI contract.
 
 ### Command line (`ferrisma` binary, `cli` feature)
 
-| Element | Proposed tier |
+| Element | Tier (binds from 1.0.0) |
 | --- | --- |
 | Positional `INPUT OUTPUT WIDTH HEIGHT`; input format from the extension (`jpg`, `jpeg`, `webp`, `jxl`, `avif`); output from `.avif` or `.webp` | Stable |
 | `--assume-srgb`, `--use-rendered-icc` | Stable |
@@ -141,7 +141,7 @@ command line, not these functions, is the stable CLI contract.
 
 ## Decision
 
-Proposed, pending maintainer review:
+Accepted as the working policy (owner, 2026-11-26). 0.x pre-releases come first (owner, 2026-11-24); the tiers below bind from 1.0.0 on, and every item marked "Tier not decided" is treated as experimental until the owner decides it (the open questions list them):
 
 1. **Tiers.** Items marked stable above are covered by SemVer from 1.0.0 on.
    Experimental items are documented as such in rustdoc and in the
@@ -194,7 +194,7 @@ Proposed, pending maintainer review:
    `EncodedImage` already were. Consumers that matched these enums
    exhaustively need a wildcard arm; nothing in the workspace did.
 
-## Problems to resolve before 1.0 (recommendations, not applied)
+## Problems to resolve before 1.0 (recommendations; each is marked Done or Not implemented)
 
 These change signatures or behavior and therefore need a maintainer
 decision. Items 1, 2, 7, and 10 should be settled before 1.0.0 because they
@@ -250,14 +250,14 @@ owner requires of the API review before 1.0.
    experimental and version both crates together. _Since 2026-11-15 (owner
    decision O3, ADR-0041):_ all packages share one version, which
    [release automation](../release-automation.md) noted makes this problem
-   moot; the recommendation to define the enums in `ferrisma` stays open.
+   moot; the recommendation to define the enums in `ferrisma` was followed (below).
    _Not moot (API review of 2026-11-16):_ one shared version does not stop
    a caret requirement from resolving a published `ferrisma` to a later
    kernels or bridge release whose API changed, and the bridges follow no
    SemVer of their own. Since 2026-11-16 `ferrisma` requires the kernels and
    the four bridges with `=` (amendment of that date, item 4); the
    kernel-level enums are still foreign types in `ferrisma`'s API, so the
-   recommendation to define them in `ferrisma` stays open. _Done on
+   recommendation to define them in `ferrisma` was followed. _Done on
    2026-11-16 (amendment of that date, item 4):_ `ferrisma` defines both
    enums; no foreign type remains in its API.
 8. **Raw CICP.** `ImageMetadata::rendered_cicp` is `Option<[u8; 4]>`.
@@ -278,7 +278,7 @@ owner requires of the API review before 1.0.
     duplicate the same configuration.** Recommendation: one type. _Done on
     2026-11-15:_ the depth is `AvifOptions::depth` only; `LibavifBackend`
     reads it from the request.
-12. **`cli::run` is a public library function** returning
+12. **`cli::run` is a public library function (still public; not implemented)** returning
     `Box<dyn Error>`. Recommendation: `#[doc(hidden)]` or move it to the
     binary's crate if adapters no longer need it.
 13. **CLI help.** _Since 2026-11-16 (amendment of that date):_ `--help`
@@ -292,7 +292,7 @@ owner requires of the API review before 1.0.
     `--max-output-mb` use MiB, while `--max-input-mpx` uses 10^6 pixels.
     Recommendation: document the units (now in the compatibility guide) or
     rename with explicit units.
-15. **CLI filter and fit flags.** `--area` is a lone switch, the CLI cannot
+15. **CLI filter and fit flags (not implemented: `--area` remains; `--kernel-level=avx512` exists).** `--area` is a lone switch, the CLI cannot
     express `ResizeFit`, and `--kernel-level` lacks `avx512` (added 2026-11-13
     as the AVX-512 opt-in, ADR-0020 decision D6).
     Recommendation: `--filter=area|lanczos3` and `--fit=inside|cover|fill`
@@ -378,18 +378,10 @@ open); a new output format, color policy, or backend
 is added; the first functional crates.io release is prepared; or a consumer
 reports that a stable item cannot express its use case.
 
-## Current state (finalized 2026-11-26)
+## Open questions
 
-This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
-
-- **Release order (owner, 2026-11-24).** 0.x pre-releases come first. The SemVer tiers in this ADR bind from 1.0.0 on; until then every item is experimental in practice and may change in a 0.x release (ADR-0041 decides when 1.0.0 may be used).
-- **Items marked "Tier not decided" are treated as experimental** until the owner decides: `WebpOptions::DEFAULT_METHOD`/`MAX_METHOD`; `JpegXlOptions` distance constants, `depth()`, `with_depth()`; `BitDepth`; `ProcessingReport::decoder_work` and `DecoderWork`; `WorkCount`; `input_depth`/`output_depth`; the `avif-read` and `avif-write` features; the `cli` feature; `--jxl-depth`; the error lines on standard error; `--help`; `--version`; the `decoder_work:` line. Decisions 1 to 7 and the 2026-11-12 to 2026-11-22 API-shape amendments are the working policy.
-- Corrections: the table says thirteen `RefusalReason` variants and the code has thirteen (an amendment line says twelve); `AvifOptions::depth` is `BitDepth`, not `Option<u8>`; `cli::run` is still public without `#[doc(hidden)]`; the `--filter`/`--fit` names of problem 15 are not implemented (`--area` remains).
-
-### Open questions
-
-- The tiers listed above.
-- Problem 4 (the `_with` twins), problem 6 (additive accessors), `--version` tier, units in the compatibility guide, `cli::run` visibility, streaming entry points and CLI output atomicity.
+- Tiers not decided (treated as experimental until the owner decides): `WebpOptions::DEFAULT_METHOD`/`MAX_METHOD`; `JpegXlOptions` distance constants, `depth()`, `with_depth()`; `BitDepth`; `DecoderWork`; `WorkCount`; `input_depth`/`output_depth`; the `avif-read`, `avif-write` and `cli` features; `--jxl-depth`; the error lines; `--help`; `--version`; the `decoder_work:` line.
+- Problem 4 (the `_with` twins), problem 6 (additive accessors), units in the compatibility guide, `cli::run` visibility (problem 12), `--filter`/`--fit` (problem 15), streaming entry points and CLI output atomicity (problem 16). The public API review is tracked in #271.
 
 ## Amendment log
 
@@ -901,4 +893,4 @@ This record is a living record. Where the text above differs from the code on `m
   and the CLI's `decoder=` for AVIF input are `libavif/dav1d` by default
   (were `libavif/aom` for every AVIF read); `libavif/aom` names the libaom
   reference when selected. Tiers unchanged.
-- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.

@@ -18,14 +18,14 @@ Introduce a small, dependency-free **inspection layer**, separate from pixel con
 
 1. Parse H.273/CICP as typed primary, transfer, matrix and Boolean range fields. Preserve unknown code points, including unsupported matrices or limited-range sRGB-like values; do not "normalize" them to sRGB.
 2. Classify the exact signaling combinations currently relevant to our pipeline: RGB full-range sRGB `[1,13,0,1]`, Display P3 `[12,13,0,1]`, and BT.2100 PQ/HLG with recognized RGB or BT.2020 YCbCr matrices. These are *descriptors*, not implementations.
-3. Inspect ICC data with checked lengths, the `acsp` signature, declared size and tag-table boundary; extract only header fields. **Do not claim this validates a whole ICC profile or allows any ICC conversion.** Full parsing and transform correctness belong to a future color management engine.
+3. Inspect ICC data with checked lengths, the `acsp` signature, declared size and tag-table boundary; extract only header fields. **Do not claim this validates a whole ICC profile or allows any ICC conversion.** Transform correctness belongs to the color management engine (moxcms, ADR-0016).
 4. When both ICC and CICP are present, preserve both. No default precedence or equivalence is assumed; the selected decoder and its output-profile semantics must define that policy.
 5. Return a typed *linear-sRGB readiness/requirement* decision: reference ready, gamut conversion needed, HDR handling needed, ICC engine needed, dual-signal resolution needed, missing metadata, unsupported signal, or malformed metadata.
 6. Use that decision as the **single source of truth** for the existing strict `LinearSrgb` graph operation and executor guard. All non-ready cases remain rejected. Existing `EncodedSamples` execution is unchanged and still does not imply color fidelity.
 
 `DecoderInfo` must describe *rendered output pixel values*, not merely original encoded tags. `DecoderInfo::rendered_color_signal` avoids copying profile payloads when inspecting. For example, if a JPEG XL adapter requests a converted output profile through a CMS, the resulting emitted pixel metadata must match that output profile.
 
-This is an **experimental internal contract**, not a supported API, and does not bring a CMM, tone mapper, ICC transform, SIMD/GPU implementation, or new dependency.
+This inspection step adds no CMM, tone mapper or ICC transform by itself (the transform lives in ADR-0016). `ColorSignal`, `RefusalReason` and `ProcessingReport::color_signal` are part of the public facade (ADR-0017, ADR-0040).
 
 ## Consequences
 
@@ -34,8 +34,8 @@ This is an **experimental internal contract**, not a supported API, and does not
 + Distinguishes code-point classification from actual decoder work and from color-managed pixel transformation.
 + ICC inspection is bounded and does not materialize or convert pixels.
 - Header-level ICC inspection cannot check all tags, profile validity, rendering intent or color-equivalence.
-- The current source/graph still clone ICC payload into `Arc` storage, which must be capped and accounted for in a future resource-safety review.
-- ICC/CICP precedence, arbitrary ICC, HDR reference white, out-of-gamut handling, and alpha in linear working space remain unsolved.
+- The current source/graph still clone ICC payload into `Arc` storage, which is not capped for every format (only AVIF has a 16 MiB cap).
+- ICC/CICP precedence is decided per format (owner, 2026-11-15), out-of-gamut values are preserved and alpha in linear working space is handled (ADR-0014, ADR-0016). HDR reference white is not implemented: PQ and HLG are refused.
 
 ## Alternatives considered
 
@@ -56,16 +56,9 @@ This is an **experimental internal contract**, not a supported API, and does not
 
 A real decoder exposes a usable output-profile transform API; an ICC parser/CMM is selected; a reference-white and output-intent model for PQ/HLG is defined; metadata sizes cause large allocations; or evidence demonstrates that an explicitly supported profile precedence policy can be standardized per adapter.
 
-## Current state (finalized 2026-11-26)
+## Open questions
 
-This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
-
-- Out of date and corrected here: a CMS exists (moxcms, ADR-0016), so this ADR no longer excludes a CMM or an ICC transform; `ColorSignal`, `RefusalReason` and `ProcessingReport::color_signal` are public. ICC/CICP precedence and the XYB enum-sRGB question were decided by the owner on 2026-11-15 (see the amendment log). The default JPEG XL decoder is the libjxl-rs port. ICC-signalled JPEG XL fixtures exist under `tests/fixtures/parity`.
-- Still not implemented: HDR reference white (PQ/HLG are refused).
-
-### Open questions
-
-- A cap on the ICC payload held in `Arc` storage (only AVIF has one, 16 MiB): not implemented.
+- A cap on the ICC payload held in `Arc` storage for formats other than AVIF is not implemented and no issue tracks it.
 
 ## Amendment log
 
@@ -85,7 +78,7 @@ This record is a living record. Where the text above differs from the code on `m
 
 **Change.** The jxl-oxide adapter now derives CICP from the header's enum encoding (the renderer uses it unchanged, because the adapter never requests another encoding), maps white point and primaries together (`D65 + P3 -> 12`, `DCI + P3 -> 11`), and reports no CICP when the encoding came from an ICC profile or has no exact H.273 code. The libjxl-rs adapter reports only its rendered ICC, whose `cicp` tag carries the code points. Under the rendered-ICC policy, CICP beside the profile must agree with it (ADR-0016, 2026-11-12); the strict policy still refuses every JPEG XL input, because both adapters always describe their output with an ICC profile.
 
-**Evidence.** No JPEG XL encoder is available on the host, so `tests/fixtures/jxl-color` respells only the enum color encoding of two independently encoded files (lossless modular and lossy XYB) with a documented header rewriter. `src/jxl_color_tests.rs` runs every check against each compiled decoder: declared signals (P3, PQ, HLG, linear sRGB, DCI-P3; the P3 case failed before the adapter change); exact known lossless samples reproduced through each decoder's ICC within `2e-3` linear of the independent oracle (P3 and linear sRGB); both decoders identical on XYB rendered into Display P3; PQ, HLG and DCI-P3 rejected under both policies (PQ was converted before the CICP check). ICC-signalled JPEG XL files are covered by the source review above only: writing a fixture needs a JPEG XL ICC-stream encoder. **The default JPEG XL decoder may change for v1.0 (#55)**; the tests take the decoder as a parameter, so the same expectations apply to either. Re-evaluate when jxl-oxide changes `cicp()` or its default output encoding, when the adapter requests an output encoding, or when ICC-signalled fixtures become available.
+**Evidence.** No JPEG XL encoder is available on the host, so `tests/fixtures/jxl-color` respells only the enum color encoding of two independently encoded files (lossless modular and lossy XYB) with a documented header rewriter. `src/jxl_color_tests.rs` runs every check against each compiled decoder: declared signals (P3, PQ, HLG, linear sRGB, DCI-P3; the P3 case failed before the adapter change); exact known lossless samples reproduced through each decoder's ICC within `2e-3` linear of the independent oracle (P3 and linear sRGB); both decoders identical on XYB rendered into Display P3; PQ, HLG and DCI-P3 rejected under both policies (PQ was converted before the CICP check). ICC-signalled JPEG XL files are covered by the source review above only: writing a fixture needs a JPEG XL ICC-stream encoder. **The workspace libjxl-rs port is now the only JPEG XL decoder**; the tests were written against two decoders. ICC-signalled JPEG XL fixtures exist under `tests/fixtures/parity`. Re-evaluate when jxl-oxide changes `cicp()` or its default output encoding, when the adapter requests an output encoding, or when ICC-signalled fixtures become available.
 
 ## 2026-11-12: review of the v1.0 integration
 
@@ -318,4 +311,4 @@ reports any more. Evidence: `tests/fixtures/parity/rgb-icc-cicp-p3.jpg`
 `refusal_reason_tests` and `format_parity::a_contradicting_cicp_tag_inside_the_profile_is_refused`.
 `ColorSignal::RenderedIccWithAgreeingCicp` is no longer produced by a
 built-in reader and is kept for one that reports CICP beside a profile.
-- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.

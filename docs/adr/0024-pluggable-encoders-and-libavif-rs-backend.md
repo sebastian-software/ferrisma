@@ -20,10 +20,10 @@ Verified facts on 2026-11-06:
 
 ## Decision
 
-1. **Encoders are pluggable at the row boundary.** The public `EncoderBackend` trait (`format()`, `begin(&EncodeRequest) -> Box<dyn RowEncoder>`, `name()`) and `RowEncoder` trait (`write_row(y, rgba)`, `finish() -> EncodedImage`) receive the finished straight-alpha sRGB8 RGBA rows top to bottom, after Ferrisma's decode, color, crop, resample and quantization. `transcode_with` and `Engine::transcode_batch_with` take a backend; `transcode` selects the built-in `rav1e` or still WebP sink. `EncodeRequest` carries output format, typed WebP settings, size, alpha, AVIF quality and speed, resolved encoder threads and chroma layout; each backend validates quality and speed on its own scale. Backend errors keep their kind (`InvalidOptions`, `ResourceExhausted`, `Failed`) and message through `ProcessingError`. The report names the encoder (`encoder_backend`), and the CLI (`ferrisma::cli::run`) takes an optional backend, so an adapter ships the same command and report line.
+1. **Encoders are pluggable at the row boundary.** The public `EncoderBackend` trait (`format()`, `begin(&EncodeRequest) -> Box<dyn RowEncoder>`, `name()`) and `RowEncoder` trait (`write_row(y, rgba)`, `finish() -> Result<EncodedImage, EncodeError>`) receive the finished straight-alpha RGBA rows (8 bits, or one deeper integer depth since 2026-11-15) top to bottom, after Ferrisma's decode, color, crop, resample and quantization. `transcode_with` and `Engine::transcode_batch_with` take a backend; `transcode` selects the built-in `rav1e` or still WebP sink. `EncodeRequest` carries output format, typed WebP settings, size, alpha, AVIF quality and speed, resolved encoder threads and chroma layout; each backend validates quality and speed on its own scale. Backend errors keep their kind (`InvalidOptions`, `ResourceExhausted`, `Failed`) and message through `ProcessingError`. The report names the encoder (`encoder_backend`), and the CLI (`ferrisma::cli::run`) takes an optional backend, so an adapter ships the same command and report line.
 2. **libavif-rs lives behind an isolated adapter crate.** Since ADR-0026, `crates/ferrisma-libavif` belongs to the common workspace, uses its pinned nightly, and depends on `codecs/libavif-rs` and Ferrisma by local paths. Its original separate workspace and Git pin are superseded. The adapter contains all `unsafe` calls, each with its safety argument and every libavif object owned by a guard. The core crate keeps `#![forbid(unsafe_code)]`. Its codec-free and feature sets without `avif-read`/`cli` support stable Rust 1.98; AVIF input and the libavif encoder adapter need the pinned nightly on supported native targets. Do not use a workspace-wide `--all-features` run as a stable-toolchain check. The backend collects one RGBA frame, converts it with `avifImageRGBToYUV` and encodes with `avifEncoderWrite`; its signals match the `rav1e` sink (CICP 1/13/6, full range, 10 bits by default). `maxThreads` follows the request, and libavif's automatic tiling is on unless one thread was requested, as tiles are for `rav1e`.
-3. **No AVIF input next to libavif-rs (2026-11-06 restriction).** The original adapter enabled only JPEG and JPEG XL input while `avif-read` used `avif-decode`/`rav1d`. [ADR-0031](0031-workspace-libavif-input-experiment.md) supersedes this restriction: AVIF input now uses libavif/AOM through a separate safe wrapper, so it can share the encoder adapter's binary. The combined CLI feature set still needs its own scoped link and behavior check.
-4. **`rav1e` stays the default for AVIF output** in `transcode`, and the core does not depend on the adapter. Switching the default needs the adapter to meet the remaining ADR-0018 gates (stable toolchain, safe API) or an explicit maintainer decision.
+3. **Dropped: no AVIF input next to libavif-rs (2026-11-06 restriction).** The original adapter enabled only JPEG and JPEG XL input while `avif-read` used `avif-decode`/`rav1d`. [ADR-0031](0031-workspace-libavif-input-experiment.md) supersedes this restriction: AVIF input now uses libavif/AOM through a separate safe wrapper, so it can share the encoder adapter's binary. The combined CLI feature set still needs its own scoped link and behavior check.
+4. **Dropped: `rav1e` as the default AVIF encoder.** `rav1e` left the engine on 2026-11-15; the built-in AVIF writer is libavif/AOM ([ADR-0037](0037-selectable-workspace-avif-encoder.md)).
 
 ## Consequences
 
@@ -71,22 +71,15 @@ Verified facts on 2026-11-06:
 
 With one thread, libavif-rs speed 6 takes 21–50 % longer than `rav1e`: its AOM has no SIMD yet.
 
-- The decision is falsified if libavif-rs at its matched setting is not smaller than `rav1e` at equal score on real photographs, or if a backend can change the pixels Ferrisma produced.
+- The decision is falsified if a backend can change the pixels Ferrisma produced. (The comparison with `rav1e` is obsolete; `rav1e` is removed.)
 
 ## Review when
 
 The remaining triggers are a stable libavif toolchain or safe API, material changes to its SIMD or AOM profile, a change in the combined AVIF input/output behavior, or evidence that a streaming YUV path to AOM is worth the materialized RGBA frame. The VMAF profile, SIMD, WebP output, and AVIF input triggers have already been reviewed in the amendments below.
 
-## Current state (finalized 2026-11-26)
+## Open questions
 
-This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
-
-- Decision 4 (rav1e stays the default) is superseded by ADR-0037: rav1e left the engine on 2026-11-15 and the built-in AVIF writer is libavif/AOM. Decision 3 (no AVIF input) is superseded by ADR-0031. Backend rows are 8-bit or one deeper integer depth, not only sRGB8 (2026-11-15/16); `RowEncoder::finish` returns `Result<EncodedImage, EncodeError>`. The falsifier "not smaller than rav1e" is obsolete.
-
-### Open questions
-
-- A direct YUV-to-AOM path (#60) is not implemented and unmeasured.
-- The ADR-0025 acceptance criteria for libavif-rs (timing, memory, binary size, license) are not all recorded.
+- A direct YUV-to-AOM path is unmeasured and not implemented: #60.
 
 ## Amendment log
 
@@ -173,4 +166,4 @@ This record is a living record. Where the text above differs from the code on `m
   With the option redesign of the same day the request carries
   `output: OutputSettings` (only the selected format's settings) instead of
   a format and the settings of all three formats.
-- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.

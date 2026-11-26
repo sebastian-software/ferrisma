@@ -15,13 +15,13 @@ The project could lose years building generic extensibility, GPU frameworks or c
 
 Start with a **synthetic, codec-free source → crop → reference resize → sink** pipeline. A synthetic source enables precise accounting of region requests and pixel work. Provide an executor-owned budget and plan trace. The first real adapter should be selected based on decoder API quality and licensing, with a preference for modern JPEG XL, AVIF or WebP paths rather than JPEG benchmark parity.
 
-Do not add a public fluent API, Node.js bindings, CLI (see the 2026-11-05 amendment), GPU device abstraction, decoder registry or multi-format benchmark suite as initial prerequisites. Start as a single Rust crate and split crates only after a demonstrable dependency or build boundary emerges.
+The slice excluded a public fluent API, Node.js bindings, a CLI (added since, ADR-0017), a GPU device abstraction, a decoder registry and a multi-format benchmark suite. Node.js bindings, a GPU abstraction and a decoder registry remain excluded. The single-crate rule is replaced by the workspace of ADR-0026.
 
 ## Consequences
 
 + Tests the most important contracts before introducing codec and FFI complexity.
 + Gives a baseline for measuring region pruning and allocations.
-- Early demos will not process arbitrary image files and should not be presented as feature-complete.
+- The slice itself processed synthetic data only; the CLI now processes JPEG, WebP, JPEG XL and AVIF files.
 
 ## Alternatives considered
 
@@ -43,13 +43,7 @@ The first internal implementation is intentionally **Gray8-only**, uses a scalar
 
 Tests include an independent eager resize oracle, chained resize + downstream crop, 100-million-row synthetic input without source materialization, severe vertical downscale without expanding intermediate row gaps, invalid geometry, memory pressure, sink cancellation, and atomic reservation safety. These test the architectural contract, **not** real decoder behavior or image quality across color spaces.
 
-The subsequent [planar-source experiment](0011-borrowed-planar-surface-contract.md) validates non-contiguous, byte-strided borrowed 10-bit YUV planes and even-origin crops without changing the Gray8 executor or granting any codec capability claims. Real decoder lifetime guarantees, encoded output backpressure, phase-aware crops/resizing, and multiple consumers of a shared node are still open.
-
-## Current state (finalized 2026-11-26)
-
-This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
-
-- The slice has served its purpose. The public facade and CLI that this ADR excluded exist (ADR-0017); the single-crate rule was replaced by the workspace of ADR-0026; real files of four formats are processed. Still excluded: Node.js bindings, a GPU device abstraction, a decoder registry. Still open from the slice: phase-aware crops and resizing, and multiple consumers of a shared node (not implemented).
+The subsequent [planar-source experiment](0011-borrowed-planar-surface-contract.md) validates non-contiguous, byte-strided borrowed 10-bit YUV planes and even-origin crops without changing the Gray8 executor or granting any codec capability claims. Decoder row lifetimes were settled by ADR-0012. Phase-aware crops and resizing, and multiple consumers of a shared node, are not implemented.
 
 ## Amendment log
 
@@ -57,4 +51,4 @@ This record is a living record. Where the text above differs from the code on `m
 - 2026-10-31 — Added a bounded scalar vertical-slice experiment; unresolved contracts remain explicitly provisional.
 - 2026-10-31 — Cross-linked the borrowed planar-source experiment (ADR-0011).
 - 2026-11-05 — The vertical slice has served its purpose for M1: [ADR-0017](0017-minimal-public-facade-and-cli.md) now admits one minimal `pipeline::transcode` facade and a `cli`-gated binary. A fluent API, Node.js bindings, GPU abstraction, decoder registry and multi-format benchmark suite remain excluded, and the single-crate rule still holds.
-- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.

@@ -26,7 +26,7 @@ Investigate a **composable, semantic color-transform stage**, in which:
 
 Initial implementation should start with a scalar SDR Display P3 (D65, sRGB transfer) to linear-sRGB reference, independently verified color matrices, and a minimal region-based transform contract. The first native ICC backend can then be evaluated (e.g. `moxcms`), but its API must not dictate graph semantics.
 
-This ADR is **not Accepted** until the reference and at least one real codec's output profile are validated.
+The reference and a real output profile are validated (oracles; `tests/icc_photo.rs`).
 
 ## Consequences
 
@@ -58,17 +58,11 @@ This ADR is **not Accepted** until the reference and at least one real codec's o
 
 Real codec and encoder dataflow makes the proposed format contract too expensive, if a CMS exposes a better typed interface, or when HDR and GPU residency require distinct working-space semantics.
 
-## Current state (finalized 2026-11-26)
+## Open questions
 
-This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
-
-- Implemented: `working_color.rs`, the `ToLinearSrgb` / `WorkingLinear` / `ToSrgb8` graph path, moxcms with extended range, relative colorimetric intent fixed (owner 2026-11-15), the 768-entry channel table with its bound, reference oracles and a photograph test (`tests/icc_photo.rs`). The acceptance condition (reference plus one real output profile validated) is met on that evidence.
-- Not implemented: data residency on image edges, declared source and destination meaning on transform nodes (the meaning lives in the semantics descriptor).
-
-### Open questions
-
-- LUT-based profiles beyond one synthesized profile, a larger photograph corpus and an HDR rejection corpus remain unvalidated.
-- Whether the ICC stage, which runs serially in front of the row pipeline, moves into the workers.
+- LUT-based profiles beyond one synthesized profile, a larger photograph corpus and an HDR rejection corpus are not validated; no issue tracks them (broader color work: #113).
+- Data residency on image edges is not implemented, and transform nodes carry no declared source and destination meaning (it lives in the semantics descriptor).
+- The ICC stage runs serially in front of the row pipeline; moving it into the workers is not done.
 
 ## Amendment log
 
@@ -86,7 +80,7 @@ A dependency-free scalar `src/working_color.rs` proof now decodes tagged sRGB or
 
 ## 2026-10-31: pipeline implementation, still under review
 
-PR #11 experimentally connects `ToLinearSrgb → WorkingLinear(Area/Lanczos3) → ToSrgb8` with real decoder rows and an explicit AVIF frame-materialization sink. The scalar reference preserves out-of-gamut intermediate colors and alpha association until final output quantization. A contract test uncovered **nonmonotonic minimum input indices at exact Lanczos zero crossings**, requiring the scanline cache to retain any row needed by *any remaining* output row. No general planner optimization, unlimited-memory guarantee, full orientation handling or arbitrary profile conversion is implied. The ADR stays **Proposed** pending independent quality and resource validation.
+PR #11 experimentally connects `ToLinearSrgb → WorkingLinear(Area/Lanczos3) → ToSrgb8` with real decoder rows and an explicit AVIF frame-materialization sink. The scalar reference preserves out-of-gamut intermediate colors and alpha association until final output quantization. A contract test uncovered **nonmonotonic minimum input indices at exact Lanczos zero crossings**, requiring the scanline cache to retain any row needed by *any remaining* output row. No general planner optimization, unlimited-memory guarantee, full orientation handling or arbitrary profile conversion is implied. Independent quality validation followed (see the amendments below).
 
 ### Region footprint correction
 
@@ -236,4 +230,4 @@ This resolves open question 1 of [ADR-0042](0042-no-silent-loss-refuse-or-report
 - *The intent in the profile header.* The header field is often an unset
   default rather than an author's choice, so it is not a reliable signal
   of intent.
-- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.

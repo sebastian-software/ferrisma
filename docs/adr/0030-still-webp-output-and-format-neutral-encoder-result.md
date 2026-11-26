@@ -12,11 +12,11 @@ The implemented pipeline only exposed an AVIF byte field and compiled `rav1e` ev
 
 ## Decision
 
-Keep the existing ordered, straight-alpha sRGB8 `RowEncoder` boundary. `pipeline` and `EncoderBackend` compile without `avif-write`. `Output` carries `format` and `bytes`; `EncoderBackend::format` and `EncodedImage::format` must agree with the requested format. `EncodeRequest` carries the format and typed WebP settings to external backends too. Built-in output chooses AVIF or WebP explicitly. AVIF retains its existing quality, speed, chroma, and threading behavior. WebP uses separate `WebpOptions`: lossy quality/speed or lossless level, which has no quality setting. WebP rejects explicit AVIF chroma and multiple encoder threads.
+Keep the existing ordered, straight-alpha sRGB8 `RowEncoder` boundary. `pipeline` and `EncoderBackend` compile without `avif-write`. `Output` carries `format` and `bytes`; `EncoderBackend::format` and `EncodedImage::format` must agree with the requested format. `EncodeRequest` carries the `OutputSettings` (format and typed settings) to external backends too (ADR-0040, 2026-11-16). Built-in output chooses AVIF or WebP explicitly. AVIF retains its existing quality, speed, chroma, and threading behavior. WebP uses separate `WebpOptions`: lossy quality/speed or lossless level, which has no quality setting. WebP rejects explicit AVIF chroma and multiple encoder threads.
 
 The WebP sink fills one budgeted ARGB frame, then reserves the predictable YUV420(A) plane size before lossy encoding. It sets `exact(true)` to preserve the filtered RGB under zero alpha. The codec may still allocate opaque scratch. The bounded writer stops before the configured encoded-output limit; AVIF and external backends are checked after they return because their APIs materialize their result. The sink wraps the image with the committed sRGB2014 ICC profile through the port's muxer. It does not copy source ICC, EXIF orientation, or XMP. The final encoded result is a caller-owned buffer outside the managed pixel-memory budget; the report names the known encoder frame materialization and flags opaque memory.
 
-This decision does not implement animation, metadata passthrough, WebP SharpYUV, or direct YUV-to-AOM. Issue #60's measured choice on direct AOM encoding remains open.
+Not implemented: animation, metadata passthrough, WebP SharpYUV, direct YUV-to-AOM (#60).
 
 ## Alternatives
 
@@ -37,17 +37,11 @@ Focused tests exercise WebP lossy and lossless output, ICC payload equality, met
 
 Review if WebP's API exposes bounded scratch, a lower-copy mux path, a real streaming encode, or a supported richer color-output contract; if the committed ICC's provenance is unsuitable for distribution; or when direct AOM YUV measurement resolves the remaining part of issue #60.
 
-## Current state (finalized 2026-11-26)
+## Open questions
 
-This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
-
-- `EncodeRequest` carries `OutputSettings` since ADR-0040's 2026-11-16 amendment, not just the format and WebP settings. Not implemented: animation, metadata passthrough, WebP SharpYUV, a direct YUV-to-AOM path.
-
-### Open questions
-
-- Issue #60's measured choice for the WebP/AVIF conversion path remains open.
+- Direct YUV-to-AOM encoding: #60.
 
 ## Amendment log
 
 - 2026-11-11 — Initial experimental still WebP output and encoder-result decision.
-- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.

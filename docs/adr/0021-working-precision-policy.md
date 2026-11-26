@@ -43,37 +43,22 @@ What Ferrisma takes from them: the `i16 x i16 -> i32` multiply-accumulate shape 
 
 ### 1. `f32` is the general working type
 
-Every fast path works in `f32` unless rule 2 applies. `f64` remains only in the scalar reference executor and in tests. Specifically:
+Every fast path works in `f32`. `f64` remains only in the scalar reference executor and in tests. Specifically:
 
 - 8-bit input decodes through the 256-entry `f32` table (rule 3); F32 input (JPEG XL float) decodes with the extended sign-preserving sRGB EOTF computed in `f32` per sample; Display P3 input adds the folded P3 to sRGB matrix in `f32`.
 - Filter weights are normalized in `f64` and stored as `f32`. Kernels may sum taps in any order and with any fusion; `f32` paths are therefore *not* required to be bit-identical to each other, only bounded against the oracle (rule 4).
 - Straight alpha is premultiplied in `f32` linear light, filtered as a fourth channel, and divided out in `f32` with the oracle's `alpha > 1e-12` rule.
 - Output encodes through the exact `f32` encoder of rule 3 after clamping to `[0, 1]`.
 
-### 2. The Q1.14 fixed-point path and when the planner may choose it
+### 2. The Q1.14 fixed-point path: dropped
 
-**Representation.** Linear light is stored as `i16` with 14 fractional bits (Q1.14: `1.0 = 16384`, representable range `[-2, 2)`), for both the decoded source samples and the horizontal intermediate rows. Weights are `i16` with a per-axis precision `p` (14, 15 or 16 fractional bits), each row of integer weights summing to exactly `2^p` (the largest tap absorbs the rounding difference), so that a constant region reproduces its code exactly. Accumulation is `i32`. Each pass rounds half up: add `2^(p-1)`, arithmetic shift right by `p`. The vertical result is clamped to `[0, 16384]` and encoded through the 16385-entry table of rule 3. Display P3 decodes through seven folded product tables in `i32` with 30 fractional bits (the two zero matrix entries need none), summed and rounded once to Q1.14. The kernel table of ADR-0020 lists `u16` as the linear integer sample type; this ADR fixes it as signed `i16` Q1.14, because Display P3 decodes to negative values and Lanczos3 rows overshoot in both directions.
-
-**Eligibility.** The planner may choose Q1.14 only when all of the following hold; otherwise the plan uses `f32`:
-
-1. Source samples are `U8` (not `F32`, not 10- or 16-bit).
-2. The source color is CICP sRGB `[1, 13, 0, 1]` or Display P3 `[12, 13, 0, 1]`; the output is sRGB8.
-3. The layout is opaque RGB. Any alpha channel disqualifies the plan: the straight-alpha division amplifies the half-LSB rounding of premultiplied RGB and alpha by `1 / alpha`, and the experiment measures up to 31 codes of error at alpha 1 to 25 (section E8), even at identity geometry.
-4. The per-plan interval bound holds. For each axis the planner quantizes the weights at the largest `p <= 16` whose largest `|weight|` fits `i16`, then lowers `p` (not below 14) until the accumulator interval, computed by interval arithmetic on the *integer* weights over the integer input range, fits `i32`. The input range of the horizontal pass is the decode table range (`[0, 16384]` for sRGB, `[-3687, 20071]` for Display P3, from the cube corners widened by one LSB); its output range including rounding must fit `i16` rows (`|value| <= 32767`) and becomes the input range of the vertical pass, whose accumulator must fit `i32` at its own `p`. If no `p >= 14` satisfies this, or the row range does not fit, the plan uses `f32`.
-5. The filter's taps are known at plan time (true for Area and Lanczos3).
-
-For the M1 filters and both color encodings rule 4 never rejects a plan in the experiment: the largest planner bound seen is `0.965 * 2^31` (Display P3 at 2x with `p = 16`), the largest row bound `0.810 * 32767`; the observed peaks are `0.754 * 2^31` and `0.773 * 32767`. Precision pairs chosen over the 312 fixed-point runs: `(16, 16)` 195 times, `(15, 15)` 39, `(14, 16)` 26, `(14, 14)` 52 (identity and upscale, where the largest weight is 1.0 or more).
-
-**Determinism.** Integer arithmetic is associative, so every Q1.14 kernel (scalar, NEON, SVE2, AVX2, AVX-512, any tile shape or thread count) must produce bit-identical output to the scalar Q1.14 implementation, provided the kernel contract of ADR-0020 preserves the rounding points (one rounding after each pass, none inside the accumulation). This is the "bit-exact for integer paths" of the M2 acceptance contract: bit-exact across implementations, and bounded (rule 4) against the `f64` oracle. Bit-exactness against the oracle is impossible for any path with different rounding points, and the milestone wording should be amended to say so (follow-up outside this ADR).
+Dropped on 2026-11-06 by this ADR's own review trigger (the fused Q1.14 chain was not faster than `f32`). Only `f32` paths exist; the plan reports `f32`.
 
 ### 3. Lookup tables
 
 | Table | Shape | Definition | Verification |
 | --- | --- | --- | --- |
 | sRGB8 to linear, `f32` | 256 x `f32` (1 KiB) | `decode_srgb(code / 255)` computed in `f64`, cast to `f32` | Entry-wise equality with the `f64` reference cast to `f32` (the measured relative error is `5.2e-8`, pure `f32` rounding) |
-| sRGB8 to linear, Q1.14 | 256 x `i16` (512 B) | `round(decode_srgb(code / 255) * 16384)` | Entry-wise equality with the reference; 256 distinct values (codes 0 and 1 map to 0 and 5); max error `3.05e-5` linear = 0.10 dark-end code steps; decode followed by the exact encoder round-trips all 256 codes |
-| Display P3 8-bit to linear sRGB | 7 x 256 x `i32` (Q.30, 7 KiB) and 7 x 256 x `f32` | `m[o][i] * decode_srgb(code / 255)` for the seven non-zero entries of the folded CSS Color 4 matrix product; summed per output channel, rounded once | Exhaustive over all `2^24` triples: the Q1.14 result is within 0.5 LSB of the unrounded `f64` value, and equals `round(f64 * 2^14)` except for 113 of 50,331,648 entries that differ by one LSB (values within `9e-8` of a rounding midpoint); the `f32` result is within `1.22e-7` linear |
-| Linear Q0.14 to sRGB8 | 16385 x `u8` (16 KiB) | `encode_linear_srgb8(q / 16384)` for `q` in `0..=16384` | Exact by construction for every value the Q1.14 path can produce; verified exhaustively over the 16385 inputs |
 | Linear `f32` to sRGB8, exact | 4097 x `u8` bucket table + 257 x `f32` thresholds (5 KiB) | bucket `b = floor(x * 4096)` gives the code at the bucket's lower edge; `threshold[c]` is the smallest `f32` whose reference encoding is `>= c`; result is `code[b] + (x >= threshold[code[b] + 1])`. The construction asserts that no bucket spans more than one code. | Exhaustive over every `f32` in `[0, 1]` (1,065,353,217 values): 0 mismatches against `encode_linear_srgb8(x as f64)`, 0.6 s on 20 threads |
 
 No table is interpolated. Tables are generated from the `f64` reference functions and checked against them by tests; a committed table that drifts from the reference fails the test. The sizes keep every table in L1 on the target hardware.
@@ -100,7 +85,7 @@ Rule E documents an oracle imperfection found by the experiment: `final_rgba` di
 
 ### 5. The plan reports the precision
 
-The processing report names, per resize stage, `f32` or `q1.14` with the chosen `(p_h, p_v)`, and the reason when `f32` was chosen for a Q1.14-eligible source (alpha, F32 input, bound rejected). This is acceptance item 5 of the M2 milestone.
+The processing report names the working precision (`WorkingPrecision`, `f32`).
 
 ## Consequences
 
@@ -110,8 +95,6 @@ The processing report names, per resize stage, `f32` or `q1.14` with the chosen 
 + The planner's interval bound is cheap (one pass over the quantized taps) and turns overflow safety into a per-plan proof instead of a global assumption.
 + Tables total under 30 KiB and are verified exhaustively, so a wrong entry cannot survive the tests.
 - Two working types plus the oracle to maintain; the Q1.14 kernels are a second kernel set in ADR-0020.
-- Q1.14 is limited to opaque 8-bit sRGB and Display P3 input with sRGB8 output. Alpha, F32, 10-bit and HDR go to `f32`.
-- About 4 % of samples in dark regions (up to 9 % at single geometries) and about 0.5 % of samples on full-range content differ from the oracle by one code in Q1.14.
 - `f32` SIMD output can differ between ISAs by one code at ties; differential tests compare each path to `f64`, not to each other.
 - The speed advantage of Q1.14 is a hypothesis until work package 3 measures it; if it does not materialize the path is dropped (see Review when).
 
@@ -153,13 +136,13 @@ on an Apple M1 Ultra (20 threads), macOS 27.0, rustc 1.100.0-nightly (5a2be9f5f 
 | E7 filter gain | Lanczos3: `G = 1.28571`, `N = 0.28571`, max weight `1.2824` (input 4, output 5, position 2); large ratios `G -> 1.18`; Area `G = 1`. Worst-case interval propagation: sRGB rows within `[-0.2857, 1.2857]` (21065 of 32767), vertical accumulator `0.867 * 2^31` at `p = 16`; Display P3 rows within `[-0.6392, 1.6392]` (26857), vertical `1.145 * 2^31` at `p = 16` and `0.573 * 2^31` at `p = 15`, which is why rule 2.4 bounds each plan exactly instead of capping `p` globally. |
 | E8/E9 full chains, 17 inputs x 12 geometries x 2 filters, 19.8 million output samples per input | `f32`: max one code on every input; pooled exact share 99.91 % on the gradient, 99.94 % on dark noise, at least 99.99 % on every other input including F32 input; per geometry 99.42 % worst (gradient at 2x). Q1.14, opaque inputs: max one code everywhere, no sample off by two; pooled exact share 96.13 % on dark noise, 98.73 % on the gradient, 99.35 % to 99.99 % on everything else, 100 % at identity for sRGB; pooled mean absolute error at most 0.039; per geometry 90.95 % worst (gradient at 2x). Q1.14, RGBA inputs: max 31 codes, 64.8 % exact where the reference alpha is 1 to 25, max one to three codes elsewhere; `f32` RGBA: max one code, 100 % exact in the low-alpha buckets, alpha channel 99.13 % exact pooled. Largest accumulator observed `0.754 * 2^31` against a largest planner bound of `0.965 * 2^31`; largest row `0.773 * 32767` against `0.810`. |
 
-**Before Experimental** (work package 3): the kernel crate implements both paths with the representation of rule 2 and the tables of rule 3; a differential test suite encodes rules A to F verbatim, with the experiment's generators as fixtures; the planner implements the eligibility rules and the plan report of rule 5.
+**Done:** the kernel crate implements the `f32` path and the tables of rule 3; the differential suite encodes the bound.
 
-**Before Accepted:** the end-to-end benchmark of work package 0 shows the Q1.14 gain over `f32` on the three hardware classes; the benchmark corpus is added to the bound's input set and its Q1.14 threshold recorded; SSIMULACRA2 and Butteraugli on the AVIF output confirm that one-code differences do not move the quality-matched comparison.
+**Not recorded:** the benchmark corpus is not part of the bound's input set, and no photograph-corpus threshold is written down.
 
 ## Review when
 
-- Work package 3 measures the fused Q1.14 chain at less than 1.25x the `f32` chain's throughput on every hardware class: drop the Q1.14 path and its kernels, keep `f32` and the oracle.
+- Fired on 2026-11-06: the fused Q1.14 chain was measured and dropped; `f32` and the oracle stay.
 - A source with more than 8 bits per sample (AVIF 10-bit, JPEG XL 16-bit) should run in fixed point: Q1.14 cannot resolve a 10-bit dark step (`7.6e-5` linear is 1.2 LSB), so this needs a new representation and its own experiment.
 - The output is not sRGB8 (10-bit AVIF, 16-bit, float output) or the input is PQ/HLG: the encoder tables and the headroom analysis are sRGB8-specific.
 - A new filter or stage with larger negative lobes (sharpening, Lanczos with more lobes) enters the chain: the per-plan bound still applies, but the row format may reject plans, and the gain constants in this ADR must be re-measured.
@@ -300,17 +283,6 @@ at `:82`); its PNM reader takes the depth from `maxval`
 nearest admitted depth below where the output cannot hold the input's
 (16-bit to AVIF gives 12, as `avifenc` does for a 16-bit PNG).
 
-## Current state (finalized 2026-11-26)
-
-This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
-
-- Rule 2 (the Q1.14 path) was dropped on 2026-11-06 by this ADR's own review trigger; all text describing Q1.14 tables, eligibility or kernels is withdrawn and is not how the code works. Working precision is `f32` with exact LUTs and the testable bound against the `f64` oracle (implemented in `fast_execute.rs` and `working_color.rs`). The plan reports `f32` only.
-
-### Open questions
-
-- The photograph-corpus threshold for the bound is not recorded.
-- A NEON/AVX2 deep quantizer kernel: not implemented.
-
 ## Amendment log
 
 - 2026-11-05 — Initial proposal: `f32` as the working type, a Q1.14 fixed-point path for opaque 8-bit sRGB and Display P3 input with a per-plan integer interval bound, exact lookup tables, and a testable bound, backed by the precision experiment.
@@ -318,4 +290,4 @@ This record is a living record. Where the text above differs from the code on `m
 - 2026-11-05 — First implementation: `src/fast_execute.rs` (scalar `f32`, rule 1 and the `f32` tables of rule 3) passes rules A to E in `fast_execute_tests` against the `f64` oracle on 16 inputs, 11 geometries and both filters. Rule E is restated per executor: at an exact alpha tie the oracle may round to 0 and the `f32` path to 1, which rule A permits; each side must emit RGB 0 behind its own zero alpha, and RGB is compared only where both alphas are nonzero.
 - 2026-11-06 — **Q1.14 dropped (rule 2 withdrawn).** The first review trigger fired: work package 3 measured the Q1.14 chain below 1.25× the `f32` chain on every hardware class. Prototype kernels (`i16` samples and weights, `i32` sums, one rounding shift; plain loops vectorized by LLVM inside each level's `#[target_feature]` entry, bit-identical across levels) were timed by `crates/ferrisma-kernels/examples/bench.rs` on a 6000×4000 to 1600×1067 Lanczos3 resample, horizontal + vertical ms, f32 against Q1.14: Apple M1 NEON 61.7 + 13.6 against 61.9 + 11.3 (1.03×); x86-64 hosted runner ([run 42179398696](https://github.com/sebastian-software/ferrisma/actions/runs/42179398696)) AVX2 53.2 + 15.6 against 126.9 + 8.0 (0.51×) and AVX-512 37.7 + 13.2 against 83.8 + 5.9 (0.57×); `ubuntu-24.04-arm` (Neoverse with SVE2) NEON 78.3 + 20.1 against 124.7 + 14.5 (0.71×). The vertical integer pass was faster everywhere (1.2–2.2×), the horizontal integer pass slower everywhere: one tap per pixel costs one instruction in both formats on NEON, and the `f32` FMA kernels with two or four taps per vector beat LLVM's integer code on x86-64. A hand-written `vpmaddwd` horizontal kernel was not tried; it is the condition for reopening rule 2 (new review trigger: a hand-written integer horizontal kernel measured faster than the `f32` one on some hardware class). Rule 1 (`f32` everywhere), rule 3's `f32` tables and the bound of rule 4 for `f32` paths stand and are implemented; the Q1.14 tables, eligibility rules and report fields are not built. The precision experiment stays as evidence.
 - 2026-11-15 — Output depth follows the input (owner decision): one quantization for every depth, `u16` rows above 8 bits, per-depth shares of rules B to D with rule A unchanged, the public depth fields and the backend additions; see the amendment above. The 8-bit path is unchanged bit for bit.
-- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.

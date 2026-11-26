@@ -12,7 +12,7 @@ Modern codecs expose different ways to avoid work. JPEG XL, AVIF and WebP also d
 
 ## Decision
 
-Explore **versioned, capability-reporting adapters**. The planner may request a region, target resolution, representation or progressive quality only when the specific decoder API advertises it; adapters must accurately declare fallback costs and granularity. Encoders similarly declare acceptable inputs, buffering requirements and streaming properties.
+Use **capability-reporting adapters** (`DecoderInfo`, `DecodeAccess`; no version field). The planner may request a region, target resolution, representation or progressive quality only when the specific decoder API advertises it; adapters must accurately declare fallback costs and granularity. Encoders declare their rows and depths through `EncoderBackend` and `RowEncoder` (ADR-0024); streaming properties are not declared.
 
 The core's pixel contract must account for:
 
@@ -22,7 +22,7 @@ The core's pixel contract must account for:
 - alpha semantics and precision/quality requirements;
 - residency and whether a view is borrowed, owned or device-resident.
 
-Treat layout negotiation as an **optimization under correctness constraints**. Do not assume YUV-to-YUV resizing is automatically equivalent to a chosen RGB/linear-light reference. Where quality requires a conversion, perform it and record it in the plan. Prioritize modern format families; historical JPEG-specific optimization is not a launch requirement.
+Layout negotiation is **not implemented**; if it is added it is an **optimization under correctness constraints**. Do not assume YUV-to-YUV resizing is automatically equivalent to a chosen RGB/linear-light reference. Where quality requires a conversion, perform it and record it in the plan. Prioritize modern format families; historical JPEG-specific optimization is not a launch requirement.
 
 ## Consequences
 
@@ -49,16 +49,9 @@ For each adapter record decoder version/license/safety, output layout, region gr
 
 Real adapters require substantially different contracts or the model forces unnecessary color conversions in common modern-format workflows.
 
-## Current state (finalized 2026-11-26)
+## Open questions
 
-This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
-
-- Implemented: capability-reporting source adapters (`DecoderInfo`, `DecodeAccess`), `ChannelLayout` in the pixel format, the borrowed `Yuv420P10` surface and chroma siting. Not implemented: data residency (borrowed, owned, device) in the pixel contract, layout negotiation and chroma-aware YUV resampling.
-- The color parts of this ADR are carried by ADR-0013 to 0016. The statement that linearization and premultiplied alpha stay unresolved is out of date: both are implemented (ADR-0014, ADR-0016). ICC/CICP precedence is decided per format (ADR-0015); HDR (PQ/HLG) is refused.
-
-### Open questions
-
-- Whether residency and layout negotiation stay in scope; today they are not implemented and no code needs them.
+- Data residency (borrowed, owned, device) in the pixel contract, layout negotiation and chroma-aware YUV resampling are not implemented and no issue tracks them. Whether they stay in scope is the owner's call.
 
 ## Amendment log
 
@@ -80,4 +73,4 @@ The sRGB-alpha experiment exposed a concrete architectural ambiguity: `Interleav
 ## 2026-10-31: typed output color evidence
 
 [ADR-0015](0015-typed-output-color-signals.md) adds code point classification and no-allocation ICC header inspection to distinguish sRGB, Display P3, BT.2100 PQ/HLG and untrusted/dual profile signals. Its planning result only describes **requirements**, not a working CMM. Decoder adapters must describe emitted samples after any codec-level color conversion. The decision about a full working-space, ICC precedence and HDR reference luminance remains Proposed.
-- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.

@@ -8,7 +8,7 @@
 
 ## Context
 
-Ferrisma has no WebP input. The workspace now contains `libwebp-rs`, a BSD-3-Clause port of the libwebp reference implementation. Its safe API exposes image features, a still-image crop decoder, and container ICC and EXIF. The prior plan required a pinnable external revision (issue #86); ADR-0026's committed monorepo path and compatible package version now provide the same reproducible dependency identity through the shared lockfile. The old external-tag gate is therefore obsolete for this workspace adoption, while independent publication remains separate.
+Ferrisma has no WebP input. The workspace now contains `libwebp-rs`, a BSD-3-Clause port of the libwebp reference implementation. Its safe API exposes image features, a still-image crop decoder, and container ICC and EXIF. The prior plan required a pinnable external revision (issue #86); ADR-0026's committed monorepo path and compatible package version now provide the same reproducible dependency identity through the shared lockfile. The old external-tag gate is therefore obsolete for this workspace adoption, while independent publication of the port is not decided.
 
 ## Decision
 
@@ -40,15 +40,9 @@ Focused adapter tests compare odd and interior crops with a full decode for loss
 
 Review if the port changes crop memory or row-work behavior, its color conversion or metadata semantics change, alpha formats or association rules change, animation enters scope, or measured crop cost justifies incremental compressed-input streaming.
 
-## Current state (finalized 2026-11-26)
+## Open questions
 
-This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
-
-- Implemented as described (`webp-read`, feature in `cli`; the package behind `libwebp-rs` is `ferrisma-libwebp`). A row-callback decode that keeps only the requested rows is not implemented; crops of lossy files use the codec region request, lossless files fall back to full frames.
-
-### Open questions
-
-- Independent publication of the port and incremental compressed-input streaming remain undecided.
+- A row-callback decode that keeps only the requested rows is not implemented; incremental compressed-input streaming is not decided (review trigger above).
 
 ## Amendment log
 
@@ -77,4 +71,4 @@ known full frame. The previous text says only that crop output is budgeted; it
 did not say how large the lossy crop buffer becomes for a low crop. A
 row-callback decode that keeps only the requested rows would remove most of that
 buffer; it is not implemented.
-- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.

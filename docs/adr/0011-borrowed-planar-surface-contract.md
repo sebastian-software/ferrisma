@@ -25,7 +25,7 @@ This is a limited proof-of-contract, **not** an accepted universal surface repre
 + Establishes a working Rust ownership boundary between immutable graph state and decoder/caller-owned pixels.
 + Verifies byte stride and planar 4:2:0 geometry without unsafe casts or RGB copies.
 + Keeps color and 10-bit representation visible to future planning decisions.
-- An extra type-specific execution function exists until a real adapter motivates a general executor contract.
+- An extra type-specific execution function (`execute_planar10`) exists; no real decoder produces planar data yet, so a general executor contract is not motivated.
 - Odd-origin crop and planar resizing are rejected rather than approximated.
 - Only one unpacked LE format and CPU-resident byte slices are represented.
 
@@ -44,17 +44,7 @@ Run differential scalar sample tests, zero-copy row identity checks, non-contigu
 
 The first real decoder requires packed/tiled data or a shorter borrowing lifetime; multiple sources require a binding registry; phase-aware crops or resampling expose different semantic geometry; or the type-specific source executor starts duplicating significant planning logic.
 
-## Current state (finalized 2026-11-26)
-
-This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
-
-- The contract is implemented as written (`Planar10Source`, `Yuv420P10`, `execute_planar10`); no real decoder produces planar data yet, only tests do. Planar resize remains refused.
-
-### Open questions
-
-- Whether a contract with no producing decoder stays as it is until the first decoder needs it (the review triggers in this ADR still apply).
-
 ## Amendment log
 
 - 2026-10-31 — Introduced a narrow borrowed YUV420P10 source and crop-only experiment. Retain broader codec and color negotiation decisions as Proposed under ADR-0005.
-- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.

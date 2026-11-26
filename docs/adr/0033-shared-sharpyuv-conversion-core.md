@@ -35,17 +35,11 @@ Local macOS ARM64 evidence: cross-port tests pass 2,880 combinations plus signed
 
 Review after native Linux and full original consumer gates, if either codec changes SharpYUV version or CPU dispatch policy, if the C ABI offers checked buffer extents, or if measured time/peak memory warrants a narrower scratch representation. Re-run the independent C oracle and immutable-source checks for every numeric change.
 
-## Current state (finalized 2026-11-26)
+## Open questions
 
-This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
-
-- Implemented: `crates/libsharpyuv-core` (`ferrisma-sharpyuv`, `forbid(unsafe_code)`), WebP wrappers over it, and the AVIF adapter using the same loop.
-
-### Open questions
-
-- Whether the native GNU Linux and complete original WebP consumer verification gates have passed is not recorded here; adoption proceeded.
+- The record does not state whether the native GNU Linux and complete original WebP consumer verification (the adoption gates) have passed; the workflows `avif-sharpyuv.yml` and `nightly-avif.yml` exist, but no issue tracks the gate.
 
 ## Amendment log
 
 - 2026-11-11 — Extracted the single safe production conversion core and kept format-specific adapters and the generated mechanical reference. Adoption remains conditional on the stated gates.
-- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.

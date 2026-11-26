@@ -25,9 +25,9 @@ RGB or RGBA into a caller-owned buffer. It selects the primary image item
 explicitly and rejects files carrying tracks, so container color, orientation,
 and extent metadata refer to the decoded item. Ferrisma's private AVIF source owns the
 pixel buffer under `MemoryBudget`, reports a full-frame fallback, and borrows
-rows from it. AVIF input remains an optional, native-target and nightly-only
-feature while the codec port has those requirements. The codec-free engine and
-features without `avif-read`/`cli` retain stable Rust 1.98; the engine contains no `unsafe`.
+rows from it. AVIF input remains an optional, native-target
+feature (it builds on stable Rust 1.99 since 2026-11-15, libavif-rs ADR 0060). The codec-free engine and
+features without `avif-read`/`cli` retain stable Rust 1.99; the engine contains no `unsafe`.
 
 The independent `avif_meta` parser still reads container color and transform
 properties. A handwritten same-module libavif helper prepares the selected
@@ -58,8 +58,7 @@ conformance or justify a universal performance claim.
 - The encoder adapter and AVIF input can link without selecting `rav1d`.
 - The engine budget covers its full RGB output and F32 row scratch, while
   libavif and libaom scratch and retained compressed data remain opaque.
-- An AVIF input build requires the pinned nightly on supported macOS ARM64 or
-  GNU Linux x86-64. Codec-free and builds without `avif-read`/`cli` remain stable-compatible.
+- An AVIF input build requires supported macOS ARM64 or GNU Linux x86-64 targets (stable Rust 1.99; the nightly requirement ended on 2026-11-15).
 - `avif-parse` is removed. The handwritten sample helper is included in the
   port's generated module selectors; translated `read.rs` bytes and hashes
   remain unchanged. Selector hashes are updated in the translation manifests.
@@ -101,16 +100,9 @@ is validated; module generation or sample ownership changes; native parity or
 measured behavior changes the decoder choice; or
 an AVIF feature needs another platform.
 
-## Current state (finalized 2026-11-26)
+## Open questions
 
-This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
-
-- Current state: the workspace dav1d port is the default AVIF decoder since 2026-11-22 and libaom stays selectable; the Argon record of 2026-11-23 exists. The text about an own reader being the default, "not decided which decoder the engine uses", and "not done yet: still depends on libavif-dav1d" is superseded by the 2026-11-22 amendment. AVIF input is no longer nightly-only: it builds on stable Rust 1.99 for native targets (libavif-rs ADR-0060). Crops are full-frame fallbacks.
-
-### Open questions
-
-- Closure of issue #54 and the wider quality and memory comparison; the stock-dav1d performance statement.
-- Alpha without `irot` is not decided to fail closed.
+- Alpha without `irot` is not decided to fail closed (no issue). AVIF decode memory outside the managed budget: #199.
 
 ## Amendment log
 
@@ -302,4 +294,4 @@ This record is a living record. Where the text above differs from the code on `m
   for selecting the dav1d port is satisfied, and the exception of 2026-11-22 to
   ADR-0025 point 1 is resolved. The large-scale-tile, stress and error streams
   were not run.
-- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.

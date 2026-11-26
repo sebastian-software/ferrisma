@@ -15,7 +15,7 @@ The research notes of 2026-10-31 named candidates but chose no dependency. PR #1
 
 - **libavif-rs:** complete port with Rust AOM, dav1d and SharpYUV; validated as a whole pipeline on macOS ARM64 and, since 2026-11-06 (`f3b2981`), on GNU Linux x86-64 for six Cargo feature sets. It exposes the original unsafe C ABI, requires nightly Rust and sets `publish = false`.
 - **libjxl-rs:** complete public decoder API and decoder C ABI with exact parity against libjxl; thread runners in review; no encoder yet. Its Rust API is provisional (`jxl::jxl` module tree) and the crate is not publishable.
-- **libwebp-rs:** does not exist yet. WebP input and output are planned as a third port of libwebp 1.6.0 following the libjxl-rs method ([plan](../research/2026-11-05-libwebp-port-plan.md)); the libavif-rs repository already pins the same libwebp revision for SharpYUV.
+- **libwebp-rs:** exists in the workspace and is adopted for WebP input and output (ADR-0029, ADR-0030).
 
 Verified facts (2026-11-05, `main` at 9291c33):
 
@@ -45,14 +45,14 @@ Keep every codec and CMS behind its own Cargo feature, off by default:
 Rules that apply to all of them:
 
 1. **Ferrisma owns color and geometry semantics.** Where a crate does not expose what the emitted samples mean, Ferrisma reads the evidence itself. For AVIF, a dependency-free, bounds-checked parser (`codecs/avif_meta.rs`) reads primary-item `colr`, `ispe`, `irot`, `imir`, and `clap`; a same-module helper in the pinned libavif port reads the selected AV1 color samples' sequence headers before pixel decode. Contradictory signals, unsupported transforms and unknown essential properties fail closed ([ADR-0031](0031-workspace-libavif-input-experiment.md)).
-2. **Third-party codecs are interim.** _Amended 2026-11-15: jxl-oxide and rav1e left the runtime (ADR-0032, ADR-0037); jxl-oxide is a test-only cross-check, and no third-party codec remains in the runtime._ The default JPEG XL reader `jxl-oxide` and default AVIF encoder `rav1e` remain interim runtime choices; `avif-decode` and `avif-parse` have been removed from the AVIF input graph. Still WebP input and output use workspace libwebp-rs. Adapters must stay replaceable without public API impact. The local libjxl-rs decoder is an explicit opt-in while ADR-0025's remaining gates are open; its encoder is not complete. `rav1d-safe` remains a historical fallback candidate, not the current AVIF reader.
+2. **Third-party codecs are interim.** _Amended 2026-11-15: jxl-oxide and rav1e left the runtime (ADR-0032, ADR-0037); jxl-oxide is a test-only cross-check, and no third-party codec remains in the runtime._ `avif-decode`, `avif-parse`, `rav1e` and `zune-jpeg` are gone from the graph. WebP input and output use workspace libwebp-rs. Adapters must stay replaceable without public API impact. `rav1d-safe` remains a historical fallback candidate, not the current AVIF reader.
 3. **Adoption gates for the sister ports.** Ferrisma switches a codec when the port provides (a) a safe Rust API, or a small isolated adapter crate, because this package forbids `unsafe`; (b) a stable Rust toolchain; (c) a dependency Ferrisma can pin (published crate, pinned git revision, or committed workspace path/version); (d) evidence on Ferrisma's CI targets; and (e) exposed rendered color, orientation and alpha semantics, so that Ferrisma-side parsing such as `avif_meta.rs` becomes unnecessary or is cross-checked.
 
    The 2026-11-11 AVIF input integration is explicitly experimental while
    gate (b) and full native/conformance evidence remain open; it is not a
    declaration that final selection under ADR-0025 has finished.
 4. **License gate.** Strong copyleft stays blocked by `scripts/audit-licenses.py`. MPL-2.0 `avif-parse` was a historical review item for the former AVIF input graph, not a current runtime dependency or an allowlist entry ([license audit](../license-audit.md)). The AGPL-3.0/commercial `jxl-encoder` remains unapproved; JPEG XL output needs its own ADR. The AGPL-3.0/commercial `zenjpeg` and `zenwebp` are unapproved for the same reason.
-5. **MSRV.** Declare `rust-version = 1.98` for the single crate for now, and keep the MSRV CI job. Do not split crates only to lower the core MSRV before a consumer needs it (ADR-0008).
+5. **MSRV.** Declare `rust-version = 1.99` (raised from 1.98 on 2026-11-15, ADR-0040) for the single crate for now, and keep the MSRV CI job. Do not split crates only to lower the core MSRV before a consumer needs it (ADR-0008).
 6. **Lockfile.** Commit `Cargo.lock`. The package ships a binary, CI and benchmarks need reproducible dependency versions, and the license inventory must refer to an exact version set.
 
 ## Consequences
@@ -88,16 +88,9 @@ Before **Accepted**: complete transitive license and NOTICE review for the curre
 
 Review the active dependency graph when libavif-rs or libjxl-rs meets the remaining adoption gates (safe API, stable toolchain, pinnable release), the libjxl-rs encoder lands, another decoder exposes useful planar output and container metadata, a consumer needs an older engine MSRV, a dependency changes license, the adopted libwebp-rs path changes its parity, crop, color or memory contract, or a consumer needs JPEG output or expanded WebP output. The former `avif-decode` MSRV and `avif-parse` MPL triggers apply only if that historical graph is restored.
 
-## Current state (finalized 2026-11-26)
+## Open questions
 
-This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
-
-- Rust version is 1.99 (ADR-0040 amendment), not 1.98. `libwebp-rs` exists and is adopted (ADR-0029, 0030). The sentence that jxl-oxide and rav1e remain interim defaults is out of date: both left the runtime on 2026-11-15; jxl-oxide is a test-only dependency; `ravif` is no longer a dependency of the root crate. AVIF features build on stable (libavif-rs ADR-0060) and are restricted to native targets.
-- Adoption of the ports is recorded in ADR-0025, 0032, 0037 and 0039.
-
-### Open questions
-
-- License/NOTICE review for `jpeg-xl-write` (#66), broader ICC validation (LUT, HDR) and the final selection gates of ADR-0025 for AVIF remain open.
+- Broader ICC validation (LUT profiles, HDR input) is not done: #113.
 
 ## Amendment log
 
@@ -123,7 +116,7 @@ This record is a living record. Where the text above differs from the code on `m
   the workspace libavif/AOM writer as an explicit `avif-own-write` facade and
   CLI choice through an independent safe bridge. The codec-free and
   stable-compatible feature sets do not acquire the nightly native writer.
-  Rav1e remains the default and ADR-0025's final selection gates remain open.
+  Rav1e has left the runtime (ADR-0037).
 - 2026-11-12 — [ADR-0039](0039-jpeg-xl-output-through-the-workspace-encoder.md)
   settles the separate JPEG XL output gate: opt-in `jpeg-xl-write` uses the
   workspace libjxl-rs encoder's verified lossless effort-2 profile through a
@@ -136,4 +129,4 @@ This record is a living record. Where the text above differs from the code on `m
 - 2026-11-15 — Owner decision (ADR-0032): `jxl-oxide` and `jxl-grid` are no longer runtime dependencies. `jpeg-xl-read` now compiles the workspace `ferrisma-jxl-decoder` → `libjxl-rs` reader, which was `jpeg-xl-own-read` (working decision on the name, delegated); `jxl-oxide` 0.12.6 stays as a `[dev-dependencies]` entry for independent cross-checks in tests, and as the existing dev-dependency of `ferrisma-jxl-decoder` for the benchmark's context column. The jxl-oxide crates (21 packages) left the fuzz crate's lockfile; the root lockfile keeps them for the dev-dependency.
 - 2026-11-15 — Owner decision (ADR-0037): `rav1e` and `avif-serialize` are no longer dependencies; `avif-write` now compiles the workspace `ferrisma-avif-write` → `libavif-rs` writer, which was `avif-own-write` (working decision on the name, delegated). NASM is no longer a prerequisite of any engine feature. `ravif` stays a test-only dev-dependency (it pulls rav1e without assembly into test builds). 62 package entries left the fuzz crate's lockfile with rav1e (83 with the jxl-oxide entry above); the root lockfile lost `nasm-rs`.
 - 2026-11-15 — Decision 5 (MSRV) is superseded by the owner's MSRV decision of this date, recorded in [ADR-0040](0040-stable-public-contract-and-compatibility-policy.md): `ferrisma` declares `rust-version = "1.99"` for every feature (AVIF's C-variadic functions), and the codec ports published on their own declare their measured floors.
-- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.

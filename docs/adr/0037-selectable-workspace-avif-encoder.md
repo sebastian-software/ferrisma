@@ -24,8 +24,7 @@ reports checked simultaneous RGBA and YUV(A) sample bytes, and returns owned
 encoded bytes or typed errors. The existing `ferrisma-libavif` adapter delegates
 to that bridge, preserving its backend API. No generated codec source changes.
 
-*The default in this section was replaced on 2026-11-12; see
-[Default switch](#default-switch-2026-11-12-pending-owner-confirmation).*
+*Historical: the selection described in this section was dropped on 2026-11-15; the workspace AOM writer is the only AVIF writer (see [The only AVIF writer](#the-only-avif-writer-2026-11-15-owner-decision)).*
 
 The engine's optional `avif-own-write` feature selects the same bridge through
 its existing encoder backend and reservation seam. `AvifEncoder` explicitly
@@ -41,8 +40,7 @@ matrix, straight alpha and requested 4:4:4 or 4:2:0. Frame bytes are reserved
 before allocation and held through encoding; encoded output and opaque codec
 scratch are not bounded by that reservation. `max_output_bytes` is checked
 after encoding. Codec-free and features without the native AVIF reader or
-writer remain compatible with Rust 1.98; own AVIF requires the pinned nightly
-and the supported native targets.
+writer remain compatible with Rust 1.99; the AVIF writer requires the supported native targets (the nightly requirement ended on 2026-11-15).
 
 ## Consequences
 
@@ -50,7 +48,7 @@ The common facade, batch API and CLI can select the own encoder without a
 cycle. `TransformOptions` gains a public field: exhaustive struct literals
 must supply it or use `..Default::default()`. This is a source compatibility
 change to the experimental API. Existing default selection and quality scales
-stay unchanged. The native writer retains its nightly and target restrictions.
+stay unchanged. The native writer retains its target restriction.
 The compatibility crate retains its backend type and CLI without selector flags.
 
 ## Alternatives and trade-offs
@@ -76,7 +74,7 @@ integration evidence, not an encoder conformance corpus.
 This selection is opt-in and does not complete ADR-0025's cross-architecture
 corpus, quality, performance, memory, binary-size, or release/license gates.
 
-## Default switch (2026-11-12, pending owner confirmation)
+## Default switch (2026-11-12, dropped: `rav1e` and `AvifEncoder` were removed on 2026-11-15)
 
 The owner's direction for v1.0 (2026-11-12) is to ship the engine on the
 project's own four codec ports by default, keep external backends
@@ -120,14 +118,9 @@ is applied now, without waiting for its timing evidence:
   runs; independent FFmpeg/libdav1d, libheif and rav1d decodes of every
   semantics output; about 1.5 MB smaller binaries when the own AVIF reader is
   linked.
-- **Gates that stay open:** wall time with one thread and all cores and peak
-  RSS on quiet native ARM64 and x86-64 hosts, with at least one 12–48 MP
-  photograph; the hosted golden evidence (#134); a direct YUV-to-AOM path
-  (#60); a stable toolchain or targets beyond macOS ARM64 and GNU Linux x86-64
-  for the own writer. rav1e is not removed (ADR-0025 point 4); it stays the
-  AVIF encoder for stable-toolchain and other-target builds.
-- **Pending owner confirmation:** applied on a best estimate of the stated
-  direction; reversible by restoring the Rav1e `Default` of `AvifEncoder`.
+- **Gates:** wall time and peak RSS on quiet native hosts were not recorded; the hosted golden evidence (#134) is closed; a direct YUV-to-AOM path is not implemented (#60); the stable toolchain is met; targets beyond macOS ARM64 and GNU Linux x86-64 are not supported. rav1e was removed on 2026-11-15; the stable-toolchain
+  condition is met.
+- This default switch is superseded by the 2026-11-15 owner decision below.
 
 Tests: `pipeline_tests::a_backend_receives_the_request_and_every_output_row`
 asserts the default encoder name per feature set;
@@ -266,15 +259,9 @@ Re-evaluate the default switch if the owner rejects the unmapped quality
 scale, if quiet-host timing shows a regression the owner does not accept, or
 if hosted x86-64 golden evidence fails.
 
-## Current state (finalized 2026-11-26)
+## Open questions
 
-This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
-
-- Sections "Default switch" and the selection text (rav1e default, `AvifEncoder`, `avif-own-write`) are history: since 2026-11-15 libavif/AOM is the only AVIF writer, rav1e is removed, and the features are `avif-write`. Nightly is no longer required (Rust 1.99, native targets only). `AvifOptions::depth` is `BitDepth`, not `Option<u8>`. The bridge-crate decision (`ferrisma-avif-write`) is implemented.
-
-### Open questions
-
-- A direct YUV-to-AOM path (#60), hosted golden evidence (#134), wall time and peak RSS on quiet hosts, and targets beyond macOS ARM64 and GNU Linux x86-64 are open.
+- A direct YUV-to-AOM path: #60.
 
 ## Amendment log
 
@@ -336,4 +323,4 @@ This record is a living record. Where the text above differs from the code on `m
   `--chroma=` removed; `LibavifBackend` without its own depth. Closes #216.
 - 2026-11-15 — The workspace AVIF port builds on stable Rust 1.99 or later (libavif-rs [ADR 0060](../../codecs/libavif-rs/docs/adr/0060-build-the-translations-on-stable-rust.md)): the "pinned nightly" requirements above and the known cost of the rav1e removal (no AVIF on a stable toolchain) no longer apply; the native-target restriction stays. CI checks `avif-read`, `avif-write` and `cli` with `cargo +1.99.0`. Working decision 2026-11-15 (delegated, revisable by the owner).
 - 2026-11-15 — The fixed default depth 8 (working decision above) is replaced by the owner's decision of the same day: the depth follows the input, as `avifenc` does (`apps/shared/avifpng.c:376`-`382`: 8 for 8-bit input, 12 for deeper PNG; Y4M keeps its own, `apps/avifenc.c:706`), 8, 10 or 12, and the writer receives `u16` rows at that depth (`avifRGBImage::depth` = image depth); `AvifOptions::depth` is `Option<u8>`. The bytes of a 10- and a 12-bit encode equal the C original's for the same samples (`ferrisma_avif_write::deep_output_equals_the_c_original`, `tests/fixtures/avif-deep/`). 8-bit input keeps its bytes. See the ADR-0021 amendment.
-- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.

@@ -14,7 +14,7 @@ Modern CPUs offer efficient cache hierarchies and SIMD; GPUs provide throughput 
 
 Begin with a **bounded CPU executor** that uses demand-driven regions, work units suited to locality, and measured thread concurrency. Prefer a scalar correctness baseline; add architecture-specific SIMD implementations only with repeatable wins and equivalent output. Do not embed threadpool decisions into individual graph operators.
 
-Make the execution plan represent **data residency, transfers and synchronization** so a future GPU executor can be added without changing graph semantics. Treat a GPU backend as a later measured experiment, not a version-one dependency. Avoid designing a universal CPU/GPU shader language or committing now to a particular GPU abstraction library.
+The execution plan does **not** yet represent data residency, transfers or synchronization (not implemented); it must be able to, without changing graph semantics, before a GPU executor can be added. Treat a GPU backend as a later measured experiment, not a version-one dependency. Avoid designing a universal CPU/GPU shader language or committing now to a particular GPU abstraction library.
 
 When backend transitions become relevant, evaluate whole-pipeline cost and seek long contiguous segments on the selected backend rather than bouncing buffers between CPU and GPU.
 
@@ -23,7 +23,7 @@ When backend transitions become relevant, evaluate whole-pipeline cost and seek 
 + CPU performance and safety remain the baseline on all platforms.
 + Allows GPU acceleration without making every operation GPU-aware.
 - Some operations will require separate CPU and GPU kernels.
-- GPU scheduling may expose constraints that demand a future revision of the planner.
+- No GPU backend exists. GPU scheduling may expose constraints that demand a revision of the planner.
 
 ## Alternatives considered
 
@@ -39,13 +39,7 @@ Separate one-image latency from concurrent throughput. Compare scalar to SIMD wi
 
 A real GPU-resident use case dominates the target market, or CPU-only region execution cannot represent an unavoidable backend constraint.
 
-## Current state (finalized 2026-11-26)
-
-This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
-
-- The execution plan does not represent data residency, transfers or synchronization: not implemented, and no GPU backend exists. The decision stands as a constraint for a later GPU experiment, not as present behavior. CPU scheduling is the bounded parallel row pipeline of ADR-0022.
-
 ## Amendment log
 
 - 2026-10-31 — Initial proposal.
-- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.

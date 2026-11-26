@@ -27,8 +27,8 @@ The M2 plan sketched *bands with filter halos*: split the output into horizontal
 3. **Bounded memory and backpressure.** Jobs go through a bounded queue (twice the worker count); the driver blocks when it is full, so the decoder cannot run arbitrarily far ahead. Horizontal rows are dropped as soon as no remaining output row references them (the same `future_min` rule as the ring of the sequential path). Every row buffer is charged to the shared budget; exceeding it fails the run with `ResourceExhausted`, as before.
 4. **Errors and cancellation stop everything.** A worker error, a decoder error or a sink error (including `Cancelled`) closes the queue; workers finish their current job and exit; the scope joins them before the call returns. No thread outlives the call (`std::thread::scope`).
 5. **Standard library only.** `std::thread::scope`, `std::sync::mpsc` and `Arc`. No `rayon` in the core: the pipeline needs ordered emission and a bounded queue more than work stealing, and adding a scheduler crate is a separate decision.
-6. **Threads are an option, defaulting to all cores.** `TransformOptions::transform_threads` (0 = all available cores, 1 = the sequential path). Because the output is bit-identical, the default does not trade determinism for speed. Small images (fewer than 64 needed source rows) take the sequential path. The report names the threads used.
-7. **An `Engine` for many images (second step).** A long-lived `Engine` owns a worker pool and a budget, and offers a batch call that schedules *images* across workers with one transform and one encoder thread each, which the encoder experiment showed to be the most byte-efficient setting. Its API is specified when implemented, in this ADR's amendment log.
+6. **Threads are an option, defaulting to all cores.** `TransformOptions::transform_threads` (the typed `Threads`: automatic = all available cores, 1 = the sequential path). Because the output is bit-identical, the default does not trade determinism for speed. Small images (fewer than 64 needed source rows) take the sequential path. The report names the threads used.
+7. **An `Engine` for many images (second step).** An `Engine` holds its thread count and offers a batch call that schedules *images* across scoped worker threads with one transform and one encoder thread each, which the encoder experiment showed to be the most byte-efficient setting. A long-lived worker pool is not implemented. Its API is specified in this ADR's amendment log.
 
 ## Consequences
 
@@ -43,7 +43,7 @@ The M2 plan sketched *bands with filter halos*: split the output into horizontal
 ## Alternatives considered
 
 - **Bands with halos (the M2 sketch).** Rejected for now: it needs random row access or a full decoded frame shared across workers, duplicates halo rows at every band edge (about 23 rows per edge at a 3.75× Lanczos3 downscale), and makes in-order emission a cross-band handoff. Reconsider for decoders with region access (JPEG XL, decode-side scaling in package 5).
-- **`rayon`.** A fine work-stealing pool, and already compiled for `rav1e`. Not needed for a pipeline of independent row jobs with ordered output; deferred until the `Engine` needs nested parallelism.
+- **`rayon`.** A fine work-stealing pool, and already compiled for `rav1e`. Not needed for a pipeline of independent row jobs with ordered output; not used; deferred until the `Engine` needs nested parallelism.
 - **Parallelize only the horizontal pass.** Simpler, but leaves the vertical pass and quantization (about 19 %) serial on the driver.
 - **Split the decoded frame into strips for JPEG and AVIF**, since those adapters hold the full frame anyway. Faster for those two, but it bypasses the decoder contract and does not apply to JPEG XL; the row pipeline covers all three.
 
@@ -56,12 +56,6 @@ The M2 plan sketched *bands with filter halos*: split the output into horizontal
 ## Review when
 
 Decode-side scaling (package 5) gives decoders region access; the `Engine` needs nested or prioritized parallelism; the allocator shows up in profiles; a GPU backend (ADR-0024) needs a different job granularity.
-
-## Current state (finalized 2026-11-26)
-
-This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
-
-- Decision 7 differs from the code: `Engine` holds only its thread count and spawns scoped threads per batch call; a long-lived worker pool is not implemented (deferred). `TransformOptions::transform_threads` is the typed `Threads`. rayon is not used.
 
 ## Amendment log
 
@@ -83,4 +77,4 @@ This record is a living record. Where the text above differs from the code on `m
   output or image processing escaped the failed start, and verify managed
   buffers are released. OS thread stacks and codec scratch remain outside the
   pixel budget. Worker panics retain the prior scoped-thread behavior.
-- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.

@@ -22,18 +22,18 @@ Verified facts from the [codec capability audit](../research/2026-11-05-decode-s
 
 1. **The default path keeps full-resolution decode.** Linear-light resampling from full-resolution samples remains the default and the oracle's definition of the image, as in libvips' linear mode.
 2. **Make the decode stage cheaper without changing what it means.**
-   - Enable `zune-jpeg`'s `neon` and `x86` features (runtime-detected SIMD in the decoder; same treatment as `rav1e`'s assembly in ADR-0018).
+   - JPEG decoding uses the workspace libjpeg-turbo port with its SIMD paths (the first reader, `zune-jpeg`, was dropped on 2026-11-11).
    - The ICC adapter converts to **linear-light sRGB** directly (sRGB primaries, identity transfer; reported as CICP `[1, 8, 0, 1]`, which is already the graph's working-space signal). The color contract treats that signal as transfer-ready, the reference executor decodes it with the identity, and the fast executor copies it. This removes an encode and a decode of the transfer curve per sample and their rounding.
    - Measure the orientation wrapper on real photographs before changing ADR-0019; a streaming path is possible for mirror-only orientations but not for rotations.
    - Take the per-row work of source wrappers off the thread that drives the decoder. A wrapper may hand its stateless per-row conversion to the executor (`DecodeSource::defer_conversion`, a `RowConversion`), which runs it where it linearizes the row, on the row-pipeline workers when parallel; the ICC adapter does this, and the reference executor keeps converting inside the adapter with the same function. The orientation wrapper gathers upright rows from its stored-order buffer in blocks on the transform threads and emits them in order. Both produce the same values as before for every thread count.
-3. **Shrink-on-load is a separate, explicit quality policy, not a planner optimization.** A future `DecodeScaling` option may let the caller accept DCT-domain scaling (1/2, 1/4, 1/8, chosen so that at least a 2× residual linear-light resize remains, as libvips does). It is off by default, reported in the processing report, and must come with a measured quality delta (SSIMULACRA2 against the full-decode result on a real-photo corpus). It needs a scaled-IDCT path in `zune-jpeg`, which is an upstream contribution or a maintained fork; that choice is the maintainer's, outside this ADR.
-4. **JPEG XL threads and AVIF native layouts are measured before they are enabled.** `jxl-oxide`'s `rayon` feature and a native YUV path for AVIF to AVIF wait for a measurement on real inputs.
+3. **Shrink-on-load is a separate, explicit quality policy, not a planner optimization.** A `DecodeScaling` option (not implemented; its route is the libjpeg-turbo port, ADR-0025) may let the caller accept DCT-domain scaling (1/2, 1/4, 1/8, chosen so that at least a 2× residual linear-light resize remains, as libvips does). It is off by default, reported in the processing report, and must come with a measured quality delta (SSIMULACRA2 against the full-decode result on a real-photo corpus). It needs a scaled-IDCT path in `zune-jpeg`, which is an upstream contribution or a maintained fork; that choice is the maintainer's, outside this ADR.
+4. **JPEG XL threads and AVIF native layouts are measured before they are enabled.** The `jxl-oxide` threading half is moot (jxl-oxide left the runtime). A native YUV path for AVIF to AVIF is not implemented and waits for a measurement on real inputs.
 
 ## Consequences
 
 + The common real-photo case (ICC-tagged JPEG) loses a full per-sample `powf` pass and a rounding step.
 + Linear-light sRGB becomes a first-class rendered signal, so a JPEG XL decoder that emits linear sRGB is now accepted too.
-- The JPEG decoder now runs third-party SIMD code with its own `unsafe`; its output may differ from the scalar decoder by rounding (JPEG decoding is not bit-exact across implementations).
+- The JPEG decoder runs the port's SIMD code; its output may differ from the scalar decoder by rounding (JPEG decoding is not bit-exact across implementations).
 - Without shrink-on-load, Ferrisma decodes every source pixel for a thumbnail; a non-linear Sharp default with shrink-on-load does less decode work for strong downscales. Comparisons must say which mode each side ran (see the Sharp comparison).
 - The ICC matrix-shaper path now retains out-of-sRGB-gamut linear samples until final output quantization. LUT-profile behavior remains unchanged and has no extended-range guarantee.
 
@@ -53,18 +53,7 @@ Verified facts from the [codec capability audit](../research/2026-11-05-decode-s
 
 ## Review when
 
-The workspace JPEG adapter gains an explicit scaled-IDCT quality policy; moxcms changes its extended-range matrix-shaper or LUT behavior; a real-photo corpus shows the orientation buffer as a dominant cost; the libavif-rs or libjxl-rs ports replace the interim decoders (ADR-0018).
-
-## Current state (finalized 2026-11-26)
-
-This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
-
-- Decision 1 and 2 (the ICC matrix-shaper adapter, deferred conversion, orientation on transform threads, decoder threads for AVIF) are implemented; the JPEG decoder is now the libjpeg-turbo-rs port, so the zune-jpeg wording is out of date. Decision 3 (shrink-on-load, `DecodeScaling`) is not implemented; its route moved to the libjpeg-turbo port under ADR-0025. Decision 4: the jxl-oxide half is moot (removed from the runtime); a native YUV AVIF-to-AVIF path is not implemented.
-
-### Open questions
-
-- Decision 4, native YUV AVIF-to-AVIF: whether it will be pursued.
-- The moxcms re-evaluation against LUT profiles and more than one photograph.
+The workspace JPEG adapter gains an explicit scaled-IDCT quality policy; moxcms changes its extended-range matrix-shaper or LUT behavior; a real-photo corpus shows the orientation buffer as a dominant cost; (fired 2026-11-11 and 2026-11-15: the ports replaced the interim decoders, ADR-0018).
 
 ## Amendment log
 
@@ -138,4 +127,4 @@ the counts above do not depend on load.
 ## 2026-11-12: ICC adapter limits observed (#17)
 
 The ICC adapter (`src/cms.rs`) now runs ADR-0015's bounded header check before moxcms (moxcms 0.9.1 accepted a declared size beyond the data), and rejects HDR, unknown or contradicting CICP beside the profile (ADR-0016, 2026-11-12). Hostile inputs (empty, truncated, oversized declared size, overflowing tag count, out-of-range tag offsets, over 4 MiB) are controlled `UnsupportedColorEncoding` errors in `cms::tests`. A real photograph with a compact sRGB ICC v4 profile, and the same crop as Display P3 with 103 out-of-sRGB samples, match LittleCMS 2.19 within `8e-4` linear (`tests/icc_photo.rs`). Observed limits: matrix-shaper RGB profiles only; LUT-based profiles keep moxcms' default path with no extended-range or LittleCMS evidence; only relative colorimetric is compared; ICC-signalled alpha input is rejected (`UnsupportedInput`); one photograph, not a corpus.
-- 2026-11-26 — Finalized as a living record, owner decision: status Accepted (decision 3 partly superseded by ADR-0025).
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted (decision 3 partly superseded by ADR-0025); stale passages corrected in place, dropped decisions marked, open questions limited to open issues.

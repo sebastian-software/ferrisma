@@ -26,13 +26,13 @@ The dated 2026-11-05 facts above describe the initial AVIF-only facade.
 Currently, `pipeline` and `cli` compile without `avif-write`; a built-in
 `transcode` still requires the selected output feature at runtime.
 
-1. **Surface.** `pipeline::{transcode, transcode_with, TransformOptions, Crop, ResizeFilter, InputProfilePolicy, ImageFormat, OutputFormat, WebpOptions, Output, ProcessingReport, StageTimings, WorkingPrecision, ChromaSubsampling, KernelLevel, KernelLevelReason, Engine, BatchItem, SourceAccess, ProcessingError, ProcessingErrorKind, EncoderBackend, RowEncoder}`. No builder/fluent DAG API, plugin registry, async interface, streaming input, Node.js bindings or GPU options.
+1. **Surface.** `pipeline::{transcode, transcode_with, TransformOptions, Threads, OutputSettings, OutputGeometry, ColorSignal, RefusalReason, ResizeOptions, ResizeFit, InspectionLimits, ImageMetadata, Crop, ResizeFilter, InputProfilePolicy, ImageFormat, OutputFormat, WebpOptions, Output, ProcessingReport, StageTimings, WorkingPrecision, ChromaSubsampling, KernelLevel, KernelLevelReason, Engine, BatchItem, SourceAccess, ProcessingError, ProcessingErrorKind, EncoderBackend, RowEncoder}`. No builder/fluent DAG API, plugin registry, async interface, streaming input, Node.js bindings or GPU options.
    [ADR-0034](0034-thumbnail-geometry.md) adds aspect-aware
    `transcode_resized`/`transcode_resized_with`, `ResizeOptions`/`ResizeFit`,
    bounded JPEG/WebP `inspect`, `InspectionLimits`, and `ImageMetadata`.
 2. **Color intent is explicit.** `InputProfilePolicy::Strict` is the default. `AssumeSrgbIfMissing` applies only when the decoder reports neither rendered ICC nor CICP; `UseRenderedIcc` requires the `icc` feature. The facade never guesses a profile.
 3. **Resources are explicit options.** Managed-memory budget, compressed-input byte limit, decoded-pixel limit, and encoded-output byte limit are caller options with conservative defaults. The report keeps engine-managed memory, known codec materializations and opaque codec/encoder memory separate.
-4. **No backend type leaks.** Codec errors are converted at the boundary; codec crates never appear in public signatures. `ProcessingError::kind()` returns a `#[non_exhaustive]` `ProcessingErrorKind` (invalid options, input limit, disabled feature, malformed input, unsupported input, unsupported color, resource exhaustion, cancellation, encoder failure, internal) so callers can match without parsing messages; the message keeps the details.
+4. **No backend type leaks.** Codec errors are converted at the boundary; codec crates never appear in public signatures. `ProcessingError::kind()` returns a `#[non_exhaustive]` `ProcessingErrorKind` (invalid options, input limit, disabled feature, malformed input, unsupported input, unsupported color, resource exhaustion, output limit exceeded, cancellation, encoder failure, internal) so callers can match without parsing messages; the message keeps the details.
 5. **CLI is an example consumer.** `src/bin/ferrisma.rs` delegates parsing and processing to `ferrisma::cli::run`, which calls `transcode` or `transcode_with`; it adds no processing logic. It stays behind `cli`.
 6. **No stability promise.** Until a first publication decision, any part of the facade may change without deprecation.
 
@@ -41,7 +41,7 @@ Currently, `pipeline` and `cli` compile without `avif-write`; a built-in
 + M1 can be exercised end to end by a real consumer without exposing the graph or executor.
 + Codec and CMS features remain optional; the core crate's only unconditional dependency is the first-party `ferrisma-kernels` (ADR-0020).
 - Error kinds are deliberately coarse; finer-grained variants (for example which limit or which color signal) are a later, additive change.
-- The facade decodes one image to one AVIF output. Multi-output DAGs, other output formats and streaming input are out of scope (M2+).
+- The facade decodes one image to one AVIF output. WebP and JPEG XL output exist (ADR-0030, ADR-0039). Multi-output DAGs and streaming input are out of scope until ADR-0045 is implemented; decision 6 is replaced by ADR-0040 from 1.0.0 on.
 - EXIF, JPEG XL and AVIF orientation are applied with crops in display coordinates (ADR-0019); AVIF `clap` is still rejected with `ProcessingErrorKind::UnsupportedInput`.
 - A public facade makes later internal renames cheaper than API changes; keeping the surface small is the mitigation.
 
@@ -62,19 +62,11 @@ Before **Accepted**: documented supported-input matrix ([supported matrix](../su
 
 ## Review when
 
-A first publication is decided; a consumer needs multiple outputs, streaming input or another output format; error matching becomes necessary; or the facade starts duplicating planner logic.
+A first publication is decided; a consumer needs multiple outputs or streaming input; error matching becomes necessary; or the facade starts duplicating planner logic.
 
-## Current state (finalized 2026-11-26)
+## Open questions
 
-This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
-
-- Public items added since the Decision list: `Threads`, `OutputSettings`, `OutputGeometry`, `ColorSignal`, `RefusalReason` (13 variants), inspection (`inspect`, `InspectionLimits`), `ImageMetadata`, `ResizeOptions`/`ResizeFit`; `ProcessingErrorKind` has `OutputLimitExceeded`. `transcode_resized` is gone.
-- WebP and JPEG XL output exist (ADR-0030, 0039); "other output formats are out of scope" is out of date. Multi-output and streaming input stay out of scope until ADR-0045 is implemented. The two pending-owner defaults (JPEG XL reader, AVIF encoder) were settled by the single-reader and single-writer decisions of 2026-11-15.
-- Decision 6 (no stability promise) is replaced by ADR-0040 from 1.0.0 on; until then the crate is unpublished and 0.x.
-
-### Open questions
-
-- The delegated naming and class-boundary working decisions (2026-11-14/15) await owner confirmation.
+- The delegated working decisions on names and class boundaries (2026-11-14/15) await the public API review: #271.
 
 ## Amendment log
 
@@ -103,4 +95,4 @@ This record is a living record. Where the text above differs from the code on `m
 - 2026-11-15 — Native encoder options (owner decision, [ADR-0043](0043-formats-behave-alike.md) D4, [ADR-0037](0037-selectable-workspace-avif-encoder.md)). `TransformOptions` loses `quality`, `speed`, `chroma_subsampling` and `avif_depth` and gains `avif: AvifOptions` (libavif quality, alpha quality, speed, depth, chroma; `avifenc`'s defaults 60, 60, 6, 8, 4:4:4). `WebpOptions::Lossy` takes libwebp's `method` 0–6 (default 4) instead of a `speed` 1–10 that was mapped onto it. The CLI's `--quality=`, `--speed=` and `--chroma=` are unknown options that name their replacements: `--avif-quality=`, `--avif-alpha-quality=`, `--avif-speed=`, `--avif-depth=`, `--avif-chroma=`, `--webp-quality=`, `--webp-method=`; each needs its output. Evidence: `supported_matrix::libavif_is_the_default_avif_encoder_at_avifenc_defaults_with_nclx`, `libavif_alpha_quality_is_its_own_setting`, `webp_quality_method_and_level_ranges`, `silent_drops::webp_lossy_methods_are_libwebps_own_and_distinct`, `cli::tests::encoder_flags_are_per_format`.
 - 2026-11-16 — Codec names in the report (owner decision of 2026-11-16; decides the question the ADR-0040 amendment of the same day, item 3, left open). `ProcessingReport::decoder_backend` and `encoder_backend`, and the CLI's `decoder=` and `encoder=` values, name the ported original, not the Rust package: `"libjpeg-turbo"` (was `"libjpeg-turbo-rs"`), `"libwebp"` (was `"libwebp-rs"`), `"libjxl"` (was `"libjxl-rs"`) and `"libavif/aom"` (was `"libavif-rs/aom"`), for the readers and the writers alike; an external backend keeps its own `name()`. Reason: the packages may be renamed before publication, and the report describes which codec ran, so the values no longer change with a package name. The field form (a string, decision (a) of 2026-11-14) and the tier of the values are unchanged. The facade's shape changed the same day (ADR-0040 amendment of 2026-11-16): one construction style for the option types, `OutputSettings`, `OutputGeometry` instead of `transcode_resized`, `Threads`, own kernel-level enums, `OutputLimitExceeded`.
 - 2026-11-22 — AV1 decoder choice for AVIF input (owner decision of 2026-11-22, [ADR-0031](0031-workspace-libavif-input-experiment.md) amendment of that day). `TransformOptions::avif_decoder` (`AvifDecoder::Dav1d`, the default, or `AvifDecoder::Libaom`, the reference) and the CLI flag `--avif-decoder=dav1d|libaom`; a nondefault choice with an input that is not AVIF is `InvalidOptions` ([ADR-0042](0042-no-silent-loss-refuse-or-report.md)). The report's AVIF `decoder_backend`/`decoder=` is `libavif/dav1d` by default and `libavif/aom` with the reference.
-- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.

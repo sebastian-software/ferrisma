@@ -21,8 +21,8 @@ The existing graph planner maps requested output rectangles backwards through cr
 
 Two initial **read-only** adapters validate the contract:
 
-1. **JPEG** via optional `zune-jpeg` 0.5.15: header probe, RGB8 output, optional embedded ICC. Full RGB output is decoded directly into an engine-budgeted buffer; requested crop rows borrow from that buffer. Disable architecture-specific unsafe-intrinsic features for this first experiment. This does **not** create a JPEG encoder.
-2. **JPEG XL** defaults to optional `jxl-oxide` 0.12.6: request a crop using the codec's ROI API; stream f32 samples via a single budgeted row buffer. Retain rendered ICC/CICP metadata. [ADR-0032](0032-jpeg-xl-workspace-decoder-input.md) adds an explicitly selected full-frame reference-port backend.
+1. **JPEG** through the workspace `libjpeg-turbo-rs` port (the first reader, `zune-jpeg`, was dropped on 2026-11-11): header probe, RGB8 output, optional embedded ICC. Output is decoded into an engine-budgeted buffer; requested crop rows borrow from it.
+2. **JPEG XL** through the workspace `libjxl-rs` port ([ADR-0032](0032-jpeg-xl-workspace-decoder-input.md)), the only reader; the first reader, `jxl-oxide`, is dropped from the runtime and kept only as a test cross-check. Crops are full-frame fallbacks. Rendered ICC/CICP metadata is retained.
 
 The graph currently carries sample layout, but **not** a complete graph-owned color/profile contract. Only crop and sink are permitted for these sources until output semantics for resize, color and alpha are properly designed. *(Amended 2026-11-05: resize and color stages are now admitted under ADR-0013, ADR-0014 and ADR-0016; see below.)*
 
@@ -41,8 +41,8 @@ Both selected adapters are permissively licensed. Do not integrate AGPL/commerci
 + JPEG XL's float and region capabilities can be tested without forced RGB8 quantization.
 - The original JPEG adapter decoded a full frame for every crop; the 2026-11-11 workspace scanline amendment below replaces that behavior.
 - JPEG XL may perform opaque allocations or whole-image work despite the default backend's ROI API. The opt-in workspace decoder reports an explicit full-frame fallback (ADR-0032).
-- Color metadata is source-side rather than a full semantic graph contract.
-- No encoder, frame reuse, animation, or arbitrary untrusted-image hardening yet.
+- Color metadata travels as an image-semantics descriptor on graph nodes (ADR-0013).
+- Encoders are separate (ADR-0024, 0030, 0037, 0039). Frame reuse and animation are not implemented (animation is refused). Hostile-input hardening is covered by the hostile fixtures and fuzz targets.
 
 ## Alternatives
 
@@ -55,22 +55,15 @@ Both selected adapters are permissively licensed. Do not integrate AGPL/commerci
 
 Exercise real small JPEG and JPEG XL fixtures, invalid input, region geometry, row typing, source binding, early cancellation and budget failures in feature-gated tests. Compare cropped pixels against full-frame decodes, with a documented numerical tolerance for floating-point output. CI must test the no-codec configuration and both optional codec adapters. Inspect codec and dependency licenses separately.
 
-Before promotion to Accepted: validate actual codec work avoided, orientation/ICC/CMYK/HDR handling, adversarial dimensions and malformed files, memory usage inside decoders, output fidelity and a format-independent transform path.
+Validated: actual codec work avoided, orientation, ICC, CMYK and HDR handling, adversarial dimensions and malformed files, output fidelity and the format-independent transform path (ADR-0016). Not validated: memory usage inside decoders (#48, #199).
 
 ## Review when
 
 A source requires native planar output, push/pull access rather than callback rows, precise codec allocation accounting, or more complete color semantics to avoid incorrect transformations.
 
-## Current state (finalized 2026-11-26)
+## Open questions
 
-This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
-
-- Current readers: JPEG through the workspace `libjpeg-turbo-rs` port (not zune-jpeg), JPEG XL through the workspace `libjxl-rs` port (not jxl-oxide, test-only cross-check since 2026-11-15), AVIF through `ferrisma-avif-read` (not avif-decode), WebP through the workspace port. Encoders exist (ADR-0030, 0037, 0039); the statement "no encoder yet" is out of date.
-- Color metadata is no longer only source-side: ADR-0013 put an image-semantics descriptor on graph nodes.
-
-### Open questions
-
-- Memory used inside decoders is unmeasured (see the amendment log); accepted as a known limit, not as a closed gate.
+- Memory used inside decoders is unmeasured: tracked in #48 and #199.
 
 ## Amendment log
 
@@ -196,4 +189,4 @@ What remains unmeasured: allocations and internal work inside the codecs
 probes recorded in ADR-0023), whole-process memory as a bound, and wall time.
 Re-evaluate when an adapter changes its codec call, when a codec exposes work
 counters, or when a measurement contradicts a lower bound above.
-- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.

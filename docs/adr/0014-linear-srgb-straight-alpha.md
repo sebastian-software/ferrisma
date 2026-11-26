@@ -24,7 +24,7 @@ For the initial reference path, accept only:
 
 The resampler performs the standard piecewise sRGB EOTF to linearize RGB; for RGBA it multiplies linear RGB by straight alpha before filtering. It bilinearly interpolates premultiplied linear RGB **and** linearly encoded alpha, divides by output alpha when positive, then applies the sRGB OETF to RGB. Fully transparent output uses canonical zero RGB. Alpha is not transfer-decoded or sRGB-encoded. Output remains straight RGBA8 or RGB8, with the same color metadata. The scalar kernel is a correctness baseline, not a production speed claim.
 
-This is deliberately **not a general ICC-managed pipeline**. Reject missing color metadata, ICC-only or ICC/CICP combination, conflicting or non-sRGB CICP, PQ/HLG, F32, unknown/premultiplied alpha, CMYK, planar YUV, and unsupported layouts. An explicit caller-supplied *assume sRGB* policy for untagged input may be considered later in a separate ADR, but no implicit assignment exists today.
+This is deliberately **not a general ICC-managed pipeline**. Reject missing color metadata, ICC-only or ICC/CICP combination, conflicting or non-sRGB CICP, PQ/HLG, F32, unknown/premultiplied alpha, CMYK, planar YUV, and unsupported layouts. An explicit caller-supplied *assume sRGB* policy exists (`InputProfilePolicy::AssumeSrgbIfMissing`, ADR-0015); no implicit assignment exists.
 
 The existing encoded-sample-domain path remains an explicitly requested legacy/reference experiment; it is not automatically replaced.
 
@@ -36,7 +36,7 @@ The existing encoded-sample-domain path remains an explicitly requested legacy/r
 + Decoder lifetimes, codec features and memory budgets are unchanged; source requests remain a single ROI per output.
 - RGB transfer conversion is currently performed per sample in scalar arithmetic and may cost more than encoded-sample interpolation.
 - Only strict CICP-sRGB-tagged U8 input qualifies. JPEG lacking trustworthy tags and JPEG XL F32 are not silently reinterpreted.
-- Carrying metadata is not equivalent to transforming it. Profiles, output gamut, ICC precedence and true HDR remain future work.
+- Carrying metadata is not equivalent to transforming it. This reference domain does not transform profiles; ICC input is handled by the working-linear path (ADR-0016) and ICC precedence is decided per format (ADR-0015). True HDR is refused.
 
 ## Alternatives considered
 
@@ -54,12 +54,6 @@ Unit/integration tests must establish: the black/white midpoint is sRGB 188, not
 
 An ICC color-management engine becomes available; real codecs can provide trusted sRGB output with richer metadata; HDR or F32/resampling is needed; a new alpha association is demonstrated; or measured per-pixel transfer overhead motivates LUT/SIMD specialization. Only enable fast paths with differential reference tests and reproducible measurements.
 
-## Current state (finalized 2026-11-26)
-
-This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
-
-- An explicit caller policy for untagged input exists (`InputProfilePolicy::AssumeSrgbIfMissing`, decided in ADR-0015 and later). "Profiles ... remain future work" now holds only for this reference domain: the working-linear path transforms ICC profiles through moxcms (ADR-0016). The trigger "an ICC engine becomes available" has fired.
-
 ## Amendment log
 
 - 2026-10-31 — Introduced strict, opt-in linear-sRGB bilinear reference with correct straight-alpha handling.
@@ -69,4 +63,4 @@ This record is a living record. Where the text above differs from the code on `m
 ## 2026-11-12: unassociation where filtered alpha exceeds one
 
 The independent resize comparison (#18, `tests/resize_oracle.rs`) found that the output step of both engine executors clamps the filtered alpha to `[0, 1]` first and then divides the associated color by the *clamped* alpha; ImageMagick 7.1.2-35 divides by the unclamped alpha. The two agree everywhere else: their associated linear-light filter results differ by at most `1.7e-7`. They diverge only where Lanczos3 overshoot pushes alpha above one next to hard alpha edges: in the retained `alpha-up-lanczos3` case, 506 pixels differ by up to 21 codes. Ferrisma's rule keeps the visible, now opaque, result equal to the filtered associated light and matches the opaque path; ImageMagick's keeps the straight color. Neither is physically exact, because alpha above one has no meaning. The engine rule is kept and is now the documented contract of this ADR's "divides by output alpha": the output alpha is the clamped alpha. `alpha_overshoot_unassociation_differs_from_imagemagick_only_above_one` retains the difference as a regression. Re-evaluate if an encoder or compositor contract needs the straight color preserved.
-- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.

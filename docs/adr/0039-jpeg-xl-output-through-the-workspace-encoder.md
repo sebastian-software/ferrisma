@@ -21,8 +21,8 @@ exist:
   LLVM-exception) translates the pinned libjxl mechanically and compares it
   with a C++ oracle.
 
-Verified state of the port's encoder on 2026-11-12 (this worktree's base,
-`90b638dd`):
+Historical: the port's encoder on 2026-11-12 (this worktree's base,
+`90b638dd`), before the lossy path landed the same day. Today lossy VarDCT, alpha and the lossless profile are implemented:
 
 - The public encoder API (`jxl::jxl::encode`, translating `encode.cc`) admits
   **no** frame encode. AddImageFrame returns an admission result where the
@@ -31,8 +31,7 @@ Verified state of the port's encoder on 2026-11-12 (this worktree's base,
   #118 and #117) and alpha in VarDCT frames (step 4, #115) are in progress.
   (Lossy VarDCT landed later the same day; see the 2026-11-12 lossy
   amendment.)
-  The heuristics and transforms below VarDCT are ported with checkpoint
-  parity, but no complete lossy image path exists yet.
+  The complete lossy image path exists since the 2026-11-12 lossy amendment.
 - One complete image path exists and is oracle-verified:
   `LosslessThunderConfig::encode_pixels` in `enc_frame.rs`. It is libjxl's own
   configuration SetLossless, effort 2 (kThunder), codestream level 10
@@ -61,10 +60,10 @@ actually admits, and widen it only as the port's steps land.
   review below.
 - **Facade.** `OutputFormat::JpegXl` and `TransformOptions::jpeg_xl`
   (`JpegXlOptions`, `non_exhaustive`): `Lossy { distance }` and
-  `Lossless { effort: 2 }`. The default is `Lossy { distance: 1.0 }`,
-  **pending owner confirmation** (see the amendment). `EncodeRequest` carries
+  `Lossless { effort: 2 }`. The default is `Lossy { distance: 1.0 }`
+  (confirmed by the owner on 2026-11-15). `EncodeRequest` carries
   the same field to external backends. The report names the encoder
-  `libjxl-rs`.
+  `libjxl`.
 - **Admitted profile and rejected requests.** Everything else fails with a
   typed error before any pixel is decoded and never falls back:
   - another lossless effort, or a lossy distance outside 0.05 to below 3.0
@@ -77,7 +76,7 @@ actually admits, and widen it only as the port's steps land.
     `InvalidOptions`. The raw codestream carries no `jxll` box, so a decoder
     assumes level 5; the encoder's level 10 parameters are not signaled.
   - a managed budget too small for the frames below: `ResourceExhausted`;
-  - an encoded result above `max_output_bytes`: `ResourceExhausted`; lossless
+  - an encoded result above `max_output_bytes`: `OutputLimitExceeded`; lossless
     checks after encoding because the codec returns the whole codestream,
     lossy stops copying out of the encoder at the limit.
 
@@ -96,7 +95,7 @@ These describe the emitted samples (ADR-0015):
 | --- | --- | --- |
 | Container | Raw codestream (`FF 0A`); no ISOBMFF container, no `jxll`, no Exif/XMP/JUMBF boxes | Same |
 | Coding | VarDCT, effort 7, the requested Butteraugli distance, **patches off** (`JXL_ENC_FRAME_SETTING_PATCHES` = 0; the result equals `cjxl --patches=0 -e 7 -d <distance> -x color_space=RGB_D65_SRG_Rel_SRG` from the finished rows as PPM/PAM, see the 2026-11-15 amendment); default settings otherwise (dots, noise, splines off or absent as admitted) | Modular, effort 2, default buffering (chunked above 8 groups, as the original's default); decoded samples equal the engine's finished rows exactly; the file equals `cjxl -d 0 -e 2 -x color_space=RGB_D65_SRG_Rel_SRG` from the finished rows (2026-11-15 amendments; until the chunked amendment `--buffering=0`, the same file at most 8 groups) |
-| Bit depth | 8-bit integer samples signaled (`bits_per_sample = 8`) | Same |
+| Bit depth | Integer samples at the input's depth, 8 to 16 bits (`--jxl-depth`, 2026-11-15) | Same |
 | Color | `xyb_encoded = true`; the signaled enum color encoding (RGB, D65, sRGB primaries, sRGB transfer, relative intent) describes the decoded samples; no ICC | `xyb_encoded = false`; same enum encoding; no ICC |
 | Alpha | If any finished alpha sample is below 255: one 8-bit, unassociated (straight) alpha extra channel, coded losslessly (extra-channel distance 0), so decoded alpha equals the finished rows exactly. Color under zero alpha is **not** kept: libjxl's lossy default (`keep_invisible` off, SimplifyInvisible) replaces it. Fully opaque output has no extra channel; the engine omits it before encoding and does not rely on the encoder's `STRIP_ALPHA` decision. | If any finished alpha sample is below 255: one 8-bit, unassociated (straight) alpha extra channel; color under zero alpha is kept exactly. Fully opaque output has no extra channel. |
 | Orientation | 1; the engine has already applied source orientation, so samples are upright | Same |
@@ -105,7 +104,7 @@ These describe the emitted samples (ADR-0015):
 
 Both write gray content as RGB. Not supported: other efforts, alpha deeper
 than 8 bits (the engine's rows are 8-bit; the port needs a container above
-12 bits), lossily coded alpha (an alpha distance above 0), 16-bit or float output, HDR, wide gamut, ICC output,
+12 bits), lossily coded alpha (an alpha distance above 0), float output, HDR, wide gamut, ICC output,
 gray-only output, premultiplied alpha (the engine's rows are straight,
 ADR-0014; the output always signals unassociated alpha), animation,
 metadata passthrough, container and level signaling, patch encoding, and
@@ -176,8 +175,7 @@ for the other formats.
 
 ### License gate
 
-Selecting the port does not complete license compliance. Before this output
-is enabled in a distributed binary, the review in #66 must cover: the libjxl
+Selecting the port does not complete license compliance. The review of #66 (closed 2026-11-23) covered: the libjxl
 BSD-3-Clause notice for every translated encoder unit reached by this profile
 (`encode`, `enc_frame`, `enc_modular`, `enc_ma`, `enc_encoding`,
 `enc_palette`, `enc_rct`, `enc_squeeze`, `enc_transform`, `enc_ans`,
@@ -386,16 +384,11 @@ appears for this profile; or if two hosts of one target at one kernel level
 write different bytes (the determinism contract of the 2026-11-15
 amendment), or the port's encoder starts selecting SIMD by default.
 
-## Current state (finalized 2026-11-26)
+## Open questions
 
-This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
-
-- Current state: lossy VarDCT (distance 1.0 default, confirmed 2026-11-15) and the lossless profile are implemented; alpha and patches-off landed (2026-11-12). Out-of-date passages: "no complete lossy path exists", the `ResourceExhausted` result (now `OutputLimitExceeded`), 8-bit-only samples (depth follows the input, 8 to 16 bits), the old lossless reservation constant (replaced by the `PeakModel` of 2026-11-16), and the reported encoder name (`libjxl`). Not implemented: float output, ICC and HDR output, patch encoding.
-
-### Open questions
-
-- License/NOTICE review (#66) blocks distribution of `cli` builds with `jpeg-xl-write`.
-- Patches-on encoding, HDR and ICC output (#113), x86-64 byte identity, fuzzing (#65) and serial encode cost (#106).
+- Encoder step 6 (color profiles, ICC and HDR input): #113.
+- Encoder step 13 (parallel runner, allocator, statistics): #106.
+- Not implemented and untracked: float output, ICC output, patch encoding (patches are off), and byte identity with the original on x86-64.
 
 ## Amendment log
 
@@ -655,4 +648,4 @@ This record is a living record. Where the text above differs from the code on `m
   (about 74 and 65 MP). The report still sets `opaque_encoder_memory`: the
   model is an envelope of one host's measurements, not a bound for other
   hosts or allocators.
-- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.

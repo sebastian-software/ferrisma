@@ -253,8 +253,8 @@ in order (its source says so), so it is not on this list.
 To close the D4 gap, the four kernels on the still-image path need translated
 Neon and x86 versions that the gate then compares with the original's SIMD
 build. A test against `_c` cannot decide them. That replaces the open question
-in #123 with "translate them and compare with the original's SIMD", pending
-owner confirmation.
+in #123 with "translate them and compare with the original's SIMD" (decided in
+engine ADR-0041; #123 is closed).
 
 ### Local x86-64 validation
 
@@ -287,7 +287,7 @@ still-image path part of v1.0, each proven SIMD against SIMD (D4). This
 amendment adds the missing still-image Neon kernels on macOS ARM64. The x86
 overlay, the x86 kernels and every video-only kernel (SAD, sub-pixel, OBMC
 and masked variance, inter convolution, motion search, warp, temporal filter;
-open question O2) are unchanged.
+O2, kept: nothing is removed) are unchanged.
 
 ### Kernels
 

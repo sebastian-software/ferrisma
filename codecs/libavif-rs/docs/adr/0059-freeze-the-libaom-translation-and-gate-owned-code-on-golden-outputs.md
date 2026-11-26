@@ -318,18 +318,19 @@ calls them through RTCD everywhere.
 
 ## Open questions
 
+No issue tracks these; they are open.
+
 - Whether hosted runners measure stably enough for the 2 % threshold, or the
   benchmark needs repeated paired runs (`main` and the pull request on the
-  same runner) to stay below that noise.
-
+  same runner) to stay below that noise (`bench-v1-perf.yml` has no threshold
+  logic yet).
 - Which further upstream switches the final regeneration uses: whether the
   decoder, real-time paths or other units can be dropped for Ferrisma's use.
-- Whether the end-to-end corpus needs more images or settings, such as tuning
-  modes or larger images, once Ferrisma's settings settle. The first corpus is
-  described in the amendment above.
-- Whether the macOS and Linux C references produce identical golden outputs
-  under the non-contracting floating-point profile. Resolved for the first
-  corpus: both C references and the Rust port produce the same 62 outputs.
+- Whether the end-to-end corpus needs more images or settings once Ferrisma's
+  settings settle. The first corpus is described in the amendment above.
+
+Resolved: the macOS and Linux C references and the Rust port produce the same
+62 outputs under the non-contracting floating-point profile.
 
 ## Amendment log
 

@@ -18,7 +18,7 @@ Support an **explicitly requested encoded-sample-domain bilinear reference** for
 
 Use the existing region planner to request a single bounding source rectangle for the output ROI. One decoder call streams through a single previous input row and a single output row in engine-budgeted memory. That ensures JPEG's full-frame fallback is decoded once per output region. For JPEG XL the bounding rectangle may overfetch unrelated rows; avoid claiming avoided codec-internal work without measurement.
 
-Keep planar YUV420P10, CMYK, alpha-bearing layouts, arbitrary orientation and multiple successive resizes unsupported at this stage. No new external dependency, public API, SIMD implementation or GPU backend is added.
+In this encoded-sample domain keep planar YUV420P10, CMYK, alpha-bearing layouts (alpha is handled in the linear domains of ADR-0014 and ADR-0016), arbitrary orientation and multiple successive resizes unsupported at this stage. No new external dependency, public API, SIMD implementation or GPU backend is added.
 
 ## Consequences
 
@@ -26,7 +26,7 @@ Keep planar YUV420P10, CMYK, alpha-bearing layouts, arbitrary orientation and mu
 - Real JPEG and JPEG XL can validate a bounded transform path rather than just crop forwarding.
 - The scalar reference provides a correctness baseline for future kernel optimization.
 - This is **not** a general color-managed resizer; encoded-domain interpolation may differ perceptually and numerically from linear-light resampling.
-- One bounding ROI can read large intervening areas during heavy downscale; smarter scheduling remains an open problem.
+- One bounding ROI can read large intervening areas during heavy downscale; smarter scheduling is not implemented.
 - Engine memory accounting cannot enforce a hard bound on opaque decoder-internal allocations.
 
 ## Alternatives considered
@@ -45,13 +45,6 @@ Differential tests compare nested crop and resize chains to an independent scala
 
 Codec-native scaling or regional execution offers a better tradeoff; linear-light filtering, ICC/CICP precedence, or premultiplied alpha become implemented; a real decoder exposes a new sample layout; or severe downscales reveal that the bounding-region strategy is too expensive.
 
-## Current state (finalized 2026-11-26)
-
-This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
-
-- The review triggers for linear-light filtering and premultiplied alpha have fired: ADR-0014 and ADR-0016 implement them. This ADR remains the encoded-sample baseline (`ResizeDomain::EncodedSamples`); the production path uses `WorkingLinear`. "Alpha is refused" holds for this domain only.
-- Still open: one bounding ROI can read large intervening areas under heavy downscale.
-
 ## Amendment log
 
 - 2026-10-31 — Initial bounded, codec-backed sample-domain resize experiment.
@@ -64,4 +57,4 @@ This record is a living record. Where the text above differs from the code on `m
 ## 2026-11-05: working-linear quality domain (M1 path)
 
 [ADR-0016](0016-working-color-space-and-transform-boundaries.md)'s pipeline adds a third resize domain, `WorkingLinear(Area | Lanczos3)`, between explicit `ToLinearSrgb` and `ToSrgb8` stages. It accepts tagged sRGB and Display P3 input, filters premultiplied linear-light samples with separable antialiasing taps and keeps out-of-gamut values until final quantization. The public facade ([ADR-0017](0017-minimal-public-facade-and-cli.md)) uses only this domain. The encoded-sample bilinear resize defined here is unchanged and remains an internal baseline for controlled comparisons; it is not used for output.
-- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.

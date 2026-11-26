@@ -40,21 +40,14 @@ Graph-node metadata grows faster than supported behavior, or repeated experiment
 
 ## Experiment: scalar single-chain prototype (2026-10-31)
 
-The experimental code uses an append-only, index-addressed graph with three internal node types: synthetic source, crop, and bilinear resize. Parent references always point to existing nodes, so cycles cannot be introduced through the builder. The graph is semantic: it stores dimensions, crop coordinates and resize intent, **not** execution buffers. `plan_region` walks backward from a requested output rectangle and returns region requirements in execution order. The CPU executor operates on that plan with no codec-specific knowledge.
+The experimental code uses an append-only, index-addressed graph with internal node types for synthetic and decoder sources, planar sources, color transforms, crop and resize (`NodeKind` in `src/graph.rs`). Parent references always point to existing nodes, so cycles cannot be introduced through the builder. The graph is semantic: it stores dimensions, crop coordinates and resize intent, **not** execution buffers. `plan_region` walks backward from a requested output rectangle and returns region requirements in execution order. The CPU executor operates on that plan with no codec-specific knowledge.
 
-**Not decided:** a publicly exposed graph representation; branching/multiple inputs; a persistent execution IR; scheduling/caching; color and pixel-layout negotiation. The initial planner's `Vec<Step>` is intentionally disposable, not a stable interface.
+**Not implemented:** a publicly exposed graph representation (the graph is `pub(crate)`), branching or multiple inputs, and a persistent execution IR. Scheduling and row caching live in the executors; color and pixel-layout decisions are settled per format by ADR-0013 to 0016, not by a negotiation step. The planner's `Vec<Step>` is intentionally disposable, not a stable interface.
 
 **New tests:** a downstream crop after two resizes matches an independent eager reference; out-of-bounds requests are rejected before allocation.
-
-## Current state (finalized 2026-11-26)
-
-This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
-
-- The graph node set is no longer the three types listed in Decision: `NodeKind` in `src/graph.rs` now has Synthetic, Planar10Source, DecoderSource, ToLinearSrgb, ToSrgb8, Crop and Resize (with a `ResizeDomain`).
-- Still true: the graph is `pub(crate)`, every node has a single input, and there is no persistent execution IR. Not implemented: a public graph representation, branching or multiple inputs, a persistent IR. Scheduling and row caching exist in the executors; color and layout negotiation was settled per format in ADR-0013 to 0016 and is not a negotiation step.
 
 ## Amendment log
 
 - 2026-10-31 — Initial proposal.
 - 2026-10-31 — Added a bounded scalar vertical-slice experiment; unresolved contracts remain explicitly provisional.
-- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.

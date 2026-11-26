@@ -17,7 +17,7 @@ Orientation is the dihedral group of eight transforms. Flips can be streamed row
 1. **Adapters report, the engine applies.** `DecodeSource::orientation()` (default identity) returns one of the eight EXIF orientations for the emitted samples. JPEG maps its IFD0 `Orientation` 1–8; AVIF maps `irot` followed by `imir`, where `imir` axis 0 exchanges top and bottom and axis 1 exchanges left and right (ISO/IEC 23008-12:2022, as documented by libavif). Invalid values, `clap`, and an `imir` associated before `irot` still fail closed.
 2. **Upright view at the source boundary.** The facade wraps a non-identity source in `OrientedSource`, which reports the upright size and identity orientation. The graph, planner and color stages only ever see an upright image, so crop rectangles are display coordinates and no graph node type is added.
 3. **Explicit, region-sized materialization.** For each requested display rectangle, `OrientedSource` computes the exact stored rectangle, requests it once from the decoder, copies it into one engine-budgeted buffer and emits upright rows from it. The buffer is the stored footprint of the request, not necessarily the whole frame, and is reported as `DecodeReport::engine_buffer_bytes` and `ProcessingReport::orientation_buffer_bytes`. Upright input takes no extra path.
-4. **JPEG XL is oriented by its decoder.** The default `jxl-oxide` adapter and the opt-in local libjxl-rs adapter both report upright dimensions and apply header orientation in emitted samples. Either adapter therefore reports identity orientation and needs no separate orientation buffer. The local decoder reconstructs a full frame even for crops (ADR-0032). Lossless fixtures written with the pinned libjxl encoder verify the output for all eight orientations and several crops.
+4. **JPEG XL is oriented by its decoder.** The workspace libjxl-rs adapter, the only JPEG XL reader (ADR-0032), reports upright dimensions and applies header orientation in emitted samples, so it reports identity orientation and needs no separate orientation buffer. It reconstructs a full frame even for crops (ADR-0032). Lossless fixtures written with the pinned libjxl encoder verify the output for all eight orientations and several crops.
 
 ## Consequences
 
@@ -26,7 +26,7 @@ Orientation is the dihedral group of eight transforms. Flips can be streamed row
 + Memory cost is explicit, budgeted and reported.
 - Oriented input costs one extra region copy and up to one region of engine memory, even for pure flips that could stream.
 - Very large rotated images without a crop need the whole stored frame in managed memory; the budget rejects them instead of degrading.
-- Two mechanisms exist: engine-side for JPEG/AVIF, decoder-side for JPEG XL. The opt-in local libjxl-rs adapter re-verifies JPEG XL behavior against the same independent fixtures (ADR-0032).
+- Two mechanisms exist: engine-side for JPEG/AVIF, decoder-side for JPEG XL. The libjxl-rs adapter re-verifies JPEG XL behavior against the same independent fixtures (ADR-0032).
 
 ## Alternatives considered
 
@@ -41,21 +41,11 @@ Orientation is the dihedral group of eight transforms. Flips can be streamed row
 - Real files: eight JPEGs with inserted EXIF orientation and eight AVIFs written by ImageMagick 7.1.2/libheif 1.23.7 with `irot`/`imir`, compared with ImageMagick's `-auto-orient` rendering (mean error < 2 on distinct 4×4 color blocks); eight lossless JPEG XL files written by libjxl a16d32d with `JxlBasicInfo::orientation`, compared exactly with the transformed pattern for four crops each. See `tests/fixtures/orientation/README.md`.
 - Budget exhaustion, buffer release, reported buffer bytes, out-of-bounds regions, `imir`-before-`irot` detection, and a facade test that crops an EXIF-rotated JPEG in display coordinates.
 
-Before **Accepted**: measure the copy cost on large images; decide whether flips should stream; cover lossy and animated JPEG XL orientation.
+Done: copy cost measured on large images, flips keep the materialization, lossy JPEG XL orientation covered and animated JPEG XL refused. A clean re-measurement on an unloaded host has not been made.
 
 ## Review when
 
 The JPEG XL decoder changes again; a workload shows the region copy is significant; orientation must be applied somewhere other than the source; or `clap` support is added.
-
-## Current state (finalized 2026-11-26)
-
-This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
-
-- The default JPEG XL reader named in Decision 4 is the libjxl-rs port (jxl-oxide is a test cross-check). The "before Accepted" items are done: copy cost measured, flips keep the materialization, lossy and animated JPEG XL decided (lossy measured, animation refused). Lossy JPEG XL output now exists, so the parenthetical about its absence is out of date.
-
-### Open questions
-
-- A clean, unloaded re-measurement of the orientation copy cost was deferred and is not done.
 
 ## Amendment log
 
@@ -145,4 +135,4 @@ latent. Real-file crops are covered for JPEG, WebP and AVIF through the facade
 Remaining before **Accepted**: a clean re-measurement of gather time and
 process RSS on an unloaded host, and a lossy JPEG XL photograph at camera size
 (no JPEG XL encoder for lossy output is available in the workspace).
-- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.

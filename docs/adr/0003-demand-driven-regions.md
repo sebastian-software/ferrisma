@@ -48,15 +48,9 @@ Dependency mapping or overlap bookkeeping consistently dominates simple pipeline
 
 The current scheduler requests **one output row at a time**, then performs backward region mapping for that row. A crop translates coordinates without copying. Bilinear resize computes the exact bounding rectangle of its two horizontal and vertical sample neighbors, with clamping at source edges. A separate upstream footprint is calculated for each row. This prevents an extreme vertical downscale from inadvertently requesting all intervening source rows, which would happen if an entire output frame were mapped to one source bounding rectangle.
 
-This is deliberately **not** a fixed scanline architecture contract: the logical primitive remains a rectangle, and future workers may choose larger work units or multiple disjoint input spans. Horizontally sparse accesses are currently represented by one conservative bounding rectangle. Codec-native group alignment, rotation, filters beyond bilinear, repeated-ROI caching, and full-frame fallbacks are not implemented.
+This is deliberately **not** a fixed scanline architecture contract: the logical primitive remains a rectangle, and future workers may choose larger work units or multiple disjoint input spans. Horizontally sparse accesses are currently represented by one conservative bounding rectangle. Full-frame fallback (`DecodeAccess::FullFrameFallback`) and the Lanczos3 and Area filters are implemented; rotation is applied source-side (ADR-0019) and JPEG group alignment happens inside the codec adapter. Not implemented: repeated-ROI caching and multiple disjoint input spans per row.
 
 **New tests:** very tall synthetic input and a severe vertical downscale request at most two source rows per output row for a single bilinear resize.
-
-## Current state (finalized 2026-11-26)
-
-This record is a living record. Where the text above differs from the code on `main`, this section states the current rule.
-
-- The sentence "full-frame fallbacks, filters beyond bilinear ... are not implemented" is out of date: full-frame fallback (`DecodeAccess::FullFrameFallback`) and the Lanczos3 and Area filters exist. Still not implemented: planner-level codec group alignment (JPEG iMCU expansion happens inside the codec adapter), repeated-ROI caching, and multiple disjoint input spans per row (one bounding rectangle per row remains).
 
 ## Amendment log
 
@@ -77,4 +71,4 @@ edges, so there is no halo beyond it) in one decoder request that delivers each
 row once. Halo duplication therefore does not occur in the current executors;
 the overfetch that does occur is codec-side and is now visible. Bands with
 duplicated halos remain rejected (ADR-0022).
-- 2026-11-26 — Finalized as a living record, owner decision: status Accepted.
+- 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.
