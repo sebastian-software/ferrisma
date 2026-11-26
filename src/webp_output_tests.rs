@@ -9,7 +9,7 @@ use crate::pipeline::{
     WebpOptions, transcode, transcode_with,
 };
 use crate::pipeline::{OutputGeometry, OutputSettings, WebpLossless};
-use crate::webp_sink::{WebpSink, encode_webp_chunks};
+use crate::webp_sink::{WebpSink, encode_webp_chunks_for_test};
 
 struct RgbaBackend;
 struct RgbaRows(Vec<u8>);
@@ -377,39 +377,72 @@ fn webp_chunk_writer_reserves_padded_riff_size_without_pad_reallocation() {
         argb
     };
 
+    let lossy_cfg = || {
+        Config::preset(Preset::Default, 75.0)
+            .unwrap()
+            .method(4)
+            .exact(true)
+    };
     let mut saw_padded_vp8l = false;
-    for (alpha, config) in [
-        (true, Config::new().lossless_level(4).unwrap().exact(true)),
+    for (label, alpha, config) in [
         (
-            false,
-            Config::preset(Preset::Default, 75.0)
-                .unwrap()
-                .method(4)
-                .exact(true),
-        ),
-        (
+            "lossless-alpha",
             true,
-            Config::preset(Preset::Default, 75.0)
-                .unwrap()
-                .method(4)
-                .exact(true),
+            Config::new().lossless_level(4).unwrap().exact(true),
         ),
+        ("lossy-opaque", false, lossy_cfg()),
+        ("lossy-alpha", true, lossy_cfg()),
     ] {
         let mut argb = make_argb(alpha);
         let mut picture = Picture::from_argb(&mut argb, width, height, width as usize).unwrap();
-        let encoded = encode_webp_chunks(&config, &mut picture, 16 << 20).unwrap();
+        let mut observations = Vec::new();
+        let encoded =
+            encode_webp_chunks_for_test(&config, &mut picture, 16 << 20, |chunk, bytes| {
+                observations.push((
+                    chunk.len(),
+                    bytes.len(),
+                    bytes.capacity(),
+                    bytes.as_ptr() as usize,
+                ));
+            })
+            .unwrap();
         assert_eq!(&encoded[..4], b"RIFF");
         assert_eq!(&encoded[8..12], b"WEBP");
         let riff_payload = u32::from_le_bytes(encoded[4..8].try_into().unwrap()) as usize;
-        assert_eq!(encoded.len(), 8 + riff_payload);
-        assert_eq!(
-            encoded.capacity(),
-            encoded.len(),
-            "alpha={alpha}: RIFF pre-reservation must match exact encoded length without doubling for trailing pad"
+        let advertised_total = 8 + riff_payload;
+        assert_eq!(encoded.len(), advertised_total);
+        assert!(
+            observations.len() >= 3,
+            "{label}: expected multi-chunk encode, got {} chunks",
+            observations.len()
         );
+        // After the first (RIFF header) callback, capacity must already cover
+        // the full advertised padded RIFF file size and remain completely
+        // unchanged (no reallocation, same capacity and buffer pointer) across
+        // every subsequent chunk through the final pad byte.
+        let (_, _, initial_cap, initial_ptr) = observations[0];
+        assert!(
+            initial_cap >= advertised_total,
+            "{label}: capacity after RIFF header ({initial_cap}) < advertised RIFF size ({advertised_total})"
+        );
+        for (idx, &(chunk_len, len, cap, ptr)) in observations.iter().enumerate().skip(1) {
+            assert_eq!(
+                cap, initial_cap,
+                "{label}: capacity grew on chunk {idx} (chunk_len={chunk_len}, len={len})"
+            );
+            assert_eq!(
+                ptr, initial_ptr,
+                "{label}: buffer reallocated on chunk {idx} (chunk_len={chunk_len}, len={len})"
+            );
+        }
         if &encoded[12..16] == b"VP8L" {
             let vp8l_len = u32::from_le_bytes(encoded[16..20].try_into().unwrap()) as usize;
             if vp8l_len % 2 == 1 {
+                assert_eq!(
+                    observations.last().unwrap().0,
+                    1,
+                    "{label}: odd VP8L length must end with a 1-byte RIFF pad chunk"
+                );
                 saw_padded_vp8l = true;
             }
         }

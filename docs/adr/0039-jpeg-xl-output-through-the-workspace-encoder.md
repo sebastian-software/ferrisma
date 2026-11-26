@@ -716,17 +716,36 @@ The 8-bit lossless CLI peak RSS fluctuates by ~5–7 % between runs on macOS und
 
 ### Isolated 24 Mpx sink ingestion and compaction (`6000×4000`)
 
-To separate `JxlSink` frame allocation, row ingestion (`write_output_row`), and in-place compaction (`compact_rgba_to_rgb`) from `libjxl` coding and allocator retention, the exact before/after sink operations were timed standalone (`rustc --edition=2024 -C opt-level=3`, same host, load averages 10.72 / 16.55 / 18.01):
+To separate `JxlSink` frame allocation, row ingestion (`write_output_row`), and in-place compaction (`compact_rgba_to_rgb`) from `libjxl` coding and allocator retention, the committed `#[ignore]` harness in `src/jxl_output_tests.rs` exercises the live `JxlSink` and `compact_rgba_to_rgb` directly against the pre-#282 `copy_within` loop:
 
-- **Fresh-process sink lifecycle** (1 warmup + 7 interleaved processes per case, `/usr/bin/time -l` peak RSS, allocating the frame, writing 4,000 RGBA rows of 6,000 pixels, and compacting when required):
+```sh
+# 1. Warm-buffer 24 Mpx ingestion and compaction benchmark (1 warmup + 7 interleaved reps):
+cargo test --release -p ferrisma --lib --no-default-features --features jpeg-xl-write \
+  -- --ignored --nocapture --exact jxl_output_tests::bench_jxl_sink_opaque_and_compaction
 
-| Path (`6000×4000`) | Depth | Frame allocation | Peak RSS median (max) | Write median | Compact median | Sink total median |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Known-opaque RGB, baseline (`4 ch + copy_within`) | 8-bit | 91.55 MiB | 93.72 MiB (93.72 MiB) | 16.64 ms | 10.69 ms | 27.43 ms |
-| Known-opaque RGB, candidate (`3 ch direct`) | 8-bit | 68.66 MiB (-25.0 %) | 70.83 MiB (70.83 MiB) | 8.92 ms | 0.00 ms | 8.92 ms (3.08×) |
-| Known-opaque RGB, baseline (`4 ch + copy_within`) | 16-bit | 183.11 MiB | 185.28 MiB (185.30 MiB) | 32.27 ms | 27.17 ms | 61.67 ms |
-| Known-opaque RGB, candidate (`3 ch direct`) | 16-bit | 137.33 MiB (-25.0 %) | 139.52 MiB (139.53 MiB) | 19.32 ms | 0.00 ms | 19.32 ms (3.19×) |
+# 2. Fresh-process peak RSS of each 24 Mpx JxlSink frame allocation + 4,000-row ingest
+#    (using the release test binary printed by `cargo test --release ... --no-run`):
+/usr/bin/time -l <test-binary> --ignored --nocapture --exact jxl_output_tests::bench_jxl_sink_rss_u8_rgba
+/usr/bin/time -l <test-binary> --ignored --nocapture --exact jxl_output_tests::bench_jxl_sink_rss_u8_opaque
+/usr/bin/time -l <test-binary> --ignored --nocapture --exact jxl_output_tests::bench_jxl_sink_rss_u16_rgba
+/usr/bin/time -l <test-binary> --ignored --nocapture --exact jxl_output_tests::bench_jxl_sink_rss_u16_opaque
+```
 
-- **Warm-buffer compaction kernel** (1 warmup + 7 in-process passes on a resident 24 Mpx buffer, excluding cold VM page faults):
-  - `u8` (8-bit): baseline `copy_within` median `14.49 ms` (min `14.11 ms`) → candidate 4-pixel linear `Cell` pass median `8.73 ms` (min `8.63 ms`, **1.66× faster**).
-  - `u16` (16-bit): baseline `copy_within` median `15.58 ms` (min `14.65 ms`) → candidate 4-pixel linear `Cell` pass median `9.89 ms` (min `9.68 ms`, **1.58× faster**).
+Results (**indicative; loaded host**, Apple M1 Ultra, `arm64`, 20 cores, load averages 12.37 / 13.67 / 16.27 for timing and 14.88 / 14.13 / 16.35 for fresh-process RSS; 1 warmup + 7 interleaved repetitions):
+
+- **Fresh-process `JxlSink` frame + 4,000-row ingest** (`/usr/bin/time -l` peak RSS):
+
+| Harness target (`6000×4000`) | Depth | Frame allocation | Peak RSS median (max) | Cold ingest median |
+| --- | ---: | ---: | ---: | ---: |
+| `bench_jxl_sink_rss_u8_rgba` (4 ch RGBA) | 8-bit | 91.55 MiB (`96,000,000` B) | 95.02 MiB (95.05 MiB) | 13.94 ms |
+| `bench_jxl_sink_rss_u8_opaque` (3 ch RGB) | 8-bit | 68.66 MiB (`72,000,000` B, -25.0 %) | 72.12 MiB (72.14 MiB, -22.90 MiB) | 10.16 ms |
+| `bench_jxl_sink_rss_u16_rgba` (4 ch RGBA) | 16-bit | 183.11 MiB (`192,000,000` B) | 186.58 MiB (186.59 MiB) | 23.41 ms |
+| `bench_jxl_sink_rss_u16_opaque` (3 ch RGB) | 16-bit | 137.33 MiB (`144,000,000` B, -25.0 %) | 140.83 MiB (140.84 MiB, -45.75 MiB) | 17.81 ms |
+
+- **In-process 24 Mpx ingestion & warm-buffer compaction** (`bench_jxl_sink_opaque_and_compaction`):
+  - **Ingest (`JxlSink::with_depth` + 4,000 `write_output_row` calls)**:
+    - 8-bit: 4-channel RGBA (`96,000,000` B) median `7.44 ms` (min `7.35 ms`) → 3-channel opaque (`72,000,000` B) median `4.86 ms` (min `4.59 ms`, **1.53× faster**, plus compaction eliminated).
+    - 16-bit: 4-channel RGBA (`192,000,000` B) median `10.09 ms` (min `9.89 ms`) → 3-channel opaque (`144,000,000` B) median `7.74 ms` (min `7.57 ms`, **1.30× faster**, plus compaction eliminated).
+  - **Warm-buffer compaction (`compact_rgba_to_rgb` vs pre-#282 `copy_within`)**:
+    - `u8` (8-bit): `copy_within` median `15.51 ms` (min `15.10 ms`) → linear `Cell` 4-pixel pass median `8.65 ms` (min `8.37 ms`, **1.79× faster**).
+    - `u16` (16-bit): `copy_within` median `15.28 ms` (min `15.06 ms`) → linear `Cell` 4-pixel pass median `9.32 ms` (min `9.22 ms`, **1.64× faster**).

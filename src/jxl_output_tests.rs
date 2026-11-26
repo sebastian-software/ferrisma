@@ -1317,3 +1317,179 @@ fn transparent_layout_with_real_alpha_preserves_exact_alpha() {
     assert_ne!(bytes16, opaque16);
     assert_eq!(budget.snapshot().live, 0);
 }
+
+fn run_jxl_sink_24mp_ingest(depth: u8, may_have_alpha: bool) -> (usize, usize, f64) {
+    let (width, height) = (6000_usize, 4000_usize);
+    let size = Size::new(width as u32, height as u32).unwrap();
+    let opts = options(size.width, size.height);
+    let budget = MemoryBudget::new(256 << 20);
+    let max = crate::output_depth::max_code(depth);
+    let row_u8: Vec<u8> = if depth <= 8 {
+        (0..width)
+            .flat_map(|x| {
+                [
+                    (x % 256) as u8,
+                    ((x * 3) % 256) as u8,
+                    ((x * 7) % 256) as u8,
+                    255,
+                ]
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+    let row_u16: Vec<u16> = if depth > 8 {
+        (0..width)
+            .flat_map(|x| {
+                [
+                    (x % 65536) as u16,
+                    ((x * 3) % 65536) as u16,
+                    ((x * 7) % 65536) as u16,
+                    max,
+                ]
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+    let start = std::time::Instant::now();
+    let mut sink = JxlSink::with_depth(size, &opts, &budget, depth, may_have_alpha).unwrap();
+    let frame_bytes = sink.allocated_frame_bytes();
+    for y in 0..height as u32 {
+        let row = if depth > 8 {
+            crate::output_depth::OutputRow::U16(std::hint::black_box(&row_u16))
+        } else {
+            crate::output_depth::OutputRow::U8(std::hint::black_box(&row_u8))
+        };
+        sink.write_output_row(y, row).unwrap();
+    }
+    let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
+    let peak_managed = budget.snapshot().peak;
+    std::hint::black_box(&sink);
+    (frame_bytes, peak_managed, elapsed_ms)
+}
+
+/// Reproducible 24 Mpx (`6000×4000`) isolated `JxlSink` ingestion and
+/// `compact_rgba_to_rgb` benchmark (issue #282, ADR-0039).
+///
+/// Run in release mode:
+/// `cargo test --release -p ferrisma --lib --no-default-features --features jpeg-xl-write -- --ignored --nocapture --exact jxl_output_tests::bench_jxl_sink_opaque_and_compaction`
+#[test]
+#[ignore = "manual release benchmark for ADR-0039 (#282)"]
+fn bench_jxl_sink_opaque_and_compaction() {
+    fn compact_copy_within_baseline<T: Copy>(frame: &mut [T], pixels: usize) {
+        for pixel in 0..pixels {
+            frame.copy_within(pixel * 4..pixel * 4 + 3, pixel * 3);
+        }
+    }
+
+    fn median_min(mut samples: Vec<f64>) -> (f64, f64) {
+        samples.sort_by(f64::total_cmp);
+        (samples[samples.len() / 2], samples[0])
+    }
+
+    // Sanity check: both compaction loops produce identical RGB output.
+    let check_pixels = 37 * 19;
+    let mut a8 = rows(37, 19, false);
+    let mut b8 = a8.clone();
+    compact_copy_within_baseline(&mut a8, check_pixels);
+    crate::jxl_sink::compact_rgba_to_rgb(&mut b8, check_pixels);
+    assert_eq!(a8[..check_pixels * 3], b8[..check_pixels * 3]);
+
+    let mut a16 = deep_rows(37, 19, 16, false);
+    let mut b16 = a16.clone();
+    compact_copy_within_baseline(&mut a16, check_pixels);
+    crate::jxl_sink::compact_rgba_to_rgb(&mut b16, check_pixels);
+    assert_eq!(a16[..check_pixels * 3], b16[..check_pixels * 3]);
+
+    // 1. Live JxlSink allocation + 4,000-row ingestion (1 warmup + 7 interleaved reps).
+    for depth in [8_u8, 16] {
+        let _ = run_jxl_sink_24mp_ingest(depth, true);
+        let _ = run_jxl_sink_24mp_ingest(depth, false);
+        let mut rgba_ms = Vec::new();
+        let mut opaque_ms = Vec::new();
+        let mut rgba_frame = 0;
+        let mut opaque_frame = 0;
+        for _ in 0..7 {
+            let (fb, _, t) = run_jxl_sink_24mp_ingest(depth, true);
+            rgba_frame = fb;
+            rgba_ms.push(t);
+            let (fb, _, t) = run_jxl_sink_24mp_ingest(depth, false);
+            opaque_frame = fb;
+            opaque_ms.push(t);
+        }
+        let (r_med, r_min) = median_min(rgba_ms);
+        let (o_med, o_min) = median_min(opaque_ms);
+        println!(
+            "ingest depth={depth}: 4ch_rgba frame={rgba_frame}B median={r_med:.2}ms (min {r_min:.2}ms) | 3ch_opaque frame={opaque_frame}B median={o_med:.2}ms (min {o_min:.2}ms)"
+        );
+    }
+
+    // 2. Warm-buffer 24 Mpx compaction: copy_within baseline vs crate::jxl_sink::compact_rgba_to_rgb.
+    let pixels = 6000 * 4000;
+    let mut buf8 = vec![128_u8; pixels * 4];
+    compact_copy_within_baseline(&mut buf8, pixels);
+    crate::jxl_sink::compact_rgba_to_rgb(&mut buf8, pixels);
+    let (mut old8, mut new8) = (Vec::new(), Vec::new());
+    for _ in 0..7 {
+        let t = std::time::Instant::now();
+        compact_copy_within_baseline(std::hint::black_box(&mut buf8), pixels);
+        old8.push(t.elapsed().as_secs_f64() * 1000.0);
+        let t = std::time::Instant::now();
+        crate::jxl_sink::compact_rgba_to_rgb(std::hint::black_box(&mut buf8), pixels);
+        new8.push(t.elapsed().as_secs_f64() * 1000.0);
+    }
+    let (old8_med, old8_min) = median_min(old8);
+    let (new8_med, new8_min) = median_min(new8);
+    println!(
+        "compact u8  24Mpx: copy_within median={old8_med:.2}ms (min {old8_min:.2}ms) | linear median={new8_med:.2}ms (min {new8_min:.2}ms) | speedup={:.2}x",
+        old8_med / new8_med
+    );
+
+    let mut buf16 = vec![32_768_u16; pixels * 4];
+    compact_copy_within_baseline(&mut buf16, pixels);
+    crate::jxl_sink::compact_rgba_to_rgb(&mut buf16, pixels);
+    let (mut old16, mut new16) = (Vec::new(), Vec::new());
+    for _ in 0..7 {
+        let t = std::time::Instant::now();
+        compact_copy_within_baseline(std::hint::black_box(&mut buf16), pixels);
+        old16.push(t.elapsed().as_secs_f64() * 1000.0);
+        let t = std::time::Instant::now();
+        crate::jxl_sink::compact_rgba_to_rgb(std::hint::black_box(&mut buf16), pixels);
+        new16.push(t.elapsed().as_secs_f64() * 1000.0);
+    }
+    let (old16_med, old16_min) = median_min(old16);
+    let (new16_med, new16_min) = median_min(new16);
+    println!(
+        "compact u16 24Mpx: copy_within median={old16_med:.2}ms (min {old16_min:.2}ms) | linear median={new16_med:.2}ms (min {new16_min:.2}ms) | speedup={:.2}x",
+        old16_med / new16_med
+    );
+}
+
+#[test]
+#[ignore = "manual fresh-process peak RSS probe for ADR-0039 (#282)"]
+fn bench_jxl_sink_rss_u8_opaque() {
+    let (frame, managed, ms) = run_jxl_sink_24mp_ingest(8, false);
+    println!("depth=8 opaque frame={frame} managed={managed} ingest_ms={ms:.2}");
+}
+
+#[test]
+#[ignore = "manual fresh-process peak RSS probe for ADR-0039 (#282)"]
+fn bench_jxl_sink_rss_u8_rgba() {
+    let (frame, managed, ms) = run_jxl_sink_24mp_ingest(8, true);
+    println!("depth=8 rgba frame={frame} managed={managed} ingest_ms={ms:.2}");
+}
+
+#[test]
+#[ignore = "manual fresh-process peak RSS probe for ADR-0039 (#282)"]
+fn bench_jxl_sink_rss_u16_opaque() {
+    let (frame, managed, ms) = run_jxl_sink_24mp_ingest(16, false);
+    println!("depth=16 opaque frame={frame} managed={managed} ingest_ms={ms:.2}");
+}
+
+#[test]
+#[ignore = "manual fresh-process peak RSS probe for ADR-0039 (#282)"]
+fn bench_jxl_sink_rss_u16_rgba() {
+    let (frame, managed, ms) = run_jxl_sink_24mp_ingest(16, true);
+    println!("depth=16 rgba frame={frame} managed={managed} ingest_ms={ms:.2}");
+}

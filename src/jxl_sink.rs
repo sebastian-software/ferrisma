@@ -409,7 +409,7 @@ fn copy_rgba_row_to_rgb<T: Copy>(src: &[T], dst: &mut [T]) {
     }
 }
 
-fn compact_rgba_to_rgb<T: Copy>(frame: &mut [T], pixels: usize) {
+pub(crate) fn compact_rgba_to_rgb<T: Copy>(frame: &mut [T], pixels: usize) {
     // Opaque output carries no alpha channel. Compact in place in a single
     // linear pass: reading 4 pixels (16 samples) into a stack array before
     // writing 12 RGB samples never overwrites unread data because
