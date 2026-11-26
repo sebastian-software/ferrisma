@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["complete", "findings"],
+  "properties": {
+    "complete": { "type": "boolean" },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "line", "body"],
+        "properties": {
+          "path": { "type": "string" },
+          "line": { "type": "integer" },
+          "body": { "type": "string" }
+        }
+      }
+    }
+  }
+}
