@@ -4,17 +4,20 @@
 //! `jxl_memory_probe <in.ppm|in.pam> <lossless|distance> [out.jxl]`
 //!
 //! The process holds what the engine's `JxlSink` holds when it calls the
-//! bridge: one RGBA frame of `4 * width * height` samples (1 byte at 8 bits,
-//! a native-endian `u16` above), compacted in place to RGB when the input
-//! has no alpha, and the bridge call the sink makes (`encode_lossless`, or
-//! `encode` with `FrameOptions::with_distance(d)`, patches off). The input
-//! file is read, expanded into that frame and dropped before the encode.
+//! bridge: one RGBA frame of `4 * width * height` samples (`Vec<u8>` at 8 bits,
+//! native `Vec<u16>` above), compacted in place to RGB when the input has no
+//! alpha, and the bridge call the sink makes (`encode_lossless` /
+//! `encode_lossless_u16`, or `encode` / `encode_u16` with
+//! `FrameOptions::with_distance(d)`, patches off). The input file is read,
+//! expanded into that frame and dropped before the encode.
 //! Input: binary PPM (P6) or PAM (P7, `RGB_ALPHA`), maxval `2^n - 1`.
 //! A counting global allocator prints the peak of live heap bytes
 //! (`heap_peak_bytes`) over the encode; peak RSS comes from
 //! `/usr/bin/time -l` around a fresh process.
 #![allow(unsafe_code)]
-use ferrisma_jxl_encoder::{FrameOptions, ImageInfo, encode, encode_lossless};
+use ferrisma_jxl_encoder::{
+    FrameOptions, ImageInfo, encode, encode_lossless, encode_lossless_u16, encode_u16,
+};
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -53,8 +56,13 @@ unsafe impl GlobalAlloc for Counting {
 #[global_allocator]
 static GLOBAL: Counting = Counting;
 
+enum Frame {
+    U8(Vec<u8>),
+    U16(Vec<u16>),
+}
+
 /// Width, height, alpha, bits and the RGBA frame as the sink holds it.
-fn read_frame(path: &str) -> (usize, usize, bool, u8, Vec<u8>) {
+fn read_frame(path: &str) -> (usize, usize, bool, u8, Frame) {
     let data = std::fs::read(path).unwrap();
     let (tokens, start) = if data.starts_with(b"P7") {
         let end = data.windows(7).position(|w| w == b"ENDHDR\n").unwrap() + 7;
@@ -101,40 +109,59 @@ fn read_frame(path: &str) -> (usize, usize, bool, u8, Vec<u8>) {
     let ch = if alpha { 4 } else { 3 };
     let raw = &data[start..];
     assert_eq!(raw.len(), w * h * ch * s);
-    // The sink's frame: always four samples per pixel.
-    let mut frame = vec![0_u8; w * h * 4 * s];
-    for (px, src) in frame.chunks_exact_mut(4 * s).zip(raw.chunks_exact(ch * s)) {
-        for c in 0..4 {
-            let sample = if c < ch {
-                &src[c * s..(c + 1) * s]
-            } else if s == 2 {
-                &[0xff, 0xff][..]
-            } else {
-                &[0xff][..]
-            };
-            if s == 2 {
-                let v = u16::from_be_bytes([sample[0], sample[1]]);
-                px[c * 2..c * 2 + 2].copy_from_slice(&v.to_ne_bytes());
-            } else {
-                px[c] = sample[0];
+    // The sink's frame: always four samples per pixel in native sample storage.
+    let frame = if bits > 8 {
+        let mut frame = vec![0_u16; w * h * 4];
+        for (px, src) in frame
+            .as_chunks_mut::<4>()
+            .0
+            .iter_mut()
+            .zip(raw.chunks_exact(ch * 2))
+        {
+            for c in 0..4 {
+                px[c] = if c < ch {
+                    u16::from_be_bytes([src[c * 2], src[c * 2 + 1]])
+                } else {
+                    u16::MAX
+                };
             }
         }
-    }
-    drop(data);
-    if !alpha {
-        // The sink's in-place compaction to RGB.
-        for p in 0..w * h {
-            frame.copy_within(p * 4 * s..(p * 4 + 3) * s, p * 3 * s);
+        drop(data);
+        if !alpha {
+            // The sink's in-place compaction to RGB.
+            for p in 0..w * h {
+                frame.copy_within(p * 4..p * 4 + 3, p * 3);
+            }
         }
-    }
+        Frame::U16(frame)
+    } else {
+        let mut frame = vec![0_u8; w * h * 4];
+        for (px, src) in frame
+            .as_chunks_mut::<4>()
+            .0
+            .iter_mut()
+            .zip(raw.chunks_exact(ch))
+        {
+            for c in 0..4 {
+                px[c] = if c < ch { src[c] } else { u8::MAX };
+            }
+        }
+        drop(data);
+        if !alpha {
+            // The sink's in-place compaction to RGB.
+            for p in 0..w * h {
+                frame.copy_within(p * 4..p * 4 + 3, p * 3);
+            }
+        }
+        Frame::U8(frame)
+    };
     (w, h, alpha, bits, frame)
 }
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let (w, h, alpha, bits, frame) = read_frame(&args[1]);
-    let s = if bits > 8 { 2 } else { 1 };
-    let samples = w * h * if alpha { 4 } else { 3 } * s;
+    let samples = w * h * if alpha { 4 } else { 3 };
     let (wu, hu) = (u32::try_from(w).unwrap(), u32::try_from(h).unwrap());
     let image = if alpha {
         ImageInfo::srgba8(wu, hu)
@@ -145,16 +172,18 @@ fn main() {
     PEAK.store(LIVE.load(Ordering::Relaxed), Ordering::Relaxed);
     let mut out = Vec::new();
     if args[2] == "lossless" {
-        encode_lossless(image, &frame[..samples], &mut out, usize::MAX).unwrap();
+        match &frame {
+            Frame::U8(buf) => encode_lossless(image, &buf[..samples], &mut out, usize::MAX),
+            Frame::U16(buf) => encode_lossless_u16(image, &buf[..samples], &mut out, usize::MAX),
+        }
+        .unwrap();
     } else {
         let distance: f32 = args[2].parse().unwrap();
-        encode(
-            image,
-            FrameOptions::with_distance(distance),
-            &frame[..samples],
-            &mut out,
-            usize::MAX,
-        )
+        let options = FrameOptions::with_distance(distance);
+        match &frame {
+            Frame::U8(buf) => encode(image, options, &buf[..samples], &mut out, usize::MAX),
+            Frame::U16(buf) => encode_u16(image, options, &buf[..samples], &mut out, usize::MAX),
+        }
         .unwrap();
     }
     if let Some(path) = args.get(3) {

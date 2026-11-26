@@ -5,7 +5,7 @@ use jxl_oxide::{ExtraChannelType, JxlImage};
 
 use super::{
     Admission, Alpha, Color, ColorChannels, Encoder, Error, FrameOptions, ImageInfo, Stage, encode,
-    encode_lossless, estimated_codec_bytes,
+    encode_lossless, encode_lossless_u16, encode_u16, estimated_codec_bytes,
 };
 
 const LIMIT: usize = 1 << 26;
@@ -643,4 +643,76 @@ fn lossless_profile_misuse_is_rejected_before_the_port() {
         })
     );
     assert_eq!(short, vec![9]);
+}
+
+#[test]
+fn u16_frame_api_enforces_depth_and_encodes_deep_samples() {
+    // 8-bit image rejects add_frame_u16.
+    let mut encoder = Encoder::new().unwrap();
+    encoder.set_image(ImageInfo::srgb8(2, 2)).unwrap();
+    assert_eq!(
+        encoder.add_frame_u16(&[0_u16; 12]),
+        Err(Error::Misuse("use add_frame for 8-bit images"))
+    );
+    // Deep image rejects add_frame (&[u8]) and wrong-length &[u16].
+    let mut encoder = Encoder::new().unwrap();
+    encoder
+        .set_image(ImageInfo::srgb8(2, 2).with_bits(16))
+        .unwrap();
+    assert_eq!(
+        encoder.add_frame(&[0_u8; 24]),
+        Err(Error::Misuse(
+            "use add_frame_u16 for images deeper than 8 bits"
+        ))
+    );
+    assert!(matches!(
+        encoder.add_frame_u16(&[0_u16; 11]),
+        Err(Error::Misuse(_))
+    ));
+    encoder.add_frame_u16(&[0_u16; 12]).unwrap();
+
+    // Lossless and lossy 10/16-bit encodes succeed through native &[u16] slices.
+    let (width, height) = (17_usize, 11_usize);
+    for (bits, alpha) in [(10_u8, false), (16, false), (16, true)] {
+        let max = (1_u32 << bits) - 1;
+        let channels = if alpha { 4 } else { 3 };
+        let samples: Vec<u16> = (0..width * height * channels)
+            .map(|i| ((i as u32 * 257) % (max + 1)) as u16)
+            .collect();
+        let base = if alpha {
+            ImageInfo::srgba8(width as u32, height as u32)
+        } else {
+            ImageInfo::srgb8(width as u32, height as u32)
+        };
+        let image = base.with_bits(bits);
+
+        let mut lossless_out = Vec::new();
+        encode_lossless_u16(image, &samples, &mut lossless_out, LIMIT).unwrap();
+        let decoded = decode(&lossless_out);
+        assert_eq!(
+            (decoded.width(), decoded.height()),
+            (width as u32, height as u32)
+        );
+        assert_eq!(
+            decoded.image_header().metadata.bit_depth,
+            BitDepth::IntegerSample {
+                bits_per_sample: u32::from(bits)
+            }
+        );
+
+        let mut lossy_out = Vec::new();
+        encode_u16(
+            image,
+            FrameOptions::with_distance(1.0),
+            &samples,
+            &mut lossy_out,
+            LIMIT,
+        )
+        .unwrap();
+        let decoded = decode(&lossy_out);
+        assert_eq!(
+            (decoded.width(), decoded.height()),
+            (width as u32, height as u32)
+        );
+    }
 }

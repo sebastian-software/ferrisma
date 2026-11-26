@@ -273,14 +273,19 @@ impl ImageInfo {
         ))
     }
 
-    /// Bytes of one interleaved frame.
+    /// Samples of one interleaved frame (`width * height * channels`).
     #[must_use]
-    pub fn frame_bytes(&self) -> Option<usize> {
+    pub fn frame_samples(&self) -> Option<usize> {
         let (width, height) = self.dims()?;
         width
             .checked_mul(height)?
-            .checked_mul(self.channel_count() as usize)?
-            .checked_mul(self.sample_bytes())
+            .checked_mul(self.channel_count() as usize)
+    }
+
+    /// Bytes of one interleaved frame.
+    #[must_use]
+    pub fn frame_bytes(&self) -> Option<usize> {
+        self.frame_samples()?.checked_mul(self.sample_bytes())
     }
 
     fn num_groups(&self) -> Option<usize> {
@@ -597,12 +602,13 @@ impl Encoder {
         Ok(())
     }
 
-    /// Queue the one frame. The port copies `pixels` before returning; the
+    /// Queue one 8-bit frame. The port copies `pixels` before returning; the
     /// slice is not retained.
     ///
     /// # Errors
-    /// [`Error::Misuse`] before [`Encoder::set_image`], for a second frame or
-    /// a buffer that is not exactly one interleaved frame;
+    /// [`Error::Misuse`] before [`Encoder::set_image`], for an image deeper
+    /// than 8 bits (use [`Encoder::add_frame_u16`]), for a second frame or a
+    /// buffer that is not exactly one interleaved frame;
     /// [`Error::ApiUsage`] or [`Error::NotAdmitted`] from the port.
     pub fn add_frame(&mut self, pixels: &[u8]) -> Result<(), Error> {
         self.ready()?;
@@ -612,23 +618,68 @@ impl Encoder {
         if self.frame_added {
             return Err(Error::Misuse("only one frame is admitted"));
         }
+        if image.bits_per_sample > 8 {
+            return Err(Error::Misuse(
+                "use add_frame_u16 for images deeper than 8 bits",
+            ));
+        }
         if Some(pixels.len()) != image.frame_bytes() {
             return Err(Error::Misuse(
                 "the pixel buffer is not one interleaved frame",
             ));
         }
-        let deep = image.bits_per_sample > 8;
+        self.add_frame_bytes(image, pixels, JxlDataType::UINT8)
+    }
+
+    /// Queue one 9-to-16-bit frame of native-endian `u16` samples scaled to
+    /// `0..=2^bits - 1`. Accepting `&[u16]` guarantees `align_of::<u16>()`
+    /// alignment. The port copies `pixels` before returning; the slice is not
+    /// retained.
+    ///
+    /// # Errors
+    /// [`Error::Misuse`] before [`Encoder::set_image`], for an 8-bit image
+    /// (use [`Encoder::add_frame`]), for a second frame or a buffer that is
+    /// not exactly one interleaved frame;
+    /// [`Error::ApiUsage`] or [`Error::NotAdmitted`] from the port.
+    pub fn add_frame_u16(&mut self, pixels: &[u16]) -> Result<(), Error> {
+        self.ready()?;
+        let Some(image) = self.image else {
+            return Err(Error::Misuse("set the image before adding a frame"));
+        };
+        if self.frame_added {
+            return Err(Error::Misuse("only one frame is admitted"));
+        }
+        if image.bits_per_sample <= 8 {
+            return Err(Error::Misuse("use add_frame for 8-bit images"));
+        }
+        if Some(pixels.len()) != image.frame_samples() {
+            return Err(Error::Misuse(
+                "the pixel buffer is not one interleaved frame",
+            ));
+        }
+        // SAFETY: `u16` has no padding bytes and every byte pattern is valid
+        // for `u8`. `pixels` is a valid, initialized, 2-byte aligned slice, so
+        // `size_of_val(pixels)` does not exceed `isize::MAX` and the returned
+        // byte view borrows `pixels` for the duration of this call only.
+        let bytes = unsafe {
+            std::slice::from_raw_parts(pixels.as_ptr().cast::<u8>(), std::mem::size_of_val(pixels))
+        };
+        self.add_frame_bytes(image, bytes, JxlDataType::UINT16)
+    }
+
+    fn add_frame_bytes(
+        &mut self,
+        image: ImageInfo,
+        pixels: &[u8],
+        data_type: JxlDataType,
+    ) -> Result<(), Error> {
         let format = JxlPixelFormat {
             num_channels: image.channel_count(),
-            data_type: if deep {
-                JxlDataType::UINT16
-            } else {
-                JxlDataType::UINT8
-            },
+            data_type,
             endianness: JxlEndianness::NATIVE,
             align: 0,
         };
-        if deep {
+        if data_type == JxlDataType::UINT16 {
             // The samples are codes of the codestream depth, as `cjxl` passes
             // a PNM (`JXL_BIT_DEPTH_FROM_CODESTREAM`); 8-bit input keeps the
             // default, the same values.
@@ -729,7 +780,7 @@ impl Encoder {
     }
 }
 
-/// Encode one frame: set the image and options, add `pixels`, close the
+/// Encode one 8-bit frame: set the image and options, add `pixels`, close the
 /// input and append the codestream to `out` (at most `limit` bytes).
 ///
 /// # Errors
@@ -749,7 +800,28 @@ pub fn encode(
     encoder.process_output_into(out, limit)
 }
 
-/// Encode one lossless frame (effort 2, the default buffering): set the
+/// Encode one 9-to-16-bit frame from native `u16` samples: set the image and
+/// options, add `pixels`, close the input and append the codestream to `out`
+/// (at most `limit` bytes).
+///
+/// # Errors
+/// As for the [`Encoder`] steps.
+pub fn encode_u16(
+    image: ImageInfo,
+    options: FrameOptions,
+    pixels: &[u16],
+    out: &mut Vec<u8>,
+    limit: usize,
+) -> Result<usize, Error> {
+    let mut encoder = Encoder::new()?;
+    encoder.set_image(image)?;
+    encoder.set_frame_options(options)?;
+    encoder.add_frame_u16(pixels)?;
+    encoder.close_input();
+    encoder.process_output_into(out, limit)
+}
+
+/// Encode one 8-bit lossless frame (effort 2, the default buffering): set the
 /// image, the lossless profile, add `pixels`, close the input and append the
 /// codestream to `out` (at most `limit` bytes).
 ///
@@ -765,6 +837,27 @@ pub fn encode_lossless(
     encoder.set_lossless_image(image)?;
     encoder.set_lossless()?;
     encoder.add_frame(pixels)?;
+    encoder.close_input();
+    encoder.process_output_into(out, limit)
+}
+
+/// Encode one 9-to-16-bit lossless frame (effort 2, the default buffering)
+/// from native `u16` samples: set the image, the lossless profile, add
+/// `pixels`, close the input and append the codestream to `out` (at most
+/// `limit` bytes).
+///
+/// # Errors
+/// As for the [`Encoder`] steps.
+pub fn encode_lossless_u16(
+    image: ImageInfo,
+    pixels: &[u16],
+    out: &mut Vec<u8>,
+    limit: usize,
+) -> Result<usize, Error> {
+    let mut encoder = Encoder::new()?;
+    encoder.set_lossless_image(image)?;
+    encoder.set_lossless()?;
+    encoder.add_frame_u16(pixels)?;
     encoder.close_input();
     encoder.process_output_into(out, limit)
 }

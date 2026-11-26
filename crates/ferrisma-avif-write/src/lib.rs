@@ -130,12 +130,57 @@ pub fn required_frame_bytes(request: &Config) -> Result<usize, EncodeError> {
     frame_bytes(request).ok_or_else(|| invalid("output frame size overflows"))
 }
 
+/// Native-depth RGBA sample storage. Storing `sample_depth > 8` in `Vec<u16>`
+/// guarantees `align_of::<u16>()` alignment for `avifImageRGBToYUV`'s
+/// `*const u16` reads and avoids per-sample byte serialization.
+enum FrameSamples {
+    U8(Vec<u8>),
+    U16(Vec<u16>),
+}
+
+impl FrameSamples {
+    fn len(&self) -> usize {
+        match self {
+            Self::U8(samples) => samples.len(),
+            Self::U16(samples) => samples.len(),
+        }
+    }
+
+    fn as_band_mut(&mut self) -> BandSamples<'_> {
+        match self {
+            Self::U8(samples) => BandSamples::U8(samples),
+            Self::U16(samples) => BandSamples::U16(samples),
+        }
+    }
+}
+
+/// Mutable view over one or more RGBA rows in native sample storage.
+enum BandSamples<'a> {
+    U8(&'a mut [u8]),
+    U16(&'a mut [u16]),
+}
+
+impl BandSamples<'_> {
+    fn split_at_mut(self, mid: usize) -> (Self, Self) {
+        match self {
+            Self::U8(slice) => {
+                let (head, tail) = slice.split_at_mut(mid);
+                (Self::U8(head), Self::U8(tail))
+            }
+            Self::U16(slice) => {
+                let (head, tail) = slice.split_at_mut(mid);
+                (Self::U16(head), Self::U16(tail))
+            }
+        }
+    }
+}
+
 /// An owned frame accepting each output row exactly once from top to bottom.
 pub struct Frame {
     request: Config,
-    /// RGBA samples as bytes: one per sample at `sample_depth` 8, two
-    /// (native-endian `u16`, as `avifRGBImage` reads them) above.
-    rgba: Vec<u8>,
+    /// RGBA samples: `u8` at `sample_depth` 8, native `u16` above so the
+    /// buffer satisfies `align_of::<u16>()` for `avifImageRGBToYUV`.
+    rgba: FrameSamples,
     next: u32,
 }
 
@@ -147,15 +192,26 @@ impl Frame {
     /// Returns an error for invalid options or failed allocation.
     pub fn new(request: Config) -> Result<Self, EncodeError> {
         required_frame_bytes(&request)?;
-        let frame =
-            request.width as usize * request.height as usize * 4 * rgb_sample_bytes(&request);
-        let mut rgba = Vec::new();
-        rgba.try_reserve_exact(frame).map_err(|_| {
-            EncodeError::new(
-                ErrorKind::ResourceExhausted,
-                "cannot allocate the RGBA frame for libavif",
-            )
-        })?;
+        let samples = request.width as usize * request.height as usize * 4;
+        let rgba = if request.sample_depth > 8 {
+            let mut buf = Vec::new();
+            buf.try_reserve_exact(samples).map_err(|_| {
+                EncodeError::new(
+                    ErrorKind::ResourceExhausted,
+                    "cannot allocate the RGBA frame for libavif",
+                )
+            })?;
+            FrameSamples::U16(buf)
+        } else {
+            let mut buf = Vec::new();
+            buf.try_reserve_exact(samples).map_err(|_| {
+                EncodeError::new(
+                    ErrorKind::ResourceExhausted,
+                    "cannot allocate the RGBA frame for libavif",
+                )
+            })?;
+            FrameSamples::U8(buf)
+        };
         Ok(Self {
             request,
             rgba,
@@ -168,7 +224,13 @@ impl Frame {
     /// Returns an error for an out-of-order row or an incorrect row length.
     pub fn write_row(&mut self, y: u32, rgba: &[u8]) -> Result<(), EncodeError> {
         self.check_row(y, rgba.len(), 8)?;
-        self.rgba.extend_from_slice(rgba);
+        let FrameSamples::U8(buf) = &mut self.rgba else {
+            return Err(EncodeError::new(
+                ErrorKind::Failed,
+                "libavif-rs backend received rows out of order, of the wrong length or depth",
+            ));
+        };
+        buf.extend_from_slice(rgba);
         self.next += 1;
         Ok(())
     }
@@ -188,9 +250,13 @@ impl Frame {
                 "libavif-rs backend received a sample above the image depth",
             ));
         }
-        for sample in rgba {
-            self.rgba.extend_from_slice(&sample.to_ne_bytes());
-        }
+        let FrameSamples::U16(buf) = &mut self.rgba else {
+            return Err(EncodeError::new(
+                ErrorKind::Failed,
+                "libavif-rs backend received rows out of order, of the wrong length or depth",
+            ));
+        };
+        buf.extend_from_slice(rgba);
         self.next += 1;
         Ok(())
     }
@@ -352,13 +418,66 @@ impl Drop for View {
     }
 }
 
+/// Create a scoped worker without panicking when the OS cannot create a thread.
+fn spawn_band<'scope, 'env, F, T>(
+    scope: &'scope std::thread::Scope<'scope, 'env>,
+    worker: F,
+) -> std::io::Result<std::thread::ScopedJoinHandle<'scope, T>>
+where
+    F: FnOnce() -> T + Send + 'scope,
+    T: Send + 'scope,
+{
+    #[cfg(test)]
+    if let Some(action) = FAIL_SPAWN_AFTER.with(|remaining| match remaining.get() {
+        Some((0, action)) => Some(action),
+        Some((n, action)) => {
+            remaining.set(Some((n - 1, action)));
+            None
+        }
+        None => None,
+    }) {
+        match action {
+            SpawnFault::Error => {
+                return Err(std::io::Error::other(
+                    "injected scoped thread spawn failure",
+                ));
+            }
+            SpawnFault::Panic => panic!("injected scoped thread spawn panic"),
+        }
+    }
+    std::thread::Builder::new().spawn_scoped(scope, worker)
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy)]
+enum SpawnFault {
+    Error,
+    Panic,
+}
+
+#[cfg(test)]
+thread_local! {
+    static FAIL_SPAWN_AFTER: std::cell::Cell<Option<(usize, SpawnFault)>> =
+        const { std::cell::Cell::new(None) };
+}
+
 /// Convert one band of RGBA rows into `target`'s planes.
 fn convert_band(
     target: *mut image_api::avifImage,
     request: &Config,
-    band: &mut [u8],
+    mut band: BandSamples<'_>,
     row_bytes: u32,
 ) -> Result<(), EncodeError> {
+    let pixels = match (request.sample_depth > 8, &mut band) {
+        (false, BandSamples::U8(slice)) => slice.as_mut_ptr(),
+        (true, BandSamples::U16(slice)) => slice.as_mut_ptr().cast::<u8>(),
+        _ => {
+            return Err(EncodeError::new(
+                ErrorKind::Failed,
+                "libavif-rs backend sample storage does not match sample depth",
+            ));
+        }
+    };
     // SAFETY: an all-zero `avifRGBImage` is a valid value of the C struct
     // (integers and a null pointer); it is fully initialized just below.
     let mut rgb: reformat::avifRGBImage = unsafe { std::mem::zeroed() };
@@ -370,13 +489,16 @@ fn convert_band(
     rgb.depth = u32::from(request.sample_depth);
     rgb.ignoreAlpha = i32::from(!request.has_alpha);
     rgb.alphaPremultiplied = 0;
-    rgb.pixels = band.as_mut_ptr();
+    rgb.pixels = pixels;
     rgb.rowBytes = row_bytes;
     // SAFETY: `rgb.pixels` points to `rowBytes * height` initialized bytes
     // of `band` (the target's rows), which outlives the call and is not
     // otherwise accessed during it; libavif only reads the RGB image here.
-    // For the whole image it allocates the planes, which `Image` frees; a
-    // view's planes are already set and are written in place.
+    // When `sample_depth > 8`, `band` is `BandSamples::U16` (2-byte aligned)
+    // and `rowBytes` is a multiple of 8, so every row and sample address is
+    // aligned for libavif's `*const u16` reads. For the whole image it
+    // allocates the planes, which `Image` frees; a view's planes are already
+    // set and are written in place.
     let result = unsafe { reformat::avifImageRGBToYUV(target.cast(), &raw const rgb) };
     if result == AVIF_RESULT_OK {
         Ok(())
@@ -385,15 +507,16 @@ fn convert_band(
     }
 }
 
-/// Convert the RGBA frame into `image`'s planes in up to `bands` row bands
-/// on scoped threads; one band is libavif's serial call on the whole image.
+/// Convert the RGBA frame into `image`'s planes in up to `bands` row bands:
+/// band 0 runs on the calling thread and bands `1..` run on fallibly spawned
+/// scoped threads; one band is libavif's serial call on the whole image.
 /// libavif's built-in conversion works per pixel for 4:4:4 and per 2x2
 /// block for 4:2:0, so the samples are the same for every band count
 /// (`tests::conversion_bands_do_not_change_samples`).
 fn rgb_to_yuv(
     image: &Image,
     request: &Config,
-    rgba: &mut [u8],
+    rgba: BandSamples<'_>,
     row_bytes: u32,
     bands: usize,
 ) -> Result<(), EncodeError> {
@@ -413,10 +536,11 @@ fn rgb_to_yuv(
     if result != AVIF_RESULT_OK {
         return Err(failure(result, "plane allocation"));
     }
+    let row_samples = request.width as usize * 4;
     let mut jobs = Vec::with_capacity(rows.len());
     let mut rest = rgba;
     for &(y, count) in &rows {
-        let (band, tail) = rest.split_at_mut(row_bytes as usize * count as usize);
+        let (band, tail) = rest.split_at_mut(row_samples * count as usize);
         rest = tail;
         // SAFETY: no arguments; a null result is handled below.
         let view = unsafe { image_api::avifImageCreateEmpty() };
@@ -443,30 +567,102 @@ fn rgb_to_yuv(
         }
         jobs.push((view, band));
     }
+    let mut jobs_iter = jobs.into_iter();
+    let Some((first_view, first_band)) = jobs_iter.next() else {
+        return Ok(());
+    };
+    let gate = (
+        std::sync::Mutex::new(None::<bool>),
+        std::sync::Condvar::new(),
+    );
+    struct GateGuard<'a>(&'a (std::sync::Mutex<Option<bool>>, std::sync::Condvar));
+    impl GateGuard<'_> {
+        fn release(self, proceed: bool) {
+            let (lock, condvar) = self.0;
+            let mut state = lock
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            *state = Some(proceed);
+            condvar.notify_all();
+        }
+    }
+    impl Drop for GateGuard<'_> {
+        fn drop(&mut self) {
+            let (lock, condvar) = self.0;
+            let mut state = lock
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            if state.is_none() {
+                *state = Some(false);
+                condvar.notify_all();
+            }
+        }
+    }
     std::thread::scope(|scope| {
-        let handles: Vec<_> = jobs
-            .into_iter()
-            .map(|(view, band)| {
-                scope.spawn(move || {
-                    // Own the whole view, so it is destroyed on this thread
-                    // after the conversion.
-                    let view = view;
-                    convert_band(view.0, request, band, row_bytes)
-                })
-            })
-            .collect();
-        handles.into_iter().try_for_each(|handle| {
-            handle.join().unwrap_or_else(|_| {
+        // Ensures already-spawned workers waiting on `gate` are cancelled and
+        // woken even if the spawn loop unwinds before `release` runs.
+        let gate_guard = GateGuard(&gate);
+        let mut handles = Vec::with_capacity(rows.len() - 1);
+        let mut spawn_error = None;
+        for (view, band) in jobs_iter {
+            let gate = &gate;
+            match spawn_band(scope, move || {
+                // Own the whole view, so it is destroyed on this thread
+                // after the conversion or if startup is aborted.
+                let view = view;
+                let proceed = {
+                    let (lock, condvar) = gate;
+                    let mut state = lock
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner);
+                    while state.is_none() {
+                        state = condvar
+                            .wait(state)
+                            .unwrap_or_else(std::sync::PoisonError::into_inner);
+                    }
+                    state.unwrap_or(false)
+                };
+                if !proceed {
+                    return Ok(());
+                }
+                convert_band(view.0, request, band, row_bytes)
+            }) {
+                Ok(handle) => handles.push(handle),
+                Err(error) => {
+                    spawn_error = Some(error);
+                    break;
+                }
+            }
+        }
+        gate_guard.release(spawn_error.is_none());
+        if let Some(error) = spawn_error {
+            for handle in handles {
+                let _ = handle.join();
+            }
+            drop(first_view);
+            return Err(EncodeError::new(
+                ErrorKind::ResourceExhausted,
+                format!("libavif could not start an RGB to YUV conversion worker: {error}"),
+            ));
+        }
+        let mut result = convert_band(first_view.0, request, first_band, row_bytes);
+        drop(first_view);
+        for handle in handles {
+            let band_result = handle.join().unwrap_or_else(|_| {
                 Err(EncodeError::new(
                     ErrorKind::Failed,
                     "libavif RGB to YUV band panicked",
                 ))
-            })
-        })
+            });
+            if result.is_ok() {
+                result = band_result;
+            }
+        }
+        result
     })
 }
 
-fn encode(request: &Config, mut rgba: Vec<u8>) -> Result<Vec<u8>, EncodeError> {
+fn encode(request: &Config, mut rgba: FrameSamples) -> Result<Vec<u8>, EncodeError> {
     let format = match request.chroma {
         Chroma::Yuv444 => AVIF_PIXEL_FORMAT_YUV444,
         Chroma::Yuv420 => AVIF_PIXEL_FORMAT_YUV420,
@@ -475,7 +671,8 @@ fn encode(request: &Config, mut rgba: Vec<u8>) -> Result<Vec<u8>, EncodeError> {
         .width
         .checked_mul(4 * u32::from(request.sample_depth > 8) + 4) // 4 or 8 bytes per pixel
         .ok_or_else(|| EncodeError::new(ErrorKind::InvalidOptions, "row size overflows"))?;
-    if rgba.len() != row_bytes as usize * request.height as usize {
+    let expected_samples = request.width as usize * request.height as usize * 4;
+    if rgba.len() != expected_samples {
         return Err(EncodeError::new(
             ErrorKind::Failed,
             "libavif-rs backend frame is incomplete",
@@ -483,7 +680,7 @@ fn encode(request: &Config, mut rgba: Vec<u8>) -> Result<Vec<u8>, EncodeError> {
     }
     let image = new_image(request, format)?;
     let bands = conversion_bands(request.height, request.threads.clamp(1, MAX_THREADS));
-    rgb_to_yuv(&image, request, &mut rgba, row_bytes, bands)?;
+    rgb_to_yuv(&image, request, rgba.as_band_mut(), row_bytes, bands)?;
     drop(rgba);
     encode_image(request, &image)
 }
@@ -659,26 +856,30 @@ mod tests {
                             Chroma::Yuv444 => AVIF_PIXEL_FORMAT_YUV444,
                             Chroma::Yuv420 => AVIF_PIXEL_FORMAT_YUV420,
                         };
-                        // Deep rows: the same pseudo-random bytes as native-endian
-                        // u16 samples, masked to the depth.
-                        let frame: Vec<u8> = if sample_depth > 8 {
-                            rgba.chunks(2)
-                                .cycle()
-                                .take(rgba.len())
-                                .flat_map(|pair| {
-                                    let value = u16::from_ne_bytes([pair[0], pair[1 % pair.len()]])
-                                        & ((1 << sample_depth) - 1);
-                                    value.to_ne_bytes()
-                                })
-                                .collect()
+                        // Deep rows: native u16 samples masked to the depth.
+                        let frame: FrameSamples = if sample_depth > 8 {
+                            FrameSamples::U16(
+                                rgba.chunks(2)
+                                    .cycle()
+                                    .take(rgba.len())
+                                    .map(|pair| {
+                                        u16::from_ne_bytes([pair[0], pair[1 % pair.len()]])
+                                            & ((1 << sample_depth) - 1)
+                                    })
+                                    .collect(),
+                            )
                         } else {
-                            rgba.clone()
+                            FrameSamples::U8(rgba.clone())
                         };
                         let row_bytes = width * 4 * if sample_depth > 8 { 2 } else { 1 };
                         let convert = |bands| {
                             let image = new_image(&request, format).unwrap();
-                            let mut frame = frame.clone();
-                            rgb_to_yuv(&image, &request, &mut frame, row_bytes, bands).unwrap();
+                            let mut frame = match &frame {
+                                FrameSamples::U8(buf) => FrameSamples::U8(buf.clone()),
+                                FrameSamples::U16(buf) => FrameSamples::U16(buf.clone()),
+                            };
+                            rgb_to_yuv(&image, &request, frame.as_band_mut(), row_bytes, bands)
+                                .unwrap();
                             planes(&image, &request)
                         };
                         let serial = convert(1);
@@ -831,5 +1032,128 @@ mod tests {
         assert_eq!(conversion_bands(1067, 20), 8);
         assert_eq!(conversion_bands(100, 20), 1);
         assert_eq!(conversion_bands(130, 20), 2);
+    }
+
+    struct FailSpawnGuard(Option<(usize, SpawnFault)>);
+    impl Drop for FailSpawnGuard {
+        fn drop(&mut self) {
+            FAIL_SPAWN_AFTER.with(|limit| limit.set(self.0));
+        }
+    }
+
+    fn fail_spawn_after(successful: usize) -> FailSpawnGuard {
+        let previous =
+            FAIL_SPAWN_AFTER.with(|limit| limit.replace(Some((successful, SpawnFault::Error))));
+        FailSpawnGuard(previous)
+    }
+
+    fn panic_spawn_after(successful: usize) -> FailSpawnGuard {
+        let previous =
+            FAIL_SPAWN_AFTER.with(|limit| limit.replace(Some((successful, SpawnFault::Panic))));
+        FailSpawnGuard(previous)
+    }
+
+    #[test]
+    fn deep_frame_uses_aligned_u16_storage() {
+        for depth in [10, 12] {
+            let mut frame = Frame::new(Config {
+                width: 9,
+                height: 5,
+                has_alpha: true,
+                quality: 60,
+                alpha_quality: 60,
+                speed: 6,
+                threads: 1,
+                chroma: Chroma::Yuv444,
+                depth,
+                sample_depth: depth,
+            })
+            .unwrap();
+            let row = vec![(1_u16 << depth) - 1; 9 * 4];
+            for y in 0..5 {
+                frame.write_row_u16(y, &row).unwrap();
+            }
+            match &frame.rgba {
+                FrameSamples::U16(samples) => {
+                    assert_eq!(samples.len(), 9 * 5 * 4);
+                    assert_eq!(
+                        samples.as_ptr().align_offset(std::mem::align_of::<u16>()),
+                        0
+                    );
+                }
+                FrameSamples::U8(_) => panic!("deep frame must store native u16 samples"),
+            }
+        }
+    }
+
+    #[test]
+    fn band_spawn_failure_returns_resource_exhausted_and_band_zero_runs_on_caller() {
+        let (width, height) = (32_u32, 260_u32);
+        let request = Config {
+            width,
+            height,
+            has_alpha: true,
+            quality: 60,
+            alpha_quality: 60,
+            speed: 6,
+            threads: 4,
+            chroma: Chroma::Yuv420,
+            depth: 10,
+            sample_depth: 10,
+        };
+        let bands = conversion_bands(height, request.threads);
+        let actual_bands = band_rows(height, bands).len();
+        assert_eq!(actual_bands, 4);
+        let samples: Vec<u16> = (0..(width * height * 4) as usize)
+            .map(|i| (i as u16).wrapping_mul(13) & 1023)
+            .collect();
+        let row_bytes = width * 4 * 2;
+
+        let serial_image = new_image(&request, AVIF_PIXEL_FORMAT_YUV420).unwrap();
+        let mut serial_frame = FrameSamples::U16(samples.clone());
+        rgb_to_yuv(
+            &serial_image,
+            &request,
+            serial_frame.as_band_mut(),
+            row_bytes,
+            1,
+        )
+        .unwrap();
+        let expected_planes = planes(&serial_image, &request);
+
+        // Failing on spawn 0, 1, or 2 (out of 3 worker spawns) returns
+        // ResourceExhausted without panicking or leaking views.
+        for successful_spawns in 0..(actual_bands - 1) {
+            let _guard = fail_spawn_after(successful_spawns);
+            let image = new_image(&request, AVIF_PIXEL_FORMAT_YUV420).unwrap();
+            let mut frame = FrameSamples::U16(samples.clone());
+            let err =
+                rgb_to_yuv(&image, &request, frame.as_band_mut(), row_bytes, bands).unwrap_err();
+            let (kind, message) = err.into_parts();
+            assert_eq!(
+                kind,
+                ErrorKind::ResourceExhausted,
+                "spawn failure after {successful_spawns} workers must report ResourceExhausted: {message}"
+            );
+        }
+
+        // Allowing exactly `actual_bands - 1` spawns succeeds because band 0
+        // runs on the calling thread instead of spawning a dedicated worker.
+        let _guard = fail_spawn_after(actual_bands - 1);
+        let image = new_image(&request, AVIF_PIXEL_FORMAT_YUV420).unwrap();
+        let mut frame = FrameSamples::U16(samples.clone());
+        rgb_to_yuv(&image, &request, frame.as_band_mut(), row_bytes, bands).unwrap();
+        assert_eq!(planes(&image, &request), expected_planes);
+
+        // If the spawn loop unwinds after at least one worker is waiting on the
+        // startup gate, the drop guard cancels and wakes it so `thread::scope`
+        // joins without deadlocking.
+        let panicked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = panic_spawn_after(1);
+            let image = new_image(&request, AVIF_PIXEL_FORMAT_YUV420).unwrap();
+            let mut frame = FrameSamples::U16(samples);
+            let _ = rgb_to_yuv(&image, &request, frame.as_band_mut(), row_bytes, bands);
+        }));
+        assert!(panicked.is_err());
     }
 }

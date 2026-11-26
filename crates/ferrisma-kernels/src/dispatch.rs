@@ -14,6 +14,13 @@ pub(crate) struct Table {
     pub axpy: fn(&mut [f32], &[f32], f32),
 }
 
+/// The six x86-64 CPU features enabled on `avx512::*_entry`:
+/// `avx512f`, `avx512bw`, `avx512cd`, `avx512dq`, `avx512vl`, and `fma`.
+#[cfg(any(target_arch = "x86_64", test))]
+fn has_avx512_features(features: [bool; 6]) -> bool {
+    features.into_iter().all(|present| present)
+}
+
 pub(crate) fn supports(level: IsaLevel) -> bool {
     match level {
         IsaLevel::Scalar => true,
@@ -27,13 +34,14 @@ pub(crate) fn supports(level: IsaLevel) -> bool {
                 && std::arch::is_x86_feature_detected!("fma")
         }
         #[cfg(target_arch = "x86_64")]
-        IsaLevel::Avx512 => {
-            std::arch::is_x86_feature_detected!("avx512f")
-                && std::arch::is_x86_feature_detected!("avx512bw")
-                && std::arch::is_x86_feature_detected!("avx512cd")
-                && std::arch::is_x86_feature_detected!("avx512dq")
-                && std::arch::is_x86_feature_detected!("avx512vl")
-        }
+        IsaLevel::Avx512 => has_avx512_features([
+            std::arch::is_x86_feature_detected!("avx512f"),
+            std::arch::is_x86_feature_detected!("avx512bw"),
+            std::arch::is_x86_feature_detected!("avx512cd"),
+            std::arch::is_x86_feature_detected!("avx512dq"),
+            std::arch::is_x86_feature_detected!("avx512vl"),
+            std::arch::is_x86_feature_detected!("fma"),
+        ]),
         #[allow(unreachable_patterns, reason = "the other architecture's levels")]
         _ => false,
     }
@@ -157,12 +165,39 @@ mod avx512 {
 
     pub(super) fn horizontal_rgba(source: &[f32], taps: &Taps, out: &mut [f32]) {
         // SAFETY: this wrapper is only placed in a `Table` by `table` after
-        // `supports(IsaLevel::Avx512)` confirmed F, BW, CD, DQ and VL.
+        // `supports(IsaLevel::Avx512)` confirmed F, BW, CD, DQ, VL and FMA.
         unsafe { horizontal_rgba_entry(source, taps, out) }
     }
 
     pub(super) fn axpy(acc: &mut [f32], row: &[f32], weight: f32) {
         // SAFETY: as for `horizontal_rgba`.
         unsafe { axpy_entry(acc, row, weight) }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn avx512_requires_all_five_extensions_and_fma() {
+        assert!(has_avx512_features([true; 6]));
+        for missing in 0..6 {
+            let mut flags = [true; 6];
+            flags[missing] = false;
+            assert!(
+                !has_avx512_features(flags),
+                "missing feature index {missing} must disable AVX-512"
+            );
+        }
+        #[cfg(target_arch = "x86_64")]
+        if supports(IsaLevel::Avx512) {
+            assert!(std::arch::is_x86_feature_detected!("avx512f"));
+            assert!(std::arch::is_x86_feature_detected!("avx512bw"));
+            assert!(std::arch::is_x86_feature_detected!("avx512cd"));
+            assert!(std::arch::is_x86_feature_detected!("avx512dq"));
+            assert!(std::arch::is_x86_feature_detected!("avx512vl"));
+            assert!(std::arch::is_x86_feature_detected!("fma"));
+        }
     }
 }

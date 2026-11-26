@@ -8,7 +8,9 @@
 //! cargo run --release -p ferrisma-jxl-encoder --example encode_pnm -- in.pam out.jxl lossless
 //! cargo run --release -p ferrisma-jxl-encoder --example encode_pnm -- in.ppm out.jxl 1.0
 //! ```
-use ferrisma_jxl_encoder::{Alpha, FrameOptions, ImageInfo, encode, encode_lossless};
+use ferrisma_jxl_encoder::{
+    Alpha, FrameOptions, ImageInfo, encode, encode_lossless, encode_lossless_u16, encode_u16,
+};
 
 fn header_fields(data: &[u8]) -> (Vec<String>, usize) {
     // P6: four whitespace-separated tokens; P7: key/value lines to ENDHDR.
@@ -59,15 +61,6 @@ fn main() {
     let bits = u8::try_from(usize::BITS - maxval.leading_zeros()).unwrap();
     assert_eq!((1_usize << bits) - 1, maxval, "maxval must be 2^n - 1");
     let raw = &data[start..];
-    let pixels: Vec<u8> = if bits > 8 {
-        raw.as_chunks::<2>()
-            .0
-            .iter()
-            .flat_map(|pair| u16::from_be_bytes(*pair).to_ne_bytes())
-            .collect()
-    } else {
-        raw.to_vec()
-    };
     let base = if alpha {
         ImageInfo::srgba8(
             u32::try_from(width).unwrap(),
@@ -82,18 +75,43 @@ fn main() {
     let image = base.with_bits(bits);
     assert_eq!(image.alpha == Alpha::None, !alpha);
     let mut out = Vec::new();
-    if args[3] == "lossless" {
-        encode_lossless(image, &pixels, &mut out, usize::MAX).unwrap();
+    if bits > 8 {
+        let pixels: Vec<u16> = raw
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| u16::from_be_bytes(*pair))
+            .collect();
+        if args[3] == "lossless" {
+            encode_lossless_u16(image, &pixels, &mut out, usize::MAX).unwrap();
+        } else {
+            let distance: f32 = args[3].parse().unwrap();
+            encode_u16(
+                image,
+                FrameOptions::with_distance(distance),
+                &pixels,
+                &mut out,
+                usize::MAX,
+            )
+            .unwrap();
+        }
     } else {
-        let distance: f32 = args[3].parse().unwrap();
-        encode(
-            image,
-            FrameOptions::with_distance(distance),
-            &pixels,
-            &mut out,
-            usize::MAX,
-        )
-        .unwrap();
+        // Retain the separate copy of 8-bit pixels so `run_memory.sh` and
+        // `fit.py --old-deep` keep the same 8-bit control allocation baseline.
+        let pixels = raw.to_vec();
+        if args[3] == "lossless" {
+            encode_lossless(image, &pixels, &mut out, usize::MAX).unwrap();
+        } else {
+            let distance: f32 = args[3].parse().unwrap();
+            encode(
+                image,
+                FrameOptions::with_distance(distance),
+                &pixels,
+                &mut out,
+                usize::MAX,
+            )
+            .unwrap();
+        }
     }
     std::fs::write(&args[2], &out).unwrap();
     println!("{} bytes", out.len());
