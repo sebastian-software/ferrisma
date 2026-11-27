@@ -762,7 +762,7 @@ fn parallel_pipeline_is_byte_identical_to_the_sequential_executor() {
                     let sequential =
                         run_threads(&source, crop, size, filter, kernels, 1, 64 << 20, None)
                             .unwrap();
-                    for threads in [2, 3, 8] {
+                    for threads in [2, 3, 8, 12, 16, 20] {
                         let parallel = run_threads(
                             &source,
                             crop,
@@ -3978,4 +3978,2171 @@ fn transform_threads_report_matches_actual_worker_count_with_transposing_orienta
     assert_eq!(r8.transform_threads, 6);
     assert_eq!(out5, out1);
     assert_eq!(out8, out1);
+}
+
+/// Regression for issue #210: on a large vertical upscale (`100x100 -> 1000x1000`),
+/// draining completed strips inside `Driver::advance` and bounding in-flight
+/// vertical rows prevents `OutputBuffer`s from piling up unboundedly in `done`,
+/// keeping `peak_managed_bytes` well below full-frame output storage and letting
+/// tight-budget runs succeed with byte-identical output and `live == 0`.
+#[test]
+fn parallel_upscale_bounds_in_flight_output_buffers_under_tight_budget() {
+    let in_size = Size::new(100, 100).unwrap();
+    let out_size = Size::new(1000, 1000).unwrap();
+    let mut data = Vec::with_capacity(100 * 100 * 3);
+    for y in 0..100_u32 {
+        for x in 0..100_u32 {
+            data.push(u8::try_from((x * 5 + y * 3) % 256).unwrap());
+            data.push(u8::try_from((x * 7 + y * 11) % 256).unwrap());
+            data.push(u8::try_from((x * 13 + y * 2) % 256).unwrap());
+        }
+    }
+    let source = TestSource::new(in_size, ChannelLayout::Rgb, SRGB, Samples::U8(data));
+    let (graph, input, target) = graph_for(&source, None, out_size, Filter::Lanczos3);
+    let request = Rect::new(0, 0, out_size.width, out_size.height).unwrap();
+    let kernels = Kernels::best();
+
+    let seq_budget = MemoryBudget::new(64 << 20);
+    let mut seq_src = source.clone();
+    let mut seq_hash = 0xCBF2_9CE4_8422_2325_u64;
+    let seq_report = execute_fast_srgb8(
+        &graph,
+        target,
+        input,
+        &mut seq_src,
+        request,
+        &seq_budget,
+        &kernels,
+        1,
+        |_, row| {
+            seq_hash = fnv1a64_update(seq_hash, row);
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(seq_budget.snapshot().live, 0);
+
+    // Full output frame would be 1000 * 1000 * 4 = 4,000,000 bytes; bounded
+    // draining keeps parallel overhead far below half an output frame (1 MiB
+    // above sequential peak for 4 threads).
+    let tight_limit = seq_report.peak_engine_managed_bytes + 1_024 * 1_024;
+    for _ in 0..5 {
+        let budget = MemoryBudget::new(tight_limit);
+        let mut src = source.clone();
+        let mut hash = 0xCBF2_9CE4_8422_2325_u64;
+        let report = execute_fast_srgb8(
+            &graph,
+            target,
+            input,
+            &mut src,
+            request,
+            &budget,
+            &kernels,
+            4,
+            |_, row| {
+                hash = fnv1a64_update(hash, row);
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(budget.snapshot().live, 0);
+        assert_eq!(hash, seq_hash);
+        assert_eq!(report.transform_threads, 4);
+        assert!(
+            report.peak_engine_managed_bytes <= tight_limit,
+            "peak {} exceeded tight limit {}",
+            report.peak_engine_managed_bytes,
+            tight_limit
+        );
+    }
+}
+
+fn make_rgb_pattern_source(w: u32, h: u32) -> TestSource {
+    let row_bytes = w as usize * 3;
+    let mut data = vec![0_u8; row_bytes * h as usize];
+    for y in 0..h as usize {
+        let row = &mut data[y * row_bytes..(y + 1) * row_bytes];
+        let seed = u8::try_from((y * 29) & 0xFF).unwrap();
+        for (i, slot) in row.iter_mut().enumerate() {
+            *slot = seed.wrapping_add(u8::try_from((i * 7) & 0xFF).unwrap());
+        }
+    }
+    TestSource::new(
+        Size::new(w, h).unwrap(),
+        ChannelLayout::Rgb,
+        SRGB,
+        Samples::U8(data),
+    )
+}
+
+fn sequential_hash_and_peak(
+    src: &TestSource,
+    out_size: Size,
+    filter: Filter,
+    kernels: &Kernels,
+) -> (u64, usize) {
+    let (graph, input, target) = graph_for(src, None, out_size, filter);
+    let request = Rect::new(0, 0, out_size.width, out_size.height).unwrap();
+    let mut seq_src = src.clone();
+    let seq_budget = MemoryBudget::new(64 << 20);
+    let mut seq_hash = 0xCBF2_9CE4_8422_2325_u64;
+    let report = execute_fast_srgb8(
+        &graph,
+        target,
+        input,
+        &mut seq_src,
+        request,
+        &seq_budget,
+        kernels,
+        1,
+        |_, row| {
+            seq_hash = fnv1a64_update(seq_hash, row);
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(seq_budget.snapshot().live, 0);
+    (seq_hash, report.peak_engine_managed_bytes)
+}
+
+/// Regression for Codex PR #295 finding 1 [P2]: steep downscale
+/// (`4096x1280 -> 4096x128` Area, 2 workers, 10 MB budget) must not retain an
+/// oversized multi-row vertical strip before releasing horizontal rows.
+#[test]
+fn parallel_steep_downscale_completes_under_tight_budget() {
+    let src = make_rgb_pattern_source(4096, 1280);
+    let out_size = Size::new(4096, 128).unwrap();
+    let kernels = Kernels::best();
+    let (seq_hash, _) = sequential_hash_and_peak(&src, out_size, Filter::Area, &kernels);
+
+    let (graph, input, target) = graph_for(&src, None, out_size, Filter::Area);
+    let request = Rect::new(0, 0, 4096, 128).unwrap();
+    let mut par_src = src;
+    let par_budget = MemoryBudget::new(10_000_000);
+    let mut par_hash = 0xCBF2_9CE4_8422_2325_u64;
+    let mut rows = 0_u32;
+    let report = execute_fast_srgb8(
+        &graph,
+        target,
+        input,
+        &mut par_src,
+        request,
+        &par_budget,
+        &kernels,
+        2,
+        |y, row| {
+            assert_eq!(y, rows);
+            rows += 1;
+            par_hash = fnv1a64_update(par_hash, row);
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(rows, 128);
+    assert_eq!(report.transform_threads, 2);
+    assert_eq!(par_hash, seq_hash);
+    assert_eq!(par_budget.snapshot().live, 0);
+    assert!(report.peak_engine_managed_bytes <= 10_000_000);
+}
+
+/// Regression for Codex PR #295 finding 2 [P2]: tight-budget 8-worker resize
+/// (`4096x128 -> 4096x64` Area) must reclaim idle driver pools instead of
+/// failing output/horizontal allocations while another pool holds memory.
+#[test]
+fn parallel_eight_worker_tight_budget_reclaims_idle_pools() {
+    let src = make_rgb_pattern_source(4096, 128);
+    let out_size = Size::new(4096, 64).unwrap();
+    let kernels = Kernels::best();
+    let (seq_hash, seq_peak) = sequential_hash_and_peak(&src, out_size, Filter::Area, &kernels);
+
+    let (graph, input, target) = graph_for(&src, None, out_size, Filter::Area);
+    let request = Rect::new(0, 0, 4096, 64).unwrap();
+    let tight_limit = seq_peak + 1_572_864;
+    for _ in 0..3 {
+        let mut par_src = src.clone();
+        let par_budget = MemoryBudget::new(tight_limit);
+        let mut par_hash = 0xCBF2_9CE4_8422_2325_u64;
+        let mut rows = 0_u32;
+        let report = execute_fast_srgb8(
+            &graph,
+            target,
+            input,
+            &mut par_src,
+            request,
+            &par_budget,
+            &kernels,
+            8,
+            |y, row| {
+                assert_eq!(y, rows);
+                rows += 1;
+                par_hash = fnv1a64_update(par_hash, row);
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(rows, 64);
+        assert_eq!(report.transform_threads, 8);
+        assert_eq!(par_hash, seq_hash);
+        assert_eq!(par_budget.snapshot().live, 0);
+        assert!(report.peak_engine_managed_bytes <= tight_limit);
+    }
+}
+
+/// Regression for Codex PR #295 finding 3 [P3]: 2-worker upscale
+/// (`4096x128 -> 4096x256` Area) must count each incoming strip against
+/// `max_vertical_in_flight` both during decode and after decoder EOF
+/// (enforced by `debug_assert!` in `Driver::advance`).
+#[test]
+fn parallel_upscale_enforces_strict_vertical_cap_after_eof() {
+    let src = make_rgb_pattern_source(4096, 128);
+    let out_size = Size::new(4096, 256).unwrap();
+    let kernels = Kernels::best();
+    let (seq_hash, _) = sequential_hash_and_peak(&src, out_size, Filter::Area, &kernels);
+
+    let (graph, input, target) = graph_for(&src, None, out_size, Filter::Area);
+    let request = Rect::new(0, 0, 4096, 256).unwrap();
+    let mut par_src = src;
+    let par_budget = MemoryBudget::new(64 << 20);
+    let mut par_hash = 0xCBF2_9CE4_8422_2325_u64;
+    let mut rows = 0_u32;
+    let report = execute_fast_srgb8(
+        &graph,
+        target,
+        input,
+        &mut par_src,
+        request,
+        &par_budget,
+        &kernels,
+        2,
+        |y, row| {
+            assert_eq!(y, rows);
+            rows += 1;
+            par_hash = fnv1a64_update(par_hash, row);
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(rows, 256);
+    assert_eq!(report.transform_threads, 2);
+    assert_eq!(par_hash, seq_hash);
+    assert_eq!(par_budget.snapshot().live, 0);
+}
+
+/// Regression for Codex PR #295 follow-up finding [P2]: horizontal batch
+/// pre-allocation must never consume the last remaining bytes of a tight
+/// budget and starve vertical emission (`16x256 -> 4096x128` Area, 2 workers,
+/// at `6,894,192` and `7,074,416` bytes).
+#[test]
+fn parallel_horizontal_batch_keeps_reserved_output_buffer_under_tight_budget() {
+    let src = make_rgb_pattern_source(16, 256);
+    let out_size = Size::new(4096, 128).unwrap();
+    let kernels = Kernels::best();
+    let (seq_hash, _) = sequential_hash_and_peak(&src, out_size, Filter::Area, &kernels);
+
+    let (graph, input, target) = graph_for(&src, None, out_size, Filter::Area);
+    let request = Rect::new(0, 0, 4096, 128).unwrap();
+    for limit in [6_894_192_usize, 7_074_416] {
+        let mut par_src = src.clone();
+        let par_budget = MemoryBudget::new(limit);
+        let mut par_hash = 0xCBF2_9CE4_8422_2325_u64;
+        let mut rows = 0_u32;
+        let report = execute_fast_srgb8(
+            &graph,
+            target,
+            input,
+            &mut par_src,
+            request,
+            &par_budget,
+            &kernels,
+            2,
+            |y, row| {
+                assert_eq!(y, rows);
+                rows += 1;
+                par_hash = fnv1a64_update(par_hash, row);
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(rows, 128, "limit={limit}");
+        assert_eq!(report.transform_threads, 2, "limit={limit}");
+        assert_eq!(par_hash, seq_hash, "limit={limit}");
+        assert_eq!(par_budget.snapshot().live, 0, "limit={limit}");
+        assert!(report.peak_engine_managed_bytes <= limit, "limit={limit}");
+    }
+}
+
+/// Regression for Codex PR #295 follow-up finding 1 [P2]: leave budget
+/// headroom for concurrent `OrientedSource` parallel gather blocks
+/// (`512x256` EXIF orientation 4 vertically flipped RGB -> `128x256` Area,
+/// 2 workers per stage, `1,320,000`-byte budget).
+#[test]
+fn parallel_oriented_gather_preserves_source_headroom_under_tight_budget() {
+    struct FlippedSource(TestSource);
+    impl DecodeSource for FlippedSource {
+        fn info(&self) -> &DecoderInfo {
+            self.0.info()
+        }
+        fn orientation(&self) -> crate::orientation::Orientation {
+            crate::orientation::Orientation::from_exif(4).unwrap()
+        }
+        fn read_region(
+            &mut self,
+            region: Rect,
+            budget: &MemoryBudget,
+            sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
+        ) -> Result<DecodeReport, Error> {
+            self.0.read_region(region, budget, sink)
+        }
+    }
+
+    let base = make_rgb_pattern_source(512, 256);
+    let out_size = Size::new(128, 256).unwrap();
+    let kernels = Kernels::best();
+    let request = Rect::new(0, 0, 128, 256).unwrap();
+
+    let mut seq_src =
+        crate::orientation::OrientedSource::new(Box::new(FlippedSource(base.clone())))
+            .unwrap()
+            .with_threads(1);
+    let (graph, input, target) = graph_for_info(seq_src.info(), None, out_size, Filter::Area);
+    let seq_budget = MemoryBudget::new(64 << 20);
+    let mut seq_hash = 0xCBF2_9CE4_8422_2325_u64;
+    execute_fast_srgb8(
+        &graph,
+        target,
+        input,
+        &mut seq_src,
+        request,
+        &seq_budget,
+        &kernels,
+        1,
+        |_, row| {
+            seq_hash = fnv1a64_update(seq_hash, row);
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(seq_budget.snapshot().live, 0);
+
+    for _ in 0..3 {
+        let mut par_src =
+            crate::orientation::OrientedSource::new(Box::new(FlippedSource(base.clone())))
+                .unwrap()
+                .with_threads(2);
+        let par_budget = MemoryBudget::new(1_320_000);
+        let mut par_hash = 0xCBF2_9CE4_8422_2325_u64;
+        let mut rows = 0_u32;
+        let report = execute_fast_srgb8(
+            &graph,
+            target,
+            input,
+            &mut par_src,
+            request,
+            &par_budget,
+            &kernels,
+            2,
+            |y, row| {
+                assert_eq!(y, rows);
+                rows += 1;
+                par_hash = fnv1a64_update(par_hash, row);
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(rows, 256);
+        assert_eq!(report.transform_threads, 2);
+        assert_eq!(par_hash, seq_hash);
+        assert_eq!(par_budget.snapshot().live, 0);
+        assert!(report.peak_engine_managed_bytes <= 1_320_000);
+    }
+}
+
+/// Regression for Codex PR #295 follow-up finding 2 [P2]: release
+/// `reserved_output` as a last resort when output row 0 needs every source row
+/// (`512x64 -> 4096x1` RGB Area, 2 workers, `10,750,888`-byte budget).
+#[test]
+fn parallel_releases_reserved_output_when_blocking_final_source_row() {
+    let src = make_rgb_pattern_source(512, 64);
+    let out_size = Size::new(4096, 1).unwrap();
+    let kernels = Kernels::best();
+    let (seq_hash, _) = sequential_hash_and_peak(&src, out_size, Filter::Area, &kernels);
+
+    let (graph, input, target) = graph_for(&src, None, out_size, Filter::Area);
+    let request = Rect::new(0, 0, 4096, 1).unwrap();
+    let mut par_src = src;
+    let par_budget = MemoryBudget::new(10_750_888);
+    let mut par_hash = 0xCBF2_9CE4_8422_2325_u64;
+    let mut rows = 0_u32;
+    let report = execute_fast_srgb8(
+        &graph,
+        target,
+        input,
+        &mut par_src,
+        request,
+        &par_budget,
+        &kernels,
+        2,
+        |y, row| {
+            assert_eq!(y, rows);
+            rows += 1;
+            par_hash = fnv1a64_update(par_hash, row);
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(rows, 1);
+    assert_eq!(report.transform_threads, 2);
+    assert_eq!(par_hash, seq_hash);
+    assert_eq!(par_budget.snapshot().live, 0);
+    assert!(report.peak_engine_managed_bytes <= 10_750_888);
+}
+
+/// Regression for Codex PR #295 Round-4 finding 1 [P2]: `reserved_output` must
+/// be deferred until the first delivered needed row so it does not overlap
+/// with full-frame decoder scratch that is released before streaming rows.
+#[test]
+fn parallel_defers_reserved_output_past_decoder_scratch() {
+    struct ScratchBeforeRows {
+        inner: TestSource,
+        scratch_bytes: usize,
+    }
+    impl DecodeSource for ScratchBeforeRows {
+        fn info(&self) -> &DecoderInfo {
+            self.inner.info()
+        }
+        fn read_region(
+            &mut self,
+            region: Rect,
+            budget: &MemoryBudget,
+            sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
+        ) -> Result<DecodeReport, Error> {
+            // Simulate a codec that holds temporary decode scratch and drops
+            // it before streaming rows.
+            let decode_scratch = budget.allocate(self.scratch_bytes)?;
+            drop(decode_scratch);
+            self.inner.read_region(region, budget, sink)
+        }
+    }
+
+    let base = make_rgb_pattern_source(128, 128);
+    let out_size = Size::new(32, 128).unwrap();
+    let kernels = Kernels::best();
+    let (seq_hash, _) = sequential_hash_and_peak(&base, out_size, Filter::Area, &kernels);
+    let (graph, input, target) = graph_for(&base, None, out_size, Filter::Area);
+    let request = Rect::new(0, 0, 32, 128).unwrap();
+
+    // Measure exact budget live at the start of `read_region` (plan + 2 worker
+    // scratches, with zero output row pre-reserved).
+    let probe_budget = MemoryBudget::new(64 << 20);
+    let scratch_bytes = 512 * 1024;
+    let mut probe_src = ScratchBeforeRows {
+        inner: base.clone(),
+        scratch_bytes,
+    };
+    let probe_report = execute_fast_srgb8(
+        &graph,
+        target,
+        input,
+        &mut probe_src,
+        request,
+        &probe_budget,
+        &kernels,
+        2,
+        |_, _| Ok(()),
+    )
+    .unwrap();
+    assert_eq!(probe_budget.snapshot().live, 0);
+
+    // Budget equals the exact peak observed with the temporary decode scratch
+    // (if `reserved_output` were allocated before `read_region`, `decode_scratch`
+    // would exceed this limit by 128 bytes).
+    let exact_limit = probe_report.peak_engine_managed_bytes;
+    let mut par_src = ScratchBeforeRows {
+        inner: base,
+        scratch_bytes,
+    };
+    let par_budget = MemoryBudget::new(exact_limit);
+    let mut par_hash = 0xCBF2_9CE4_8422_2325_u64;
+    let mut rows = 0_u32;
+    let report = execute_fast_srgb8(
+        &graph,
+        target,
+        input,
+        &mut par_src,
+        request,
+        &par_budget,
+        &kernels,
+        2,
+        |y, row| {
+            assert_eq!(y, rows);
+            rows += 1;
+            par_hash = fnv1a64_update(par_hash, row);
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(rows, 128);
+    assert_eq!(report.transform_threads, 2);
+    assert_eq!(par_hash, seq_hash);
+    assert_eq!(par_budget.snapshot().live, 0);
+}
+
+/// Regression for Codex PR #295 Round-4 finding 1 [P2] with the exact flipped
+/// `128x128` WebP -> `32x128` 2-worker reproducer at `381,296` bytes.
+#[cfg(feature = "webp-read")]
+#[test]
+fn parallel_flipped_webp_fits_exact_tight_budget_without_early_output_reserve() {
+    struct FlippedWebp<'a> {
+        inner: crate::codecs::webp::WebpSource<'a>,
+        info: DecoderInfo,
+    }
+    impl DecodeSource for FlippedWebp<'_> {
+        fn info(&self) -> &DecoderInfo {
+            &self.info
+        }
+        fn orientation(&self) -> crate::orientation::Orientation {
+            crate::orientation::Orientation::from_exif(4).unwrap()
+        }
+        fn read_region(
+            &mut self,
+            region: Rect,
+            budget: &MemoryBudget,
+            sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
+        ) -> Result<DecodeReport, Error> {
+            self.inner.read_region(region, budget, sink)
+        }
+    }
+
+    let webp = include_bytes!("../tests/fixtures/webp/reference-lossy.webp");
+    let out_size = Size::new(32, 128).unwrap();
+    let request = Rect::new(0, 0, 32, 128).unwrap();
+    let kernels = Kernels::best();
+
+    let make_oriented = |threads: usize| {
+        let raw = crate::codecs::webp::WebpSource::new_bounded(webp, 1_000_000).unwrap();
+        let mut info = raw.info().clone();
+        info.rendered_cicp = Some(SRGB);
+        crate::orientation::OrientedSource::new(Box::new(FlippedWebp { inner: raw, info }))
+            .unwrap()
+            .with_threads(threads)
+    };
+
+    let mut seq_src = make_oriented(1);
+    let (graph, input, target) = graph_for_info(seq_src.info(), None, out_size, Filter::Area);
+    let seq_budget = MemoryBudget::new(64 << 20);
+    let mut seq_hash = 0xCBF2_9CE4_8422_2325_u64;
+    execute_fast_srgb8(
+        &graph,
+        target,
+        input,
+        &mut seq_src,
+        request,
+        &seq_budget,
+        &kernels,
+        1,
+        |_, row| {
+            seq_hash = fnv1a64_update(seq_hash, row);
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(seq_budget.snapshot().live, 0);
+
+    for _ in 0..3 {
+        let mut par_src = make_oriented(2);
+        let par_budget = MemoryBudget::new(381_296);
+        let mut par_hash = 0xCBF2_9CE4_8422_2325_u64;
+        let mut rows = 0_u32;
+        let report = execute_fast_srgb8(
+            &graph,
+            target,
+            input,
+            &mut par_src,
+            request,
+            &par_budget,
+            &kernels,
+            2,
+            |y, row| {
+                assert_eq!(y, rows);
+                rows += 1;
+                par_hash = fnv1a64_update(par_hash, row);
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(rows, 128);
+        assert_eq!(report.transform_threads, 2);
+        assert_eq!(par_hash, seq_hash);
+        assert_eq!(par_budget.snapshot().live, 0);
+        assert!(report.peak_engine_managed_bytes <= 381_296);
+    }
+}
+
+struct ConcurrencyProbe {
+    state: std::sync::Mutex<(usize, usize)>,
+    changed: std::sync::Condvar,
+    waited: std::sync::atomic::AtomicUsize,
+}
+
+impl crate::decoder::RowConversion for ConcurrencyProbe {
+    fn input_sample(&self) -> SampleType {
+        SampleType::U8
+    }
+    fn input_channels(&self) -> usize {
+        3
+    }
+    fn scratch_channels(&self) -> (usize, usize) {
+        (0, 3)
+    }
+    fn convert(
+        &self,
+        row: DecodedRow<'_>,
+        _scratch: &mut [f32],
+        out: &mut [f32],
+    ) -> Result<(), Error> {
+        use std::sync::atomic::Ordering;
+        use std::time::Duration;
+        {
+            let mut guard = self.state.lock().unwrap();
+            guard.0 += 1;
+            guard.1 = guard.1.max(guard.0);
+            if guard.1 >= 2 {
+                self.changed.notify_all();
+            } else if self.waited.fetch_add(1, Ordering::Relaxed) == 0 {
+                let _ = self
+                    .changed
+                    .wait_timeout_while(guard, Duration::from_millis(50), |s| s.1 < 2)
+                    .unwrap();
+            }
+        }
+        let DecodedRow::U8(bytes) = row else {
+            return Err(Error::IncompleteDecoderOutput);
+        };
+        for (dst, &src) in out.iter_mut().zip(bytes) {
+            *dst = f32::from(src) / 255.0;
+        }
+        let mut guard = self.state.lock().unwrap();
+        guard.0 -= 1;
+        Ok(())
+    }
+}
+
+struct DeferredTestSource {
+    inner: TestSource,
+    info: DecoderInfo,
+    conv: std::sync::Arc<dyn crate::decoder::RowConversion>,
+    delivered: Option<std::sync::Arc<std::sync::atomic::AtomicU32>>,
+}
+
+impl DecodeSource for DeferredTestSource {
+    fn info(&self) -> &DecoderInfo {
+        &self.info
+    }
+    fn defer_conversion(&mut self) -> Option<std::sync::Arc<dyn crate::decoder::RowConversion>> {
+        Some(self.conv.clone())
+    }
+    fn set_downstream_headroom(&mut self, bytes: usize) {
+        self.inner.set_downstream_headroom(bytes);
+    }
+    fn read_region(
+        &mut self,
+        region: Rect,
+        budget: &MemoryBudget,
+        sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
+    ) -> Result<DecodeReport, Error> {
+        let delivered = self.delivered.clone();
+        self.inner.read_region(region, budget, &mut |y, row| {
+            if let Some(counter) = &delivered {
+                counter.fetch_add(1, std::sync::atomic::Ordering::Release);
+            }
+            sink(y, row)
+        })
+    }
+}
+
+struct StallFirstRow {
+    stall_enabled: bool,
+    stalled: std::sync::atomic::AtomicBool,
+    delivered: std::sync::Arc<std::sync::atomic::AtomicU32>,
+    delivered_while_stalled: std::sync::atomic::AtomicU32,
+}
+
+impl crate::decoder::RowConversion for StallFirstRow {
+    fn input_sample(&self) -> SampleType {
+        SampleType::U8
+    }
+    fn input_channels(&self) -> usize {
+        3
+    }
+    fn scratch_channels(&self) -> (usize, usize) {
+        (0, 3)
+    }
+    fn convert(
+        &self,
+        row: DecodedRow<'_>,
+        _scratch: &mut [f32],
+        out: &mut [f32],
+    ) -> Result<(), Error> {
+        use std::sync::atomic::Ordering;
+        let DecodedRow::U8(bytes) = row else {
+            return Err(Error::IncompleteDecoderOutput);
+        };
+        // Row 0 is tagged with sentinel byte `255` (no other row uses `255`),
+        // so the stall deterministically hits strip 0 regardless of scheduling.
+        if self.stall_enabled && bytes.first() == Some(&255) {
+            std::thread::sleep(std::time::Duration::from_millis(30));
+            self.delivered_while_stalled
+                .store(self.delivered.load(Ordering::Acquire), Ordering::Release);
+            self.stalled.store(true, Ordering::Release);
+        }
+        for (dst, &src) in out.iter_mut().zip(bytes) {
+            *dst = f32::from(src) / 255.0;
+        }
+        Ok(())
+    }
+}
+
+/// Regression for Codex PR #295 Round-4 finding 2 [P2]: non-oriented sources
+/// must retain true multi-worker concurrency under tight budgets
+/// (`512x256 -> 128x256` Area, 2 workers, `802,816` bytes) instead of
+/// serializing horizontal rows.
+#[test]
+fn parallel_non_oriented_source_stays_concurrent_under_tight_budget() {
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::{Arc, Condvar, Mutex};
+
+    let base = make_rgb_pattern_source(512, 256);
+    let mut linear_info = base.info().clone();
+    linear_info.sample = SampleType::F32;
+    linear_info.rendered_cicp = Some([1, 8, 0, 1]);
+
+    let probe = Arc::new(ConcurrencyProbe {
+        state: Mutex::new((0, 0)),
+        changed: Condvar::new(),
+        waited: AtomicUsize::new(0),
+    });
+    let mut src = DeferredTestSource {
+        inner: base,
+        info: linear_info,
+        conv: probe.clone(),
+        delivered: None,
+    };
+    let out_size = Size::new(128, 256).unwrap();
+    let (graph, input, target) = graph_for_info(src.info(), None, out_size, Filter::Area);
+    let request = Rect::new(0, 0, 128, 256).unwrap();
+    let budget = MemoryBudget::new(802_816);
+    let mut rows = 0_u32;
+    let report = execute_fast_srgb8(
+        &graph,
+        target,
+        input,
+        &mut src,
+        request,
+        &budget,
+        &Kernels::best(),
+        2,
+        |y, _| {
+            assert_eq!(y, rows);
+            rows += 1;
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(rows, 256);
+    assert_eq!(report.transform_threads, 2);
+    assert_eq!(budget.snapshot().live, 0);
+    let max_active = probe.state.lock().unwrap().1;
+    assert!(
+        max_active >= 2,
+        "expected >= 2 concurrent horizontal row conversions on non-oriented source, got {max_active}"
+    );
+}
+
+/// Regression for Codex PR #295 Round-4 finding 3 [P2]: stalling horizontal
+/// strip 0 on one worker must bound completed horizontal rows waiting in
+/// `Driver::rows` so the decoder cannot advance arbitrarily far ahead of
+/// vertical work.
+#[test]
+fn parallel_stalled_first_strip_bounds_decoder_advance() {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+
+    // Row 0 carries sentinel `255`; all subsequent rows stay in `0..=250` so
+    // `StallFirstRow` deterministically stalls source row 0.
+    let mut data = vec![0_u8; 64 * 256 * 3];
+    for y in 0..256_usize {
+        let row = &mut data[y * 64 * 3..(y + 1) * 64 * 3];
+        if y == 0 {
+            row.fill(255);
+        } else {
+            let v = u8::try_from((y * 17) % 251).unwrap();
+            row.fill(v);
+        }
+    }
+    let base = TestSource::new(
+        Size::new(64, 256).unwrap(),
+        ChannelLayout::Rgb,
+        SRGB,
+        Samples::U8(data),
+    );
+    let mut linear_info = base.info().clone();
+    linear_info.sample = SampleType::F32;
+    linear_info.rendered_cicp = Some([1, 8, 0, 1]);
+    let out_size = Size::new(64, 128).unwrap();
+    let request = Rect::new(0, 0, 64, 128).unwrap();
+    let kernels = Kernels::best();
+
+    let delivered_seq = Arc::new(AtomicU32::new(0));
+    let mut seq_src = DeferredTestSource {
+        inner: base.clone(),
+        info: linear_info.clone(),
+        conv: Arc::new(StallFirstRow {
+            stall_enabled: false,
+            stalled: AtomicBool::new(false),
+            delivered: delivered_seq.clone(),
+            delivered_while_stalled: AtomicU32::new(0),
+        }),
+        delivered: Some(delivered_seq),
+    };
+    let (graph, input, target) = graph_for_info(seq_src.info(), None, out_size, Filter::Area);
+    let seq_budget = MemoryBudget::new(64 << 20);
+    let mut seq_hash = 0xCBF2_9CE4_8422_2325_u64;
+    execute_fast_srgb8(
+        &graph,
+        target,
+        input,
+        &mut seq_src,
+        request,
+        &seq_budget,
+        &kernels,
+        1,
+        |_, row| {
+            seq_hash = fnv1a64_update(seq_hash, row);
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(seq_budget.snapshot().live, 0);
+
+    let delivered_par = Arc::new(AtomicU32::new(0));
+    let conv_par = Arc::new(StallFirstRow {
+        stall_enabled: true,
+        stalled: AtomicBool::new(false),
+        delivered: delivered_par.clone(),
+        delivered_while_stalled: AtomicU32::new(0),
+    });
+    let mut par_src = DeferredTestSource {
+        inner: base,
+        info: linear_info,
+        conv: conv_par.clone(),
+        delivered: Some(delivered_par),
+    };
+    let par_budget = MemoryBudget::new(64 << 20);
+    let mut par_hash = 0xCBF2_9CE4_8422_2325_u64;
+    let mut rows = 0_u32;
+    let report = execute_fast_srgb8(
+        &graph,
+        target,
+        input,
+        &mut par_src,
+        request,
+        &par_budget,
+        &kernels,
+        2,
+        |y, row| {
+            assert_eq!(y, rows);
+            rows += 1;
+            par_hash = fnv1a64_update(par_hash, row);
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(rows, 128);
+    assert_eq!(report.transform_threads, 2);
+    assert_eq!(par_hash, seq_hash);
+    assert_eq!(par_budget.snapshot().live, 0);
+    assert!(conv_par.stalled.load(Ordering::Acquire));
+
+    // With 2 workers, h_batch=8, max_h_in_flight=4, plan.capacity=2,
+    // max_h_rows = 2 + 2 * 4 * 8 = 66. `pace_horizontal` counts retained,
+    // in-flight, pending, deferred, and the incoming row before admitting it,
+    // so at most 66 rows are admitted and the 67th row blocks in
+    // `pace_horizontal` (strictly below 72).
+    let delivered_while_stalled = conv_par.delivered_while_stalled.load(Ordering::Acquire);
+    assert!(
+        delivered_while_stalled <= 67,
+        "decoder advanced to row {delivered_while_stalled} while strip 0 was stalled (expected <= 67)"
+    );
+}
+
+struct FlippedTestSource(TestSource);
+
+impl DecodeSource for FlippedTestSource {
+    fn info(&self) -> &DecoderInfo {
+        self.0.info()
+    }
+    fn orientation(&self) -> crate::orientation::Orientation {
+        crate::orientation::Orientation::from_exif(4).unwrap()
+    }
+    fn read_region(
+        &mut self,
+        region: Rect,
+        budget: &MemoryBudget,
+        sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
+    ) -> Result<DecodeReport, Error> {
+        self.0.read_region(region, budget, sink)
+    }
+}
+
+struct DeferredOrientedSource<'a> {
+    inner: crate::orientation::OrientedSource<'a>,
+    info: DecoderInfo,
+    conv: std::sync::Arc<dyn crate::decoder::RowConversion>,
+}
+
+impl DecodeSource for DeferredOrientedSource<'_> {
+    fn info(&self) -> &DecoderInfo {
+        &self.info
+    }
+    fn defer_conversion(&mut self) -> Option<std::sync::Arc<dyn crate::decoder::RowConversion>> {
+        Some(self.conv.clone())
+    }
+    fn set_downstream_headroom(&mut self, bytes: usize) {
+        self.inner.set_downstream_headroom(bytes);
+    }
+    fn read_region(
+        &mut self,
+        region: Rect,
+        budget: &MemoryBudget,
+        sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
+    ) -> Result<DecodeReport, Error> {
+        self.inner.read_region(region, budget, sink)
+    }
+}
+
+/// Regression for Codex PR #295 Round-5 finding 1 [P2]: when a final callback
+/// cannot fit a horizontal `Row` while `OrientedSource` still holds its decoded
+/// region (`64x128` flipped RGB -> `2048x1` Area, 2 workers, `7,510,000` bytes),
+/// defer horizontal allocation until `read_region` returns and drops its buffers.
+#[test]
+fn parallel_flipped_defers_horizontal_row_allocation_past_read_region() {
+    let base = make_rgb_pattern_source(64, 128);
+    let out_size = Size::new(2048, 1).unwrap();
+    let request = Rect::new(0, 0, 2048, 1).unwrap();
+    let kernels = Kernels::best();
+
+    let mut seq_src =
+        crate::orientation::OrientedSource::new(Box::new(FlippedTestSource(base.clone())))
+            .unwrap()
+            .with_threads(1);
+    let (graph, input, target) = graph_for_info(seq_src.info(), None, out_size, Filter::Area);
+    let seq_budget = MemoryBudget::new(64 << 20);
+    let mut seq_hash = 0xCBF2_9CE4_8422_2325_u64;
+    execute_fast_srgb8(
+        &graph,
+        target,
+        input,
+        &mut seq_src,
+        request,
+        &seq_budget,
+        &kernels,
+        1,
+        |_, row| {
+            seq_hash = fnv1a64_update(seq_hash, row);
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(seq_budget.snapshot().live, 0);
+
+    for run in 0..10 {
+        let mut par_src =
+            crate::orientation::OrientedSource::new(Box::new(FlippedTestSource(base.clone())))
+                .unwrap()
+                .with_threads(2);
+        let par_budget = MemoryBudget::new(7_510_000);
+        let mut par_hash = 0xCBF2_9CE4_8422_2325_u64;
+        let mut rows = 0_u32;
+        let report = execute_fast_srgb8(
+            &graph,
+            target,
+            input,
+            &mut par_src,
+            request,
+            &par_budget,
+            &kernels,
+            2,
+            |y, row| {
+                assert_eq!(y, rows);
+                rows += 1;
+                par_hash = fnv1a64_update(par_hash, row);
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(rows, 1, "run={run}");
+        assert_eq!(report.transform_threads, 2, "run={run}");
+        assert_eq!(par_hash, seq_hash, "run={run}");
+        assert_eq!(par_budget.snapshot().live, 0, "run={run}");
+        assert!(report.peak_engine_managed_bytes <= 7_510_000, "run={run}");
+    }
+}
+
+/// Regression for Codex PR #295 Round-5 finding 2 [P2] & Round-7 finding 1 [P2]:
+/// `OrientedSource` pre-allocates and reuses its gather blocks before row
+/// callbacks begin, so `2048x640 -> 1024x640` flipped RGB with 20 workers and
+/// a 14 MB budget preserves multi-worker horizontal concurrency with zero
+/// inter-callback gather allocations.
+#[test]
+fn parallel_flipped_gather_headroom_tracks_only_unreserved_blocks() {
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::{Arc, Condvar, Mutex};
+
+    let base = make_rgb_pattern_source(2048, 640);
+    let out_size = Size::new(1024, 640).unwrap();
+    let request = Rect::new(0, 0, 1024, 640).unwrap();
+    let kernels = Kernels::best();
+
+    let oriented = crate::orientation::OrientedSource::new(Box::new(FlippedTestSource(base)))
+        .unwrap()
+        .with_threads(20);
+    let mut linear_info = oriented.info().clone();
+    linear_info.sample = SampleType::F32;
+    linear_info.rendered_cicp = Some([1, 8, 0, 1]);
+
+    let probe = Arc::new(ConcurrencyProbe {
+        state: Mutex::new((0, 0)),
+        changed: Condvar::new(),
+        waited: AtomicUsize::new(0),
+    });
+    let mut src = DeferredOrientedSource {
+        inner: oriented,
+        info: linear_info,
+        conv: probe.clone(),
+    };
+    let (graph, input, target) = graph_for_info(src.info(), None, out_size, Filter::Area);
+    let budget = MemoryBudget::new(14_000_000);
+    let mut rows = 0_u32;
+    let report = execute_fast_srgb8(
+        &graph,
+        target,
+        input,
+        &mut src,
+        request,
+        &budget,
+        &kernels,
+        20,
+        |y, _| {
+            assert_eq!(y, rows);
+            rows += 1;
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(rows, 640);
+    assert_eq!(report.transform_threads, 20);
+    assert_eq!(budget.snapshot().live, 0);
+    assert!(report.peak_engine_managed_bytes <= 14_000_000);
+    let max_active = probe.state.lock().unwrap().1;
+    assert!(
+        max_active >= 2,
+        "expected >= 2 concurrent horizontal row conversions on flipped 2048x640 at 14 MB, got {max_active}"
+    );
+}
+
+/// Regression for Codex PR #295 Round-7 finding 1 [P2]: pre-allocating and
+/// reusing gather blocks in `OrientedSource::emit_parallel` eliminates any
+/// double-counting race window (`500x65 -> 100x88` flipped Area, 5 workers,
+/// `699,140`-byte budget).
+#[test]
+fn parallel_flipped_preallocated_gather_blocks_avoid_double_counting() {
+    let base = make_rgb_pattern_source(500, 65);
+    let out_size = Size::new(100, 88).unwrap();
+    let request = Rect::new(0, 0, 100, 88).unwrap();
+    let kernels = Kernels::best();
+
+    let mut seq_src =
+        crate::orientation::OrientedSource::new(Box::new(FlippedTestSource(base.clone())))
+            .unwrap()
+            .with_threads(1);
+    let (graph, input, target) = graph_for_info(seq_src.info(), None, out_size, Filter::Area);
+    let seq_budget = MemoryBudget::new(64 << 20);
+    let mut seq_hash = 0xCBF2_9CE4_8422_2325_u64;
+    execute_fast_srgb8(
+        &graph,
+        target,
+        input,
+        &mut seq_src,
+        request,
+        &seq_budget,
+        &kernels,
+        1,
+        |_, row| {
+            seq_hash = fnv1a64_update(seq_hash, row);
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(seq_budget.snapshot().live, 0);
+
+    for run in 0..10 {
+        let mut par_src =
+            crate::orientation::OrientedSource::new(Box::new(FlippedTestSource(base.clone())))
+                .unwrap()
+                .with_threads(5);
+        let par_budget = MemoryBudget::new(699_140);
+        let mut par_hash = 0xCBF2_9CE4_8422_2325_u64;
+        let mut rows = 0_u32;
+        let report = execute_fast_srgb8(
+            &graph,
+            target,
+            input,
+            &mut par_src,
+            request,
+            &par_budget,
+            &kernels,
+            5,
+            |y, row| {
+                assert_eq!(y, rows);
+                rows += 1;
+                par_hash = fnv1a64_update(par_hash, row);
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(rows, 88, "run={run}");
+        assert_eq!(report.transform_threads, 5, "run={run}");
+        assert_eq!(par_hash, seq_hash, "run={run}");
+        assert_eq!(par_budget.snapshot().live, 0, "run={run}");
+        assert!(report.peak_engine_managed_bytes <= 699_140, "run={run}");
+    }
+}
+
+/// Regression for Codex PR #295 Round-7 finding 2 [P3]: a sink returning
+/// `Error::BudgetExceeded` during horizontal-allocation reclamation must
+/// propagate immediately instead of being misinterpreted as a deferred
+/// horizontal row allocation.
+#[test]
+fn parallel_propagates_sink_budget_exceeded_without_deferring() {
+    let base = make_rgb_pattern_source(16, 128);
+    let out_size = Size::new(4096, 128).unwrap();
+    let request = Rect::new(0, 0, 4096, 128).unwrap();
+    let (graph, input, target) = graph_for(&base, None, out_size, Filter::Area);
+    let kernels = Kernels::best();
+
+    let mut src = base;
+    // Tight enough that horizontal row allocation enters reclamation and emits
+    // finished rows via `sink`, while still allowing the first vertical output
+    // to complete and invoke `sink`.
+    let budget = MemoryBudget::new(6_894_192);
+    let sentinel = Error::BudgetExceeded {
+        requested: 12_345,
+        available: 67,
+    };
+    let result = execute_fast_srgb8(
+        &graph,
+        target,
+        input,
+        &mut src,
+        request,
+        &budget,
+        &kernels,
+        2,
+        |_, _| Err(sentinel.clone()),
+    );
+    assert_eq!(result, Err(sentinel));
+    assert_eq!(budget.snapshot().live, 0);
+}
+
+struct TransposedTestSource(TestSource);
+
+impl DecodeSource for TransposedTestSource {
+    fn info(&self) -> &DecoderInfo {
+        self.0.info()
+    }
+    fn orientation(&self) -> crate::orientation::Orientation {
+        crate::orientation::Orientation::from_exif(6).unwrap()
+    }
+    fn read_region(
+        &mut self,
+        region: Rect,
+        budget: &MemoryBudget,
+        sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
+    ) -> Result<DecodeReport, Error> {
+        self.0.read_region(region, budget, sink)
+    }
+}
+
+/// Regression for Codex PR #295 Round-8 & Round-9 finding [P2]: `OrientedSource::emit_parallel`
+/// must preserve `downstream_headroom` when pre-allocating optional gather blocks
+/// so budget admission is strictly monotonic (`302x403` EXIF-6 transposing RGB ->
+/// `403x302` display -> `100x302` Area, 6 threads => 2 gather + 4 transform workers:
+/// if `min_budget` succeeds, every budget across all gather-block thresholds succeeds).
+#[test]
+fn parallel_flipped_gather_budget_admission_is_monotonic() {
+    let base = make_rgb_pattern_source(302, 403);
+    let out_size = Size::new(100, 302).unwrap();
+    let request = Rect::new(0, 0, 100, 302).unwrap();
+    let kernels = Kernels::best();
+
+    let mut seq_src =
+        crate::orientation::OrientedSource::new(Box::new(TransposedTestSource(base.clone())))
+            .unwrap()
+            .with_threads(1);
+    let (graph, input, target) = graph_for_info(seq_src.info(), None, out_size, Filter::Area);
+    let seq_budget = MemoryBudget::new(64 << 20);
+    let mut seq_hash = 0xCBF2_9CE4_8422_2325_u64;
+    execute_fast_srgb8(
+        &graph,
+        target,
+        input,
+        &mut seq_src,
+        request,
+        &seq_budget,
+        &kernels,
+        1,
+        |_, row| {
+            seq_hash = fnv1a64_update(seq_hash, row);
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(seq_budget.snapshot().live, 0);
+
+    let run_with_limit = |limit: usize| -> Result<u64, Error> {
+        let mut par_src =
+            crate::orientation::OrientedSource::new(Box::new(TransposedTestSource(base.clone())))
+                .unwrap();
+        let budget = MemoryBudget::new(limit);
+        let mut hash = 0xCBF2_9CE4_8422_2325_u64;
+        let mut rows = 0_u32;
+        let result = execute_fast_srgb8(
+            &graph,
+            target,
+            input,
+            &mut par_src,
+            request,
+            &budget,
+            &kernels,
+            6,
+            |y, row| {
+                assert_eq!(y, rows);
+                rows += 1;
+                hash = fnv1a64_update(hash, row);
+                Ok(())
+            },
+        );
+        assert_eq!(budget.snapshot().live, 0);
+        result.map(|_| {
+            assert_eq!(rows, 302);
+            hash
+        })
+    };
+
+    // Binary-search the exact minimum budget that succeeds.
+    let mut lo = 1_usize;
+    let mut hi = 4 << 20;
+    assert_eq!(run_with_limit(hi).unwrap(), seq_hash);
+    while lo < hi {
+        let mid = lo + (hi - lo) / 2;
+        if run_with_limit(mid).is_ok() {
+            hi = mid;
+        } else {
+            lo = mid + 1;
+        }
+    }
+    let min_budget = lo;
+    let block_bytes = 403 * 16 * 3;
+    assert!(matches!(
+        run_with_limit(min_budget - 1),
+        Err(Error::BudgetExceeded { .. })
+    ));
+    let mut extras = vec![0, 1, 64];
+    for k in 1..=4 {
+        extras.extend([k * block_bytes - 1, k * block_bytes, k * block_bytes + 1]);
+    }
+    for extra in extras {
+        let limit = min_budget + extra;
+        assert_eq!(
+            run_with_limit(limit).unwrap(),
+            seq_hash,
+            "budget={limit} (min_budget={min_budget} + {extra}) must succeed monotonically"
+        );
+    }
+}
+
+#[cfg(feature = "webp-read")]
+struct TaggedWebp<'a> {
+    inner: crate::codecs::webp::WebpSource<'a>,
+    info: DecoderInfo,
+}
+
+#[cfg(feature = "webp-read")]
+impl DecodeSource for TaggedWebp<'_> {
+    fn info(&self) -> &DecoderInfo {
+        &self.info
+    }
+    fn read_region(
+        &mut self,
+        region: Rect,
+        budget: &MemoryBudget,
+        sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
+    ) -> Result<DecodeReport, Error> {
+        self.inner.read_region(region, budget, sink)
+    }
+}
+
+/// Regression for Codex PR #295 Round-9 finding 1 [P2]: `try_alloc_horiz_row`
+/// must keep `reserved_output` intact during `read_region` so a +1 byte budget
+/// increase cannot release `reserved_output`, let a horizontal row fit, and
+/// starve vertical emission (`4x64` crop of `reference-lossy.webp` -> `1024x2`
+/// Area, 2 workers, monotonic across `1,892,811`..`1,900,992` bytes).
+#[cfg(feature = "webp-read")]
+#[test]
+fn parallel_webp_crop_reserved_output_stays_monotonic_across_deferral() {
+    let webp = include_bytes!("../tests/fixtures/webp/reference-lossy.webp");
+    let make_src = || {
+        let mut raw = crate::codecs::webp::WebpSource::new_bounded(webp, 1_000_000).unwrap();
+        let mut info = raw.info().clone();
+        info.rendered_cicp = Some(SRGB);
+        raw.set_decode_threads(1);
+        TaggedWebp { inner: raw, info }
+    };
+
+    let crop = Rect::new(0, 0, 4, 64).unwrap();
+    let out_size = Size::new(1024, 2).unwrap();
+    let request = Rect::new(0, 0, 1024, 2).unwrap();
+    let kernels = Kernels::best();
+
+    let mut seq_src = make_src();
+    let (graph, input, target) = graph_for_info(seq_src.info(), Some(crop), out_size, Filter::Area);
+    let seq_budget = MemoryBudget::new(64 << 20);
+    let mut seq_hash = 0xCBF2_9CE4_8422_2325_u64;
+    execute_fast_srgb8(
+        &graph,
+        target,
+        input,
+        &mut seq_src,
+        request,
+        &seq_budget,
+        &kernels,
+        1,
+        |_, row| {
+            seq_hash = fnv1a64_update(seq_hash, row);
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(seq_budget.snapshot().live, 0);
+
+    let run_with_limit = |limit: usize| -> Result<u64, Error> {
+        let mut par_src = make_src();
+        let budget = MemoryBudget::new(limit);
+        let mut hash = 0xCBF2_9CE4_8422_2325_u64;
+        let mut rows = 0_u32;
+        let res = execute_fast_srgb8(
+            &graph,
+            target,
+            input,
+            &mut par_src,
+            request,
+            &budget,
+            &kernels,
+            2,
+            |y, row| {
+                assert_eq!(y, rows);
+                rows += 1;
+                hash = fnv1a64_update(hash, row);
+                Ok(())
+            },
+        );
+        assert_eq!(budget.snapshot().live, 0);
+        res.map(|_| {
+            assert_eq!(rows, 2);
+            hash
+        })
+    };
+
+    for limit in [1_892_811_usize, 1_892_812, 1_892_813, 1_900_992] {
+        assert_eq!(run_with_limit(limit).unwrap(), seq_hash, "limit={limit}");
+    }
+    let mut lo = 1_usize;
+    let mut hi = 1_892_811_usize;
+    while lo < hi {
+        let mid = lo + (hi - lo) / 2;
+        if run_with_limit(mid).is_ok() {
+            hi = mid;
+        } else {
+            lo = mid + 1;
+        }
+    }
+    let min_budget = lo;
+    assert!(matches!(
+        run_with_limit(min_budget - 1),
+        Err(Error::BudgetExceeded { .. })
+    ));
+    for extra in [0, 1, 4096, 16_384] {
+        let limit = min_budget + extra;
+        assert_eq!(
+            run_with_limit(limit).unwrap(),
+            seq_hash,
+            "budget={limit} (min_budget={min_budget} + {extra}) must succeed monotonically"
+        );
+    }
+}
+
+/// Regression for Codex PR #295 Round-9 finding 2 [P2]: `OrientedSource::emit_parallel`
+/// must shrink its pre-allocated gather window to `1..=max_window` reusable
+/// blocks when the budget fits stored region + 3 gather blocks (not 4), matching
+/// `main`'s ADR-0019 upper-bound contract (transposing EXIF-6 `8192x64` and
+/// `512x256` display RGB, 3 gather workers => `max_window = 4`).
+#[test]
+fn parallel_oriented_shrinks_gather_window_to_three_blocks_under_tight_budget() {
+    struct TransposedSource(TestSource);
+    impl DecodeSource for TransposedSource {
+        fn info(&self) -> &DecoderInfo {
+            self.0.info()
+        }
+        fn orientation(&self) -> crate::orientation::Orientation {
+            crate::orientation::Orientation::from_exif(6).unwrap()
+        }
+        fn read_region(
+            &mut self,
+            region: Rect,
+            budget: &MemoryBudget,
+            sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
+        ) -> Result<DecodeReport, Error> {
+            self.0.read_region(region, budget, sink)
+        }
+    }
+
+    for (display_w, display_h) in [(8192_u32, 64_u32), (512_u32, 256_u32)] {
+        // Stored dimensions are transposed relative to display dimensions.
+        let base = make_rgb_pattern_source(display_h, display_w);
+        let region = Rect::new(0, 0, display_w, display_h).unwrap();
+
+        let mut seq_src =
+            crate::orientation::OrientedSource::new(Box::new(TransposedSource(base.clone())))
+                .unwrap()
+                .with_threads(1);
+        let seq_budget = MemoryBudget::new(64 << 20);
+        let mut seq_hash = 0xCBF2_9CE4_8422_2325_u64;
+        seq_src
+            .read_region(region, &seq_budget, &mut |_, row| {
+                let DecodedRow::U8(bytes) = row else {
+                    return Err(Error::IncompleteDecoderOutput);
+                };
+                seq_hash = fnv1a64_update(seq_hash, bytes);
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(seq_budget.snapshot().live, 0);
+
+        let region_bytes = (display_w as usize) * (display_h as usize) * 3;
+        let block_bytes = (display_w as usize) * 16 * 3;
+        // Budget fits stored region + 3 gather blocks, NOT 4 (`threads + 1`).
+        let three_block_limit = region_bytes + 3 * block_bytes;
+        let mut par_src = crate::orientation::OrientedSource::new(Box::new(TransposedSource(base)))
+            .unwrap()
+            .with_threads(3);
+        let par_budget = MemoryBudget::new(three_block_limit);
+        let mut par_hash = 0xCBF2_9CE4_8422_2325_u64;
+        let mut rows = 0_u32;
+        let report = par_src
+            .read_region(region, &par_budget, &mut |y, row| {
+                assert_eq!(y, rows);
+                rows += 1;
+                let DecodedRow::U8(bytes) = row else {
+                    return Err(Error::IncompleteDecoderOutput);
+                };
+                par_hash = fnv1a64_update(par_hash, bytes);
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(rows, display_h, "{display_w}x{display_h}");
+        assert_eq!(par_hash, seq_hash, "{display_w}x{display_h}");
+        assert_eq!(par_budget.snapshot().live, 0, "{display_w}x{display_h}");
+        assert!(report.peak_engine_managed_bytes <= three_block_limit);
+    }
+}
+
+/// Regression for Codex PR #295 Round-10 finding [P2]: `drain_deferred_horizontal`
+/// must restore `reserved_output` once `read_region` drops decoder buffers and
+/// protect it from lookahead deferred horizontal rows (`1x64` crop of
+/// `reference-lossy.webp` -> `47x2` Area, 2 workers, 40/40 at `68,321` and
+/// `68,396` bytes).
+#[cfg(feature = "webp-read")]
+#[test]
+fn parallel_webp_crop_restores_reserved_output_before_draining_deferred() {
+    let webp = include_bytes!("../tests/fixtures/webp/reference-lossy.webp");
+    let make_src = || {
+        let mut raw = crate::codecs::webp::WebpSource::new_bounded(webp, 1_000_000).unwrap();
+        let mut info = raw.info().clone();
+        info.rendered_cicp = Some(SRGB);
+        raw.set_decode_threads(1);
+        TaggedWebp { inner: raw, info }
+    };
+
+    let crop = Rect::new(0, 0, 1, 64).unwrap();
+    let out_size = Size::new(47, 2).unwrap();
+    let request = Rect::new(0, 0, 47, 2).unwrap();
+    let kernels = Kernels::best();
+
+    let mut seq_src = make_src();
+    let (graph, input, target) = graph_for_info(seq_src.info(), Some(crop), out_size, Filter::Area);
+    let seq_budget = MemoryBudget::new(64 << 20);
+    let mut seq_hash = 0xCBF2_9CE4_8422_2325_u64;
+    execute_fast_srgb8(
+        &graph,
+        target,
+        input,
+        &mut seq_src,
+        request,
+        &seq_budget,
+        &kernels,
+        1,
+        |_, row| {
+            seq_hash = fnv1a64_update(seq_hash, row);
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(seq_budget.snapshot().live, 0);
+
+    for limit in [68_321_usize, 68_396] {
+        for run in 0..40 {
+            let mut par_src = make_src();
+            let par_budget = MemoryBudget::new(limit);
+            let mut par_hash = 0xCBF2_9CE4_8422_2325_u64;
+            let mut rows = 0_u32;
+            let report = execute_fast_srgb8(
+                &graph,
+                target,
+                input,
+                &mut par_src,
+                request,
+                &par_budget,
+                &kernels,
+                2,
+                |y, row| {
+                    assert_eq!(y, rows);
+                    rows += 1;
+                    par_hash = fnv1a64_update(par_hash, row);
+                    Ok(())
+                },
+            )
+            .unwrap();
+            assert_eq!(rows, 2, "limit={limit} run={run}");
+            assert_eq!(report.transform_threads, 2, "limit={limit} run={run}");
+            assert_eq!(par_hash, seq_hash, "limit={limit} run={run}");
+            assert_eq!(par_budget.snapshot().live, 0, "limit={limit} run={run}");
+            assert!(
+                report.peak_engine_managed_bytes <= limit,
+                "limit={limit} run={run}"
+            );
+        }
+    }
+}
+
+/// Regression for Codex PR #295 Round-11 finding [P2]: `execute_quality`
+/// (`WorkingPrecision::F64Reference`) must report its peak horizontal `f64`
+/// cache via `DecodeSource::set_downstream_headroom` so `OrientedSource`
+/// parallel gather preserves strict budget monotonicity (`64x64` transposing
+/// EXIF-6 RGB -> `32x64` Area, 3 gather workers => `max_window = 4`, monotonic
+/// across `min_budget`, `175,600`, `177,648`, and every gather-block threshold).
+#[test]
+fn quality_executor_flipped_gather_budget_admission_is_monotonic() {
+    let base = make_rgb_pattern_source(64, 64);
+    let out_size = Size::new(32, 64).unwrap();
+    let request = Rect::new(0, 0, 32, 64).unwrap();
+
+    let mut seq_src =
+        crate::orientation::OrientedSource::new(Box::new(TransposedTestSource(base.clone())))
+            .unwrap()
+            .with_threads(1);
+    let (graph, input, target) = graph_for_info(seq_src.info(), None, out_size, Filter::Area);
+    let seq_budget = MemoryBudget::new(64 << 20);
+    let mut seq_hash = 0xCBF2_9CE4_8422_2325_u64;
+    execute_quality_srgb8(
+        &graph,
+        target,
+        input,
+        &mut seq_src,
+        request,
+        &seq_budget,
+        |_, row| {
+            seq_hash = fnv1a64_update(seq_hash, row);
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(seq_budget.snapshot().live, 0);
+
+    let run_with_limit = |limit: usize| -> Result<u64, Error> {
+        let mut par_src =
+            crate::orientation::OrientedSource::new(Box::new(TransposedTestSource(base.clone())))
+                .unwrap()
+                .with_threads(3);
+        let budget = MemoryBudget::new(limit);
+        let mut hash = 0xCBF2_9CE4_8422_2325_u64;
+        let mut rows = 0_u32;
+        let res = execute_quality_srgb8(
+            &graph,
+            target,
+            input,
+            &mut par_src,
+            request,
+            &budget,
+            |y, row| {
+                assert_eq!(y, rows);
+                rows += 1;
+                hash = fnv1a64_update(hash, row);
+                Ok(())
+            },
+        );
+        assert_eq!(budget.snapshot().live, 0);
+        res.map(|_| {
+            assert_eq!(rows, 64);
+            hash
+        })
+    };
+
+    let mut lo = 1_usize;
+    let mut hi = 4 << 20;
+    assert_eq!(run_with_limit(hi).unwrap(), seq_hash);
+    while lo < hi {
+        let mid = lo + (hi - lo) / 2;
+        if run_with_limit(mid).is_ok() {
+            hi = mid;
+        } else {
+            lo = mid + 1;
+        }
+    }
+    let min_budget = lo;
+    let block_bytes = 64 * 16 * 3;
+    assert!(matches!(
+        run_with_limit(min_budget - 1),
+        Err(Error::BudgetExceeded { .. })
+    ));
+    let mut limits = vec![min_budget, min_budget + 1, 175_600, 177_648];
+    for k in 1..=4 {
+        limits.extend([
+            min_budget + k * block_bytes - 1,
+            min_budget + k * block_bytes,
+            min_budget + k * block_bytes + 1,
+        ]);
+    }
+    for limit in limits {
+        assert_eq!(
+            run_with_limit(limit).unwrap(),
+            seq_hash,
+            "budget={limit} (min_budget={min_budget}) must succeed monotonically"
+        );
+    }
+}
+
+/// Regression for Codex PR #295 Round-6 finding 1 [P2]: when decoder-held
+/// buffers block horizontal row allocation (`outstanding == 0`, `deferred_h`
+/// growing), `pace_horizontal` must refuse with `BudgetExceeded` instead of
+/// queuing past `max_h_rows`.
+#[test]
+fn parallel_deferred_horizontal_enforces_max_h_rows_cap() {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicU32, Ordering};
+
+    struct HeldDecoderBuffer {
+        inner: TestSource,
+        leave_bytes: usize,
+        delivered: Arc<AtomicU32>,
+    }
+    impl DecodeSource for HeldDecoderBuffer {
+        fn info(&self) -> &DecoderInfo {
+            self.inner.info()
+        }
+        fn read_region(
+            &mut self,
+            region: Rect,
+            budget: &MemoryBudget,
+            sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
+        ) -> Result<DecodeReport, Error> {
+            // Leave room for dozens of 48-byte source row copies in `deferred_h`
+            // but not for a single 65,536-byte horizontal `Row`.
+            let hold_bytes = budget.available().saturating_sub(self.leave_bytes);
+            let _held = budget.allocate(hold_bytes)?;
+            let delivered = self.delivered.clone();
+            self.inner.read_region(region, budget, &mut |y, row| {
+                delivered.fetch_add(1, Ordering::Release);
+                sink(y, row)
+            })
+        }
+    }
+
+    let base = make_rgb_pattern_source(16, 128);
+    let out_size = Size::new(4096, 128).unwrap();
+    let request = Rect::new(0, 0, 4096, 128).unwrap();
+    let (graph, input, target) = graph_for(&base, None, out_size, Filter::Area);
+    let kernels = Kernels::best();
+
+    // With 2 workers, h_batch=8, max_h_in_flight=4, plan.capacity=1,
+    // max_h_rows = 65; rows 0..65 defer into `deferred_h`, and row 65 (the 66th
+    // row) must fail in `pace_horizontal` with `BudgetExceeded` instead of
+    // queueing all 128 source rows.
+    let delivered = Arc::new(AtomicU32::new(0));
+    let mut src = HeldDecoderBuffer {
+        inner: base,
+        leave_bytes: 32_768,
+        delivered: delivered.clone(),
+    };
+    let budget = MemoryBudget::new(8 << 20);
+    let result = execute_fast_srgb8(
+        &graph,
+        target,
+        input,
+        &mut src,
+        request,
+        &budget,
+        &kernels,
+        2,
+        |_, _| Ok(()),
+    );
+    assert!(
+        matches!(result, Err(Error::BudgetExceeded { .. })),
+        "expected BudgetExceeded past max_h_rows, got {result:?}"
+    );
+    assert_eq!(budget.snapshot().live, 0);
+    assert_eq!(
+        delivered.load(Ordering::Acquire),
+        66,
+        "deferred_h must admit at most max_h_rows=65 rows and refuse the 66th"
+    );
+}
+
+/// Regression for Codex PR #295 Round-6 finding 1 [P2] with the exact WebP
+/// `16x128` crop -> `4096x128` 2-worker reproducer at `6,817,392` bytes.
+#[cfg(feature = "webp-read")]
+#[test]
+fn parallel_webp_crop_deferred_horizontal_refuses_past_max_h_rows() {
+    struct TaggedWebp<'a> {
+        inner: crate::codecs::webp::WebpSource<'a>,
+        info: DecoderInfo,
+    }
+    impl DecodeSource for TaggedWebp<'_> {
+        fn info(&self) -> &DecoderInfo {
+            &self.info
+        }
+        fn read_region(
+            &mut self,
+            region: Rect,
+            budget: &MemoryBudget,
+            sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
+        ) -> Result<DecodeReport, Error> {
+            self.inner.read_region(region, budget, sink)
+        }
+    }
+
+    let webp = include_bytes!("../tests/fixtures/webp/reference-lossy.webp");
+    let mut raw = crate::codecs::webp::WebpSource::new_bounded(webp, 1_000_000).unwrap();
+    let mut info = raw.info().clone();
+    info.rendered_cicp = Some(SRGB);
+    raw.set_decode_threads(1);
+    let mut src = TaggedWebp { inner: raw, info };
+    let crop = Rect::new(0, 0, 16, 128).unwrap();
+    let out_size = Size::new(4096, 128).unwrap();
+    let request = Rect::new(0, 0, 4096, 128).unwrap();
+    let (graph, input, target) = graph_for_info(src.info(), Some(crop), out_size, Filter::Area);
+    let budget = MemoryBudget::new(6_817_392);
+    let result = execute_fast_srgb8(
+        &graph,
+        target,
+        input,
+        &mut src,
+        request,
+        &budget,
+        &Kernels::best(),
+        2,
+        |_, _| Ok(()),
+    );
+    assert!(
+        matches!(result, Err(Error::BudgetExceeded { .. })),
+        "expected BudgetExceeded on tight WebP crop -> 4096x128, got {result:?}"
+    );
+    assert_eq!(budget.snapshot().live, 0);
+}
+
+/// Regression for Codex PR #295 Round-6 finding 2 [P2]: steep vertical
+/// downscales (`4x16_000 -> 4x1` Area, 16,000 taps on output row 0) must stay
+/// linear-time (`O(1)` `pace_horizontal` and readiness checks) and match `t=1`.
+#[test]
+fn parallel_steep_vertical_downscale_stays_linear_and_byte_identical() {
+    let base = make_rgb_pattern_source(4, 16_000);
+    let out_size = Size::new(4, 1).unwrap();
+    let request = Rect::new(0, 0, 4, 1).unwrap();
+    let kernels = Kernels::best();
+    let (seq_hash, _) = sequential_hash_and_peak(&base, out_size, Filter::Area, &kernels);
+
+    let (graph, input, target) = graph_for(&base, None, out_size, Filter::Area);
+    let mut par_src = base;
+    let budget = MemoryBudget::new(64 << 20);
+    let mut par_hash = 0xCBF2_9CE4_8422_2325_u64;
+    let mut rows = 0_u32;
+    let report = execute_fast_srgb8(
+        &graph,
+        target,
+        input,
+        &mut par_src,
+        request,
+        &budget,
+        &kernels,
+        2,
+        |y, row| {
+            assert_eq!(y, rows);
+            rows += 1;
+            par_hash = fnv1a64_update(par_hash, row);
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(rows, 1);
+    assert_eq!(report.transform_threads, 2);
+    assert_eq!(par_hash, seq_hash);
+    assert_eq!(budget.snapshot().live, 0);
+}
+
+/// FNV-1a 64-bit digest for fast byte-identity checks across large benchmark outputs.
+fn fnv1a64_update(mut hash: u64, bytes: &[u8]) -> u64 {
+    for &b in bytes {
+        hash ^= u64::from(b);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01B3);
+    }
+    hash
+}
+
+/// Benchmark parallel row pipeline scaling (`1..=20` threads), peak managed memory,
+/// `#210` peak variance, and scoped thread spawn overhead.
+///
+/// Run with:
+/// `cargo test --release -p ferrisma --lib --features webp-read,webp-write bench_parallel_pipeline_scaling -- --ignored --nocapture`
+#[test]
+#[ignore = "manual benchmark for issues #59 and #210"]
+#[allow(clippy::too_many_lines)] // Comprehensive scaling, variance, and thread-pool benchmark report.
+fn bench_parallel_pipeline_scaling() {
+    use std::time::{Duration, Instant};
+
+    const THREAD_COUNTS: &[usize] = &[1, 2, 4, 8, 12, 16, 20];
+    let kernels = Kernels::best();
+    println!(
+        "Parallel pipeline scaling benchmark (level={}, available_parallelism={:?}, best of 3 after warmup):",
+        kernels.level(),
+        std::thread::available_parallelism().ok()
+    );
+
+    // Deterministic patterned source buffer (fast to build, non-trivial pixel values).
+    let make_u8_source = |w: u32, h: u32, layout: ChannelLayout| -> TestSource {
+        let ch = usize::from(layout.channels());
+        let row_bytes = w as usize * ch;
+        let mut data = vec![0_u8; row_bytes * h as usize];
+        for y in 0..h as usize {
+            let row = &mut data[y * row_bytes..(y + 1) * row_bytes];
+            let seed = u8::try_from((y * 37) & 0xFF).unwrap();
+            for (i, slot) in row.iter_mut().enumerate() {
+                let v = seed.wrapping_add(u8::try_from((i * 13) & 0xFF).unwrap());
+                *slot = if ch == 4 && i % 4 == 3 { v.max(1) } else { v };
+            }
+        }
+        TestSource::new(Size::new(w, h).unwrap(), layout, SRGB, Samples::U8(data))
+    };
+
+    let bench_cases = [
+        (
+            "24MP 6000x4000->1600x1067 RGB",
+            6000,
+            4000,
+            ChannelLayout::Rgb,
+            1600,
+            1067,
+            Filter::Lanczos3,
+            false,
+        ),
+        (
+            "24MP 6000x4000->4000x2667 RGB",
+            6000,
+            4000,
+            ChannelLayout::Rgb,
+            4000,
+            2667,
+            Filter::Lanczos3,
+            false,
+        ),
+        (
+            "24MP 6000x4000->1600x1067 RGBA+Probe",
+            6000,
+            4000,
+            ChannelLayout::Rgba,
+            1600,
+            1067,
+            Filter::Lanczos3,
+            true,
+        ),
+        (
+            "48MP 8000x6000->2000x1500 RGB",
+            8000,
+            6000,
+            ChannelLayout::Rgb,
+            2000,
+            1500,
+            Filter::Lanczos3,
+            false,
+        ),
+        (
+            "Upscale 1000x1000->4000x4000 RGB",
+            1000,
+            1000,
+            ChannelLayout::Rgb,
+            4000,
+            4000,
+            Filter::Lanczos3,
+            false,
+        ),
+        (
+            "Steep vertical 64x16000->64x1 RGB Area",
+            64,
+            16_000,
+            ChannelLayout::Rgb,
+            64,
+            1,
+            Filter::Area,
+            false,
+        ),
+    ];
+
+    for (name, sw, sh, layout, dw, dh, filter, with_probe) in bench_cases {
+        let base_source = make_u8_source(sw, sh, layout);
+        let out_size = Size::new(dw, dh).unwrap();
+        let (graph, input, target) = graph_for_info(base_source.info(), None, out_size, filter);
+        let request = Rect::new(0, 0, dw, dh).unwrap();
+        println!("\n### {name}");
+        println!("| threads | transform_ms | total_ms | speedup_x | peak_managed_bytes | hash |");
+        println!("| ---: | ---: | ---: | ---: | ---: | --- |");
+
+        let mut t1_transform_ms = 0.0_f64;
+        let mut expected_hash = None;
+
+        for &threads in THREAD_COUNTS {
+            let mut best_transform = Duration::MAX;
+            let mut best_total = Duration::MAX;
+            let mut peak_bytes = 0_usize;
+            let mut run_hash = 0_u64;
+
+            for iter in 0..4 {
+                let budget = MemoryBudget::new(2 << 30);
+                let mut hash = 0xCBF2_9CE4_8422_2325_u64;
+                let check_hash = iter == 0;
+                let (report, total) = if with_probe {
+                    let found = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+                    let mut probed = crate::discarded::HiddenColorProbe::new(
+                        Box::new(base_source.clone()),
+                        found,
+                    );
+                    let started = Instant::now();
+                    let report = execute_fast_srgb8(
+                        &graph,
+                        target,
+                        input,
+                        &mut probed,
+                        request,
+                        &budget,
+                        &kernels,
+                        threads,
+                        |_, row| {
+                            if check_hash {
+                                hash = fnv1a64_update(hash, row);
+                            } else {
+                                std::hint::black_box(row);
+                            }
+                            Ok(())
+                        },
+                    )
+                    .unwrap();
+                    (report, started.elapsed())
+                } else {
+                    let mut src = base_source.clone();
+                    let started = Instant::now();
+                    let report = execute_fast_srgb8(
+                        &graph,
+                        target,
+                        input,
+                        &mut src,
+                        request,
+                        &budget,
+                        &kernels,
+                        threads,
+                        |_, row| {
+                            if check_hash {
+                                hash = fnv1a64_update(hash, row);
+                            } else {
+                                std::hint::black_box(row);
+                            }
+                            Ok(())
+                        },
+                    )
+                    .unwrap();
+                    (report, started.elapsed())
+                };
+                assert_eq!(budget.snapshot().live, 0);
+                if check_hash {
+                    if let Some(exp) = expected_hash {
+                        assert_eq!(
+                            hash, exp,
+                            "{name} threads={threads} diverged from sequential output!"
+                        );
+                    } else {
+                        expected_hash = Some(hash);
+                    }
+                    run_hash = hash;
+                } else if report.transform_time < best_transform {
+                    best_transform = report.transform_time;
+                    best_total = total;
+                    peak_bytes = report.peak_engine_managed_bytes;
+                }
+            }
+            let tr_ms = best_transform.as_secs_f64() * 1_000.0;
+            let tot_ms = best_total.as_secs_f64() * 1_000.0;
+            if threads == 1 {
+                t1_transform_ms = tr_ms;
+            }
+            let speedup = t1_transform_ms / tr_ms;
+            println!(
+                "| {threads} | {tr_ms:.2} | {tot_ms:.2} | {speedup:.2}x | {peak_bytes} | {run_hash:016x} |"
+            );
+        }
+    }
+
+    // Issue #210: measure `peak_managed_bytes` variance across 20 repeated runs.
+    println!("\n### Issue #210 peak_managed_bytes variance (20 repeated runs)");
+    #[cfg(all(feature = "webp-read", feature = "webp-write"))]
+    {
+        use crate::pipeline::{
+            ImageFormat, InputProfilePolicy, OutputGeometry, OutputSettings, Threads,
+            TransformOptions, WebpOptions, transcode,
+        };
+        use std::num::NonZeroUsize;
+
+        let webp = include_bytes!("../tests/fixtures/webp/reference-lossy.webp");
+        for threads in [4_usize, 8, 20] {
+            let options = TransformOptions::new(OutputGeometry::Exact {
+                width: 96,
+                height: 96,
+            })
+            .with_output(OutputSettings::WebP(WebpOptions::default()))
+            .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
+            .with_transform_threads(Threads::Count(NonZeroUsize::new(threads).unwrap()));
+            let mut peaks = Vec::with_capacity(20);
+            for _ in 0..20 {
+                let out = transcode(webp, ImageFormat::WebP, &options).unwrap();
+                peaks.push(out.report.peak_managed_bytes);
+            }
+            let min = *peaks.iter().min().unwrap();
+            let max = *peaks.iter().max().unwrap();
+            let mut unique = peaks.clone();
+            unique.sort_unstable();
+            unique.dedup();
+            println!(
+                "WebP 128x128->96x96 threads={threads}: min={min} max={max} spread={} distinct={}",
+                max - min,
+                unique.len()
+            );
+        }
+    }
+
+    // Also measure upscale 20-run peak variance (100x100 -> 1000x1000).
+    {
+        let up_src = make_u8_source(100, 100, ChannelLayout::Rgb);
+        let up_size = Size::new(1000, 1000).unwrap();
+        let (graph, input, target) = graph_for_info(up_src.info(), None, up_size, Filter::Lanczos3);
+        let request = Rect::new(0, 0, 1000, 1000).unwrap();
+        for threads in [4_usize, 8, 20] {
+            let mut peaks = Vec::with_capacity(20);
+            for _ in 0..20 {
+                let budget = MemoryBudget::new(2 << 30);
+                let mut src = up_src.clone();
+                let report = execute_fast_srgb8(
+                    &graph,
+                    target,
+                    input,
+                    &mut src,
+                    request,
+                    &budget,
+                    &kernels,
+                    threads,
+                    |_, _| Ok(()),
+                )
+                .unwrap();
+                assert_eq!(budget.snapshot().live, 0);
+                peaks.push(report.peak_engine_managed_bytes);
+            }
+            let min = *peaks.iter().min().unwrap();
+            let max = *peaks.iter().max().unwrap();
+            let mut unique = peaks.clone();
+            unique.sort_unstable();
+            unique.dedup();
+            println!(
+                "Upscale 100x100->1000x1000 threads={threads}: min={min} max={max} spread={} distinct={}",
+                max - min,
+                unique.len()
+            );
+        }
+    }
+
+    // Thread spawn/join overhead benchmark for issue #59 pool evaluation.
+    println!("\n### Thread spawn/join overhead (100 iterations x 20 threads)");
+    let spawn_start = Instant::now();
+    for _ in 0..100 {
+        std::thread::scope(|scope| {
+            for _ in 0..20 {
+                scope.spawn(|| {});
+            }
+        });
+    }
+    let spawn_elapsed = spawn_start.elapsed();
+    println!(
+        "bare thread::scope (20 threads x 100 calls): total={:.2} ms ({:.1} us/call)",
+        spawn_elapsed.as_secs_f64() * 1_000.0,
+        spawn_elapsed.as_secs_f64() * 1_000_000.0 / 100.0
+    );
+
+    // Small/medium image 100 calls on 20 threads vs 1 thread.
+    for (label, sw, sh, dw, dh) in [
+        ("small 400x300->200x150", 400, 300, 200, 150),
+        ("medium 1200x800->600x400", 1200, 800, 600, 400),
+    ] {
+        let src = make_u8_source(sw, sh, ChannelLayout::Rgb);
+        let out_size = Size::new(dw, dh).unwrap();
+        let (graph, input, target) = graph_for_info(src.info(), None, out_size, Filter::Lanczos3);
+        let request = Rect::new(0, 0, dw, dh).unwrap();
+        for threads in [1_usize, 8, 20] {
+            let start = Instant::now();
+            for _ in 0..100 {
+                let budget = MemoryBudget::new(256 << 20);
+                let mut s = src.clone();
+                let _ = execute_fast_srgb8(
+                    &graph,
+                    target,
+                    input,
+                    &mut s,
+                    request,
+                    &budget,
+                    &kernels,
+                    threads,
+                    |_, _| Ok(()),
+                )
+                .unwrap();
+            }
+            let elapsed = start.elapsed();
+            println!(
+                "{label} x100 threads={threads}: total={:.2} ms ({:.1} us/call)",
+                elapsed.as_secs_f64() * 1_000.0,
+                elapsed.as_secs_f64() * 1_000_000.0 / 100.0
+            );
+        }
+    }
 }

@@ -308,6 +308,39 @@ pub(crate) fn execute_quality_srgb8(
     )
 }
 
+/// Exact peak bytes of horizontal `f64` rows `execute_quality` will hold
+/// simultaneously in `cache` during `DecodeSource::read_region`.
+fn peak_quality_cache_bytes(
+    needed: &[u32],
+    lines: &[Vec<Tap>],
+    future_min_source: &[u32],
+    width_components: usize,
+) -> Result<usize, Error> {
+    let mut peak_cached_rows = 0_usize;
+    let mut cached_start = 0_usize;
+    let mut cached_end = 0_usize;
+    let mut sim_out = 0_usize;
+    for &semantic_y in needed {
+        cached_end += 1;
+        peak_cached_rows = peak_cached_rows.max(cached_end - cached_start);
+        while sim_out < lines.len()
+            && lines[sim_out]
+                .last()
+                .is_some_and(|tap| tap.index <= semantic_y)
+        {
+            sim_out += 1;
+            let earliest_future = future_min_source[sim_out];
+            while cached_start < cached_end && needed[cached_start] < earliest_future {
+                cached_start += 1;
+            }
+        }
+    }
+    width_components
+        .checked_mul(std::mem::size_of::<f64>())
+        .and_then(|row_bytes| peak_cached_rows.checked_mul(row_bytes))
+        .ok_or(Error::GeometryOverflow)
+}
+
 /// A scanline sink is borrowed and non-retaining. Cancelling the sink
 /// propagates out immediately and releases all managed row reservations.
 /// The output has `depth` bits per sample (8 to 16): 8-bit rows are `u8`,
@@ -391,6 +424,8 @@ pub(crate) fn execute_quality(
     }
 
     let mut output = OutputBuffer::allocate(depth, width_components, budget)?;
+    let downstream_headroom =
+        peak_quality_cache_bytes(&needed, &lines, &future_min_source, width_components)?;
     let mut cache: VecDeque<CachedRow> = VecDeque::new();
     cache
         .try_reserve_exact(needed.len())
@@ -400,6 +435,7 @@ pub(crate) fn execute_quality(
     let mut expected_y = plan.source.y;
     let mut transform_time = Duration::ZERO;
     let read_started = Instant::now();
+    source.set_downstream_headroom(downstream_headroom);
     let report = source.read_region(plan.source, budget, &mut |decoder_y, row| {
         let row_started = Instant::now();
         if decoder_y != expected_y
@@ -480,7 +516,9 @@ pub(crate) fn execute_quality(
         // Errors abort the whole run, so only the successful path is timed.
         transform_time += row_started.elapsed();
         Ok(())
-    })?;
+    });
+    source.set_downstream_headroom(0);
+    let report = report?;
     let source_time = read_started.elapsed().saturating_sub(transform_time);
 
     if decoded_rows != plan.source.height

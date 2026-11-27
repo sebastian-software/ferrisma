@@ -160,15 +160,70 @@ impl<'a> HiddenColorProbe<'a> {
     }
 }
 
+/// Branchless chunk size (pixels) for auto-vectorized hidden-color scans:
+/// keeps the inner loop straight-line for NEON/AVX2 while still exiting early
+/// on rows that contain hidden color.
+const PROBE_CHUNK_PIXELS: usize = 64;
+
+fn has_hidden_color_u8<const N: usize>(samples: &[u8]) -> bool {
+    for chunk in samples.as_chunks::<N>().0.chunks(PROBE_CHUNK_PIXELS) {
+        let mut found = 0_u8;
+        for pixel in chunk {
+            let mut color = 0_u8;
+            let mut channel = 0;
+            while channel + 1 < N {
+                color |= pixel[channel];
+                channel += 1;
+            }
+            let mask = u8::from(pixel[N - 1] == 0).wrapping_neg();
+            found |= mask & color;
+        }
+        if found != 0 {
+            return true;
+        }
+    }
+    false
+}
+
+/// Bit-exact IEEE-754 binary32 hidden-color scan:
+/// - `x == 0.0` iff `(x.to_bits() & 0x7FFF_FFFF) == 0` (`+0.0` and `-0.0` only;
+///   `NaN`, infinities, subnormals, and normals are all non-zero);
+/// - `x != 0.0` iff `(x.to_bits() & 0x7FFF_FFFF) != 0` (including `NaN`,
+///   infinities, and subnormals).
+fn has_hidden_color_f32<const N: usize>(samples: &[f32]) -> bool {
+    const MAG_MASK: u32 = 0x7FFF_FFFF;
+    for chunk in samples.as_chunks::<N>().0.chunks(PROBE_CHUNK_PIXELS) {
+        let mut found = 0_u32;
+        for pixel in chunk {
+            let mut color = 0_u32;
+            let mut channel = 0;
+            while channel + 1 < N {
+                color |= pixel[channel].to_bits();
+                channel += 1;
+            }
+            let mask = u32::from((pixel[N - 1].to_bits() & MAG_MASK) == 0).wrapping_neg();
+            found |= mask & (color & MAG_MASK);
+        }
+        if found != 0 {
+            return true;
+        }
+    }
+    false
+}
+
 /// A pixel of an RGBA (`channels == 4`) or gray-with-alpha (2) row whose
 /// alpha is exactly zero while a color sample is not.
 fn has_hidden_color(row: crate::decoder::DecodedRow<'_>, channels: usize) -> bool {
     use crate::decoder::DecodedRow;
-    match row {
-        DecodedRow::U8(samples) => samples.chunks_exact(channels).any(|pixel| {
+    match (row, channels) {
+        (DecodedRow::U8(samples), 4) => has_hidden_color_u8::<4>(samples),
+        (DecodedRow::U8(samples), 2) => has_hidden_color_u8::<2>(samples),
+        (DecodedRow::F32(samples), 4) => has_hidden_color_f32::<4>(samples),
+        (DecodedRow::F32(samples), 2) => has_hidden_color_f32::<2>(samples),
+        (DecodedRow::U8(samples), _) => samples.chunks_exact(channels).any(|pixel| {
             pixel[channels - 1] == 0 && pixel[..channels - 1].iter().any(|&value| value != 0)
         }),
-        DecodedRow::F32(samples) => samples.chunks_exact(channels).any(|pixel| {
+        (DecodedRow::F32(samples), _) => samples.chunks_exact(channels).any(|pixel| {
             pixel[channels - 1] == 0.0 && pixel[..channels - 1].iter().any(|&value| value != 0.0)
         }),
     }
@@ -205,6 +260,10 @@ impl crate::decoder::DecodeSource for HiddenColorProbe<'_> {
 
     fn streams_rows(&self) -> bool {
         self.source.streams_rows()
+    }
+
+    fn set_downstream_headroom(&mut self, bytes: usize) {
+        self.source.set_downstream_headroom(bytes);
     }
 
     fn read_region(
@@ -253,6 +312,183 @@ mod tests {
         assert!(DiscardedSet::default().is_empty());
         for (index, class) in Discarded::ORDER.into_iter().enumerate() {
             assert_eq!(class as usize, index, "ORDER follows the declaration");
+        }
+    }
+
+    #[test]
+    fn vectorized_hidden_color_probe_matches_scalar_reference_on_edge_cases() {
+        use super::has_hidden_color;
+        use crate::decoder::DecodedRow;
+
+        let reference = |row: DecodedRow<'_>, channels: usize| match row {
+            DecodedRow::U8(samples) => samples.chunks_exact(channels).any(|pixel| {
+                pixel[channels - 1] == 0 && pixel[..channels - 1].iter().any(|&v| v != 0)
+            }),
+            DecodedRow::F32(samples) => samples.chunks_exact(channels).any(|pixel| {
+                pixel[channels - 1] == 0.0 && pixel[..channels - 1].iter().any(|&v| v != 0.0)
+            }),
+        };
+
+        // Test every pixel position across multiple chunk boundaries plus trailing partial bytes.
+        for len in [0_usize, 1, 3, 63, 64, 65, 127, 128, 131] {
+            for channels in [2_usize, 4] {
+                let mut u8_row = vec![0_u8; len * channels + 1]; // +1 trailing partial sample
+                for px in u8_row.chunks_exact_mut(channels) {
+                    px[0] = 77;
+                    px[channels - 1] = 255;
+                }
+                // Trailing partial sample is non-zero and must be ignored.
+                *u8_row.last_mut().unwrap() = 99;
+                assert!(!has_hidden_color(DecodedRow::U8(&u8_row), channels));
+                assert_eq!(
+                    has_hidden_color(DecodedRow::U8(&u8_row), channels),
+                    reference(DecodedRow::U8(&u8_row), channels)
+                );
+
+                // Transparent black at every position is NOT hidden color.
+                for pos in 0..len {
+                    let mut row = u8_row.clone();
+                    row[pos * channels..(pos + 1) * channels].fill(0);
+                    assert!(!has_hidden_color(DecodedRow::U8(&row), channels));
+                }
+
+                // Single non-zero color sample with alpha 0 at every position & channel.
+                for pos in 0..len {
+                    for ch in 0..channels - 1 {
+                        let mut row = u8_row.clone();
+                        row[pos * channels..(pos + 1) * channels].fill(0);
+                        row[pos * channels + ch] = 1;
+                        assert!(
+                            has_hidden_color(DecodedRow::U8(&row), channels),
+                            "u8 len={len} ch={channels} pos={pos} c={ch}"
+                        );
+                    }
+                }
+            }
+        }
+
+        // F32 IEEE-754 edge cases: +0.0, -0.0, subnormals, infinities, NaNs.
+        let f32_cases: &[([f32; 4], bool)] = &[
+            ([0.0, 0.0, 0.0, 0.0], false),
+            ([-0.0, 0.0, -0.0, -0.0], false),
+            ([-0.0, -0.0, -0.0, 0.0], false),
+            ([1.0, 0.5, 0.25, 1.0], false),
+            ([1.0, 0.5, 0.25, f32::from_bits(1)], false), // subnormal alpha != 0.0
+            ([1.0, 0.5, 0.25, f32::NAN], false),          // NaN alpha != 0.0
+            ([1.0, 0.5, 0.25, f32::INFINITY], false),
+            ([1.0, 0.5, 0.25, f32::NEG_INFINITY], false),
+            ([f32::from_bits(1), 0.0, 0.0, 0.0], true), // subnormal color, +0.0 alpha
+            ([0.0, f32::from_bits(1), 0.0, -0.0], true), // subnormal color, -0.0 alpha
+            ([0.0, 0.0, f32::NAN, 0.0], true),          // NaN color != 0.0, +0.0 alpha
+            ([f32::NAN, 0.0, 0.0, -0.0], true),         // NaN color, -0.0 alpha
+            ([0.0, f32::INFINITY, 0.0, 0.0], true),
+            ([0.0, 0.0, f32::NEG_INFINITY, -0.0], true),
+            ([0.0, -1e-30, 0.0, 0.0], true),
+        ];
+        for &(pixel, expected) in f32_cases {
+            // Test both standalone and embedded past a 64-pixel chunk boundary.
+            let mut row = vec![0.0_f32; 70 * 4];
+            row[67 * 4..68 * 4].copy_from_slice(&pixel);
+            assert_eq!(
+                has_hidden_color(DecodedRow::F32(&row), 4),
+                expected,
+                "RGBA f32 pixel={pixel:?}"
+            );
+            assert_eq!(
+                has_hidden_color(DecodedRow::F32(&row), 4),
+                reference(DecodedRow::F32(&row), 4),
+                "RGBA f32 parity pixel={pixel:?}"
+            );
+
+            // GrayAlpha f32 using [color, alpha] = [pixel[0] | pixel[1] | pixel[2], pixel[3]].
+            for c in 0..3 {
+                let mut ga = vec![0.0_f32; 70 * 2];
+                ga[67 * 2] = pixel[c];
+                ga[67 * 2 + 1] = pixel[3];
+                let expected_ga = reference(DecodedRow::F32(&ga), 2);
+                assert_eq!(
+                    has_hidden_color(DecodedRow::F32(&ga), 2),
+                    expected_ga,
+                    "GrayAlpha f32 pixel=[{:?}, {:?}]",
+                    pixel[c],
+                    pixel[3]
+                );
+            }
+        }
+    }
+
+    /// Run with:
+    /// `cargo test --release -p ferrisma --lib bench_hidden_color_probe -- --ignored --nocapture`
+    #[test]
+    #[ignore = "manual benchmark for issue #59"]
+    fn bench_hidden_color_probe() {
+        use std::hint::black_box;
+        use std::time::Instant;
+
+        use super::has_hidden_color;
+        use crate::decoder::DecodedRow;
+
+        const PIXELS: usize = 8000 * 6000; // 48 MP worst-case scan (no hidden color)
+        let mut rgba_u8 = vec![0_u8; PIXELS * 4];
+        for (i, px) in rgba_u8.as_chunks_mut::<4>().0.iter_mut().enumerate() {
+            // Mix opaque pixels and transparent-black pixels (no hidden color).
+            *px = if i % 7 == 0 {
+                [0, 0, 0, 0]
+            } else {
+                [120, 80, 40, 255]
+            };
+        }
+        let mut ga_u8 = vec![0_u8; PIXELS * 2];
+        for (i, px) in ga_u8.as_chunks_mut::<2>().0.iter_mut().enumerate() {
+            *px = if i % 7 == 0 { [0, 0] } else { [120, 255] };
+        }
+        let mut rgba_f32 = vec![0.0_f32; PIXELS * 4];
+        for (i, px) in rgba_f32.as_chunks_mut::<4>().0.iter_mut().enumerate() {
+            *px = if i % 7 == 0 {
+                [-0.0, 0.0, -0.0, -0.0]
+            } else {
+                [0.5, 0.25, 0.75, 1.0]
+            };
+        }
+        let mut ga_f32 = vec![0.0_f32; PIXELS * 2];
+        for (i, px) in ga_f32.as_chunks_mut::<2>().0.iter_mut().enumerate() {
+            *px = if i % 7 == 0 { [-0.0, 0.0] } else { [0.5, 1.0] };
+        }
+
+        let cases: [(&str, DecodedRow<'_>, usize, usize); 4] = [
+            ("48MP RGBA U8", DecodedRow::U8(&rgba_u8), 4, rgba_u8.len()),
+            ("48MP GrayAlpha U8", DecodedRow::U8(&ga_u8), 2, ga_u8.len()),
+            (
+                "48MP RGBA F32",
+                DecodedRow::F32(&rgba_f32),
+                4,
+                rgba_f32.len() * 4,
+            ),
+            (
+                "48MP GrayAlpha F32",
+                DecodedRow::F32(&ga_f32),
+                2,
+                ga_f32.len() * 4,
+            ),
+        ];
+
+        println!("HiddenColorProbe 48MP worst-case scan (best of 7):");
+        println!("| case | best ms | GB/s |");
+        println!("| --- | ---: | ---: |");
+        for (name, row, channels, bytes) in cases {
+            assert!(!has_hidden_color(row, channels));
+            let mut best = std::time::Duration::MAX;
+            for _ in 0..7 {
+                let start = Instant::now();
+                let found = has_hidden_color(black_box(row), channels);
+                let elapsed = start.elapsed();
+                assert!(!found);
+                best = best.min(elapsed);
+            }
+            let ms = best.as_secs_f64() * 1_000.0;
+            #[allow(clippy::cast_precision_loss)]
+            let gbps = (bytes as f64 / 1e9) / best.as_secs_f64();
+            println!("| {name} | {ms:.3} | {gbps:.2} |");
         }
     }
 }

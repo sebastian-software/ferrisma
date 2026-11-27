@@ -303,6 +303,12 @@ pub(crate) trait DecodeSource {
     fn discarded(&self) -> crate::discarded::DiscardedSet {
         crate::discarded::DiscardedSet::default()
     }
+    /// Hint the minimum managed-memory working set (bytes) the downstream
+    /// executor needs after `read_region` begins delivering callbacks, so a
+    /// source with an adjustable pre-allocated window (such as `OrientedSource`'s
+    /// parallel gather blocks) stops adding optional blocks before consuming
+    /// downstream headroom, keeping budget admission strictly monotonic.
+    fn set_downstream_headroom(&mut self, _bytes: usize) {}
     /// Borrows each output row only for the duration of the sink callback.
     fn read_region(
         &mut self,
