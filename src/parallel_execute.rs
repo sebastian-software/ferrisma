@@ -26,7 +26,8 @@ use ferrisma_kernels::Kernels;
 use crate::decoder::{DecodeReport, DecodeSource, DecodedRow};
 use crate::error::Error;
 use crate::fast_execute::{
-    ConversionScratch, RowPlan, Tables, kernel_error, quantize_into, source_row_to_linear, tables,
+    ConversionScratch, RowPlan, Tables, VERTICAL_STACK_TAPS, kernel_error, quantize_into,
+    source_row_to_linear, tables,
 };
 use crate::memory::{ManagedBuffer, MemoryBudget, try_filled_vec, try_vec};
 use crate::output_depth::{OutputBuffer, OutputRow};
@@ -41,7 +42,7 @@ type Row = Arc<ManagedBuffer<f32>>;
 
 enum Job {
     Horizontal { rank: usize, samples: Samples },
-    Vertical { row: usize, inputs: Vec<(Row, f32)> },
+    Vertical { row: usize, rows: Vec<Row> },
 }
 
 enum Done {
@@ -132,12 +133,13 @@ fn worker<const C: usize>(
                 linear.as_mut_slice(),
             )
             .map(|row| Done::Horizontal { rank, row }),
-            Job::Vertical { row, inputs } => vertical::<C>(
+            Job::Vertical { row, rows } => vertical::<C>(
                 plan,
                 budget,
                 kernels,
                 tables,
-                &inputs,
+                row,
+                &rows,
                 accumulator.as_mut_slice(),
             )
             .map(|bytes| Done::Vertical { row, bytes }),
@@ -168,19 +170,70 @@ fn horizontal<const C: usize>(
     Ok(Arc::new(out))
 }
 
+fn vertical_rows_chunked(
+    kernels: &Kernels,
+    rows: &[Row],
+    weights: &[f32],
+    accumulator: &mut [f32],
+) -> Result<(), Error> {
+    let mut stack_rows: [&[f32]; VERTICAL_STACK_TAPS] = [&[]; VERTICAL_STACK_TAPS];
+    for (chunk_idx, (row_chunk, weight_chunk)) in rows
+        .chunks(VERTICAL_STACK_TAPS)
+        .zip(weights.chunks(VERTICAL_STACK_TAPS))
+        .enumerate()
+    {
+        for (dst, row) in stack_rows.iter_mut().zip(row_chunk) {
+            *dst = row.as_slice();
+        }
+        let slice = &stack_rows[..row_chunk.len()];
+        if chunk_idx == 0 {
+            kernels
+                .vertical_rgba(slice, weight_chunk, accumulator)
+                .map_err(kernel_error)?;
+        } else {
+            kernels
+                .vertical_rgba_add(slice, weight_chunk, accumulator)
+                .map_err(kernel_error)?;
+        }
+    }
+    Ok(())
+}
+
 fn vertical<const C: usize>(
     plan: &RowPlan,
     budget: &MemoryBudget,
     kernels: &Kernels,
     tables: &Tables,
-    inputs: &[(Row, f32)],
+    row_index: usize,
+    rows: &[Row],
     accumulator: &mut [f32],
 ) -> Result<OutputBuffer, Error> {
-    accumulator.fill(0.0);
-    for (row, weight) in inputs {
-        kernels
-            .axpy(accumulator, row.as_slice(), *weight)
-            .map_err(kernel_error)?;
+    let (_, weights) = plan.vertical_taps(row_index);
+    match rows {
+        [] => kernels
+            .vertical_rgba(&[], &[], accumulator)
+            .map_err(kernel_error)?,
+        [r0] => kernels
+            .vertical_rgba(&[r0.as_slice()], weights, accumulator)
+            .map_err(kernel_error)?,
+        [r0, r1] => kernels
+            .vertical_rgba(&[r0.as_slice(), r1.as_slice()], weights, accumulator)
+            .map_err(kernel_error)?,
+        [r0, r1, r2] => kernels
+            .vertical_rgba(
+                &[r0.as_slice(), r1.as_slice(), r2.as_slice()],
+                weights,
+                accumulator,
+            )
+            .map_err(kernel_error)?,
+        [r0, r1, r2, r3] => kernels
+            .vertical_rgba(
+                &[r0.as_slice(), r1.as_slice(), r2.as_slice(), r3.as_slice()],
+                weights,
+                accumulator,
+            )
+            .map_err(kernel_error)?,
+        _ => vertical_rows_chunked(kernels, rows, weights, accumulator)?,
     }
     let mut bytes = OutputBuffer::allocate(plan.depth, plan.row_samples, budget)?;
     quantize_into::<C>(accumulator, &mut bytes, plan.depth, tables, kernels)?;
@@ -235,20 +288,20 @@ impl Driver<'_> {
     ) -> Result<(), Error> {
         let plan = self.plan;
         while self.next_vertical < plan.output_rows {
-            let (ranks, weights) = plan.vertical_taps(self.next_vertical);
+            let (ranks, _) = plan.vertical_taps(self.next_vertical);
             if ranks.iter().any(|&rank| self.rows[rank].is_none()) {
                 break;
             }
-            let mut inputs = try_vec(ranks.len())?;
-            for (&rank, &weight) in ranks.iter().zip(weights) {
+            let mut rows = try_vec(ranks.len())?;
+            for &rank in ranks {
                 let row = self.rows[rank]
                     .clone()
                     .ok_or(Error::IncompleteDecoderOutput)?;
-                inputs.push((row, weight));
+                rows.push(row);
             }
             self.submit(Job::Vertical {
                 row: self.next_vertical,
-                inputs,
+                rows,
             })?;
             self.next_vertical += 1;
             let keep_from = plan.future_min[self.next_vertical];

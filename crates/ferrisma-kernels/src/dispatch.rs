@@ -12,6 +12,8 @@ use crate::{IsaLevel, Taps, body};
 pub(crate) struct Table {
     pub horizontal_rgba: fn(&[f32], &Taps, &mut [f32]),
     pub axpy: fn(&mut [f32], &[f32], f32),
+    pub vertical_rgba: fn(&[&[f32]], &[f32], &mut [f32]),
+    pub vertical_rgba_add: fn(&[&[f32]], &[f32], &mut [f32]),
     pub srgb_to_linear: fn(&[f32], &mut [f64]),
     pub linear_to_srgb_u16: fn(&[f32], u16, &mut [u16]),
 }
@@ -66,6 +68,8 @@ pub(crate) fn scalar_table() -> Table {
     Table {
         horizontal_rgba: body::horizontal_rgba::<Scalar>,
         axpy: body::axpy::<Scalar>,
+        vertical_rgba: body::vertical_rgba::<Scalar>,
+        vertical_rgba_add: body::vertical_rgba_add::<Scalar>,
         srgb_to_linear: body::srgb_to_linear::<Scalar>,
         linear_to_srgb_u16: body::linear_to_srgb_u16::<Scalar>,
     }
@@ -83,6 +87,8 @@ pub(crate) fn table(level: IsaLevel) -> Option<Table> {
         IsaLevel::Neon => Some(Table {
             horizontal_rgba: neon::horizontal_rgba,
             axpy: neon::axpy,
+            vertical_rgba: neon::vertical_rgba,
+            vertical_rgba_add: neon::vertical_rgba_add,
             srgb_to_linear: neon::srgb_to_linear,
             linear_to_srgb_u16: neon::linear_to_srgb_u16,
         }),
@@ -90,6 +96,8 @@ pub(crate) fn table(level: IsaLevel) -> Option<Table> {
         IsaLevel::Avx2 => Some(Table {
             horizontal_rgba: avx2::horizontal_rgba,
             axpy: avx2::axpy,
+            vertical_rgba: avx2::vertical_rgba,
+            vertical_rgba_add: avx2::vertical_rgba_add,
             srgb_to_linear: avx2::srgb_to_linear,
             linear_to_srgb_u16: avx2::linear_to_srgb_u16,
         }),
@@ -97,6 +105,8 @@ pub(crate) fn table(level: IsaLevel) -> Option<Table> {
         IsaLevel::Avx512 => Some(Table {
             horizontal_rgba: avx512::horizontal_rgba,
             axpy: avx512::axpy,
+            vertical_rgba: avx512::vertical_rgba,
+            vertical_rgba_add: avx512::vertical_rgba_add,
             srgb_to_linear: avx512::srgb_to_linear,
             linear_to_srgb_u16: avx512::linear_to_srgb_u16,
         }),
@@ -120,6 +130,16 @@ mod neon {
     }
 
     #[target_feature(enable = "neon")]
+    fn vertical_rgba_entry(rows: &[&[f32]], weights: &[f32], out: &mut [f32]) {
+        body::vertical_rgba::<Neon>(rows, weights, out);
+    }
+
+    #[target_feature(enable = "neon")]
+    fn vertical_rgba_add_entry(rows: &[&[f32]], weights: &[f32], acc: &mut [f32]) {
+        body::vertical_rgba_add::<Neon>(rows, weights, acc);
+    }
+
+    #[target_feature(enable = "neon")]
     fn srgb_to_linear_entry(src: &[f32], dst: &mut [f64]) {
         body::srgb_to_linear::<Neon>(src, dst);
     }
@@ -138,6 +158,16 @@ mod neon {
     pub(super) fn axpy(acc: &mut [f32], row: &[f32], weight: f32) {
         // SAFETY: as for `horizontal_rgba`.
         unsafe { axpy_entry(acc, row, weight) }
+    }
+
+    pub(super) fn vertical_rgba(rows: &[&[f32]], weights: &[f32], out: &mut [f32]) {
+        // SAFETY: as for `horizontal_rgba`.
+        unsafe { vertical_rgba_entry(rows, weights, out) }
+    }
+
+    pub(super) fn vertical_rgba_add(rows: &[&[f32]], weights: &[f32], acc: &mut [f32]) {
+        // SAFETY: as for `horizontal_rgba`.
+        unsafe { vertical_rgba_add_entry(rows, weights, acc) }
     }
 
     pub(super) fn srgb_to_linear(src: &[f32], dst: &mut [f64]) {
@@ -167,6 +197,16 @@ mod avx2 {
     }
 
     #[target_feature(enable = "avx2,fma")]
+    fn vertical_rgba_entry(rows: &[&[f32]], weights: &[f32], out: &mut [f32]) {
+        body::vertical_rgba::<Avx2>(rows, weights, out);
+    }
+
+    #[target_feature(enable = "avx2,fma")]
+    fn vertical_rgba_add_entry(rows: &[&[f32]], weights: &[f32], acc: &mut [f32]) {
+        body::vertical_rgba_add::<Avx2>(rows, weights, acc);
+    }
+
+    #[target_feature(enable = "avx2,fma")]
     fn srgb_to_linear_entry(src: &[f32], dst: &mut [f64]) {
         body::srgb_to_linear::<Avx2>(src, dst);
     }
@@ -185,6 +225,16 @@ mod avx2 {
     pub(super) fn axpy(acc: &mut [f32], row: &[f32], weight: f32) {
         // SAFETY: as for `horizontal_rgba`.
         unsafe { axpy_entry(acc, row, weight) }
+    }
+
+    pub(super) fn vertical_rgba(rows: &[&[f32]], weights: &[f32], out: &mut [f32]) {
+        // SAFETY: as for `horizontal_rgba`.
+        unsafe { vertical_rgba_entry(rows, weights, out) }
+    }
+
+    pub(super) fn vertical_rgba_add(rows: &[&[f32]], weights: &[f32], acc: &mut [f32]) {
+        // SAFETY: as for `horizontal_rgba`.
+        unsafe { vertical_rgba_add_entry(rows, weights, acc) }
     }
 
     pub(super) fn srgb_to_linear(src: &[f32], dst: &mut [f64]) {
@@ -214,6 +264,16 @@ mod avx512 {
     }
 
     #[target_feature(enable = "avx512f,avx512bw,avx512cd,avx512dq,avx512vl,fma")]
+    fn vertical_rgba_entry(rows: &[&[f32]], weights: &[f32], out: &mut [f32]) {
+        body::vertical_rgba::<Avx512>(rows, weights, out);
+    }
+
+    #[target_feature(enable = "avx512f,avx512bw,avx512cd,avx512dq,avx512vl,fma")]
+    fn vertical_rgba_add_entry(rows: &[&[f32]], weights: &[f32], acc: &mut [f32]) {
+        body::vertical_rgba_add::<Avx512>(rows, weights, acc);
+    }
+
+    #[target_feature(enable = "avx512f,avx512bw,avx512cd,avx512dq,avx512vl,fma")]
     fn srgb_to_linear_entry(src: &[f32], dst: &mut [f64]) {
         body::srgb_to_linear::<Avx512>(src, dst);
     }
@@ -232,6 +292,16 @@ mod avx512 {
     pub(super) fn axpy(acc: &mut [f32], row: &[f32], weight: f32) {
         // SAFETY: as for `horizontal_rgba`.
         unsafe { axpy_entry(acc, row, weight) }
+    }
+
+    pub(super) fn vertical_rgba(rows: &[&[f32]], weights: &[f32], out: &mut [f32]) {
+        // SAFETY: as for `horizontal_rgba`.
+        unsafe { vertical_rgba_entry(rows, weights, out) }
+    }
+
+    pub(super) fn vertical_rgba_add(rows: &[&[f32]], weights: &[f32], acc: &mut [f32]) {
+        // SAFETY: as for `horizontal_rgba`.
+        unsafe { vertical_rgba_add_entry(rows, weights, acc) }
     }
 
     pub(super) fn srgb_to_linear(src: &[f32], dst: &mut [f64]) {

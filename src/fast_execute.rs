@@ -47,6 +47,11 @@ use crate::working_color::{
 /// heap allocation).
 const TRANSFER_CHUNK_PIXELS: usize = 64;
 
+/// Stack chunk size for vertical tap row slices passed to
+/// `Kernels::vertical_rgba` / `Kernels::vertical_rgba_add` with zero heap
+/// allocation for any tap count.
+pub(crate) const VERTICAL_STACK_TAPS: usize = 64;
+
 /// Conservative absolute error factor for `display_p3_linear_to_srgb_linear`
 /// applied to polynomial-decoded in-range channels: L1 row norm (`<= 1.45`)
 /// times `1.4e-10` is `< 2.1e-10`, widened to `6.0e-10`.
@@ -1530,6 +1535,60 @@ fn run_identity<const C: usize>(
     })
 }
 
+/// Borrowed view over the sequential horizontal ring buffer for vertical tap
+/// lookup.
+#[derive(Clone, Copy)]
+struct RingView<'a> {
+    samples: &'a [f32],
+    ranks: &'a [usize],
+    capacity: usize,
+    row_samples: usize,
+}
+
+impl<'a> RingView<'a> {
+    #[inline]
+    fn row(self, row_rank: usize) -> Result<&'a [f32], Error> {
+        let slot = row_rank % self.capacity;
+        if self.ranks[slot] != row_rank {
+            return Err(Error::IncompleteDecoderOutput);
+        }
+        Ok(&self.samples[slot * self.row_samples..(slot + 1) * self.row_samples])
+    }
+}
+
+/// Accumulate a `> 4`-tap vertical filter from the horizontal ring buffer in
+/// fixed-size stack chunks (`VERTICAL_STACK_TAPS = 64`), keeping the 1 KiB
+/// slice array off the `0..=4`-tap hot path.
+fn vertical_ring_chunked(
+    kernels: &Kernels,
+    ring: RingView<'_>,
+    ranks: &[usize],
+    weights: &[f32],
+    acc: &mut [f32],
+) -> Result<(), Error> {
+    let mut stack_rows: [&[f32]; VERTICAL_STACK_TAPS] = [&[]; VERTICAL_STACK_TAPS];
+    for (chunk_idx, (rank_chunk, weight_chunk)) in ranks
+        .chunks(VERTICAL_STACK_TAPS)
+        .zip(weights.chunks(VERTICAL_STACK_TAPS))
+        .enumerate()
+    {
+        for (dst, &row_rank) in stack_rows.iter_mut().zip(rank_chunk) {
+            *dst = ring.row(row_rank)?;
+        }
+        let slice = &stack_rows[..rank_chunk.len()];
+        if chunk_idx == 0 {
+            kernels
+                .vertical_rgba(slice, weight_chunk, acc)
+                .map_err(kernel_error)?;
+        } else {
+            kernels
+                .vertical_rgba_add(slice, weight_chunk, acc)
+                .map_err(kernel_error)?;
+        }
+    }
+    Ok(())
+}
+
 /// One thread: linearize and filter each needed row on arrival, keep
 /// horizontal rows in a ring addressed by rank, emit output rows in order.
 fn run_sequential<const C: usize>(
@@ -1582,15 +1641,41 @@ fn run_sequential<const C: usize>(
 
         while emitted < plan.output_rows && plan.ready[emitted] <= semantic_y {
             let acc = accumulator.as_mut_slice();
-            acc.fill(0.0);
             let (ranks, weights) = plan.vertical_taps(emitted);
-            for (&row_rank, &weight) in ranks.iter().zip(weights) {
-                let slot = row_rank % capacity;
-                if ring_rank[slot] != row_rank {
-                    return Err(Error::IncompleteDecoderOutput);
-                }
-                let cached = &ring.as_slice()[slot * row_samples..(slot + 1) * row_samples];
-                kernels.axpy(acc, cached, weight).map_err(kernel_error)?;
+            let ring_view = RingView {
+                samples: ring.as_slice(),
+                ranks: &ring_rank,
+                capacity,
+                row_samples,
+            };
+            match ranks {
+                [] => kernels.vertical_rgba(&[], &[], acc).map_err(kernel_error)?,
+                &[r0] => kernels
+                    .vertical_rgba(&[ring_view.row(r0)?], weights, acc)
+                    .map_err(kernel_error)?,
+                &[r0, r1] => kernels
+                    .vertical_rgba(&[ring_view.row(r0)?, ring_view.row(r1)?], weights, acc)
+                    .map_err(kernel_error)?,
+                &[r0, r1, r2] => kernels
+                    .vertical_rgba(
+                        &[ring_view.row(r0)?, ring_view.row(r1)?, ring_view.row(r2)?],
+                        weights,
+                        acc,
+                    )
+                    .map_err(kernel_error)?,
+                &[r0, r1, r2, r3] => kernels
+                    .vertical_rgba(
+                        &[
+                            ring_view.row(r0)?,
+                            ring_view.row(r1)?,
+                            ring_view.row(r2)?,
+                            ring_view.row(r3)?,
+                        ],
+                        weights,
+                        acc,
+                    )
+                    .map_err(kernel_error)?,
+                _ => vertical_ring_chunked(kernels, ring_view, ranks, weights, acc)?,
             }
             quantize_into::<C>(acc, &mut output, plan.depth, tables, kernels)?;
             sink(plan.output_y(emitted)?, output.row())?;

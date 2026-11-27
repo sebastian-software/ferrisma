@@ -94,6 +94,151 @@ fn axpy_is_bit_identical_at_every_level() {
 }
 
 #[test]
+fn vertical_rgba_is_bit_identical_to_axpy_at_every_level() {
+    let scalar = Kernels::for_level(IsaLevel::Scalar).unwrap();
+    let available = levels();
+    let mut rng = Rng(0xD1B5_4A32_D192_ED03);
+    // Cover unroll boundaries (1, 4, 8, 16, 32, 64), column-tile boundaries (256),
+    // odd/unaligned lengths, and wide rows (24000).
+    let lengths = [
+        0, 1, 2, 3, 4, 5, 7, 8, 15, 16, 17, 31, 32, 33, 63, 64, 65, 127, 128, 129, 255, 256, 257,
+        511, 512, 513, 4800, 4801,
+    ];
+    let tap_counts = [0, 1, 2, 3, 4, 7, 23, 31, 32, 33, 64, 65, 128];
+    for &tap_count in &tap_counts {
+        let weights: Vec<f32> = (0..tap_count)
+            .map(|t| match t {
+                0 if tap_count > 1 => -0.0_f32,
+                1 if tap_count > 2 => 0.0_f32,
+                _ => rng.unit().mul_add(1.6, -0.3),
+            })
+            .collect();
+        for &length in &lengths {
+            // Keep test fast while covering all tap_counts at boundary lengths.
+            if length > 513 && !matches!(tap_count, 1 | 23 | 33 | 128) {
+                continue;
+            }
+            let storage: Vec<Vec<f32>> = (0..tap_count)
+                .map(|t| {
+                    (0..length)
+                        .map(|i| match (t, i % 17) {
+                            (0, 0) => -0.0_f32,
+                            (0, 1) => 0.0_f32,
+                            (_, 2) => f32::from_bits(1), // smallest positive subnormal
+                            (_, 3) => -1.0_f32,
+                            _ => rng.unit().mul_add(2.0, -0.5),
+                        })
+                        .collect()
+                })
+                .collect();
+            let row_refs: Vec<&[f32]> = storage.iter().map(Vec::as_slice).collect();
+            let mut expected = vec![f32::NAN; length];
+            expected.fill(0.0);
+            for (&row, &weight) in row_refs.iter().zip(&weights) {
+                scalar.axpy(&mut expected, row, weight).unwrap();
+            }
+            for kernels in &available {
+                let mut actual = vec![f32::NAN; length];
+                kernels
+                    .vertical_rgba(&row_refs, &weights, &mut actual)
+                    .unwrap();
+                for (index, (e, a)) in expected.iter().zip(&actual).enumerate() {
+                    assert_eq!(
+                        e.to_bits(),
+                        a.to_bits(),
+                        "{} vertical_rgba taps={tap_count} length={length} index={index}: {e} vs {a}",
+                        kernels.level()
+                    );
+                }
+            }
+        }
+    }
+    // Wide row (6000 RGBA pixels = 24000 f32 = 96 KiB) with 24 and 65 taps.
+    for tap_count in [24, 65] {
+        let weights: Vec<f32> = (0..tap_count)
+            .map(|_| rng.unit().mul_add(1.6, -0.3))
+            .collect();
+        let storage: Vec<Vec<f32>> = (0..tap_count)
+            .map(|_| (0..24_000).map(|_| rng.unit().mul_add(2.0, -0.5)).collect())
+            .collect();
+        let row_refs: Vec<&[f32]> = storage.iter().map(Vec::as_slice).collect();
+        let mut expected = vec![0.0_f32; 24_000];
+        for (&row, &weight) in row_refs.iter().zip(&weights) {
+            scalar.axpy(&mut expected, row, weight).unwrap();
+        }
+        for kernels in &available {
+            let mut actual = vec![f32::NAN; 24_000];
+            kernels
+                .vertical_rgba(&row_refs, &weights, &mut actual)
+                .unwrap();
+            for (index, (e, a)) in expected.iter().zip(&actual).enumerate() {
+                assert_eq!(
+                    e.to_bits(),
+                    a.to_bits(),
+                    "{} vertical_rgba wide taps={tap_count} index={index}",
+                    kernels.level()
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn vertical_rgba_add_is_bit_identical_to_axpy_and_supports_chunking() {
+    let scalar = Kernels::for_level(IsaLevel::Scalar).unwrap();
+    let available = levels();
+    let mut rng = Rng(0x94D0_49BB_1331_11EB);
+    let lengths = [
+        0, 1, 3, 5, 15, 16, 17, 31, 32, 33, 63, 64, 65, 255, 256, 257, 513,
+    ];
+    for &length in &lengths {
+        let total_taps = if length <= 65 { 150 } else { 70 };
+        let storage: Vec<Vec<f32>> = (0..total_taps)
+            .map(|_| (0..length).map(|_| rng.unit().mul_add(2.0, -0.5)).collect())
+            .collect();
+        let weights: Vec<f32> = (0..total_taps)
+            .map(|_| rng.unit().mul_add(1.6, -0.3))
+            .collect();
+        let row_refs: Vec<&[f32]> = storage.iter().map(Vec::as_slice).collect();
+        let mut expected = vec![0.0_f32; length];
+        for (&row, &w) in row_refs.iter().zip(&weights) {
+            scalar.axpy(&mut expected, row, w).unwrap();
+        }
+        for kernels in &available {
+            for chunk_size in [7_usize, 64] {
+                let mut actual = vec![f32::NAN; length];
+                for (chunk_idx, (rc, wc)) in row_refs
+                    .chunks(chunk_size)
+                    .zip(weights.chunks(chunk_size))
+                    .enumerate()
+                {
+                    if chunk_idx == 0 {
+                        kernels.vertical_rgba(rc, wc, &mut actual).unwrap();
+                    } else {
+                        kernels.vertical_rgba_add(rc, wc, &mut actual).unwrap();
+                    }
+                }
+                for (index, (e, a)) in expected.iter().zip(&actual).enumerate() {
+                    assert_eq!(
+                        e.to_bits(),
+                        a.to_bits(),
+                        "{} vertical_rgba_add len={length} chunk={chunk_size} index={index}",
+                        kernels.level()
+                    );
+                }
+            }
+            // Empty rows must be a no-op that preserves existing `acc` bits.
+            let sentinel = vec![42.25_f32; length];
+            let mut untouched = sentinel.clone();
+            kernels.vertical_rgba_add(&[], &[], &mut untouched).unwrap();
+            for (s, u) in sentinel.iter().zip(&untouched) {
+                assert_eq!(s.to_bits(), u.to_bits());
+            }
+        }
+    }
+}
+
+#[test]
 fn horizontal_matches_the_scalar_body_within_four_ulp() {
     let scalar = Kernels::for_level(IsaLevel::Scalar).unwrap();
     let mut rng = Rng(0x9E37_79B9_7F4A_7C15);
@@ -119,27 +264,585 @@ fn horizontal_matches_the_scalar_body_within_four_ulp() {
                 .horizontal_rgba(&source, &taps, &mut actual)
                 .unwrap();
             let exact = matches!(kernels.level(), IsaLevel::Scalar | IsaLevel::Neon);
+            #[allow(clippy::cast_precision_loss)]
+            let cancellation_bound = 4.0 * f32::EPSILON * max_taps as f32;
             for (index, (e, a)) in expected.iter().zip(&actual).enumerate() {
                 if exact {
                     assert_eq!(
                         e.to_bits(),
                         a.to_bits(),
-                        "{} index {index}",
+                        "{} index {index}: {e} vs {a}",
                         kernels.level()
                     );
                 } else {
-                    // Reassociated sums: bound relative to the magnitude
-                    // of the summed terms, since cancellation can make the
-                    // result itself tiny.
-                    let tolerance =
-                        4.0 * f32::EPSILON * f32::from(u16::try_from(max_taps).unwrap());
+                    let distance = ulps(*e, *a);
+                    let diff = (*e - *a).abs();
                     assert!(
-                        ulps(*e, *a) <= 4 || (e - a).abs() <= tolerance,
-                        "{} index {index}: {e} vs {a}",
+                        distance <= 4 || diff <= cancellation_bound,
+                        "{} index {index}: {e} vs {a} ({distance} ulps, diff {diff})",
                         kernels.level()
                     );
                 }
             }
+        }
+    }
+}
+
+#[test]
+fn horizontal_covers_every_small_tap_count_and_tail_remainder() {
+    let scalar = Kernels::for_level(IsaLevel::Scalar).unwrap();
+    let available = levels();
+    let mut rng = Rng(0xA076_1D64_78BD_642F);
+    let source_pixels = 32;
+    let source: Vec<f32> = (0..source_pixels * 4)
+        .map(|_| rng.unit().mul_add(1.5, -0.25))
+        .collect();
+    for tap_count in 1..=20 {
+        let outputs = 8;
+        let mut starts = Vec::with_capacity(outputs);
+        let mut offsets = Vec::with_capacity(outputs + 1);
+        offsets.push(0_u32);
+        let mut weights = Vec::with_capacity(outputs * tap_count);
+        for out_idx in 0..outputs {
+            starts.push(u32::try_from(out_idx % (source_pixels - tap_count + 1)).unwrap());
+            for _ in 0..tap_count {
+                weights.push(rng.unit().mul_add(1.6, -0.3));
+            }
+            offsets.push(u32::try_from(weights.len()).unwrap());
+        }
+        let taps = Taps::new(
+            source_pixels,
+            starts.clone(),
+            offsets.clone(),
+            weights.clone(),
+        )
+        .unwrap();
+        let mut expected = vec![0.0_f32; outputs * 4];
+        scalar
+            .horizontal_rgba(&source, &taps, &mut expected)
+            .unwrap();
+        for kernels in &available {
+            let mut actual = vec![f32::NAN; outputs * 4];
+            kernels
+                .horizontal_rgba(&source, &taps, &mut actual)
+                .unwrap();
+            let exact = matches!(kernels.level(), IsaLevel::Scalar | IsaLevel::Neon);
+            #[allow(clippy::cast_precision_loss)]
+            let cancellation_bound = 4.0 * f32::EPSILON * tap_count as f32;
+            for (index, (e, a)) in expected.iter().zip(&actual).enumerate() {
+                if exact {
+                    assert_eq!(
+                        e.to_bits(),
+                        a.to_bits(),
+                        "{} tap_count={tap_count} index={index}: {e} vs {a}",
+                        kernels.level()
+                    );
+                } else {
+                    let distance = ulps(*e, *a);
+                    let diff = (*e - *a).abs();
+                    assert!(
+                        distance <= 4 || diff <= cancellation_bound,
+                        "{} tap_count={tap_count} index={index}: {e} vs {a} ({distance} ulps, diff {diff})",
+                        kernels.level()
+                    );
+                }
+            }
+            // Multi-pixel pipelined output must be bit-identical to single-pixel evaluation.
+            for out_idx in 0..outputs {
+                let single_weights =
+                    weights[offsets[out_idx] as usize..offsets[out_idx + 1] as usize].to_vec();
+                let single_taps = Taps::new(
+                    source_pixels,
+                    vec![starts[out_idx]],
+                    vec![0, u32::try_from(single_weights.len()).unwrap()],
+                    single_weights,
+                )
+                .unwrap();
+                let mut single = [f32::NAN; 4];
+                kernels
+                    .horizontal_rgba(&source, &single_taps, &mut single)
+                    .unwrap();
+                for c in 0..4 {
+                    assert_eq!(
+                        actual[out_idx * 4 + c].to_bits(),
+                        single[c].to_bits(),
+                        "{} pipelined vs single tap_count={tap_count} out={out_idx} c={c}",
+                        kernels.level()
+                    );
+                }
+            }
+        }
+    }
+}
+
+/// Non-cancelling positive-only horizontal sums:
+/// 1. Same-ISA pipelining equivalence: for EVERY ISA level (including `Avx2`
+///    and `Avx512`), multi-pixel pipelined outputs must be bit-identical
+///    (`0 ULP`) to single-pixel (`outputs = 1`) evaluation of the exact same
+///    taps across every integer tap count `1..=128`, the 8-tap skewed positive
+///    case, and random positive tap sets.
+/// 2. `Scalar == Neon` equivalence: exact bit-identity (`0 ULP`) across all
+///    tap counts and output widths.
+/// 3. Multi-slot (`Avx2` `SLOTS = 2`, `Avx512` `SLOTS = 4`) vs `Scalar` and
+///    exact `f64` oracle across every integer tap count `1..=128`, the 8-tap
+///    skewed positive sum `[0.5, a, b, a, b, a, b, a]` (5 ULP on `Avx2`), and
+///    random positive sums: bounded by `4 * f32::EPSILON * taps` against both
+///    `Scalar` and the `f64` oracle (multi-slot reassociation can exceed 4 ULP
+///    against `Scalar` even on 8 positive taps, and can exceed `Scalar`'s
+///    `f64`-oracle ULP distance, e.g. 8 ULP vs 3 ULP at 100 uniform `0.1_f32`
+///    taps on `Avx2`).
+#[test]
+#[allow(clippy::too_many_lines)]
+fn horizontal_non_cancelling_positive_sums_stay_within_reassociation_bound() {
+    let scalar = Kernels::for_level(IsaLevel::Scalar).unwrap();
+    let available = levels();
+    let mut rng = Rng(0x6C62_272E_07BB_0142);
+
+    // 1. Every integer tap count 1..=128 (including 32, 64, 100, 128) on uniform 0.1_f32.
+    for tap_count in 1..=128_usize {
+        let source_pixels = tap_count + 16;
+        let source = vec![0.1_f32; source_pixels * 4];
+        #[allow(clippy::cast_precision_loss)]
+        let weight = 1.0_f32 / tap_count as f32;
+        #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+        let oracle_f32 = (tap_count as f64 * f64::from(0.1_f32) * f64::from(weight)) as f32;
+        #[allow(clippy::cast_precision_loss)]
+        let reassociation_bound = 4.0 * f32::EPSILON * tap_count as f32;
+        let single_taps = Taps::new(
+            source_pixels,
+            vec![0],
+            vec![0, u32::try_from(tap_count).unwrap()],
+            vec![weight; tap_count],
+        )
+        .unwrap();
+        let mut expected_single = [0.0_f32; 4];
+        scalar
+            .horizontal_rgba(&source, &single_taps, &mut expected_single)
+            .unwrap();
+        let output_counts: &[usize] = if matches!(tap_count, 1 | 4 | 8 | 16 | 32 | 64 | 100 | 128) {
+            &[2, 3, 4, 5, 7, 8, 9, 17]
+        } else {
+            &[9]
+        };
+        for kernels in &available {
+            let mut single_level = [f32::NAN; 4];
+            kernels
+                .horizontal_rgba(&source, &single_taps, &mut single_level)
+                .unwrap();
+            for (c, (e, a)) in expected_single.iter().zip(&single_level).enumerate() {
+                match kernels.level() {
+                    IsaLevel::Scalar | IsaLevel::Neon => {
+                        assert_eq!(
+                            e.to_bits(),
+                            a.to_bits(),
+                            "{} uniform 0.1 taps={tap_count} channel={c}: {e} ({:#010x}) vs {a} ({:#010x})",
+                            kernels.level(),
+                            e.to_bits(),
+                            a.to_bits()
+                        );
+                    }
+                    IsaLevel::Avx2 | IsaLevel::Avx512 => {
+                        let diff_scalar = (*e - *a).abs();
+                        let diff_oracle = (*a - oracle_f32).abs();
+                        assert!(
+                            diff_scalar <= reassociation_bound,
+                            "{} uniform 0.1 taps={tap_count} channel={c}: {e} vs {a} (diff {diff_scalar} > {reassociation_bound})",
+                            kernels.level()
+                        );
+                        assert!(
+                            diff_oracle <= reassociation_bound,
+                            "{} uniform 0.1 taps={tap_count} channel={c}: {a} vs f64 oracle {oracle_f32} (diff {diff_oracle} > {reassociation_bound})",
+                            kernels.level()
+                        );
+                    }
+                    _ => {}
+                }
+            }
+            for &outputs in output_counts {
+                let mut starts = Vec::with_capacity(outputs);
+                let mut offsets = Vec::with_capacity(outputs + 1);
+                offsets.push(0_u32);
+                let mut weights = Vec::with_capacity(outputs * tap_count);
+                for out_idx in 0..outputs {
+                    starts.push(u32::try_from(out_idx % (source_pixels - tap_count + 1)).unwrap());
+                    weights.extend(std::iter::repeat_n(weight, tap_count));
+                    offsets.push(u32::try_from(weights.len()).unwrap());
+                }
+                let taps = Taps::new(source_pixels, starts, offsets, weights).unwrap();
+                let mut actual = vec![f32::NAN; outputs * 4];
+                kernels
+                    .horizontal_rgba(&source, &taps, &mut actual)
+                    .unwrap();
+                for (index, a) in actual.iter().enumerate() {
+                    assert_eq!(
+                        a.to_bits(),
+                        single_level[index % 4].to_bits(),
+                        "{} multi-pixel pipelining mismatch taps={tap_count} outputs={outputs} index={index}",
+                        kernels.level()
+                    );
+                }
+            }
+        }
+    }
+
+    // 2. Skewed 8-tap positive sum `[0.5, a, b, a, b, a, b, a]` (weights 1/8):
+    // no cancellation, yet 2-slot `Avx2` differs by 5 ULP from `Scalar` while
+    // staying well within `4 * f32::EPSILON * 8` of both `Scalar` and `f64`.
+    let a = 9.0_f32 * 2.0_f32.powi(-28);
+    let b = 8.0_f32 * 2.0_f32.powi(-28);
+    let skewed_reds = [0.5_f32, a, b, a, b, a, b, a];
+    let mut skewed_single_src = Vec::with_capacity(8 * 4);
+    for &r in &skewed_reds {
+        skewed_single_src.extend_from_slice(&[r, 0.0, 0.0, 0.0]);
+    }
+    let mut skewed_multi_src = Vec::with_capacity(9 * 8 * 4);
+    for _ in 0..9 {
+        skewed_multi_src.extend_from_slice(&skewed_single_src);
+    }
+    let skewed_single_taps = Taps::new(8, vec![0], vec![0, 8], vec![0.125_f32; 8]).unwrap();
+    let skewed_multi_taps = Taps::new(
+        72,
+        (0..9_u32).map(|i| i * 8).collect(),
+        (0..=9_u32).map(|i| i * 8).collect(),
+        vec![0.125_f32; 9 * 8],
+    )
+    .unwrap();
+    #[allow(clippy::cast_possible_truncation)]
+    let skewed_oracle = (skewed_reds
+        .iter()
+        .map(|&r| f64::from(r) * 0.125_f64)
+        .sum::<f64>()) as f32;
+    let skewed_bound = 4.0 * f32::EPSILON * 8.0;
+    let mut skewed_scalar = [0.0_f32; 4];
+    scalar
+        .horizontal_rgba(&skewed_single_src, &skewed_single_taps, &mut skewed_scalar)
+        .unwrap();
+    for kernels in &available {
+        let mut single = [f32::NAN; 4];
+        let mut multi = vec![f32::NAN; 9 * 4];
+        kernels
+            .horizontal_rgba(&skewed_single_src, &skewed_single_taps, &mut single)
+            .unwrap();
+        kernels
+            .horizontal_rgba(&skewed_multi_src, &skewed_multi_taps, &mut multi)
+            .unwrap();
+        for p in 0..9 {
+            for c in 0..4 {
+                assert_eq!(
+                    multi[p * 4 + c].to_bits(),
+                    single[c].to_bits(),
+                    "{} skewed 8-tap pipelined vs single p={p} c={c}",
+                    kernels.level()
+                );
+            }
+        }
+        match kernels.level() {
+            IsaLevel::Scalar | IsaLevel::Neon => {
+                assert_eq!(
+                    single[0].to_bits(),
+                    skewed_scalar[0].to_bits(),
+                    "{} skewed 8-tap mismatch vs Scalar",
+                    kernels.level()
+                );
+            }
+            IsaLevel::Avx2 | IsaLevel::Avx512 => {
+                assert!(
+                    (single[0] - skewed_scalar[0]).abs() <= skewed_bound,
+                    "{} skewed 8-tap vs Scalar: {} vs {}",
+                    kernels.level(),
+                    single[0],
+                    skewed_scalar[0]
+                );
+                assert!(
+                    (single[0] - skewed_oracle).abs() <= skewed_bound,
+                    "{} skewed 8-tap vs f64 oracle: {} vs {}",
+                    kernels.level(),
+                    single[0],
+                    skewed_oracle
+                );
+            }
+            _ => {}
+        }
+    }
+
+    // 3. Random strictly positive samples and weights (non-cancelling), 1..=16 taps:
+    // 0 ULP on Scalar/Neon, exact same-ISA pipelined == single-pixel bit-identity,
+    // and bounded by `4 * f32::EPSILON * max_taps` vs Scalar & f64 oracle on Avx2/Avx512.
+    for (source_pixels, outputs, max_taps) in [(16, 9, 16), (32, 17, 16), (64, 37, 16)] {
+        let mut starts = Vec::with_capacity(outputs);
+        let mut offsets = Vec::with_capacity(outputs + 1);
+        offsets.push(0_u32);
+        let mut weights = Vec::new();
+        for _ in 0..outputs {
+            let count = 1 + usize::try_from(
+                rng.next() % u64::try_from(max_taps.min(source_pixels)).unwrap(),
+            )
+            .unwrap();
+            let start =
+                usize::try_from(rng.next() % u64::try_from(source_pixels - count + 1).unwrap())
+                    .unwrap();
+            starts.push(u32::try_from(start).unwrap());
+            for _ in 0..count {
+                weights.push(rng.unit().mul_add(0.9, 0.1));
+            }
+            offsets.push(u32::try_from(weights.len()).unwrap());
+        }
+        let taps = Taps::new(
+            source_pixels,
+            starts.clone(),
+            offsets.clone(),
+            weights.clone(),
+        )
+        .unwrap();
+        let source: Vec<f32> = (0..source_pixels * 4)
+            .map(|_| rng.unit().mul_add(0.9, 0.1))
+            .collect();
+        let mut expected = vec![0.0_f32; outputs * 4];
+        scalar
+            .horizontal_rgba(&source, &taps, &mut expected)
+            .unwrap();
+        let mut oracle = vec![0.0_f32; outputs * 4];
+        for pos in 0..outputs {
+            let start = starts[pos] as usize * 4;
+            let w_slice = &weights[offsets[pos] as usize..offsets[pos + 1] as usize];
+            let mut sum = [0.0_f64; 4];
+            for (k, &w) in w_slice.iter().enumerate() {
+                for c in 0..4 {
+                    sum[c] += f64::from(source[start + k * 4 + c]) * f64::from(w);
+                }
+            }
+            #[allow(clippy::cast_possible_truncation)]
+            for c in 0..4 {
+                oracle[pos * 4 + c] = sum[c] as f32;
+            }
+        }
+        #[allow(clippy::cast_precision_loss)]
+        let bound = 4.0 * f32::EPSILON * max_taps as f32;
+        for kernels in &available {
+            let mut actual = vec![f32::NAN; outputs * 4];
+            kernels
+                .horizontal_rgba(&source, &taps, &mut actual)
+                .unwrap();
+            for (index, ((e, o), a)) in expected.iter().zip(&oracle).zip(&actual).enumerate() {
+                match kernels.level() {
+                    IsaLevel::Scalar | IsaLevel::Neon => {
+                        assert_eq!(
+                            e.to_bits(),
+                            a.to_bits(),
+                            "{} positive random index={index}: {e} vs {a}",
+                            kernels.level()
+                        );
+                    }
+                    IsaLevel::Avx2 | IsaLevel::Avx512 => {
+                        assert!(
+                            (*e - *a).abs() <= bound,
+                            "{} positive random vs Scalar index={index}: {e} vs {a}",
+                            kernels.level()
+                        );
+                        assert!(
+                            (*o - *a).abs() <= bound,
+                            "{} positive random vs f64 oracle index={index}: {o} vs {a}",
+                            kernels.level()
+                        );
+                    }
+                    _ => {}
+                }
+            }
+            for pos in 0..outputs {
+                let w_slice = weights[offsets[pos] as usize..offsets[pos + 1] as usize].to_vec();
+                let single_taps = Taps::new(
+                    source_pixels,
+                    vec![starts[pos]],
+                    vec![0, u32::try_from(w_slice.len()).unwrap()],
+                    w_slice,
+                )
+                .unwrap();
+                let mut single = [f32::NAN; 4];
+                kernels
+                    .horizontal_rgba(&source, &single_taps, &mut single)
+                    .unwrap();
+                for c in 0..4 {
+                    assert_eq!(
+                        actual[pos * 4 + c].to_bits(),
+                        single[c].to_bits(),
+                        "{} positive random pipelined vs single pos={pos} c={c}",
+                        kernels.level()
+                    );
+                }
+            }
+        }
+    }
+}
+
+/// Regression for large opposite-sign tap cancellation and unequal-weight
+/// cancellation:
+/// - `[67108864, 0, -67108864, 0, 1, 0, 0, 0]` (`1/8` weights) preserves
+///   `0.125` on `Scalar`, `Neon`, and `Avx2`.
+/// - `[67108864, 1, 0, 0, -67108864, 0, 0, 0]` (`1/8` weights) preserves
+///   `0.125` on `Avx2` (matching `main`'s 2-slot `Avx2`).
+/// - `[-100663296, 67108864]` with Area weights `[0.4, 0.6]` stays `0.0` on
+///   every ISA level.
+/// - For EVERY level (including `Avx512`), multi-pixel pipelined calls match
+///   single-pixel evaluation bit-for-bit.
+#[test]
+#[allow(clippy::too_many_lines)]
+fn horizontal_preserves_cancellation_for_large_opposite_taps() {
+    let available = levels();
+    let patterns: [(&str, [f32; 8], bool); 2] = [
+        (
+            "cancel_at_tap_2",
+            [
+                67_108_864.0_f32,
+                0.0,
+                -67_108_864.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+            ],
+            true,
+        ),
+        (
+            "cancel_at_tap_4",
+            [
+                67_108_864.0_f32,
+                1.0,
+                0.0,
+                0.0,
+                -67_108_864.0,
+                0.0,
+                0.0,
+                0.0,
+            ],
+            false,
+        ),
+    ];
+    let single_taps = Taps::new(8, vec![0], vec![0, 8], vec![0.125_f32; 8]).unwrap();
+    let multi_taps = Taps::new(
+        72,
+        (0..9_u32).map(|i| i * 8).collect(),
+        (0..=9_u32).map(|i| i * 8).collect(),
+        vec![0.125_f32; 9 * 8],
+    )
+    .unwrap();
+    for (label, reds, expect_scalar_and_neon) in patterns {
+        let mut single_src = Vec::with_capacity(8 * 4);
+        for &r in &reds {
+            single_src.extend_from_slice(&[r, 0.0, 0.0, 0.0]);
+        }
+        let mut multi_src = Vec::with_capacity(9 * 8 * 4);
+        for _ in 0..9 {
+            multi_src.extend_from_slice(&single_src);
+        }
+        for kernels in &available {
+            let mut single = [f32::NAN; 4];
+            let mut multi = vec![f32::NAN; 9 * 4];
+            kernels
+                .horizontal_rgba(&single_src, &single_taps, &mut single)
+                .unwrap();
+            kernels
+                .horizontal_rgba(&multi_src, &multi_taps, &mut multi)
+                .unwrap();
+            for p in 0..9 {
+                for c in 0..4 {
+                    assert_eq!(
+                        multi[p * 4 + c].to_bits(),
+                        single[c].to_bits(),
+                        "{} {label} pipelined vs single pixel {p} c {c}",
+                        kernels.level()
+                    );
+                }
+            }
+            let check_0125 = match kernels.level() {
+                IsaLevel::Scalar | IsaLevel::Neon => expect_scalar_and_neon,
+                IsaLevel::Avx2 => true,
+                _ => false,
+            };
+            if check_0125 {
+                assert_eq!(
+                    single[0].to_bits(),
+                    0.125_f32.to_bits(),
+                    "{} {label}: got {} ({:#010x})",
+                    kernels.level(),
+                    single[0],
+                    single[0].to_bits()
+                );
+            }
+        }
+    }
+
+    // Unequal-weight cancellation (5->3 Area pixel 2: -100663296 * 0.4 + 67108864 * 0.6).
+    let unequal_src = [
+        -100_663_296.0_f32,
+        0.0,
+        0.0,
+        0.0,
+        67_108_864.0_f32,
+        0.0,
+        0.0,
+        0.0,
+    ];
+    let unequal_taps = Taps::new(2, vec![0], vec![0, 2], vec![0.4_f32, 0.6_f32]).unwrap();
+    for kernels in &available {
+        let mut out = [f32::NAN; 4];
+        kernels
+            .horizontal_rgba(&unequal_src, &unequal_taps, &mut out)
+            .unwrap();
+        assert_eq!(
+            out[0],
+            0.0_f32,
+            "{} unequal-weight cancellation: got {}",
+            kernels.level(),
+            out[0]
+        );
+    }
+}
+
+/// Crop-region invariance: unrelated large/HDR pixels later in the same source
+/// row must never change the bit pattern of earlier output pixels on any ISA
+/// level.
+#[test]
+fn horizontal_output_is_invariant_to_unrelated_pixels_outside_its_taps() {
+    let available = levels();
+    let v = f32::from_bits(0x39ee_b40d);
+    let clean_src = [
+        v, 0.0, 0.0, 0.0, v, 0.0, 0.0, 0.0, v, 0.0, 0.0, 0.0, v, 0.0, 0.0, 0.0, v, 0.0, 0.0, 0.0,
+        v, 0.0, 0.0, 0.0,
+    ];
+    let mut hdr_tail_src = clean_src;
+    for px in 3..6 {
+        hdr_tail_src[px * 4] = 3.0_f32;
+    }
+    let full_taps = Taps::new(6, vec![0, 3], vec![0, 3, 6], vec![1.0_f32 / 3.0; 6]).unwrap();
+    let crop_taps = Taps::new(3, vec![0], vec![0, 3], vec![1.0_f32 / 3.0; 3]).unwrap();
+
+    for kernels in &available {
+        let mut crop_out = [f32::NAN; 4];
+        let mut full_clean = [f32::NAN; 8];
+        let mut full_hdr = [f32::NAN; 8];
+        kernels
+            .horizontal_rgba(&clean_src[..12], &crop_taps, &mut crop_out)
+            .unwrap();
+        kernels
+            .horizontal_rgba(&clean_src, &full_taps, &mut full_clean)
+            .unwrap();
+        kernels
+            .horizontal_rgba(&hdr_tail_src, &full_taps, &mut full_hdr)
+            .unwrap();
+        for c in 0..4 {
+            assert_eq!(
+                full_hdr[c].to_bits(),
+                crop_out[c].to_bits(),
+                "{} crop invariance mismatch c={c}",
+                kernels.level()
+            );
+            assert_eq!(
+                full_clean[c].to_bits(),
+                crop_out[c].to_bits(),
+                "{} full vs crop mismatch c={c}",
+                kernels.level()
+            );
         }
     }
 }
@@ -164,6 +867,41 @@ fn shape_errors_are_reported_not_panicked() {
         kernels.axpy(&mut [0.0; 3], &[0.0; 4], 1.0),
         Err(KernelError::LengthMismatch)
     );
+    let r4 = [1.0_f32; 4];
+    let r3 = [1.0_f32; 3];
+    assert_eq!(
+        kernels.vertical_rgba(&[&r4[..]], &[1.0, 2.0], &mut [0.0; 4]),
+        Err(KernelError::LengthMismatch)
+    );
+    assert_eq!(
+        kernels.vertical_rgba(&[&r4[..], &r3[..]], &[1.0, 2.0], &mut [0.0; 4]),
+        Err(KernelError::LengthMismatch)
+    );
+    assert_eq!(
+        kernels.vertical_rgba(&[&r4[..]], &[1.0], &mut [0.0; 3]),
+        Err(KernelError::LengthMismatch)
+    );
+    let mut empty_out = [f32::NAN; 5];
+    kernels.vertical_rgba(&[], &[], &mut empty_out).unwrap();
+    assert!(empty_out.iter().all(|v| v.to_bits() == 0.0_f32.to_bits()));
+    kernels
+        .vertical_rgba(&[&[], &[]], &[0.5, 0.5], &mut [])
+        .unwrap();
+    assert_eq!(
+        kernels.vertical_rgba_add(&[&r4[..]], &[1.0, 2.0], &mut [0.0; 4]),
+        Err(KernelError::LengthMismatch)
+    );
+    assert_eq!(
+        kernels.vertical_rgba_add(&[&r4[..], &r3[..]], &[1.0, 2.0], &mut [0.0; 4]),
+        Err(KernelError::LengthMismatch)
+    );
+    assert_eq!(
+        kernels.vertical_rgba_add(&[&r4[..]], &[1.0], &mut [0.0; 3]),
+        Err(KernelError::LengthMismatch)
+    );
+    kernels
+        .vertical_rgba_add(&[&[], &[]], &[0.5, 0.5], &mut [])
+        .unwrap();
     assert_eq!(
         kernels.srgb_to_linear(&[0.0; 3], &mut [0.0_f64; 4]),
         Err(KernelError::LengthMismatch)

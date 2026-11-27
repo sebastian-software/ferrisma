@@ -3396,3 +3396,382 @@ fn bench_extended_p3_area_resize() {
         run_synthetic_bench_case(label, source, *target_size, *depth, &kernels, &budget);
     }
 }
+
+/// Regression for issue #283 review findings: Area downscales of opaque
+/// linear-f32 pixels must preserve cancellation on `Kernels::best()` (default
+/// v1.0 level: `Neon` on `AArch64`, `Avx2` on x86-64) across both single-pixel
+/// tail and multi-pixel pipelined + parallel worker paths:
+/// - `[67108864, 0, -67108864, 0, 1, 0, 0, 0]` (`8x1 -> 1x1` and
+///   `64x64 -> 8x32`) -> sRGB8 red code `99`.
+/// - `[0, 0, 0, -100663296, 67108864]` (`5x1 -> 3x1` and `40x64 -> 24x32`) ->
+///   sRGB8 red code `0` (exact match to `f64` oracle).
+#[test]
+#[allow(clippy::too_many_lines)]
+fn linear_f32_area_downscale_preserves_large_opposite_tap_cancellation() {
+    struct Case<'a> {
+        block: &'a [f32],
+        pixel: [u8; 4],
+        source: (u32, u32),
+        target: (u32, u32),
+        expect_parallel: bool,
+    }
+    let cancel_8 = [
+        67_108_864.0_f32,
+        0.0,
+        -67_108_864.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+    ];
+    let unequal_5 = [0.0_f32, 0.0, 0.0, -100_663_296.0, 67_108_864.0];
+    let cases = [
+        Case {
+            block: &cancel_8,
+            pixel: [99, 0, 0, 255],
+            source: (8, 1),
+            target: (1, 1),
+            expect_parallel: false,
+        },
+        Case {
+            block: &cancel_8,
+            pixel: [99, 0, 0, 255],
+            source: (64, 64),
+            target: (8, 32),
+            expect_parallel: true,
+        },
+        Case {
+            block: &unequal_5,
+            pixel: [0, 0, 0, 255],
+            source: (5, 1),
+            target: (3, 1),
+            expect_parallel: false,
+        },
+        Case {
+            block: &unequal_5,
+            pixel: [0, 0, 0, 255],
+            source: (40, 64),
+            target: (24, 32),
+            expect_parallel: true,
+        },
+    ];
+    let kernels = Kernels::best();
+    for case in cases {
+        let source_size = Size::new(case.source.0, case.source.1).unwrap();
+        let target_size = Size::new(case.target.0, case.target.1).unwrap();
+        let mut samples = Vec::with_capacity((case.source.0 * case.source.1 * 3) as usize);
+        for _ in 0..source_size.height {
+            for x in 0..(source_size.width as usize) {
+                samples.extend_from_slice(&[case.block[x % case.block.len()], 0.0, 0.0]);
+            }
+        }
+        let source = TestSource::new(
+            source_size,
+            ChannelLayout::Rgb,
+            [1, 8, 0, 1],
+            Samples::F32(samples),
+        );
+        let oracle: Vec<u8> = render_depth(&source, None, target_size, Filter::Area, None, 8)
+            .into_iter()
+            .map(|v| u8::try_from(v).unwrap())
+            .collect();
+        let expected: Vec<u8> = case
+            .pixel
+            .into_iter()
+            .cycle()
+            .take((case.target.0 * case.target.1 * 4) as usize)
+            .collect();
+        assert_eq!(oracle, expected);
+
+        for threads in [1_usize, 4] {
+            let mut src = source.clone();
+            let (graph, input, target) =
+                graph_for_info(src.info(), None, target_size, Filter::Area);
+            let budget = MemoryBudget::new(8 << 20);
+            let request = Rect::new(0, 0, target_size.width, target_size.height).unwrap();
+            let mut actual = Vec::new();
+            let report = execute_fast_srgb8(
+                &graph,
+                target,
+                input,
+                &mut src,
+                request,
+                &budget,
+                &kernels,
+                threads,
+                |_, row| {
+                    actual.extend_from_slice(row);
+                    Ok(())
+                },
+            )
+            .unwrap();
+            assert!(report.used_kernels);
+            if case.expect_parallel && threads > 1 {
+                assert!(report.transform_threads > 1);
+            }
+            assert_eq!(actual.len(), oracle.len());
+            assert_eq!(actual, oracle);
+        }
+    }
+}
+
+/// Regression for issue #283 review finding: requesting a sub-rect crop must
+/// produce bit-identical bytes to the same pixels inside a wider full-row
+/// request, even when unrelated pixels outside the crop are HDR (> 2.0).
+#[test]
+fn horizontal_crop_request_is_invariant_to_unrelated_hdr_pixels() {
+    let source_size = Size::new(6, 1).unwrap();
+    let target_size = Size::new(2, 1).unwrap();
+    let v = f32::from_bits(0x39ee_b40d);
+    let samples = vec![
+        v, 0.0, 0.0, v, 0.0, 0.0, v, 0.0, 0.0, 3.0, 0.0, 0.0, 3.0, 0.0, 0.0, 3.0, 0.0, 0.0,
+    ];
+    let source = TestSource::new(
+        source_size,
+        ChannelLayout::Rgb,
+        [1, 8, 0, 1],
+        Samples::F32(samples),
+    );
+    for kernels in Kernels::available() {
+        let mut src_full = source.clone();
+        let (graph_full, input_full, target_full) =
+            graph_for_info(src_full.info(), None, target_size, Filter::Area);
+        let budget = MemoryBudget::new(8 << 20);
+        let mut full = Vec::new();
+        execute_fast_srgb8(
+            &graph_full,
+            target_full,
+            input_full,
+            &mut src_full,
+            Rect::new(0, 0, 2, 1).unwrap(),
+            &budget,
+            &kernels,
+            1,
+            |_, row| {
+                full.extend_from_slice(row);
+                Ok(())
+            },
+        )
+        .unwrap();
+
+        let mut src_crop = source.clone();
+        let (graph_crop, input_crop, target_crop) =
+            graph_for_info(src_crop.info(), None, target_size, Filter::Area);
+        let mut crop = Vec::new();
+        execute_fast_srgb8(
+            &graph_crop,
+            target_crop,
+            input_crop,
+            &mut src_crop,
+            Rect::new(0, 0, 1, 1).unwrap(),
+            &budget,
+            &kernels,
+            1,
+            |_, row| {
+                crop.extend_from_slice(row);
+                Ok(())
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            &full[..4],
+            crop.as_slice(),
+            "{} crop pixel 0 diverged from full-row pixel 0",
+            kernels.level()
+        );
+    }
+}
+
+/// Regression for issue #283 review finding: on `Avx2` (`SLOTS = 2`), preserve
+/// `main`'s exact 2-slot accumulation behavior for `4000x1 -> 1x1` flat sRGB8
+/// code `235` at 16-bit depth (`60395`) and `128x1 -> 1x1`
+/// `32*2.0 + 64*2^-18 + 32*-2.0` at 16-bit depth (`2`).
+#[test]
+fn avx2_two_slot_horizontal_preserves_long_and_mixed_scale_16bit_accuracy() {
+    let Ok(kernels) = Kernels::for_level(IsaLevel::Avx2) else {
+        return;
+    };
+    let budget = MemoryBudget::new(16 << 20);
+
+    // 1. 4000 identical sRGB8 code-235 pixels -> 1x1 at 16-bit (`60395`).
+    let flat_src = TestSource::new(
+        Size::new(4000, 1).unwrap(),
+        ChannelLayout::Rgb,
+        SRGB,
+        Samples::U8(vec![235_u8; 4000 * 3]),
+    );
+    let flat_oracle = render_depth(
+        &flat_src,
+        None,
+        Size::new(1, 1).unwrap(),
+        Filter::Area,
+        None,
+        16,
+    );
+    assert_eq!(flat_oracle, vec![60_395, 60_395, 60_395, 65_535]);
+    let mut flat_actual = Vec::new();
+    let mut src = flat_src.clone();
+    let (graph, input, target) =
+        graph_for_info(src.info(), None, Size::new(1, 1).unwrap(), Filter::Area);
+    let report = execute_fast(
+        &graph,
+        target,
+        input,
+        &mut src,
+        Rect::new(0, 0, 1, 1).unwrap(),
+        &budget,
+        &kernels,
+        1,
+        16,
+        |_, row| {
+            match row {
+                OutputRow::U16(s) => flat_actual.extend_from_slice(s),
+                OutputRow::U8(_) => panic!("expected u16"),
+            }
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert!(report.used_kernels);
+    assert_eq!(flat_actual.len(), flat_oracle.len());
+    assert_eq!(flat_actual, flat_oracle);
+
+    // 2. 128 linear-f32 pixels: 32*2.0 + 64*2^-18 + 32*-2.0 -> 1x1 at 16-bit (`2`).
+    let mut mixed_samples = Vec::with_capacity(128 * 3);
+    for i in 0..128_usize {
+        let r = if i < 32 {
+            2.0_f32
+        } else if i < 96 {
+            2.0_f32.powi(-18)
+        } else {
+            -2.0_f32
+        };
+        mixed_samples.extend_from_slice(&[r, 0.0, 0.0]);
+    }
+    let mixed_src = TestSource::new(
+        Size::new(128, 1).unwrap(),
+        ChannelLayout::Rgb,
+        [1, 8, 0, 1],
+        Samples::F32(mixed_samples),
+    );
+    let mixed_oracle = render_depth(
+        &mixed_src,
+        None,
+        Size::new(1, 1).unwrap(),
+        Filter::Area,
+        None,
+        16,
+    );
+    assert_eq!(mixed_oracle, vec![2, 0, 0, 65_535]);
+    let mut mixed_actual = Vec::new();
+    let mut src2 = mixed_src.clone();
+    let (graph2, input2, target2) =
+        graph_for_info(src2.info(), None, Size::new(1, 1).unwrap(), Filter::Area);
+    let report2 = execute_fast(
+        &graph2,
+        target2,
+        input2,
+        &mut src2,
+        Rect::new(0, 0, 1, 1).unwrap(),
+        &budget,
+        &kernels,
+        1,
+        16,
+        |_, row| {
+            match row {
+                OutputRow::U16(s) => mixed_actual.extend_from_slice(s),
+                OutputRow::U8(_) => panic!("expected u16"),
+            }
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert!(report2.used_kernels);
+    assert_eq!(mixed_actual.len(), mixed_oracle.len());
+    assert_eq!(mixed_actual, mixed_oracle);
+}
+
+/// Regression for issue #283 review finding: vertical downscales with >64 taps
+/// chunk through `vertical_rgba` + `vertical_rgba_add` without heap-allocating
+/// row-slice vectors, staying byte-identical across sequential/parallel runs
+/// and every available ISA level and matching the `f64` oracle.
+#[test]
+fn vertical_downscale_above_64_taps_matches_oracle_sequential_and_parallel() {
+    let source_size = Size::new(8, 150).unwrap();
+    let target_size = Size::new(4, 1).unwrap();
+    let mut samples = Vec::with_capacity(8 * 150 * 4);
+    for y in 0..150_u32 {
+        for x in 0..8_u32 {
+            let r = u8::try_from((y * 7 + x * 29) % 256).unwrap();
+            let g = u8::try_from((y * 13 + x * 17 + 41) % 256).unwrap();
+            let b = u8::try_from((y * 19 + x * 11 + 83) % 256).unwrap();
+            let a = u8::try_from(128 + ((y * 5 + x * 3) % 128)).unwrap();
+            samples.extend_from_slice(&[r, g, b, a]);
+        }
+    }
+    let source = TestSource::new(
+        source_size,
+        ChannelLayout::Rgba,
+        [1, 13, 0, 1],
+        Samples::U8(samples),
+    );
+    let oracle: Vec<u8> = render_depth(&source, None, target_size, Filter::Area, None, 8)
+        .into_iter()
+        .map(|v| u8::try_from(v).unwrap())
+        .collect();
+
+    let mut reference: Option<Vec<u8>> = None;
+    for kernels in Kernels::available() {
+        for threads in [1_usize, 4] {
+            let mut src = source.clone();
+            let (graph, input, target) =
+                graph_for_info(src.info(), None, target_size, Filter::Area);
+            let budget = MemoryBudget::new(8 << 20);
+            let request = Rect::new(0, 0, target_size.width, target_size.height).unwrap();
+            let mut actual = Vec::new();
+            let report = execute_fast_srgb8(
+                &graph,
+                target,
+                input,
+                &mut src,
+                request,
+                &budget,
+                &kernels,
+                threads,
+                |_, row| {
+                    actual.extend_from_slice(row);
+                    Ok(())
+                },
+            )
+            .unwrap();
+            assert!(report.used_kernels);
+            if threads > 1 {
+                assert!(
+                    report.transform_threads > 1,
+                    "{} threads={threads} must exercise parallel workers",
+                    kernels.level()
+                );
+            }
+            if let Some(first) = &reference {
+                assert_eq!(
+                    &actual,
+                    first,
+                    "{} threads={threads} diverged from reference execution",
+                    kernels.level()
+                );
+            } else {
+                reference = Some(actual.clone());
+            }
+            assert_eq!(actual.len(), oracle.len());
+            for (i, (&got, &exp)) in actual.iter().zip(&oracle).enumerate() {
+                assert!(
+                    got.abs_diff(exp) <= 1,
+                    "{} threads={threads} byte {i}: got {got}, oracle {exp}",
+                    kernels.level()
+                );
+            }
+        }
+    }
+}

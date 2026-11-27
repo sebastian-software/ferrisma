@@ -13,6 +13,14 @@
 pub(crate) trait Lanes {
     /// RGBA pixels per vector.
     const SLOTS: usize;
+    /// Number of independent output pixels pipelined together in
+    /// `horizontal_rgba` (`1` for Scalar, `4` for Neon, `2` for Avx2 and
+    /// Avx512). Each pixel preserves its exact tap accumulation order.
+    const HORIZONTAL_PIXELS: usize;
+    /// Independent vector accumulators held live across taps in
+    /// `vertical_rgba` (`4` for Scalar, `8` for Neon, `4` for Avx2, `2` for
+    /// Avx512).
+    const VERTICAL_UNROLL: usize;
     type V: Copy;
     fn zero() -> Self::V;
     /// Load `4 * SLOTS` values from the front of `values`.
@@ -26,6 +34,14 @@ pub(crate) trait Lanes {
     fn fma(acc: Self::V, a: Self::V, b: Self::V) -> Self::V;
     /// Sum of the slots, slot 0 first.
     fn reduce_slots(vector: Self::V) -> [f32; 4];
+    /// `a * weights[LANE] + acc` for `LANE` in `0..4`, where `weights` holds
+    /// four consecutive tap weights loaded with [`Self::load`]. Only called
+    /// when `SLOTS == 1` (`Neon` uses `vfmaq_laneq_f32`).
+    #[inline(always)]
+    fn fma_lane<const LANE: usize>(acc: Self::V, a: Self::V, weights: Self::V) -> Self::V {
+        let _ = (a, weights);
+        acc
+    }
 }
 
 /// `0.5_f64.next_down()`: for every `y >= 0.0` in `[0, 65535]`,
@@ -80,6 +96,8 @@ pub(crate) struct Scalar;
 
 impl Lanes for Scalar {
     const SLOTS: usize = 1;
+    const HORIZONTAL_PIXELS: usize = 1;
+    const VERTICAL_UNROLL: usize = 4;
     type V = [f32; 4];
     #[inline(always)]
     fn zero() -> [f32; 4] {
@@ -192,18 +210,22 @@ mod neon {
     use super::{Lanes, LanesF64};
     use std::arch::aarch64::{
         float32x4_t, float64x2_t, vabsq_f64, vbslq_f64, vcgtq_f64, vcleq_f64, vcvt_f64_f32,
-        vcvtq_u64_f64, vdupq_n_f32, vdupq_n_f64, vdupq_n_u64, vfmaq_f32, vfmaq_f64, vget_lane_u64,
-        vgetq_lane_u64, vld1_f32, vld1q_f32, vmaxnmq_f64, vminnmq_f64, vminvq_u32, vmovn_u64,
-        vmulq_f64, vreinterpret_u64_u32, vreinterpretq_u32_u64, vrndaq_f64, vsqrtq_f64, vst1q_f32,
-        vst1q_f64, vsubq_f64,
+        vcvtq_u64_f64, vdupq_n_f32, vdupq_n_f64, vdupq_n_u64, vfmaq_f32, vfmaq_f64,
+        vfmaq_laneq_f32, vget_lane_u64, vgetq_lane_u64, vld1_f32, vld1q_f32, vmaxnmq_f64,
+        vminnmq_f64, vminvq_u32, vmovn_u64, vmulq_f64, vreinterpret_u64_u32, vreinterpretq_u32_u64,
+        vrndaq_f64, vsqrtq_f64, vst1q_f32, vst1q_f64, vsubq_f64,
     };
 
-    /// 128-bit Advanced SIMD, one pixel per vector. Same operation order as
-    /// `Scalar` (fused multiply-add per channel), hence bit-identical.
+    /// 128-bit Advanced SIMD, one pixel per vector. `horizontal_rgba`
+    /// pipelines four independent output pixels using `vfmaq_laneq_f32` while
+    /// keeping exact sequential tap order per pixel, so `horizontal_rgba`,
+    /// `axpy`, and `vertical_rgba` are all bit-identical to `Scalar`.
     pub(crate) struct Neon;
 
     impl Lanes for Neon {
         const SLOTS: usize = 1;
+        const HORIZONTAL_PIXELS: usize = 4;
+        const VERTICAL_UNROLL: usize = 8;
         type V = float32x4_t;
         #[inline(always)]
         fn zero() -> float32x4_t {
@@ -249,6 +271,31 @@ mod neon {
             let mut out = [0.0; 4];
             Self::store(&mut out, vector);
             out
+        }
+        #[inline(always)]
+        fn fma_lane<const LANE: usize>(
+            acc: float32x4_t,
+            a: float32x4_t,
+            weights: float32x4_t,
+        ) -> float32x4_t {
+            match LANE {
+                0 => {
+                    // SAFETY: NEON is available (module invariant).
+                    unsafe { vfmaq_laneq_f32::<0>(acc, a, weights) }
+                }
+                1 => {
+                    // SAFETY: NEON is available (module invariant).
+                    unsafe { vfmaq_laneq_f32::<1>(acc, a, weights) }
+                }
+                2 => {
+                    // SAFETY: NEON is available (module invariant).
+                    unsafe { vfmaq_laneq_f32::<2>(acc, a, weights) }
+                }
+                _ => {
+                    // SAFETY: NEON is available (module invariant).
+                    unsafe { vfmaq_laneq_f32::<3>(acc, a, weights) }
+                }
+            }
         }
     }
 
@@ -398,12 +445,16 @@ mod avx2 {
         _mm256_storeu_ps, _mm256_sub_pd,
     };
 
-    /// 256-bit AVX2 with FMA, two pixels per vector: slot 0 accumulates the
-    /// even taps, slot 1 the odd taps, so sums are reassociated once.
+    /// 256-bit AVX2 with FMA, two pixels per vector: even taps accumulate in
+    /// the low half and odd taps in the high half, then the two halves add.
+    /// `horizontal_rgba` pipelines two independent output pixels while keeping
+    /// the exact two-slot per-pixel accumulation order.
     pub(crate) struct Avx2;
 
     impl Lanes for Avx2 {
         const SLOTS: usize = 2;
+        const HORIZONTAL_PIXELS: usize = 2;
+        const VERTICAL_UNROLL: usize = 4;
         type V = __m256;
         #[inline(always)]
         fn zero() -> __m256 {
@@ -606,10 +657,14 @@ mod avx512 {
 
     /// 512-bit AVX-512, four pixels per vector: slot `s` accumulates taps
     /// `s, s + 4, s + 8, ...`, so sums are reassociated in four partials.
+    /// `horizontal_rgba` pipelines two independent output pixels while keeping
+    /// the exact four-slot per-pixel accumulation order.
     pub(crate) struct Avx512;
 
     impl Lanes for Avx512 {
         const SLOTS: usize = 4;
+        const HORIZONTAL_PIXELS: usize = 2;
+        const VERTICAL_UNROLL: usize = 2;
         type V = __m512;
         #[inline(always)]
         fn zero() -> __m512 {

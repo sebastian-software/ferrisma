@@ -18,27 +18,45 @@
 //!
 //! - [`Kernels::horizontal_rgba`]: one row of a separable resample, four
 //!   `f32` channels per pixel, with precomputed contiguous taps.
-//! - [`Kernels::axpy`]: `acc += row * weight`, the vertical resample step.
+//! - [`Kernels::axpy`]: `acc += row * weight`, a single vertical resample step.
+//! - [`Kernels::vertical_rgba`]: fused multi-row vertical resample
+//!   `out[i] = sum_t rows[t][i] * weights[t]` fusing up to 4 vertical taps per
+//!   `8 KiB` (`2048`-`f32`) column-strip pass (`40 KiB` working set across 5
+//!   concurrent streams: 4 input strips + 1 output strip; writing `out` once
+//!   for `<= 4` taps and making `ceil(taps / 4)` strip passes for deeper
+//!   filters, reducing intermediate output read-modify-write traffic by up to
+//!   4× relative to per-tap [`Kernels::axpy`] and improving locality on the
+//!   measured ARM64 and x86-64 hosts).
+//! - [`Kernels::vertical_rgba_add`]: accumulating variant
+//!   `acc[i] += sum_t rows[t][i] * weights[t]`, allowing callers to chunk
+//!   arbitrarily deep tap lists across fixed-size stack buffers with zero heap
+//!   allocation.
 //! - [`Kernels::srgb_to_linear`]: sign-preserving extended sRGB EOTF on `f32`
 //!   samples, computed in `f64` lanes and returned as `f64` so callers can
 //!   apply a primaries matrix and alpha premultiplication before narrowing once.
 //! - [`Kernels::linear_to_srgb_u16`]: sRGB OETF and half-away-from-zero
 //!   quantization to `0..=max` (`u16`), computed in `f64` lanes.
 //!
-//! Equivalence: `axpy` and `linear_to_srgb_u16` are bit-identical at every
-//! level (`linear_to_srgb_u16` also matches the exact `f64` sRGB OETF on
-//! every `f32` and `max`). For in-range inputs `[-1, 1]` (the polynomial
-//! path, including tails and in-range lanes of mixed-range vectors),
+//! Equivalence: `axpy`, `vertical_rgba`, `vertical_rgba_add`, and
+//! `linear_to_srgb_u16` are bit-identical at every ISA level (`vertical_rgba`
+//! and chunked `vertical_rgba_add` also match zeroing `out` followed by
+//! per-tap `axpy` bit for bit, and `linear_to_srgb_u16` matches the exact `f64`
+//! sRGB OETF on every `f32` and `max`). For in-range inputs `[-1, 1]` (the
+//! polynomial path, including tails and in-range lanes of mixed-range vectors),
 //! `srgb_to_linear` is bit-identical in full `f64` across all SIMD levels
 //! (`Neon`, `Avx2`, `Avx512`) and agrees within `< 1.4e-10` relative error
 //! (`<= 1` ULP when narrowed to `f32`) against `Scalar` (which uses separate
 //! `a * b + c` to avoid software `libm::fma` on baseline x86-64) and against
-//! exact `f64::powf`; outside `[-1, 1]`, every level delegates to the
-//! target's `f64::powf` (bit-identical across every ISA level on the same
-//! target, subject to platform `libm` differences across targets).
-//! `horizontal_rgba` is bit-identical between `Scalar` and `Neon`; `Avx2` and
-//! `Avx512` sum two and four taps per vector and differ by rounding only,
-//! bounded by the differential tests.
+//! exact `f64::powf`; outside `[-1, 1]`, every level delegates to the target's
+//! `f64::powf` (bit-identical across every ISA level on the same target,
+//! subject to platform `libm` differences across targets). `horizontal_rgba`
+//! is bit-identical between `Scalar` and `Neon` (`Neon` pipelines four
+//! independent output pixels with `vfmaq_laneq_f32` in exact sequential tap
+//! order); `Avx2` and `Avx512` pipeline two independent output pixels while
+//! preserving each pixel's exact `SLOTS`-strided (`2`- and `4`-tap)
+//! accumulation order (bit-identical to single-pixel evaluation at the same
+//! ISA level, differing from `Scalar` by rounding only and bounded by the
+//! differential tests).
 
 // Kernel bodies and `Lanes` methods must inline into their
 // `#[target_feature]` entry; otherwise intrinsics are compiled as calls
@@ -212,6 +230,7 @@ pub struct Taps {
     starts: Vec<u32>,
     offsets: Vec<u32>,
     weights: Vec<f32>,
+    max_run: u32,
 }
 
 impl Taps {
@@ -232,9 +251,11 @@ impl Taps {
         {
             return Err(KernelError::InvalidTaps);
         }
+        let mut max_run = 0_u32;
         for (position, &start) in starts.iter().enumerate() {
             let (begin, end) = (offsets[position], offsets[position + 1]);
             let count = end.checked_sub(begin).ok_or(KernelError::InvalidTaps)?;
+            max_run = max_run.max(count);
             let last = usize::try_from(start)
                 .ok()
                 .and_then(|start| start.checked_add(usize::try_from(count).ok()?))
@@ -248,6 +269,7 @@ impl Taps {
             starts,
             offsets,
             weights,
+            max_run,
         })
     }
 
@@ -383,6 +405,60 @@ impl Kernels {
             return Err(KernelError::LengthMismatch);
         }
         (self.table.axpy)(acc, row, weight);
+        Ok(())
+    }
+
+    /// Fused multi-row vertical resample:
+    /// `out[i] = sum_t rows[t][i] * weights[t]` accumulated in exact tap order
+    /// `0..rows.len()` with fused multiply-add starting from `0.0`.
+    /// Bit-identical to zeroing `out` and calling [`Self::axpy`] for each
+    /// `(row, weight)` in order at every ISA level.
+    ///
+    /// # Errors
+    /// [`KernelError::LengthMismatch`] if `rows.len() != weights.len()` or any
+    /// row differs in length from `out`.
+    pub fn vertical_rgba(
+        &self,
+        rows: &[&[f32]],
+        weights: &[f32],
+        out: &mut [f32],
+    ) -> Result<(), KernelError> {
+        if rows.len() != weights.len() || rows.iter().any(|row| row.len() != out.len()) {
+            return Err(KernelError::LengthMismatch);
+        }
+        if rows.is_empty() {
+            out.fill(0.0);
+            return Ok(());
+        }
+        if out.is_empty() {
+            return Ok(());
+        }
+        (self.table.vertical_rgba)(rows, weights, out);
+        Ok(())
+    }
+
+    /// Accumulate a chunk of vertical rows into an existing accumulator:
+    /// `acc[i] += sum_t rows[t][i] * weights[t]` in exact tap order
+    /// `0..rows.len()` with fused multiply-add. Bit-identical to calling
+    /// [`Self::axpy`] for each `(row, weight)` in order at every ISA level;
+    /// empty `rows` is a no-op that leaves `acc` unchanged.
+    ///
+    /// # Errors
+    /// [`KernelError::LengthMismatch`] if `rows.len() != weights.len()` or any
+    /// row differs in length from `acc`.
+    pub fn vertical_rgba_add(
+        &self,
+        rows: &[&[f32]],
+        weights: &[f32],
+        acc: &mut [f32],
+    ) -> Result<(), KernelError> {
+        if rows.len() != weights.len() || rows.iter().any(|row| row.len() != acc.len()) {
+            return Err(KernelError::LengthMismatch);
+        }
+        if rows.is_empty() || acc.is_empty() {
+            return Ok(());
+        }
+        (self.table.vertical_rgba_add)(rows, weights, acc);
         Ok(())
     }
 
