@@ -1268,6 +1268,60 @@ pub(crate) fn partition_transform_threads(
     }
 }
 
+/// Predict whether [`execute_fast`] or an underlying [`crate::orientation::OrientedSource`]
+/// will keep a worker pool alive while handing rows to the output sink.
+///
+/// Checks [`crate::orientation::will_emit_parallel`] (`has_transposing_orientation`
+/// and `prepared.source.height`) independently of `allow_parallel_resize`, and
+/// checks [`run`]'s exact `is_identity_eligible` and
+/// `needed_rows >= PARALLEL_MIN_ROWS` predicate (with `partition_transform_threads`
+/// always keeping `worker_threads >= 2` when `used_threads > 1`) with zero
+/// unbudgeted heap allocations via [`crate::quality::needed_rows_at_least`].
+#[allow(clippy::too_many_arguments)] // Graph binding, source, request and thread state.
+pub(crate) fn has_concurrent_row_producer(
+    graph: &Graph,
+    target: NodeId,
+    bound_source: NodeId,
+    source: &dyn DecodeSource,
+    requested: Rect,
+    has_deferred_conversion: bool,
+    allow_parallel_resize: bool,
+    has_transposing_orientation: bool,
+    threads: usize,
+) -> Result<bool, Error> {
+    if threads <= 1 {
+        return Ok(false);
+    }
+    let prepared = prepare(graph, target, bound_source, source, requested)?;
+    if crate::orientation::will_emit_parallel(
+        has_transposing_orientation,
+        prepared.source.height,
+        threads,
+    ) {
+        return Ok(true);
+    }
+    if !allow_parallel_resize {
+        return Ok(false);
+    }
+    let primaries = primaries_from_color(&source.info().semantics().color)?;
+    let identity = !has_deferred_conversion
+        && primaries == Primaries::Srgb
+        && prepared.input == prepared.output
+        && prepared.footprint == prepared.resize
+        && prepared.source.width == requested.width
+        && prepared.source.height == requested.height;
+    if identity {
+        return Ok(false);
+    }
+    crate::quality::needed_rows_at_least::<PARALLEL_MIN_ROWS>(
+        prepared.input.height,
+        prepared.output.height,
+        prepared.resize.y,
+        requested.height,
+        prepared.filter,
+    )
+}
+
 #[allow(clippy::too_many_arguments)] // Graph binding, budget, kernels, threads, depth and sink.
 fn run<const C: usize>(
     graph: &Graph,

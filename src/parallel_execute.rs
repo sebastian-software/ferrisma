@@ -218,7 +218,21 @@ impl Drop for QueueCloser<'_> {
     }
 }
 
+enum WorkerState {
+    Pending {
+        done_sender: Sender<Result<Done, Error>>,
+        scratches: Vec<WorkerScratch>,
+    },
+    Started,
+    Failed,
+}
+
 /// Run `plan` on `threads` workers plus the calling thread.
+///
+/// Resize workers are started lazily on the first needed row emitted by
+/// `source`, so full-frame multithreaded decoders (such as JPEG XL) finish and
+/// join their own decode pool before any resize worker exists. Peak live OS
+/// threads therefore stay bounded by `threads` rather than `2 * threads`.
 pub(crate) fn run<const C: usize>(
     plan: &RowPlan,
     source: &mut dyn DecodeSource,
@@ -242,19 +256,47 @@ pub(crate) fn run<const C: usize>(
         // Close the queue on any exit from this scope (including partial
         // thread startup failure, cancellation, or error) before joining.
         let _closer = QueueCloser(&queue);
-        for scratch in scratches {
-            let done_sender = done_sender.clone();
-            let queue = &queue;
-            if crate::thread_spawn::spawn(scope, move || {
-                worker::<C>(plan, kernels, tables, queue, &done_sender, scratch);
-            })
-            .is_err()
-            {
-                return Err(Error::ThreadSpawnFailed);
+        let mut workers = WorkerState::Pending {
+            done_sender,
+            scratches,
+        };
+        let mut ensure_workers = || -> Result<(), Error> {
+            match std::mem::replace(&mut workers, WorkerState::Started) {
+                WorkerState::Started => Ok(()),
+                WorkerState::Failed => {
+                    workers = WorkerState::Failed;
+                    Err(Error::ThreadSpawnFailed)
+                }
+                WorkerState::Pending {
+                    done_sender,
+                    scratches,
+                } => {
+                    for scratch in scratches {
+                        let done_sender = done_sender.clone();
+                        let queue = &queue;
+                        if crate::thread_spawn::spawn(scope, move || {
+                            worker::<C>(plan, kernels, tables, queue, &done_sender, scratch);
+                        })
+                        .is_err()
+                        {
+                            workers = WorkerState::Failed;
+                            return Err(Error::ThreadSpawnFailed);
+                        }
+                    }
+                    Ok(())
+                }
             }
-        }
-        drop(done_sender);
-        drive::<C>(plan, source, budget, &queue, &done, threads, &mut sink)
+        };
+        drive::<C>(
+            plan,
+            source,
+            budget,
+            &queue,
+            &done,
+            threads,
+            &mut ensure_workers,
+            &mut sink,
+        )
     })
 }
 
@@ -1267,6 +1309,7 @@ fn min_downstream_working_bytes(plan: &RowPlan) -> usize {
         .saturating_add(output_row_bytes)
 }
 
+#[allow(clippy::too_many_arguments)] // Plan, source, budget, queue, completion channel, thread count, lazy spawner and sink.
 fn drive<const C: usize>(
     plan: &RowPlan,
     source: &mut dyn DecodeSource,
@@ -1274,6 +1317,7 @@ fn drive<const C: usize>(
     queue: &JobQueue,
     done: &Receiver<Result<Done, Error>>,
     threads: usize,
+    ensure_workers: &mut impl FnMut() -> Result<(), Error>,
     sink: &mut impl FnMut(u32, OutputRow<'_>) -> Result<(), Error>,
 ) -> Result<(DecodeReport, Duration, Duration), Error> {
     let mut driver = Driver::new(plan, queue, threads)?;
@@ -1298,6 +1342,7 @@ fn drive<const C: usize>(
             needed_cursor += 1;
         }
         if needed_cursor < plan.needed.len() && plan.needed[needed_cursor] == semantic_y {
+            ensure_workers()?;
             let rank = needed_cursor;
             needed_cursor += 1;
             driver.push_needed_row(rank, row, budget, done, sink)?;

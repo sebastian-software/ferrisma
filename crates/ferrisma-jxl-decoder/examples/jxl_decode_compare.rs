@@ -1,7 +1,9 @@
 //! Run each mode in a fresh release process and measure RSS externally.
 //! Example: /usr/bin/time -l cargo run --release -p ferrisma-jxl-decoder
 //!   --example jxl_decode_compare -- fixture.jxl own crop 10
-use ferrisma_jxl_decoder::{decode_into, inspect};
+use ferrisma_jxl_decoder::{
+    Region, decode_into_with_threads, decode_region_into_with_threads, inspect,
+};
 use jxl_oxide::{CropInfo, JxlImage};
 use std::hint::black_box;
 use std::io::Cursor;
@@ -9,16 +11,20 @@ use std::time::Instant;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    assert_eq!(
-        args.len(),
-        5,
-        "path mode(own|oxide|compare) region(full|crop) iterations"
+    assert!(
+        args.len() == 5 || args.len() == 6,
+        "path mode(own|oxide|compare) region(full|crop) iterations [threads]"
     );
+    let threads: usize = args.get(5).map_or(1, |value| value.parse().unwrap());
+    if args[2] == "oxide" && threads != 1 {
+        eprintln!("oxide mode is built without Rayon and only supports threads=1 (got {threads})");
+        std::process::exit(2);
+    }
     let bytes = std::fs::read(&args[1]).unwrap();
     if args[2] == "compare" {
         let info = inspect(&bytes, 100_000_000).unwrap();
         let mut own = vec![0f32; info.sample_count().unwrap()];
-        decode_into(&bytes, &info, &mut own, 100_000_000).unwrap();
+        decode_into_with_threads(&bytes, &info, &mut own, 100_000_000, threads).unwrap();
         let image = JxlImage::builder().read(Cursor::new(&bytes)).unwrap();
         let rendered = image.render_frame_cropped(0).unwrap();
         let mut stream = rendered.stream();
@@ -86,12 +92,36 @@ fn main() {
             "own" => {
                 let info = inspect(&bytes, 100_000_000).unwrap();
                 assert_eq!((width, height), (info.width, info.height));
-                let mut output = vec![0f32; info.sample_count().unwrap()];
-                decode_into(&bytes, &info, &mut output, 100_000_000).unwrap();
                 let channels = info.channels as usize;
-                for row in y..y + h {
-                    checksum +=
-                        f64::from(output[(row as usize * width as usize + x as usize) * channels]);
+                if args[3] == "crop" {
+                    let region = Region {
+                        x,
+                        y,
+                        width: w,
+                        height: h,
+                    };
+                    let mut output = vec![0f32; info.region_sample_count(region).unwrap()];
+                    decode_region_into_with_threads(
+                        &bytes,
+                        &info,
+                        region,
+                        &mut output,
+                        100_000_000,
+                        threads,
+                    )
+                    .unwrap();
+                    for row in 0..h {
+                        checksum += f64::from(output[(row as usize * w as usize) * channels]);
+                    }
+                } else {
+                    let mut output = vec![0f32; info.sample_count().unwrap()];
+                    decode_into_with_threads(&bytes, &info, &mut output, 100_000_000, threads)
+                        .unwrap();
+                    for row in y..y + h {
+                        checksum += f64::from(
+                            output[(row as usize * width as usize + x as usize) * channels],
+                        );
+                    }
                 }
             }
             _ => panic!("unknown mode"),
@@ -99,9 +129,10 @@ fn main() {
     }
     black_box(checksum);
     println!(
-        "mode={} region={} iterations={} dimensions={}x{} elapsed_ms={:.3} checksum={checksum:.8}",
+        "mode={} region={} threads={} iterations={} dimensions={}x{} elapsed_ms={:.3} checksum={checksum:.8}",
         args[2],
         args[3],
+        threads,
         iterations,
         dimensions.0,
         dimensions.1,

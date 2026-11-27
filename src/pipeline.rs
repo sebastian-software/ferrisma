@@ -1050,10 +1050,11 @@ pub struct StageTimings {
     /// Time inside the source's region reader excluding the transform
     /// callback: codec decode, reorientation and ICC conversion.
     pub decode: Duration,
-    /// Transfer decode, resampling, quantization and copying rows into the
-    /// encoder surface.
+    /// Transfer decode, resampling and quantization (excluding encoder row
+    /// intake, which is counted under [`Self::encode`]).
     pub transform: Duration,
-    /// Encoding the materialized output frame.
+    /// Encoder row intake (including streaming RGB-to-YUV strip conversion for
+    /// AVIF) plus finalizing the encoded output.
     pub encode: Duration,
     /// From entry to return. Today the stages run one after another inside
     /// it, so it is at least the sum of the other stages; that is an
@@ -1174,7 +1175,7 @@ pub struct ProcessingReport {
     /// upright input.
     pub orientation_buffer_bytes: usize,
     /// Known pixel-frame bytes materialized by the selected encoder. libavif
-    /// reports its concurrent RGBA and YUV(A) frames. Known bytes are charged to the managed budget.
+    /// reports its active RGB(A) conversion strip and YUV(A) planes. Known bytes are charged to the managed budget.
     pub encoder_output_frame_bytes: usize,
     /// Peak engine-managed bytes charged against `max_managed_bytes`.
     ///
@@ -2293,6 +2294,7 @@ fn run(
                 )
             })?;
     discarded.insert_if(output_depth < input_depth, Discarded::PrecisionReduced);
+    let request_rect = Rect::new(0, 0, target_size.width, target_size.height)?;
     let mut output_sink = match backend {
         None => match output_format {
             // With `avif-write` the AOM writer is the backend above.
@@ -2336,6 +2338,21 @@ fn run(
             }
         },
         Some(backend) => {
+            let has_deferred_conversion = matches!(
+                color_signal,
+                ColorSignal::RenderedIcc | ColorSignal::RenderedIccWithAgreeingCicp
+            );
+            let concurrent_row_producer = crate::fast_execute::has_concurrent_row_producer(
+                &graph,
+                finished,
+                input,
+                &*actual,
+                request_rect,
+                has_deferred_conversion,
+                options.precision == WorkingPrecision::F32,
+                actual.has_transposing_orientation(),
+                transform_threads,
+            )?;
             let request = EncodeRequest {
                 output: options.output.clone(),
                 width: target_size.width,
@@ -2343,6 +2360,7 @@ fn run(
                 has_alpha: transparent,
                 depth: output_depth,
                 threads: encoder_threads,
+                concurrent_row_producer,
             };
             let frame_reservation =
                 budget.reserve_external(backend.required_frame_bytes(&request)?)?;
@@ -2366,7 +2384,7 @@ fn run(
         EncoderBackend::name,
     );
     let open = started.elapsed();
-    let request = Rect::new(0, 0, target_size.width, target_size.height)?;
+    let request = request_rect;
     let kernels = match options.kernel_level_ceiling {
         Some(ceiling) => ferrisma_kernels::Kernels::with_ceiling(ceiling.to_kernels()),
         None => ferrisma_kernels::Kernels::best(),
@@ -2389,6 +2407,7 @@ fn run(
             "the kernels selected a level or reason this release does not name",
         ));
     };
+    let mut sink_time = Duration::ZERO;
     let processed = match options.precision {
         WorkingPrecision::F32 => execute_fast(
             &graph,
@@ -2400,7 +2419,12 @@ fn run(
             &kernels,
             transform_threads,
             output_depth,
-            |y, row| output_sink.write_row(y, row),
+            |y, row| {
+                let row_started = Instant::now();
+                let result = output_sink.write_row(y, row);
+                sink_time += row_started.elapsed();
+                result
+            },
         ),
         WorkingPrecision::F64Reference => execute_quality(
             &graph,
@@ -2410,7 +2434,12 @@ fn run(
             request,
             &budget,
             output_depth,
-            |y, row| output_sink.write_row(y, row),
+            |y, row| {
+                let row_started = Instant::now();
+                let result = output_sink.write_row(y, row);
+                sink_time += row_started.elapsed();
+                result
+            },
         ),
     };
     let processed = processed.map_err(|error| output_sink.explain(error))?;
@@ -2435,7 +2464,11 @@ fn run(
         }
         .into());
     }
-    let encode = encode_started.elapsed();
+    let (transform, encode) = attribute_stage_timings(
+        processed.transform_time,
+        sink_time,
+        encode_started.elapsed(),
+    );
     let input_access = match processed.decoder.access {
         DecodeAccess::FullFrameFallback => SourceAccess::FullFrameFallback,
         DecodeAccess::CodecRegionRequest => SourceAccess::CodecRegionRequest,
@@ -2480,7 +2513,7 @@ fn run(
         timings: StageTimings {
             open,
             decode: processed.source_time,
-            transform: processed.transform_time,
+            transform,
             encode,
             total: started.elapsed(),
         },
@@ -2492,6 +2525,21 @@ fn run(
         height: target_size.height,
         report,
     })
+}
+
+/// Move per-row encoder intake time (such as AVIF strip RGB-to-YUV conversion
+/// performed inside `RowEncoder::write_row`) out of the transform execution
+/// window and into `StageTimings::encode`. Clamped to `transform_time` so clock
+/// quantization can never underflow `transform` or break stage-sum bounds.
+pub(crate) fn attribute_stage_timings(
+    transform_time: Duration,
+    sink_time: Duration,
+    finish_time: Duration,
+) -> (Duration, Duration) {
+    let row_encode = sink_time.min(transform_time);
+    let transform = transform_time.saturating_sub(row_encode);
+    let encode = row_encode + finish_time;
+    (transform, encode)
 }
 
 /// One image of a batch: compressed bytes, their format and the options,

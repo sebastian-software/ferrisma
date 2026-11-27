@@ -219,8 +219,10 @@ pixels, applying profile assumptions or establishing full-image validity.
 The external encoder seam also accepts a known pixel-frame requirement before
 `begin`. The engine reserves those bytes before backend allocation and keeps
 the reservation through `finish` or partial-sink destruction. The libavif
-adapter declares concurrent RGBA and tightly packed YUV(A) planes, including
-rounded-up chroma dimensions. This is conservative reservation accounting;
-allocator overhead, conversion scratch, encoded output and AOM internals remain
-opaque. Backends that do not declare frames retain a zero requirement. See the
-amendment to [ADR-0024](adr/0024-pluggable-encoders-and-libavif-rs-backend.md).
+adapter declares the bounded RGB(A) conversion strip (`min(height, 64 × min(threads, 8))`
+rows, 3 channels opaque or 4 channels with alpha, 1 B/sample at 8-bit or 2 B/sample
+deeper; full RGBA frame before 2026-11-27, issue #60) plus tightly packed YUV(A)
+planes, including rounded-up chroma dimensions. This is conservative reservation
+accounting; allocator overhead, conversion scratch, encoded output and AOM
+internals remain opaque. Backends that do not declare frames retain a zero
+requirement. See the amendment to [ADR-0024](adr/0024-pluggable-encoders-and-libavif-rs-backend.md).

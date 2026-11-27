@@ -91,12 +91,27 @@ impl EncoderBackend for LibavifBackend {
         &[8, 10, 12]
     }
     fn required_frame_bytes(&self, request: &EncodeRequest) -> Result<usize, EncodeError> {
-        writer::required_frame_bytes(&Self::config(request)?).map_err(map_error)
+        let config = Self::config(request)?;
+        let bytes = if request.concurrent_row_producer {
+            writer::required_frame_bytes_serial_conversion(&config)
+        } else {
+            writer::required_frame_bytes(&config)
+        };
+        bytes.map_err(map_error)
     }
     fn begin(&self, request: &EncodeRequest) -> Result<Box<dyn RowEncoder + '_>, EncodeError> {
         let config = Self::config(request)?;
-        let bytes = writer::required_frame_bytes(&config).map_err(map_error)?;
-        let frame = writer::Frame::new(config).map_err(map_error)?;
+        let (bytes, frame) = if request.concurrent_row_producer {
+            (
+                writer::required_frame_bytes_serial_conversion(&config).map_err(map_error)?,
+                writer::Frame::new_serial_conversion(config).map_err(map_error)?,
+            )
+        } else {
+            (
+                writer::required_frame_bytes(&config).map_err(map_error)?,
+                writer::Frame::new(config).map_err(map_error)?,
+            )
+        };
         Ok(Box::new(Frame { frame, bytes }))
     }
 }

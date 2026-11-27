@@ -24,8 +24,8 @@ fn real_jpeg_reaches_valid_bytes_through_m1_graph() {
     assert_eq!(image.report.decoder_requests, 1);
     assert_eq!(image.report.decoder_full_frame_buffers, 0);
     assert_eq!(image.report.engine_full_frame_intermediates, 0);
-    // The AVIF writer's known RGBA and YUV frames are charged.
-    assert!(image.report.encoder_output_frame_bytes >= 3 * 3 * 3 * 2);
+    // The AVIF writer's YUV planes (8-bit 4:4:4 here) and streaming RGB strip are charged.
+    assert!(image.report.encoder_output_frame_bytes >= 3 * 3 * 3);
     assert!(image.report.peak_managed_bytes >= image.report.encoder_output_frame_bytes);
     // Stage timers are observations: the whole run covers every stage, and
     // encoding a real frame takes measurable time even on a tiny image.
@@ -49,6 +49,99 @@ fn real_jpeg_reaches_valid_bytes_through_m1_graph() {
         crate::pipeline::WorkingPrecision::F64Reference
     );
     assert_eq!(&reference.bytes[4..8], b"ftyp");
+}
+
+#[test]
+fn attribute_stage_timings_moves_sink_time_from_transform_to_encode() {
+    use crate::pipeline::attribute_stage_timings;
+    use std::time::Duration;
+
+    let ms = Duration::from_millis;
+    assert_eq!(
+        attribute_stage_timings(ms(25), ms(18), ms(10)),
+        (ms(7), ms(28))
+    );
+    assert_eq!(
+        attribute_stage_timings(ms(25), Duration::ZERO, ms(10)),
+        (ms(25), ms(10))
+    );
+    assert_eq!(
+        attribute_stage_timings(ms(25), ms(25), Duration::ZERO),
+        (Duration::ZERO, ms(25))
+    );
+    // Clamped if accumulated per-row sink readings slightly exceed the outer
+    // transform window due to clock quantization.
+    assert_eq!(
+        attribute_stage_timings(ms(10), ms(12), ms(4)),
+        (Duration::ZERO, ms(14))
+    );
+}
+
+#[test]
+fn row_encoder_intake_time_is_attributed_to_encode_not_transform() {
+    use crate::pipeline::{
+        EncodeError, EncodeRequest, EncodedImage, EncoderBackend, OutputFormat, RowEncoder,
+        transcode_with,
+    };
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{Duration, Instant};
+
+    struct SlowRowIntakeBackend(Arc<AtomicU64>);
+    struct SlowRowIntakeEncoder(Arc<AtomicU64>);
+    impl EncoderBackend for SlowRowIntakeBackend {
+        fn format(&self) -> OutputFormat {
+            OutputFormat::Avif
+        }
+        fn name(&self) -> &'static str {
+            "slow-intake"
+        }
+        fn begin(&self, _: &EncodeRequest) -> Result<Box<dyn RowEncoder + '_>, EncodeError> {
+            Ok(Box::new(SlowRowIntakeEncoder(Arc::clone(&self.0))))
+        }
+    }
+    impl RowEncoder for SlowRowIntakeEncoder {
+        fn write_row(&mut self, y: u32, _: &[u8]) -> Result<(), EncodeError> {
+            if y == 0 {
+                let started = Instant::now();
+                std::thread::sleep(Duration::from_millis(20));
+                self.0.store(
+                    u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX),
+                    Ordering::Relaxed,
+                );
+            }
+            Ok(())
+        }
+        fn finish(self: Box<Self>) -> Result<EncodedImage, EncodeError> {
+            Ok(EncodedImage::new(
+                OutputFormat::Avif,
+                vec![1, 2, 3],
+                0,
+                false,
+            ))
+        }
+    }
+
+    let slept_ns = Arc::new(AtomicU64::new(0));
+    let backend = SlowRowIntakeBackend(Arc::clone(&slept_ns));
+    let encoded = include_bytes!("../tests/fixtures/sample.jpg");
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: 3,
+        height: 3,
+    })
+    .with_output(OutputSettings::default_for(OutputFormat::Avif))
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
+    .with_transform_threads(Threads::ONE)
+    .with_encoder_threads(Threads::ONE);
+    let out = transcode_with(encoded, ImageFormat::Jpeg, &options, &backend).unwrap();
+    let slept = Duration::from_nanos(slept_ns.load(Ordering::Relaxed));
+    assert!(slept >= Duration::from_millis(15));
+    let t = out.report.timings;
+    assert!(
+        t.encode >= slept,
+        "row intake work ({slept:?}) must be counted under encode: {t:?}"
+    );
+    assert!(t.total >= t.open + t.decode + t.transform + t.encode);
 }
 
 #[test]
@@ -1814,4 +1907,99 @@ fn webp_overlimit_dimensions_beat_icc_table_budget_while_corrupt_icc_beats_optio
             .kind(),
         ProcessingErrorKind::UnsupportedColor
     );
+}
+
+#[cfg(feature = "webp-read")]
+#[test]
+fn parallel_transform_sets_concurrent_row_producer_on_encode_request() {
+    use crate::pipeline::{
+        AvifOptions, Crop, ImageFormat, InputProfilePolicy, OutputGeometry, OutputSettings,
+        Threads, TransformOptions, transcode_with,
+    };
+
+    let pixels = vec![128_u8; 256 * 256 * 4];
+    let webp_bytes = webp::api::encode::encode_lossless(webp::api::encode::PixelRows {
+        layout: webp::api::encode::PixelLayout::Rgba,
+        data: &pixels,
+        width: 256,
+        height: 256,
+        stride: 256 * 4,
+    })
+    .unwrap();
+    // Large EXIF-oriented (orientation 5, transposing, upright 72x96 >= 64 rows) sRGB input.
+    let oriented_webp = include_bytes!("../tests/fixtures/decoder-work/paris-o5-lossy.webp");
+
+    let recorder = backend::Recorder::default();
+    let base = |width, height, transform_threads| {
+        TransformOptions::new(OutputGeometry::Exact { width, height })
+            .with_output(OutputSettings::Avif(AvifOptions::default()))
+            .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
+            .with_transform_threads(Threads::Count(
+                std::num::NonZeroUsize::new(transform_threads).unwrap(),
+            ))
+            .with_encoder_threads(Threads::Count(std::num::NonZeroUsize::new(4).unwrap()))
+    };
+
+    // 1. Parallel F32 resize (>= 64 rows, 4 transform threads): sets hint.
+    transcode_with(&webp_bytes, ImageFormat::WebP, &base(80, 80, 4), &recorder).unwrap();
+    // 2. Single-threaded transform: hint stays false (standalone multi-band conversion).
+    transcode_with(&webp_bytes, ImageFormat::WebP, &base(80, 80, 1), &recorder).unwrap();
+    // 3. 1:1 sRGB identity copy on non-oriented input (0 workers): hint stays false.
+    transcode_with(
+        &webp_bytes,
+        ImageFormat::WebP,
+        &base(256, 256, 4),
+        &recorder,
+    )
+    .unwrap();
+    // 4. 1:1 sRGB transcode of a large transposing EXIF-oriented input
+    //    (72x96 >= 64 upright rows, 4 transform threads): `OrientedSource::emit_parallel`
+    //    holds live gather workers while AVIF flushes strips, so hint MUST be true.
+    transcode_with(
+        oriented_webp,
+        ImageFormat::WebP,
+        &base(72, 96, 4),
+        &recorder,
+    )
+    .unwrap();
+    // 5. Same EXIF-oriented input cropped below 64 upright rows: orientation
+    //    runs serially and identity skips resize, so hint stays false.
+    transcode_with(
+        oriented_webp,
+        ImageFormat::WebP,
+        &base(72, 32, 4).with_crop(Some(Crop::new(0, 0, 72, 32))),
+        &recorder,
+    )
+    .unwrap();
+    // 6. Non-oriented tall image cropped to 256x32 and resized to 128x32
+    //    (< 64 source rows -> serial resize): hint stays false.
+    transcode_with(
+        &webp_bytes,
+        ImageFormat::WebP,
+        &base(128, 32, 4).with_crop(Some(Crop::new(0, 0, 256, 32))),
+        &recorder,
+    )
+    .unwrap();
+    // 7. WorkingPrecision::F64Reference clamps `transform_threads` to 1 before
+    //    `OrientedSource`, so even on an EXIF-oriented >= 64-row input it spawns
+    //    0 gather workers and leaves `concurrent_row_producer == false`.
+    crate::thread_spawn::reset_spawn_count();
+    transcode_with(
+        oriented_webp,
+        ImageFormat::WebP,
+        &base(72, 96, 4).with_precision(crate::pipeline::WorkingPrecision::F64Reference),
+        &recorder,
+    )
+    .unwrap();
+    assert_eq!(crate::thread_spawn::spawn_count(), 0);
+
+    let requests = recorder.requests.lock().unwrap().clone();
+    assert_eq!(requests.len(), 7);
+    assert!(requests[0].concurrent_row_producer);
+    assert!(!requests[1].concurrent_row_producer);
+    assert!(!requests[2].concurrent_row_producer);
+    assert!(requests[3].concurrent_row_producer);
+    assert!(!requests[4].concurrent_row_producer);
+    assert!(!requests[5].concurrent_row_producer);
+    assert!(!requests[6].concurrent_row_producer);
 }

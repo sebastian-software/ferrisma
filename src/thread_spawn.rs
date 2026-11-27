@@ -24,13 +24,30 @@ where
     }) {
         return Err(io::Error::other("injected scoped thread spawn failure"));
     }
-    thread::Builder::new().spawn_scoped(scope, worker)
+    let handle = thread::Builder::new().spawn_scoped(scope, worker)?;
+    #[cfg(test)]
+    SPAWN_COUNT.with(|count| count.set(count.get() + 1));
+    Ok(handle)
 }
 
 #[cfg(test)]
 thread_local! {
     // Confined to the driver thread so concurrent tests do not share a hook.
     static FAIL_AFTER: std::cell::Cell<Option<usize>> = const { std::cell::Cell::new(None) };
+    static SPAWN_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// Number of scoped workers successfully spawned on the calling test thread
+/// since the last [`reset_spawn_count`].
+#[cfg(test)]
+pub(crate) fn spawn_count() -> usize {
+    SPAWN_COUNT.with(std::cell::Cell::get)
+}
+
+/// Reset the calling test thread's scoped-worker spawn counter to zero.
+#[cfg(test)]
+pub(crate) fn reset_spawn_count() {
+    SPAWN_COUNT.with(|count| count.set(0));
 }
 
 /// Fail after `successful` scoped spawns on the calling test thread.

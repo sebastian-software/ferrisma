@@ -437,10 +437,12 @@ fn thread_parallel_runner_run_on_each_thread() {
         let object = unsafe { &*runner.cast::<ThreadParallelRunner>() };
         assert_eq!(object.num_threads(), threads.max(1));
         let seen = AtomicU64::new(0);
-        object.run_on_each_thread(&|task: u32, thread: usize| {
-            assert_eq!(task as usize, thread);
-            seen.fetch_or(1 << thread, Ordering::SeqCst);
-        });
+        object
+            .run_on_each_thread(&|task: u32, thread: usize| {
+                assert_eq!(task as usize, thread);
+                seen.fetch_or(1 << thread, Ordering::SeqCst);
+            })
+            .unwrap();
         assert_eq!(seen.load(Ordering::SeqCst), (1u64 << threads.max(1)) - 1);
         // SAFETY: Idle and not used again.
         unsafe { jxl_thread_parallel_runner_destroy(runner) };

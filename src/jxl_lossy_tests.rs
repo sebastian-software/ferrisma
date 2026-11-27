@@ -511,6 +511,46 @@ mod independent_decode {
             "own vs input: max {max} mean {mean}"
         );
     }
+
+    #[cfg(all(feature = "jpeg-xl-read", feature = "webp-write"))]
+    #[test]
+    fn multithreaded_jxl_transcode_is_bit_identical_across_thread_counts() {
+        use crate::pipeline::{
+            ImageFormat, InputProfilePolicy, OutputFormat, OutputGeometry, OutputSettings, Threads,
+            TransformOptions, transcode,
+        };
+        let (width, height) = (600, 520);
+        let data = translucent(width, height);
+        let encoded = encode(
+            width,
+            height,
+            &data,
+            &lossy(width as u32, height as u32, 1.0),
+            &MemoryBudget::new(256 << 20),
+        )
+        .unwrap();
+        let make_opts = |threads: usize| {
+            TransformOptions::new(OutputGeometry::Exact {
+                width: 300,
+                height: 260,
+            })
+            .with_output(OutputSettings::default_for(OutputFormat::WebP))
+            .with_profile_policy(InputProfilePolicy::UseRenderedIcc)
+            .with_transform_threads(Threads::Count(
+                std::num::NonZeroUsize::new(threads).unwrap(),
+            ))
+            .with_encoder_threads(Threads::ONE)
+        };
+        let baseline = transcode(&encoded.bytes, ImageFormat::JpegXl, &make_opts(1)).unwrap();
+        for threads in [4, 8] {
+            let actual =
+                transcode(&encoded.bytes, ImageFormat::JpegXl, &make_opts(threads)).unwrap();
+            assert_eq!(
+                actual.bytes, baseline.bytes,
+                "JXL transcode output must be bit-identical at threads={threads}"
+            );
+        }
+    }
 }
 
 #[cfg(feature = "webp-read")]

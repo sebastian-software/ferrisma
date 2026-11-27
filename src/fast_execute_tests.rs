@@ -6146,3 +6146,297 @@ fn bench_parallel_pipeline_scaling() {
         }
     }
 }
+
+struct ObservingSource {
+    inner: TestSource,
+    spawns_before_row_zero: usize,
+    spawns_after_row_zero: usize,
+    fail_before_rows: bool,
+}
+
+impl DecodeSource for ObservingSource {
+    fn info(&self) -> &crate::decoder::DecoderInfo {
+        self.inner.info()
+    }
+
+    fn read_region(
+        &mut self,
+        region: Rect,
+        budget: &MemoryBudget,
+        on_row: &mut dyn FnMut(u32, crate::decoder::DecodedRow<'_>) -> Result<(), Error>,
+    ) -> Result<crate::decoder::DecodeReport, Error> {
+        self.spawns_before_row_zero = crate::thread_spawn::spawn_count();
+        if self.fail_before_rows {
+            return Err(Error::IncompleteDecoderOutput);
+        }
+        let mut after = 0_usize;
+        let mut first = true;
+        let report = self.inner.read_region(region, budget, &mut |y, row| {
+            let res = on_row(y, row);
+            if first {
+                after = crate::thread_spawn::spawn_count();
+                first = false;
+            }
+            res
+        })?;
+        self.spawns_after_row_zero = after;
+        Ok(report)
+    }
+}
+
+#[test]
+fn lazy_resize_workers_start_on_first_needed_row_not_before_decode() {
+    let sources = tall_sources();
+    let target_size = Size::new(40, 150).unwrap();
+    let expected = run_threads(
+        &sources[0].1,
+        None,
+        target_size,
+        Filter::Lanczos3,
+        &Kernels::best(),
+        1,
+        64 << 20,
+        None,
+    )
+    .unwrap();
+
+    // 1. Before row 0 is delivered by `read_region`, zero resize workers exist;
+    //    on row 0, all 4 resize workers start and output matches sequential.
+    crate::thread_spawn::reset_spawn_count();
+    let mut observer = ObservingSource {
+        inner: sources[0].1.clone(),
+        spawns_before_row_zero: usize::MAX,
+        spawns_after_row_zero: 0,
+        fail_before_rows: false,
+    };
+    let (graph, input, target) =
+        graph_for_info(observer.info(), None, target_size, Filter::Lanczos3);
+    let budget = MemoryBudget::new(64 << 20);
+    let request = Rect::new(0, 0, target_size.width, target_size.height).unwrap();
+    let mut actual = Vec::new();
+    let report = execute_fast_srgb8(
+        &graph,
+        target,
+        input,
+        &mut observer,
+        request,
+        &budget,
+        &Kernels::best(),
+        4,
+        |_, row| {
+            actual.extend_from_slice(row);
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(report.transform_threads, 4);
+    assert_eq!(
+        observer.spawns_before_row_zero, 0,
+        "no resize workers may exist before row 0 arrives"
+    );
+    assert_eq!(
+        observer.spawns_after_row_zero, 4,
+        "all 4 resize workers must start on the first needed row"
+    );
+    assert_eq!(actual, expected);
+
+    // 2. If `read_region` fails before emitting any row, 0 resize workers spawn.
+    crate::thread_spawn::reset_spawn_count();
+    let mut failing = ObservingSource {
+        inner: sources[0].1.clone(),
+        spawns_before_row_zero: usize::MAX,
+        spawns_after_row_zero: usize::MAX,
+        fail_before_rows: true,
+    };
+    let (graph, input, target) =
+        graph_for_info(failing.info(), None, target_size, Filter::Lanczos3);
+    let budget = MemoryBudget::new(64 << 20);
+    let err = execute_fast_srgb8(
+        &graph,
+        target,
+        input,
+        &mut failing,
+        request,
+        &budget,
+        &Kernels::best(),
+        4,
+        |_, _| Ok(()),
+    )
+    .unwrap_err();
+    assert_eq!(err, Error::IncompleteDecoderOutput);
+    assert_eq!(failing.spawns_before_row_zero, 0);
+    assert_eq!(crate::thread_spawn::spawn_count(), 0);
+}
+
+#[cfg(all(
+    feature = "jpeg-xl-read",
+    feature = "jpeg-xl-write",
+    feature = "webp-read"
+))]
+#[test]
+fn multigroup_jxl_parallel_resize_runs_lazily_and_matches_serial() {
+    use crate::pipeline::{
+        EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat, InputProfilePolicy,
+        JpegXlLossy, JpegXlOptions, OutputFormat, OutputGeometry, OutputSettings, RowEncoder,
+        Threads, TransformOptions, transcode, transcode_with,
+    };
+
+    struct RawCapture;
+    struct RawRows(Vec<u8>);
+    impl EncoderBackend for RawCapture {
+        fn format(&self) -> OutputFormat {
+            OutputFormat::WebP
+        }
+        fn name(&self) -> &'static str {
+            "raw-capture"
+        }
+        fn begin(&self, _: &EncodeRequest) -> Result<Box<dyn RowEncoder + '_>, EncodeError> {
+            Ok(Box::new(RawRows(Vec::new())))
+        }
+    }
+    impl RowEncoder for RawRows {
+        fn write_row(&mut self, _: u32, rgba: &[u8]) -> Result<(), EncodeError> {
+            self.0.extend_from_slice(rgba);
+            Ok(())
+        }
+        fn finish(self: Box<Self>) -> Result<EncodedImage, EncodeError> {
+            Ok(EncodedImage::new(OutputFormat::WebP, self.0, 0, false))
+        }
+    }
+
+    // Build a 300x300 (4-group) VarDCT JXL fixture via lossless WebP -> JXL.
+    let mut pixels = vec![0_u8; 300 * 300 * 4];
+    for y in 0..300_usize {
+        for x in 0..300_usize {
+            let idx = (y * 300 + x) * 4;
+            pixels[idx] = u8::try_from((x * 7 + y * 3) & 0xff).unwrap();
+            pixels[idx + 1] = u8::try_from(((x * 5) ^ (y * 11)) & 0xff).unwrap();
+            pixels[idx + 2] = u8::try_from((x * 13 + y * 17) & 0xff).unwrap();
+            pixels[idx + 3] = 255;
+        }
+    }
+    let webp_bytes = webp::api::encode::encode_lossless(webp::api::encode::PixelRows {
+        layout: webp::api::encode::PixelLayout::Rgba,
+        data: &pixels,
+        width: 300,
+        height: 300,
+        stride: 300 * 4,
+    })
+    .unwrap();
+    let jxl = transcode(
+        &webp_bytes,
+        ImageFormat::WebP,
+        &TransformOptions::new(OutputGeometry::Exact {
+            width: 300,
+            height: 300,
+        })
+        .with_output(OutputSettings::JpegXl(JpegXlOptions::Lossy(
+            JpegXlLossy::default().with_distance(1.0),
+        )))
+        .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing),
+    )
+    .unwrap()
+    .bytes;
+
+    let run = |threads| {
+        let options = TransformOptions::new(OutputGeometry::Exact {
+            width: 150,
+            height: 150,
+        })
+        .with_output(OutputSettings::default_for(OutputFormat::WebP))
+        .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
+        .with_transform_threads(Threads::Count(
+            std::num::NonZeroUsize::new(threads).unwrap(),
+        ));
+        transcode_with(&jxl, ImageFormat::JpegXl, &options, &RawCapture).unwrap()
+    };
+    let serial = run(1);
+    crate::thread_spawn::reset_spawn_count();
+    let parallel = run(4);
+    assert_eq!(parallel.bytes, serial.bytes);
+    assert_eq!(parallel.report.transform_threads, 4);
+    assert_eq!(crate::thread_spawn::spawn_count(), 4);
+}
+
+#[test]
+fn needed_rows_at_least_matches_tap_table_and_predicts_without_unbudgeted_heap_alloc() {
+    // 1. Differential agreement with `taps_into` across both filters, upscales,
+    //    downscales, 1:1, sub-crops, and boundary heights around 64.
+    for filter in [Filter::Area, Filter::Lanczos3] {
+        for &(input, output, start, count) in &[
+            (63_u32, 63_u32, 0_u32, 63_u32),
+            (64, 64, 0, 64),
+            (64, 128, 0, 128),
+            (64, 128, 10, 100),
+            (63, 200, 0, 200),
+            (100, 63, 0, 63),
+            (100, 64, 0, 64),
+            (100, 50, 0, 50),
+            (100, 32, 0, 32),
+            (100, 200, 20, 110),
+            (100, 200, 20, 126),
+            (100, 200, 20, 128),
+            (100, 200, 20, 130),
+            (256, 32, 0, 32),
+            (256, 256, 10, 63),
+            (256, 256, 10, 64),
+            (70, 500, 50, 420),
+            (70, 500, 50, 450),
+        ] {
+            let mut tap_buf = Vec::new();
+            let mut needed = Vec::new();
+            for offset in 0..count {
+                crate::quality::taps_into(input, output, start + offset, filter, &mut tap_buf)
+                    .unwrap();
+                needed.extend(tap_buf.iter().map(|t| t.index));
+            }
+            needed.sort_unstable();
+            needed.dedup();
+            let expected = needed.len() >= 64;
+            let got =
+                crate::quality::needed_rows_at_least::<64>(input, output, start, count, filter)
+                    .unwrap();
+            assert_eq!(
+                got,
+                expected,
+                "filter={filter:?} input={input} output={output} start={start} count={count} needed={}",
+                needed.len()
+            );
+        }
+    }
+
+    // 2. Huge 100,000-row output completes in O(1) without heap allocation,
+    //    and `has_concurrent_row_producer` checks transposing orientation
+    //    independently of `allow_parallel_resize`.
+    assert!(
+        crate::quality::needed_rows_at_least::<64>(100_000, 100_000, 0, 100_000, Filter::Lanczos3)
+            .unwrap()
+    );
+    assert!(
+        crate::quality::needed_rows_at_least::<64>(100, 100_000, 0, 100_000, Filter::Lanczos3)
+            .unwrap()
+    );
+    assert!(
+        !crate::quality::needed_rows_at_least::<64>(63, 100_000, 0, 100_000, Filter::Area).unwrap()
+    );
+    assert!(crate::quality::needed_rows_at_least::<64>(100_000, 1, 0, 1, Filter::Area).unwrap());
+
+    let size = Size::new(16, 100_000).unwrap();
+    let source = TestSource::new(size, ChannelLayout::Rgb, SRGB, Samples::U8(Vec::new()));
+    let target_size = Size::new(16, 100_000).unwrap();
+    let (graph, input, target) = graph_for(&source, None, target_size, Filter::Lanczos3);
+    let requested = Rect::new(0, 0, target_size.width, target_size.height).unwrap();
+    // Transposing orientation check runs even when `allow_parallel_resize` is false.
+    assert!(
+        crate::fast_execute::has_concurrent_row_producer(
+            &graph, target, input, &source, requested, false, false, true, 4,
+        )
+        .unwrap()
+    );
+    assert!(
+        !crate::fast_execute::has_concurrent_row_producer(
+            &graph, target, input, &source, requested, false, false, false, 4,
+        )
+        .unwrap()
+    );
+}

@@ -525,6 +525,10 @@ pub struct JxlDecoder {
     /// runs only the scalar translation.
     simd_target: Option<hwy::Target>,
     thread_pool: Option<Box<ThreadPool>>,
+    /// When true, `thread_pool` wraps a lazy `ThreadParallelRunner` whose
+    /// active worker cap is updated from each frame's parsed group count at
+    /// `FrameStage::Toc` (before hidden or visible frame sections decode).
+    lazy_runner_group_cap: bool,
     stage: DecoderStage,
     got_signature: bool,
     got_codestream_signature: bool,
@@ -633,6 +637,7 @@ impl JxlDecoder {
             memory_manager,
             simd_target: hwy::decoder_default_target(),
             thread_pool: None,
+            lazy_runner_group_cap: false,
             stage: DecoderStage::Inited,
             got_signature: false,
             got_codestream_signature: false,
@@ -998,6 +1003,7 @@ pub fn jxl_decoder_reset(dec: &mut JxlDecoder) {
     jxl_decoder_rewind_decoding_state(dec);
 
     dec.thread_pool = None;
+    dec.lazy_runner_group_cap = false;
     dec.keep_orientation = false;
     dec.unpremul_alpha = false;
     dec.render_spotcolors = true;
@@ -1132,7 +1138,36 @@ pub unsafe fn jxl_decoder_set_parallel_runner(
     dec.thread_pool = Some(Box::new(unsafe {
         ThreadPool::new(parallel_runner, parallel_runner_opaque)
     }));
+    dec.lazy_runner_group_cap = false;
     JxlDecoderStatus::SUCCESS
+}
+
+/// Registers a lazy `ThreadParallelRunner` created by
+/// `jxl_thread_parallel_runner_create_lazy` and automatically caps its worker
+/// count from each frame's parsed group count before section decoding begins
+/// (including hidden reference frames and blending frames): single-group frames
+/// (`num_groups <= 1`) cap at `0` workers, and multi-group frames cap at
+/// `num_groups` (clamped by the runner to its construction maximum).
+///
+/// # Safety
+/// Same as [`jxl_decoder_set_parallel_runner`]; `runner_opaque` must be a live
+/// runner from `jxl_thread_parallel_runner_create_lazy`.
+pub unsafe fn jxl_decoder_set_lazy_thread_parallel_runner(
+    dec: &mut JxlDecoder,
+    runner_opaque: *mut c_void,
+) -> JxlDecoderStatus {
+    // SAFETY: Caller guarantees the runner contract for `runner_opaque`.
+    let status = unsafe {
+        jxl_decoder_set_parallel_runner(
+            dec,
+            Some(crate::threads::thread_parallel_runner::jxl_thread_parallel_runner),
+            runner_opaque,
+        )
+    };
+    if status == JxlDecoderStatus::SUCCESS {
+        dec.lazy_runner_group_cap = true;
+    }
+    status
 }
 
 pub fn jxl_decoder_size_hint_basic_info(dec: &JxlDecoder) -> usize {
@@ -1799,6 +1834,31 @@ fn jxl_decoder_process_codestream(dec: &mut JxlDecoder) -> JxlDecoderStatus {
                 .frame_dec
                 .as_mut()
                 .expect("the header stage allocates frame_dec");
+            if dec.lazy_runner_group_cap
+                && let Some(pool) = dec.thread_pool.as_deref()
+            {
+                // Frames smaller than one full 256x256 group (e.g. 320x64
+                // spanning 2 VarDCT groups) cost more in worker startup and
+                // synchronization than parallel group decode saves.
+                const MIN_PARALLEL_FRAME_PIXELS: u64 = 65_536;
+                let groups = frame_dec.num_groups();
+                let cap = if groups <= 1 || frame_dec.frame_pixels() < MIN_PARALLEL_FRAME_PIXELS {
+                    0
+                } else {
+                    groups
+                };
+                // SAFETY: `lazy_runner_group_cap` is set only when
+                // `pool.runner_opaque()` is a live lazy `ThreadParallelRunner`
+                // registered by `jxl_decoder_set_lazy_thread_parallel_runner`,
+                // and no runner call is active at `FrameStage::Toc`. The runner
+                // clamps `cap` to `[0, construction_max_workers]`.
+                unsafe {
+                    crate::threads::thread_parallel_runner::jxl_thread_parallel_runner_set_max_workers(
+                        pool.runner_opaque(),
+                        cap,
+                    );
+                }
+            }
             frame_dec.set_render_spotcolors(dec.render_spotcolors);
             frame_dec.set_coalescing(dec.coalescing);
 
@@ -3407,6 +3467,17 @@ pub unsafe fn jxl_decoder_set_multithreaded_image_out_callback(
     dec.image_out_format = *format.expect("PrepareSizeCheck dereferenced format");
 
     JxlDecoderStatus::SUCCESS
+}
+
+/// Returns the actual group count of the current frame once its frame header
+/// has been parsed (for example at `JxlDecoderStatus::FRAME` or
+/// `JxlDecoderStatus::NEED_IMAGE_OUT_BUFFER`), accounting for
+/// `group_size_shift` (128x128 through 1024x1024).
+pub fn jxl_decoder_current_frame_num_groups(dec: &JxlDecoder) -> Option<usize> {
+    if dec.frame_stage == FrameStage::Header {
+        return None;
+    }
+    dec.frame_dec.as_ref().map(|f| f.num_groups())
 }
 
 pub fn jxl_decoder_get_frame_header(

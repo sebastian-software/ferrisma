@@ -2624,6 +2624,17 @@ impl<'m, 'p> FrameDecoder<'m, 'p> {
     pub fn get_frame_header(&self) -> &FrameHeader<'m> {
         &self.header.0
     }
+    /// Number of groups in this frame (`FrameDimensions::num_groups`),
+    /// accounting for `group_size_shift`.
+    pub fn num_groups(&self) -> usize {
+        self.dim.num_groups
+    }
+    /// Number of pixels in this frame (`FrameDimensions::xsize * ysize`).
+    pub fn frame_pixels(&self) -> u64 {
+        u64::try_from(self.dim.xsize)
+            .unwrap_or(u64::MAX)
+            .saturating_mul(u64::try_from(self.dim.ysize).unwrap_or(u64::MAX))
+    }
     /// Whether the DC image has been decoded (FinalizeDC has run).
     pub fn has_decoded_dc(&self) -> bool {
         self.finalized_dc
