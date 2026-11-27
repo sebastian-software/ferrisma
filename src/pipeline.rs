@@ -1178,6 +1178,12 @@ pub struct ProcessingReport {
     pub encoder_output_frame_bytes: usize,
     /// Peak engine-managed bytes charged against `max_managed_bytes`.
     pub peak_managed_bytes: usize,
+    /// Peak engine-managed bytes retained in the batch-scoped ICC lookup-table
+    /// cache across the enclosing [`Engine::transcode_batch`] call, charged
+    /// against the engine's separate batch cache allowance (ADR-0004,
+    /// ADR-0016, ADR-0022). Always zero for single-image [`transcode`],
+    /// single-item batches, or when [`Engine::with_icc_cache_bytes`] is zero.
+    pub batch_icc_cache_peak_bytes: usize,
     /// The decoder allocated memory that the engine cannot observe or bound.
     pub opaque_decoder_memory: bool,
     /// The encoder allocated memory that the engine cannot observe or bound.
@@ -1514,6 +1520,22 @@ struct ExplicitSrgb<'a> {
 impl DecodeSource for ExplicitSrgb<'_> {
     fn info(&self) -> &DecoderInfo {
         &self.info
+    }
+    fn set_orientation_threads(&mut self, threads: usize) {
+        self.decoder.set_orientation_threads(threads);
+    }
+    fn has_transposing_orientation(&self) -> bool {
+        self.decoder.has_transposing_orientation()
+    }
+    fn streams_rows(&self) -> bool {
+        self.decoder.streams_rows()
+    }
+    fn prepare_conversion(
+        &mut self,
+        expected_pixels: u64,
+        budget: &MemoryBudget,
+    ) -> Result<(), Error> {
+        self.decoder.prepare_conversion(expected_pixels, budget)
     }
     fn read_region(
         &mut self,
@@ -1907,7 +1929,16 @@ fn guarded_run(
     options: &TransformOptions,
     backend: Option<&dyn EncoderBackend>,
 ) -> Result<Output, ProcessingError> {
-    contain_panic(|| run(encoded, format, options, backend))
+    contain_panic(|| {
+        run(
+            encoded,
+            format,
+            options,
+            backend,
+            #[cfg(feature = "icc")]
+            None,
+        )
+    })
 }
 
 /// Thread counts above 256 are invalid everywhere, in a batch too (owner
@@ -1996,12 +2027,26 @@ impl Sink<'_> {
     }
 }
 
+fn admitted_output_depths(
+    backend: Option<&dyn EncoderBackend>,
+    output_format: OutputFormat,
+) -> &[u8] {
+    match (backend, output_format) {
+        (Some(backend), _) => backend.row_depths(),
+        // cjxl's integer depths (ADR-0021 amendment of 2026-11-15).
+        (None, OutputFormat::JpegXl) => &[8, 9, 10, 11, 12, 13, 14, 15, 16],
+        // WebP is 8-bit by its format.
+        (None, _) => &[crate::output_depth::EIGHT],
+    }
+}
+
 #[allow(clippy::too_many_lines)] // The stages stay visible in a small facade.
 fn run(
     encoded: &[u8],
     format: ImageFormat,
     options: &TransformOptions,
     backend: Option<&dyn EncoderBackend>,
+    #[cfg(feature = "icc")] icc_cache: Option<&crate::cms::IccTableCache>,
 ) -> Result<Output, ProcessingError> {
     let started = Instant::now();
     if options.max_output_bytes == 0 {
@@ -2122,6 +2167,7 @@ fn run(
             ),
         ));
     }
+    let budget = MemoryBudget::new(options.max_managed_bytes);
     let mut color_signal = ColorSignal::Cicp;
     // A typed signal the engine converts itself (sRGB, Display P3, linear
     // sRGB) without a profile beside it takes the same route under every
@@ -2142,7 +2188,11 @@ fn run(
                 } else {
                     ColorSignal::RenderedIcc
                 };
-                Box::new(crate::cms::IccSrgbSource::new(source)?)
+                // Validate the ICC profile and any CICP signal here to keep
+                // color-error precedence intact, while deferring lookup-table
+                // setup and budget admission until after all request, crop,
+                // depth, and encoder validations succeed.
+                Box::new(crate::cms::IccSrgbSource::new_deferred(source, icc_cache)?)
             }
             #[cfg(not(feature = "icc"))]
             {
@@ -2216,19 +2266,12 @@ fn run(
     let resized = graph.resize_working(linear, target_size, options.filter)?;
     let finished = graph.add_srgb8(resized)?;
 
-    let budget = MemoryBudget::new(options.max_managed_bytes);
     let transparent = actual.info().layout == crate::decoder::ChannelLayout::Rgba;
     // The depth rule (ADR-0021 amendment, ADR-0043 decided application of
     // 2026-11-15), one for every output: the input's depth, capped at what
     // the output admits; a reduction is the pipeline's to report.
     let input_depth = actual.info().depth;
-    let admitted: &[u8] = match (backend, output_format) {
-        (Some(backend), _) => backend.row_depths(),
-        // cjxl's integer depths (ADR-0021 amendment of 2026-11-15).
-        (None, OutputFormat::JpegXl) => &[8, 9, 10, 11, 12, 13, 14, 15, 16],
-        // WebP is 8-bit by its format.
-        (None, _) => &[crate::output_depth::EIGHT],
-    };
+    let admitted = admitted_output_depths(backend, output_format);
     let output_depth =
         crate::output_depth::resolve(options.output.requested_depth(), input_depth, admitted)
             .map_err(|_| {
@@ -2298,6 +2341,10 @@ fn run(
             }
         }
     };
+    // All request, crop, resize, depth, and encoder options have now been
+    // validated; prepare any deferred ICC lookup tables under the image budget.
+    let crop_pixels = u64::from(crop.width).saturating_mul(u64::from(crop.height));
+    actual.prepare_conversion(crop_pixels, &budget)?;
     let encoder_backend = backend.map_or(
         match output_format {
             OutputFormat::Avif => "libavif/aom",
@@ -2393,6 +2440,7 @@ fn run(
         orientation_buffer_bytes: processed.decoder.engine_buffer_bytes,
         encoder_output_frame_bytes: encoded_image.frame_materialization_bytes,
         peak_managed_bytes: budget.snapshot().peak,
+        batch_icc_cache_peak_bytes: 0,
         opaque_decoder_memory: processed.decoder.opaque_codec_memory_unbounded,
         opaque_encoder_memory: encoded_image.opaque_memory,
         decoder_work: DecoderWork {
@@ -2495,13 +2543,23 @@ impl<'a> BatchItem<'a> {
 /// the smallest files (one AV1 tile per image), and the output of every
 /// image is identical to `transcode` with those two options set to 1.
 ///
-/// Each image keeps its own `max_managed_bytes` budget, so the engine's
-/// managed memory is bounded by `threads` times the largest per-image budget.
-/// `Clone` but not `Copy` since 2026-11-16, so that an engine can later own
-/// state such as a worker pool.
+/// Each image keeps its own `max_managed_bytes` budget, and multi-item batches
+/// carry a separate, `MemoryBudget`-backed batch ICC lookup-table cache
+/// allowance (default `min(512 KiB, smallest_item_budget / 16)`, configurable
+/// via [`Engine::with_icc_cache_bytes`], `0` for single-item batches). The
+/// engine's combined managed memory during [`Engine::transcode_batch`] is
+/// therefore bounded by `workers * largest_item_budget + batch_icc_cache_allowance`,
+/// with the observed cache peak reported in
+/// [`ProcessingReport::batch_icc_cache_peak_bytes`]. Only validated ICC
+/// profile keys and lookup tables (`ChannelTable` / `GrayTable`, never
+/// `moxcms` executors) are cached, and the cache is dropped before
+/// `transcode_batch` returns so `Engine` retains zero bytes between calls
+/// (ADR-0004, ADR-0016, ADR-0022). `Clone` but not `Copy` since 2026-11-16, so
+/// that an engine can later own state such as a worker pool.
 #[derive(Clone, Debug)]
 pub struct Engine {
     threads: usize,
+    icc_cache_bytes: Option<usize>,
 }
 
 impl Engine {
@@ -2524,6 +2582,7 @@ impl Engine {
     pub fn new(threads: Threads) -> Result<Self, ProcessingError> {
         Ok(Self {
             threads: threads.resolve()?,
+            icc_cache_bytes: None,
         })
     }
 
@@ -2533,12 +2592,39 @@ impl Engine {
         self.threads
     }
 
+    /// Set an explicit byte allowance for the batch-scoped ICC lookup-table
+    /// cache used during multi-item [`Engine::transcode_batch`] calls. Pass
+    /// `0` to disable batch ICC caching completely (combined managed memory
+    /// bound becomes strictly `workers * largest_item_budget`).
+    #[must_use]
+    pub fn with_icc_cache_bytes(mut self, bytes: usize) -> Self {
+        self.icc_cache_bytes = Some(bytes);
+        self
+    }
+
+    /// Explicit batch ICC cache byte allowance, or `None` for the automatic
+    /// default (`min(512 KiB, smallest_item_budget / 16)` on multi-item
+    /// batches, `0` on single-item batches).
+    #[must_use]
+    pub fn icc_cache_bytes(&self) -> Option<usize> {
+        self.icc_cache_bytes
+    }
+
     /// Transcode every item; results come back in input order. A failing
     /// image does not stop the others, and neither does a panicking one: it
     /// gets [`ProcessingErrorKind::Internal`] (since 2026-11-16).
+    ///
+    /// Combined managed memory is bounded by
+    /// `workers * largest_item_budget + batch_icc_cache_allowance`, where
+    /// `batch_icc_cache_allowance` is `0` for single-item batches or
+    /// [`Engine::with_icc_cache_bytes`]`(0)` and defaults to
+    /// `min(512 KiB, smallest_item_budget / 16)` otherwise. Validated ICC
+    /// profile keys and lookup tables (never `moxcms` executors) are dropped
+    /// before returning, and the observed cache peak is reported in
+    /// [`ProcessingReport::batch_icc_cache_peak_bytes`].
     #[must_use]
     pub fn transcode_batch(&self, items: &[BatchItem<'_>]) -> Vec<Result<Output, ProcessingError>> {
-        batch(self.threads, items, None)
+        batch(self.threads, self.icc_cache_bytes, items, None)
     }
 
     /// [`Engine::transcode_batch`] with another encoder (ADR-0024); every
@@ -2549,13 +2635,34 @@ impl Engine {
         items: &[BatchItem<'_>],
         backend: &dyn EncoderBackend,
     ) -> Vec<Result<Output, ProcessingError>> {
-        batch(self.threads, items, Some(backend))
+        batch(self.threads, self.icc_cache_bytes, items, Some(backend))
     }
+}
+
+#[cfg(feature = "icc")]
+fn batch_icc_cache(
+    icc_cache_bytes: Option<usize>,
+    items: &[BatchItem<'_>],
+) -> crate::cms::IccTableCache {
+    let limit = if items.len() < 2 {
+        0
+    } else if let Some(explicit) = icc_cache_bytes {
+        explicit
+    } else {
+        let min_budget = items
+            .iter()
+            .map(|item| item.options.max_managed_bytes)
+            .min()
+            .unwrap_or(0);
+        (min_budget / 16).min(crate::cms::MAX_CACHE_BYTES)
+    };
+    crate::cms::IccTableCache::with_max_bytes(limit)
 }
 
 /// Schedule whole images over `threads` scoped workers.
 fn batch(
     threads: usize,
+    icc_cache_bytes: Option<usize>,
     items: &[BatchItem<'_>],
     backend: Option<&dyn EncoderBackend>,
 ) -> Vec<Result<Output, ProcessingError>> {
@@ -2565,6 +2672,10 @@ fn batch(
     if items.is_empty() {
         return Vec::new();
     }
+    #[cfg(not(feature = "icc"))]
+    let _ = icc_cache_bytes;
+    #[cfg(feature = "icc")]
+    let icc_cache = batch_icc_cache(icc_cache_bytes, items);
     let next = AtomicUsize::new(0);
     let results: Vec<Mutex<Option<Result<Output, ProcessingError>>>> =
         items.iter().map(|_| Mutex::new(None)).collect();
@@ -2576,6 +2687,8 @@ fn batch(
     let started = std::thread::scope(|scope| {
         for _ in 0..workers {
             let receiver = &receiver;
+            #[cfg(feature = "icc")]
+            let icc_cache = &icc_cache;
             if crate::thread_spawn::spawn(scope, || {
                 if receiver.lock().ok().and_then(|rx| rx.recv().ok()).is_none() {
                     return;
@@ -2595,7 +2708,14 @@ fn batch(
                             .clone()
                             .with_transform_threads(Threads::ONE)
                             .with_encoder_threads(Threads::ONE);
-                        run(item.encoded, item.format, &options, backend)
+                        run(
+                            item.encoded,
+                            item.format,
+                            &options,
+                            backend,
+                            #[cfg(feature = "icc")]
+                            Some(icc_cache),
+                        )
                     });
                     if let Ok(mut slot) = results[index].lock() {
                         *slot = Some(result);
@@ -2626,15 +2746,23 @@ fn batch(
             })
             .collect();
     }
+    #[cfg(feature = "icc")]
+    let cache_peak = icc_cache.peak_bytes();
+    #[cfg(not(feature = "icc"))]
+    let cache_peak = 0_usize;
     results
         .into_iter()
         .map(|slot| {
-            slot.into_inner().ok().flatten().unwrap_or_else(|| {
+            let mut result = slot.into_inner().ok().flatten().unwrap_or_else(|| {
                 Err(ProcessingError::new(
                     ProcessingErrorKind::Internal,
                     "a batch worker stopped before finishing its image",
                 ))
-            })
+            });
+            if let Ok(output) = &mut result {
+                output.report.batch_icc_cache_peak_bytes = cache_peak;
+            }
+            result
         })
         .collect()
 }

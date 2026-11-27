@@ -209,6 +209,10 @@ impl DecodeSource for JpegSource<'_> {
         self.discarded
     }
 
+    fn streams_rows(&self) -> bool {
+        true
+    }
+
     fn read_region(
         &mut self,
         region: Rect,

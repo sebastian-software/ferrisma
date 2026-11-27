@@ -183,3 +183,7 @@ required-features = ["jpeg-read"]
 [[example]]
 name = "avif_reference_crosscheck"
 required-features = ["avif-read"]
+
+[[example]]
+name = "icc_orientation_bench"
+required-features = ["cli"]

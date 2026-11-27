@@ -187,12 +187,24 @@ impl crate::decoder::DecodeSource for HiddenColorProbe<'_> {
         self.source.defer_conversion()
     }
 
+    fn prepare_conversion(
+        &mut self,
+        expected_pixels: u64,
+        budget: &crate::memory::MemoryBudget,
+    ) -> Result<(), crate::error::Error> {
+        self.source.prepare_conversion(expected_pixels, budget)
+    }
+
     fn set_decode_threads(&mut self, threads: usize) {
         self.source.set_decode_threads(threads);
     }
 
     fn discarded(&self) -> DiscardedSet {
         self.source.discarded()
+    }
+
+    fn streams_rows(&self) -> bool {
+        self.source.streams_rows()
     }
 
     fn read_region(

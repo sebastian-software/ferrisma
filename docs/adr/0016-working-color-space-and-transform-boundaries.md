@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-11-26
+- **Last reviewed:** 2026-11-27
 - **Supersedes:** None
 - **Related:** [0002](0002-semantic-graph-and-planner.md), [0004](0004-buffer-ownership-and-budget.md), [0005](0005-codec-capabilities-and-pixel-contracts.md), [0014](0014-linear-srgb-straight-alpha.md), [0015](0015-typed-output-color-signals.md), [M1](../milestones/M1-complete-image-pipeline.md)
 
@@ -62,7 +62,6 @@ Real codec and encoder dataflow makes the proposed format contract too expensive
 
 - LUT-based profiles beyond one synthesized profile, a larger photograph corpus and an HDR rejection corpus are not validated; no issue tracks them (broader color work: #113).
 - Data residency on image edges is not implemented, and transform nodes carry no declared source and destination meaning (it lives in the semantics descriptor).
-- The ICC stage runs serially in front of the row pipeline; moving it into the workers is not done.
 
 ## Amendment log
 
@@ -73,6 +72,7 @@ Real codec and encoder dataflow makes the proposed format contract too expensive
 - 2026-11-15 — Rendering intent: relative colorimetric, set explicitly (owner decision; see the section of that date below).
 - 2026-11-15 — The per-channel table for 8-bit matrix-shaper input (#219) is confirmed by the owner (owner decision of 2026-11-15); the "pending owner confirmation" labels of its section are replaced by a pointer to that decision.
 - 2026-11-15 — Gray ICC profiles are converted through their tone curve, and a profile of the other color space than the channels is refused (`IccColorSpaceMismatch`), with gray input accepted by the owner's grayscale decision (ADR-0043); see the section of that date below.
+- 2026-11-27 — Remaining #219 optimizations: batch-scoped, `MemoryBudget`-backed `IccTableCache` inside multi-item `Engine::transcode_batch` calls (0 bytes retained between calls; caches only fallibly allocated `Vec<u8>` profile keys and `ChannelTable`/`GrayTable` — never `moxcms` executors or ineligible LUT profiles — with `Vec` capacity and alignment-padded `Arc` headers accounted, configurable via `Engine::with_icc_cache_bytes` and observable via `ProcessingReport::batch_icc_cache_peak_bytes`), crop-invariant full-image RGB cutoff (`< 10,000` full source px for `ChannelTable`) and cache-invariant gray cutoff (`< 512` resolved crop px for `GrayTable`), exact 256-entry `GrayTable` for 8-bit gray profiles, fused direct-to-linear conversion with zero `ConversionScratch` allocations, and deferred Gray/GrayAlpha ICC conversion on worker threads (see the section of that date below).
 
 ## 2026-10-31: narrow reference experiment (not acceptance)
 
@@ -231,3 +231,14 @@ This resolves open question 1 of [ADR-0042](0042-no-silent-loss-refuse-or-report
   default rather than an author's choice, so it is not a reliable signal
   of intent.
 - 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.
+
+## 2026-11-27: `IccTableCache`, small-image cutoff, fused linear writes, and deferred 8-bit `GrayTable` (issue #219)
+
+Four remaining optimizations from issue #219 are now implemented while preserving ADR-0015 (exact profile-byte matching, full `moxcms` verification, and CICP-beside-ICC enforcement) and ADR-0022 (sequential == parallel and `Engine::transcode_batch` == single-image `transcode` byte-identity):
+
+1. **Batch-scoped, `MemoryBudget`-backed ICC cache (`cms::IccTableCache`):** Created inside multi-item `Engine::transcode_batch` calls (`0` allowance for single-item batches) and dropped before returning, so a long-lived `Engine` retains **0 bytes** between calls (ADR-0004). Stores at most 32 validated profiles (each ≤ 256 KiB) under a separate batch cache allowance (default `min(512 KiB, smallest_item_budget / 16)`, configurable via `Engine::with_icc_cache_bytes`, observable via `ProcessingReport::batch_icc_cache_peak_bytes`), giving a combined batch managed memory bound of `workers × largest_item_budget + batch_icc_cache_allowance` ([ADR-0022](0022-parallel-row-pipeline-and-engine.md)). Every retained heap allocation (`Vec<CachedProfile>` capacity, fallibly allocated `Vec<u8>` profile keys, alignment-padded `Arc` allocations, and `ChannelTable` / `GrayTable` payloads) is reserved against the cache's internal `MemoryBudget` — never `moxcms::TransformF32Executor` instances and never ineligible LUT RGB profiles (which skip probing on a miss anyway). Positive 8-bit table conversions also drop the temporary `moxcms` executor immediately after table verification, so batch cache hits skip `moxcms` entirely. Keyed by a 64-bit FNV-1a digest plus exact raw profile-byte equality so hash collisions are impossible; cache hits return only `Arc` handles without copying profile bytes. Decoder-reported CICP beside the profile and color-space layout checks still run on every cache hit. The lock is never held across `moxcms` calls.
+2. **Crop- and cache-invariant small-image cutoffs:** For 8-bit RGB/RGBA (`ChannelTable`, where `ChannelTable::build` probes 7,473 pixels), table selection depends solely on full pre-crop source dimensions (`source_pixels >= RGB_TABLE_MIN_PIXELS = 10_000`) and applies identically on cache hits and cache misses, preserving crop-region byte-identity (ADR-0020) and batch == single-image `transcode` identity (ADR-0022). For 8-bit gray/gray+alpha (`GrayTable`, which is bit-identical to `moxcms` on all 256 codes), table selection uses the resolved upright source crop (`resolved_crop_pixels >= GRAY_TABLE_MIN_PIXELS = 512`) and likewise applies identically on cache hits and cache misses so managed-memory budget admission never depends on cache warmth or batch worker scheduling.
+3. **Fused table lookup directly into `linear` (`RowConversion::convert_to_linear_rgba`):** `ChannelTable` (768 × `[f32; 4]`, 12 KiB) and `GrayTable` (256 × `[f32; 4]`, 4 KiB) validate finiteness (and overflow safety for the three-term RGB sum) once at table construction, report `scratch_channels() == (0, 0)` so `ConversionScratch` allocates zero per-thread scratch or converted-row buffers, and write premultiplied linear-sRGB RGBA directly into `linear` (bit-identical to `convert` + `linearize_row`). Eligible 8-bit RGB (`ChannelTable`, 12 KiB) and grayscale (`GrayTable`, 4 KiB) conversions both reserve their table payload against the image's own `MemoryBudget` identically across standalone transcodes, cache-disabled batches, cold misses, and warm cache hits so admission and `peak_managed_bytes` never depend on cache warmth.
+4. **Exact 256-entry `GrayTable` and deferred Gray/GrayAlpha ICC conversion:** `RowPlan` now tracks `conversion.input_channels()` separately from output channels `C`, allowing 1-channel Gray (`1 → 3`) and 2-channel GrayAlpha (`2 → 4`) ICC conversions — both 8-bit `GrayTable` and `F32` `moxcms` paths — to defer onto `parallel_execute` worker threads.
+
+Evidence: `cms::tests::{icc_table_cache_reuses_positive_and_negative_entries_and_checks_exact_bytes, small_image_cutoff_skips_tables_below_threshold, fused_channel_and_gray_tables_are_bit_identical_to_two_pass_linearize}`, `fast_execute_tests::deferred_gray_and_gray_alpha_icc_are_byte_identical_across_thread_counts`, `pipeline_tests::engine_batch_with_shared_icc_matches_single_transcode_byte_for_byte`, runnable benchmark `examples/icc_orientation_bench.rs`, and interleaved A/B timings and RSS in [ADR-0023](0023-decode-side-work-and-scaling-policy.md).

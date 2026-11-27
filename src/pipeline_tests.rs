@@ -832,3 +832,986 @@ mod deep_rows {
         }
     }
 }
+
+/// Issue #219: `Engine::transcode_batch` with shared ICC profiles (large RGB
+/// above cutoff, tiny RGB below cutoff, and Gray ICC) produces byte-identical
+/// output to single-image `transcode` with `Threads::ONE`.
+#[cfg(all(feature = "jpeg-read", feature = "webp-write", feature = "icc"))]
+#[test]
+fn engine_batch_with_shared_icc_matches_single_transcode_byte_for_byte() {
+    use crate::pipeline::{
+        BatchItem, Engine, ImageFormat, InputProfilePolicy, OutputGeometry, OutputSettings,
+        Threads, TransformOptions, WebpLossy, WebpOptions, transcode,
+    };
+
+    let base_large = include_bytes!("../tests/fixtures/decoder-work/paris-420.jpg");
+    let p3_icc = include_bytes!("../tests/fixtures/icc/DisplayP3-v4.icc");
+    let inject_icc = |jpeg: &[u8], icc: &[u8]| -> Vec<u8> {
+        let mut out = Vec::with_capacity(jpeg.len() + icc.len() + 18);
+        out.extend_from_slice(&jpeg[..2]);
+        let len = u16::try_from(14 + icc.len() + 2).unwrap();
+        out.extend_from_slice(&[0xff, 0xe2]);
+        out.extend_from_slice(&len.to_be_bytes());
+        out.extend_from_slice(b"ICC_PROFILE\0\x01\x01");
+        out.extend_from_slice(icc);
+        out.extend_from_slice(&jpeg[2..]);
+        out
+    };
+    let large_p3 = inject_icc(base_large, p3_icc);
+    let tiny_p3 = inject_icc(
+        include_bytes!("../tests/fixtures/orientation/jpeg-1.jpg"),
+        p3_icc,
+    );
+    let gray = include_bytes!("../tests/fixtures/parity/gray-gray-icc.jpg");
+
+    let opts = TransformOptions::new(OutputGeometry::Exact {
+        width: 32,
+        height: 24,
+    })
+    .with_output(OutputSettings::WebP(WebpOptions::Lossy(
+        WebpLossy::default().with_method(0),
+    )))
+    .with_profile_policy(InputProfilePolicy::UseRenderedIcc)
+    .with_transform_threads(Threads::ONE)
+    .with_encoder_threads(Threads::ONE);
+
+    let items = vec![
+        BatchItem::new(&large_p3, ImageFormat::Jpeg, opts.clone()),
+        BatchItem::new(&large_p3, ImageFormat::Jpeg, opts.clone()),
+        BatchItem::new(&tiny_p3, ImageFormat::Jpeg, opts.clone()),
+        BatchItem::new(&tiny_p3, ImageFormat::Jpeg, opts.clone()),
+        BatchItem::new(gray, ImageFormat::Jpeg, opts.clone()),
+        BatchItem::new(gray, ImageFormat::Jpeg, opts.clone()),
+    ];
+    let engine = Engine::new(Threads::Count(std::num::NonZeroUsize::new(4).unwrap())).unwrap();
+    let batch = engine.transcode_batch(&items);
+    assert_eq!(batch.len(), items.len());
+    for (idx, (item, res)) in items.iter().zip(&batch).enumerate() {
+        let got = res.as_ref().expect("batch item succeeded");
+        let want = transcode(item.encoded(), item.format(), item.options()).unwrap();
+        assert_eq!(got.bytes, want.bytes, "batch item {idx} byte-identity");
+    }
+}
+
+/// Issue #219: RGB `ChannelTable` selection depends only on full pre-crop
+/// source dimensions (preserving crop invariance under `ResizeFit::Cover`),
+/// whereas `GrayTable` (bit-identical to `moxcms`) uses the resolved crop hint.
+#[cfg(feature = "icc")]
+#[test]
+fn icc_pixel_hint_uses_resolved_cover_crop() {
+    use crate::cms::{GRAY_TABLE_MIN_PIXELS, IccSrgbSource, RGB_TABLE_MIN_PIXELS};
+    use crate::color::AlphaMode;
+    use crate::decoder::{
+        ChannelLayout, DecodeAccess, DecodeReport, DecodeSource, DecodedRow, DecoderInfo,
+        SampleType,
+    };
+    use crate::error::Error;
+    use crate::geometry::{Rect, Size};
+    use crate::memory::MemoryBudget;
+    use crate::pipeline::{ResizeFit, ResizeOptions};
+
+    struct DummySource(DecoderInfo);
+    impl DecodeSource for DummySource {
+        fn info(&self) -> &DecoderInfo {
+            &self.0
+        }
+        fn read_region(
+            &mut self,
+            region: Rect,
+            _budget: &MemoryBudget,
+            _sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
+        ) -> Result<DecodeReport, Error> {
+            Ok(DecodeReport {
+                requested: region,
+                access: DecodeAccess::CodecRegionRequest,
+                rows: 0,
+                output_sample_bytes: 0,
+                known_full_frame_buffers: 0,
+                peak_engine_managed_bytes: 0,
+                opaque_codec_memory_unbounded: false,
+                engine_buffer_bytes: 0,
+                engine_copied_bytes: 0,
+                work: crate::decoder::CodecWork::region_at_least(region),
+            })
+        }
+    }
+
+    let panorama = Size::new(1000, 100).unwrap();
+    let full_rect = Rect::new(0, 0, panorama.width, panorama.height).unwrap();
+    let cover = ResizeOptions::default()
+        .with_width(50)
+        .with_height(100)
+        .with_fit(ResizeFit::Cover);
+    let (resolved_crop, _) = crate::resize_geometry::resolve(full_rect, &cover).unwrap();
+    let hint = u64::from(resolved_crop.width) * u64::from(resolved_crop.height);
+    assert_eq!(hint, 5_000);
+    assert!(hint < RGB_TABLE_MIN_PIXELS);
+
+    // RGB uses full source dimensions (100,000 >= 10,000) so cropping or Cover
+    // never alters RGB pixels: `ChannelTable` stays active (`(0, 0)` scratch).
+    let p3 = include_bytes!("../tests/fixtures/icc/DisplayP3-v4.icc").to_vec();
+    let mut rgb_source = IccSrgbSource::new_with_cache(
+        Box::new(DummySource(DecoderInfo {
+            depth: 8,
+            size: panorama,
+            layout: ChannelLayout::Rgb,
+            sample: SampleType::U8,
+            access: DecodeAccess::CodecRegionRequest,
+            alpha: AlphaMode::Opaque,
+            rendered_icc: Some(p3),
+            rendered_cicp: None,
+        })),
+        None,
+        hint,
+        None,
+    )
+    .unwrap();
+    let rgb_conv = rgb_source.defer_conversion().unwrap();
+    assert_eq!(rgb_conv.scratch_channels(), (0, 0));
+
+    // Gray uses the resolved Cover crop hint: 5×100 = 500 < 512 skips GrayTable.
+    let narrow_cover = ResizeOptions::default()
+        .with_width(5)
+        .with_height(100)
+        .with_fit(ResizeFit::Cover);
+    let (narrow_crop, _) = crate::resize_geometry::resolve(full_rect, &narrow_cover).unwrap();
+    let gray_hint = u64::from(narrow_crop.width) * u64::from(narrow_crop.height);
+    assert_eq!(gray_hint, 500);
+    assert!(gray_hint < GRAY_TABLE_MIN_PIXELS);
+    let gray_icc = moxcms::ColorProfile::new_gray_with_gamma(2.2)
+        .encode()
+        .unwrap();
+    let mut gray_source = IccSrgbSource::new_with_cache(
+        Box::new(DummySource(DecoderInfo {
+            depth: 8,
+            size: panorama,
+            layout: ChannelLayout::Gray,
+            sample: SampleType::U8,
+            access: DecodeAccess::CodecRegionRequest,
+            alpha: AlphaMode::Opaque,
+            rendered_icc: Some(gray_icc),
+            rendered_cicp: None,
+        })),
+        None,
+        gray_hint,
+        None,
+    )
+    .unwrap();
+    let gray_conv = gray_source.defer_conversion().unwrap();
+    assert_eq!(gray_conv.scratch_channels(), (1, 3));
+}
+
+/// Regression for PR #297 Round-3 review (Finding #1): a `100×100` lossless
+/// Display P3 WebP filled with `[7, 19, 202]` must produce identical pixels
+/// in the uncropped `100×100` output and the overlapping `99×100` crop (no
+/// resize), both standalone and after warming a batch cache.
+#[cfg(all(feature = "webp-read", feature = "webp-write", feature = "icc"))]
+#[test]
+fn rgb_icc_conversion_is_invariant_across_crop_size_and_cache_warmth() {
+    use crate::codecs::webp::WebpSource;
+    use crate::decoder::{DecodeSource, DecodedRow};
+    use crate::geometry::Rect;
+    use crate::memory::MemoryBudget;
+    use crate::pipeline::{
+        BatchItem, Crop, Engine, ImageFormat, InputProfilePolicy, OutputGeometry, OutputSettings,
+        Threads, TransformOptions, WebpLossless, WebpOptions, transcode,
+    };
+    use webp::api::encode::{PixelLayout, PixelRows, encode_lossless};
+
+    fn chunk(tag: [u8; 4], payload: &[u8]) -> Vec<u8> {
+        let mut out = tag.to_vec();
+        out.extend_from_slice(&u32::try_from(payload.len()).unwrap().to_le_bytes());
+        out.extend_from_slice(payload);
+        if !payload.len().is_multiple_of(2) {
+            out.push(0);
+        }
+        out
+    }
+
+    fn decode_rgb(bytes: &[u8]) -> Vec<u8> {
+        let mut src = WebpSource::new_bounded(bytes, 100 * 100).unwrap();
+        let size = src.info().size;
+        let budget = MemoryBudget::new(4 << 20);
+        let mut out = Vec::with_capacity(size.width as usize * size.height as usize * 3);
+        src.read_region(
+            Rect::new(0, 0, size.width, size.height).unwrap(),
+            &budget,
+            &mut |_, row| {
+                let DecodedRow::U8(s) = row else {
+                    panic!("expected u8");
+                };
+                out.extend_from_slice(s);
+                Ok(())
+            },
+        )
+        .unwrap();
+        out
+    }
+
+    let p3_icc = include_bytes!("../tests/fixtures/icc/DisplayP3-v4.icc");
+    let pixels: Vec<u8> = std::iter::repeat_n([7_u8, 19, 202], 100 * 100)
+        .flatten()
+        .collect();
+    let plain = encode_lossless(PixelRows {
+        layout: PixelLayout::Rgb,
+        data: &pixels,
+        width: 100,
+        height: 100,
+        stride: 100 * 3,
+    })
+    .unwrap();
+    // VP8X flags bit 0x20 = ICC profile; canvas 100×100 stored as width-1, height-1.
+    let mut body = chunk(*b"VP8X", &[0x20, 0, 0, 0, 99, 0, 0, 99, 0, 0]);
+    body.extend(chunk(*b"ICCP", p3_icc));
+    body.extend_from_slice(&plain[12..]);
+    let mut webp = b"RIFF".to_vec();
+    webp.extend_from_slice(&u32::try_from(body.len() + 4).unwrap().to_le_bytes());
+    webp.extend_from_slice(b"WEBP");
+    webp.extend(body);
+
+    let full_opts = TransformOptions::new(OutputGeometry::Exact {
+        width: 100,
+        height: 100,
+    })
+    .with_output(OutputSettings::WebP(WebpOptions::Lossless(
+        WebpLossless::new(0),
+    )))
+    .with_profile_policy(InputProfilePolicy::UseRenderedIcc)
+    .with_transform_threads(Threads::ONE)
+    .with_encoder_threads(Threads::ONE);
+    let crop_opts = TransformOptions::new(OutputGeometry::Exact {
+        width: 99,
+        height: 100,
+    })
+    .with_crop(Some(Crop::new(0, 0, 99, 100)))
+    .with_output(OutputSettings::WebP(WebpOptions::Lossless(
+        WebpLossless::new(0),
+    )))
+    .with_profile_policy(InputProfilePolicy::UseRenderedIcc)
+    .with_transform_threads(Threads::ONE)
+    .with_encoder_threads(Threads::ONE);
+
+    let full_out = transcode(&webp, ImageFormat::WebP, &full_opts).unwrap();
+    let crop_standalone = transcode(&webp, ImageFormat::WebP, &crop_opts).unwrap();
+
+    // Also run inside a 1-worker batch where item 0 warms the ICC cache before item 1.
+    let engine = Engine::new(Threads::ONE).unwrap();
+    let batch = engine.transcode_batch(&[
+        BatchItem::new(&webp, ImageFormat::WebP, full_opts),
+        BatchItem::new(&webp, ImageFormat::WebP, crop_opts),
+    ]);
+    let batch_full = batch[0].as_ref().unwrap();
+    let batch_crop = batch[1].as_ref().unwrap();
+    assert_eq!(batch_full.bytes, full_out.bytes);
+    assert_eq!(batch_crop.bytes, crop_standalone.bytes);
+
+    let full_rgb = decode_rgb(&full_out.bytes);
+    let crop_rgb = decode_rgb(&crop_standalone.bytes);
+    for y in 0..100_usize {
+        let full_row = &full_rgb[y * 100 * 3..y * 100 * 3 + 99 * 3];
+        let crop_row = &crop_rgb[y * 99 * 3..(y + 1) * 99 * 3];
+        assert_eq!(crop_row, full_row, "row {y} must match uncropped pixels");
+    }
+}
+
+/// Regression for PR #297 Round-3 review (Finding #2): a gray ICC crop below
+/// `GRAY_TABLE_MIN_PIXELS` (`65×7 = 455 < 512`) must have identical budget
+/// admission standalone (cold miss) and in a batch right after an uncropped
+/// item warms the cache.
+#[cfg(all(feature = "jpeg-read", feature = "webp-write", feature = "icc"))]
+#[test]
+fn gray_icc_budget_admission_is_independent_of_batch_cache_warmth() {
+    use crate::pipeline::{
+        BatchItem, Crop, Engine, ImageFormat, InputProfilePolicy, OutputGeometry, OutputSettings,
+        ProcessingErrorKind, Threads, TransformOptions, WebpLossy, WebpOptions, transcode,
+    };
+
+    let gray = include_bytes!("../tests/fixtures/parity/gray-gray-icc.jpg");
+    let warm_opts = TransformOptions::new(OutputGeometry::Exact {
+        width: 128,
+        height: 128,
+    })
+    .with_output(OutputSettings::WebP(WebpOptions::Lossy(
+        WebpLossy::default().with_method(0),
+    )))
+    .with_profile_policy(InputProfilePolicy::UseRenderedIcc)
+    .with_transform_threads(Threads::ONE)
+    .with_encoder_threads(Threads::ONE)
+    .with_max_managed_bytes(16 << 20);
+
+    let crop_opts_with_budget = |budget: usize| {
+        warm_opts
+            .clone()
+            .with_crop(Some(Crop::new(0, 0, 65, 7)))
+            .with_max_managed_bytes(budget)
+    };
+
+    let baseline = transcode(gray, ImageFormat::Jpeg, &crop_opts_with_budget(16 << 20)).unwrap();
+    let exact_peak = baseline.report.peak_managed_bytes;
+
+    // 1 byte below the standalone peak must fail standalone AND in a warm batch.
+    let tight_err = transcode(
+        gray,
+        ImageFormat::Jpeg,
+        &crop_opts_with_budget(exact_peak - 1),
+    )
+    .unwrap_err();
+    assert_eq!(tight_err.kind(), ProcessingErrorKind::ResourceExhausted);
+
+    let engine = Engine::new(Threads::ONE).unwrap();
+    let warm_batch_fail = engine.transcode_batch(&[
+        BatchItem::new(gray, ImageFormat::Jpeg, warm_opts.clone()),
+        BatchItem::new(
+            gray,
+            ImageFormat::Jpeg,
+            crop_opts_with_budget(exact_peak - 1),
+        ),
+    ]);
+    let warmed = warm_batch_fail[0].as_ref().unwrap();
+    assert!(
+        warmed.report.batch_icc_cache_peak_bytes > 0,
+        "item 0 must warm the batch ICC cache"
+    );
+    let batch_err = warm_batch_fail[1].as_ref().unwrap_err();
+    assert_eq!(batch_err.kind(), ProcessingErrorKind::ResourceExhausted);
+
+    // At exact peak, both standalone and warm batch succeed with identical peak & bytes.
+    let warm_batch_ok = engine.transcode_batch(&[
+        BatchItem::new(gray, ImageFormat::Jpeg, warm_opts.clone()),
+        BatchItem::new(gray, ImageFormat::Jpeg, crop_opts_with_budget(exact_peak)),
+    ]);
+    let batch_crop = warm_batch_ok[1].as_ref().unwrap();
+    assert_eq!(batch_crop.report.peak_managed_bytes, exact_peak);
+    assert_eq!(batch_crop.bytes, baseline.bytes);
+}
+
+/// Regression for PR #297 Round-5 review (Finding #2): eligible full-image
+/// gray ICC (`>= 512` px, using `GrayTable`) accounts for the 4 KiB
+/// `GrayTable` in `peak_managed_bytes` and enforces identical admission on
+/// standalone, cache-disabled batch, cold batch miss, and warm batch hit.
+#[cfg(all(feature = "jpeg-read", feature = "webp-write", feature = "icc"))]
+#[test]
+fn gray_table_budget_accounting_is_identical_across_cache_modes() {
+    use crate::pipeline::{
+        BatchItem, Engine, ImageFormat, InputProfilePolicy, OutputGeometry, OutputSettings,
+        ProcessingErrorKind, Threads, TransformOptions, WebpLossy, WebpOptions, transcode,
+    };
+
+    let gray = include_bytes!("../tests/fixtures/parity/gray-gray-icc.jpg");
+    let warm_opts = TransformOptions::new(OutputGeometry::Exact {
+        width: 128,
+        height: 128,
+    })
+    .with_output(OutputSettings::WebP(WebpOptions::Lossy(
+        WebpLossy::default().with_method(0),
+    )))
+    .with_profile_policy(InputProfilePolicy::UseRenderedIcc)
+    .with_transform_threads(Threads::ONE)
+    .with_encoder_threads(Threads::ONE)
+    .with_max_managed_bytes(16 << 20);
+    let engine = Engine::new(Threads::ONE).unwrap();
+
+    let full_standalone = transcode(gray, ImageFormat::Jpeg, &warm_opts).unwrap();
+    let full_peak = full_standalone.report.peak_managed_bytes;
+    assert!(full_peak >= crate::cms::GRAY_TABLE_BYTES);
+    assert_eq!(
+        transcode(
+            gray,
+            ImageFormat::Jpeg,
+            &warm_opts
+                .clone()
+                .with_max_managed_bytes(crate::cms::GRAY_TABLE_BYTES - 1),
+        )
+        .unwrap_err()
+        .kind(),
+        ProcessingErrorKind::ResourceExhausted
+    );
+    assert_eq!(
+        transcode(
+            gray,
+            ImageFormat::Jpeg,
+            &warm_opts.clone().with_max_managed_bytes(full_peak - 1),
+        )
+        .unwrap_err()
+        .kind(),
+        ProcessingErrorKind::ResourceExhausted
+    );
+    let full_batch = engine.transcode_batch(&[
+        BatchItem::new(
+            gray,
+            ImageFormat::Jpeg,
+            warm_opts.clone().with_max_managed_bytes(full_peak),
+        ),
+        BatchItem::new(
+            gray,
+            ImageFormat::Jpeg,
+            warm_opts.clone().with_max_managed_bytes(full_peak),
+        ),
+        BatchItem::new(
+            gray,
+            ImageFormat::Jpeg,
+            warm_opts.clone().with_max_managed_bytes(full_peak - 1),
+        ),
+    ]);
+    let cold_miss = full_batch[0].as_ref().unwrap();
+    let warm_hit = full_batch[1].as_ref().unwrap();
+    assert_eq!(cold_miss.report.peak_managed_bytes, full_peak);
+    assert_eq!(warm_hit.report.peak_managed_bytes, full_peak);
+    assert_eq!(cold_miss.bytes, full_standalone.bytes);
+    assert_eq!(warm_hit.bytes, full_standalone.bytes);
+    assert_eq!(
+        full_batch[2].as_ref().unwrap_err().kind(),
+        ProcessingErrorKind::ResourceExhausted
+    );
+    let disabled_batch = Engine::new(Threads::ONE)
+        .unwrap()
+        .with_icc_cache_bytes(0)
+        .transcode_batch(&[
+            BatchItem::new(
+                gray,
+                ImageFormat::Jpeg,
+                warm_opts.clone().with_max_managed_bytes(full_peak),
+            ),
+            BatchItem::new(
+                gray,
+                ImageFormat::Jpeg,
+                warm_opts.with_max_managed_bytes(full_peak),
+            ),
+        ]);
+    assert_eq!(
+        disabled_batch[0]
+            .as_ref()
+            .unwrap()
+            .report
+            .peak_managed_bytes,
+        full_peak
+    );
+    assert_eq!(
+        disabled_batch[1]
+            .as_ref()
+            .unwrap()
+            .report
+            .peak_managed_bytes,
+        full_peak
+    );
+}
+
+/// Regression for PR #297 Round-6 review: an out-of-bounds crop on an eligible
+/// gray ICC image under a `< 4 KiB` budget must skip `GrayTable` reservation
+/// and fail with `InvalidOptions` (not `ResourceExhausted`), both standalone
+/// and inside a warmed batch.
+#[cfg(all(feature = "jpeg-read", feature = "webp-write", feature = "icc"))]
+#[test]
+fn gray_icc_invalid_crop_under_tiny_budget_returns_invalid_options() {
+    use crate::pipeline::{
+        BatchItem, Crop, Engine, ImageFormat, InputProfilePolicy, OutputGeometry, OutputSettings,
+        ProcessingErrorKind, Threads, TransformOptions, WebpLossy, WebpOptions, transcode,
+    };
+
+    let gray = include_bytes!("../tests/fixtures/parity/gray-gray-icc.jpg");
+    let warm_opts = TransformOptions::new(OutputGeometry::Exact {
+        width: 32,
+        height: 24,
+    })
+    .with_output(OutputSettings::WebP(WebpOptions::Lossy(
+        WebpLossy::default().with_method(0),
+    )))
+    .with_profile_policy(InputProfilePolicy::UseRenderedIcc)
+    .with_transform_threads(Threads::ONE)
+    .with_encoder_threads(Threads::ONE)
+    .with_max_managed_bytes(4 << 20);
+
+    let bad_crop_opts = warm_opts
+        .clone()
+        .with_crop(Some(Crop::new(0, 0, 10_000, 10_000)))
+        .with_max_managed_bytes(1024);
+
+    assert_eq!(
+        transcode(gray, ImageFormat::Jpeg, &bad_crop_opts)
+            .unwrap_err()
+            .kind(),
+        ProcessingErrorKind::InvalidOptions
+    );
+
+    let engine = Engine::new(Threads::ONE).unwrap();
+    let batch = engine.transcode_batch(&[
+        BatchItem::new(gray, ImageFormat::Jpeg, warm_opts),
+        BatchItem::new(gray, ImageFormat::Jpeg, bad_crop_opts),
+    ]);
+    assert!(batch[0].is_ok());
+    assert_eq!(
+        batch[1].as_ref().unwrap_err().kind(),
+        ProcessingErrorKind::InvalidOptions
+    );
+}
+
+/// Regression for PR #297 Round-7 review (Finding #1): eligible 8-bit RGB
+/// `ChannelTable` conversions reserve `RGB_TABLE_BYTES` (12 KiB) against the
+/// image's `MemoryBudget` identically across standalone, cache-disabled batch,
+/// cold miss, and warm hit; a `4,000`-byte budget fails with
+/// `ResourceExhausted`, and an invalid out-of-bounds crop under a `1 KiB`
+/// budget skips table setup and returns `InvalidOptions`.
+#[cfg(all(feature = "jpeg-read", feature = "webp-write", feature = "icc"))]
+#[test]
+fn rgb_table_budget_accounting_and_invalid_crop_under_tiny_budget() {
+    use crate::pipeline::{
+        BatchItem, Crop, Engine, ImageFormat, InputProfilePolicy, OutputGeometry, OutputSettings,
+        ProcessingErrorKind, Threads, TransformOptions, WebpLossy, WebpOptions, transcode,
+    };
+
+    let paris = include_bytes!("../tests/fixtures/decoder-work/paris-420.jpg");
+    let p3_icc = include_bytes!("../tests/fixtures/icc/DisplayP3-v4.icc");
+    let mut paris_p3 = Vec::with_capacity(paris.len() + p3_icc.len() + 18);
+    paris_p3.extend_from_slice(&paris[..2]);
+    let len = u16::try_from(14 + p3_icc.len() + 2).unwrap();
+    paris_p3.extend_from_slice(&[0xff, 0xe2]);
+    paris_p3.extend_from_slice(&len.to_be_bytes());
+    paris_p3.extend_from_slice(b"ICC_PROFILE\0\x01\x01");
+    paris_p3.extend_from_slice(p3_icc);
+    paris_p3.extend_from_slice(&paris[2..]);
+
+    let crop1x1_opts = TransformOptions::new(OutputGeometry::Exact {
+        width: 1,
+        height: 1,
+    })
+    .with_crop(Some(Crop::new(0, 0, 1, 1)))
+    .with_output(OutputSettings::WebP(WebpOptions::Lossy(
+        WebpLossy::default().with_method(0),
+    )))
+    .with_profile_policy(InputProfilePolicy::UseRenderedIcc)
+    .with_transform_threads(Threads::ONE)
+    .with_encoder_threads(Threads::ONE)
+    .with_max_managed_bytes(4 << 20);
+
+    // A 4,000-byte budget cannot admit a 12 KiB `ChannelTable`.
+    assert_eq!(
+        transcode(
+            &paris_p3,
+            ImageFormat::Jpeg,
+            &crop1x1_opts.clone().with_max_managed_bytes(4_000),
+        )
+        .unwrap_err()
+        .kind(),
+        ProcessingErrorKind::ResourceExhausted
+    );
+
+    let standalone = transcode(&paris_p3, ImageFormat::Jpeg, &crop1x1_opts).unwrap();
+    let peak = standalone.report.peak_managed_bytes;
+    assert!(peak >= crate::cms::RGB_TABLE_BYTES);
+    assert_eq!(
+        transcode(
+            &paris_p3,
+            ImageFormat::Jpeg,
+            &crop1x1_opts.clone().with_max_managed_bytes(peak - 1),
+        )
+        .unwrap_err()
+        .kind(),
+        ProcessingErrorKind::ResourceExhausted
+    );
+
+    let engine = Engine::new(Threads::ONE).unwrap();
+    let batch = engine.transcode_batch(&[
+        BatchItem::new(
+            &paris_p3,
+            ImageFormat::Jpeg,
+            crop1x1_opts.clone().with_max_managed_bytes(peak),
+        ),
+        BatchItem::new(
+            &paris_p3,
+            ImageFormat::Jpeg,
+            crop1x1_opts.clone().with_max_managed_bytes(peak),
+        ),
+        BatchItem::new(
+            &paris_p3,
+            ImageFormat::Jpeg,
+            crop1x1_opts.clone().with_max_managed_bytes(peak - 1),
+        ),
+    ]);
+    let cold_miss = batch[0].as_ref().unwrap();
+    let warm_hit = batch[1].as_ref().unwrap();
+    assert_eq!(cold_miss.report.peak_managed_bytes, peak);
+    assert_eq!(warm_hit.report.peak_managed_bytes, peak);
+    assert_eq!(cold_miss.bytes, standalone.bytes);
+    assert_eq!(warm_hit.bytes, standalone.bytes);
+    assert_eq!(
+        batch[2].as_ref().unwrap_err().kind(),
+        ProcessingErrorKind::ResourceExhausted
+    );
+
+    let disabled = Engine::new(Threads::ONE)
+        .unwrap()
+        .with_icc_cache_bytes(0)
+        .transcode_batch(&[
+            BatchItem::new(
+                &paris_p3,
+                ImageFormat::Jpeg,
+                crop1x1_opts.clone().with_max_managed_bytes(peak),
+            ),
+            BatchItem::new(
+                &paris_p3,
+                ImageFormat::Jpeg,
+                crop1x1_opts.clone().with_max_managed_bytes(peak),
+            ),
+        ]);
+    assert_eq!(
+        disabled[0].as_ref().unwrap().report.peak_managed_bytes,
+        peak
+    );
+    assert_eq!(
+        disabled[1].as_ref().unwrap().report.peak_managed_bytes,
+        peak
+    );
+}
+
+/// Regression for PR #297 Round-7 review (Finding #1): an invalid out-of-bounds
+/// crop on an eligible RGB ICC image under a `1 KiB` budget skips `ChannelTable`
+/// reservation and returns `InvalidOptions` (not `ResourceExhausted`), both
+/// standalone and in a warmed batch.
+#[cfg(all(feature = "jpeg-read", feature = "webp-write", feature = "icc"))]
+#[test]
+fn rgb_icc_invalid_crop_under_tiny_budget_returns_invalid_options() {
+    use crate::pipeline::{
+        BatchItem, Crop, Engine, ImageFormat, InputProfilePolicy, OutputGeometry, OutputSettings,
+        ProcessingErrorKind, Threads, TransformOptions, WebpLossy, WebpOptions, transcode,
+    };
+
+    let paris = include_bytes!("../tests/fixtures/decoder-work/paris-420.jpg");
+    let p3_icc = include_bytes!("../tests/fixtures/icc/DisplayP3-v4.icc");
+    let mut paris_p3 = Vec::with_capacity(paris.len() + p3_icc.len() + 18);
+    paris_p3.extend_from_slice(&paris[..2]);
+    let len = u16::try_from(14 + p3_icc.len() + 2).unwrap();
+    paris_p3.extend_from_slice(&[0xff, 0xe2]);
+    paris_p3.extend_from_slice(&len.to_be_bytes());
+    paris_p3.extend_from_slice(b"ICC_PROFILE\0\x01\x01");
+    paris_p3.extend_from_slice(p3_icc);
+    paris_p3.extend_from_slice(&paris[2..]);
+
+    let warm_opts = TransformOptions::new(OutputGeometry::Exact {
+        width: 32,
+        height: 24,
+    })
+    .with_output(OutputSettings::WebP(WebpOptions::Lossy(
+        WebpLossy::default().with_method(0),
+    )))
+    .with_profile_policy(InputProfilePolicy::UseRenderedIcc)
+    .with_transform_threads(Threads::ONE)
+    .with_encoder_threads(Threads::ONE)
+    .with_max_managed_bytes(4 << 20);
+    let bad_crop_opts = warm_opts
+        .clone()
+        .with_crop(Some(Crop::new(0, 0, 10_000, 10_000)))
+        .with_max_managed_bytes(1024);
+
+    assert_eq!(
+        transcode(&paris_p3, ImageFormat::Jpeg, &bad_crop_opts)
+            .unwrap_err()
+            .kind(),
+        ProcessingErrorKind::InvalidOptions
+    );
+    let engine = Engine::new(Threads::ONE).unwrap();
+    let bad_batch = engine.transcode_batch(&[
+        BatchItem::new(&paris_p3, ImageFormat::Jpeg, warm_opts),
+        BatchItem::new(&paris_p3, ImageFormat::Jpeg, bad_crop_opts),
+    ]);
+    assert!(bad_batch[0].is_ok());
+    assert_eq!(
+        bad_batch[1].as_ref().unwrap_err().kind(),
+        ProcessingErrorKind::InvalidOptions
+    );
+}
+
+/// Regression for PR #297 Round-8 review (Finding #2): an unsupported output
+/// depth (e.g. JPEG XL depth 7) with `max_managed_bytes = 0` on an eligible
+/// gray ICC image must skip `GrayTable` reservation and fail with
+/// `InvalidOptions` (not `ResourceExhausted`), both standalone and in a
+/// warmed batch.
+#[cfg(all(
+    feature = "jpeg-read",
+    feature = "webp-write",
+    feature = "jpeg-xl-write",
+    feature = "icc"
+))]
+#[test]
+fn icc_unsupported_output_depth_under_zero_budget_returns_invalid_options() {
+    use crate::pipeline::{
+        BatchItem, BitDepth, Engine, ImageFormat, InputProfilePolicy, JpegXlOptions,
+        OutputGeometry, OutputSettings, ProcessingErrorKind, Threads, TransformOptions, WebpLossy,
+        WebpOptions, transcode,
+    };
+
+    let gray = include_bytes!("../tests/fixtures/parity/gray-gray-icc.jpg");
+    let warm_opts = TransformOptions::new(OutputGeometry::Exact {
+        width: 32,
+        height: 24,
+    })
+    .with_output(OutputSettings::WebP(WebpOptions::Lossy(
+        WebpLossy::default().with_method(0),
+    )))
+    .with_profile_policy(InputProfilePolicy::UseRenderedIcc)
+    .with_transform_threads(Threads::ONE)
+    .with_encoder_threads(Threads::ONE)
+    .with_max_managed_bytes(4 << 20);
+
+    let bad_depth_opts = TransformOptions::new(OutputGeometry::Exact {
+        width: 32,
+        height: 24,
+    })
+    .with_output(OutputSettings::JpegXl(
+        JpegXlOptions::default().with_depth(BitDepth::Exact(7)),
+    ))
+    .with_profile_policy(InputProfilePolicy::UseRenderedIcc)
+    .with_transform_threads(Threads::ONE)
+    .with_encoder_threads(Threads::ONE)
+    .with_max_managed_bytes(0);
+
+    assert_eq!(
+        transcode(gray, ImageFormat::Jpeg, &bad_depth_opts)
+            .unwrap_err()
+            .kind(),
+        ProcessingErrorKind::InvalidOptions
+    );
+
+    let engine = Engine::new(Threads::ONE).unwrap();
+    let batch = engine.transcode_batch(&[
+        BatchItem::new(gray, ImageFormat::Jpeg, warm_opts),
+        BatchItem::new(gray, ImageFormat::Jpeg, bad_depth_opts),
+    ]);
+    assert!(batch[0].is_ok());
+    assert_eq!(
+        batch[1].as_ref().unwrap_err().kind(),
+        ProcessingErrorKind::InvalidOptions
+    );
+}
+
+/// Regression for PR #297 Round-3 review (Finding #3): batch ICC cache peak is
+/// observable in `ProcessingReport::batch_icc_cache_peak_bytes`, zero for
+/// single-image `transcode`, single-item batches, and `with_icc_cache_bytes(0)`,
+/// and strictly bounded by the configured allowance on multi-item batches.
+#[cfg(all(feature = "jpeg-read", feature = "webp-write", feature = "icc"))]
+#[test]
+fn batch_icc_cache_observability_and_explicit_allowance() {
+    use crate::pipeline::{
+        BatchItem, Engine, ImageFormat, InputProfilePolicy, OutputGeometry, OutputSettings,
+        Threads, TransformOptions, WebpLossy, WebpOptions, transcode,
+    };
+
+    let gray = include_bytes!("../tests/fixtures/parity/gray-gray-icc.jpg");
+    let opts = TransformOptions::new(OutputGeometry::Exact {
+        width: 32,
+        height: 24,
+    })
+    .with_output(OutputSettings::WebP(WebpOptions::Lossy(
+        WebpLossy::default().with_method(0),
+    )))
+    .with_profile_policy(InputProfilePolicy::UseRenderedIcc)
+    .with_transform_threads(Threads::ONE)
+    .with_encoder_threads(Threads::ONE)
+    .with_max_managed_bytes(4 << 20);
+
+    // Single-image transcode reports 0.
+    let single = transcode(gray, ImageFormat::Jpeg, &opts).unwrap();
+    assert_eq!(single.report.batch_icc_cache_peak_bytes, 0);
+
+    // Single-item batch uses 0 cache allowance and reports 0.
+    let default_engine = Engine::new(Threads::ONE).unwrap();
+    assert_eq!(default_engine.icc_cache_bytes(), None);
+    let one_item =
+        default_engine.transcode_batch(&[BatchItem::new(gray, ImageFormat::Jpeg, opts.clone())]);
+    assert_eq!(
+        one_item[0]
+            .as_ref()
+            .unwrap()
+            .report
+            .batch_icc_cache_peak_bytes,
+        0
+    );
+
+    // Multi-item batch with explicit `with_icc_cache_bytes(0)` disables caching.
+    let zero_engine = Engine::new(Threads::ONE).unwrap().with_icc_cache_bytes(0);
+    assert_eq!(zero_engine.icc_cache_bytes(), Some(0));
+    let disabled = zero_engine.transcode_batch(&[
+        BatchItem::new(gray, ImageFormat::Jpeg, opts.clone()),
+        BatchItem::new(gray, ImageFormat::Jpeg, opts.clone()),
+    ]);
+    for res in &disabled {
+        let out = res.as_ref().unwrap();
+        assert_eq!(out.report.batch_icc_cache_peak_bytes, 0);
+        assert_eq!(out.bytes, single.bytes);
+    }
+
+    // Multi-item batch with explicit allowance reports non-zero peak <= allowance.
+    let allowance = 64 * 1024;
+    let bounded_engine = Engine::new(Threads::ONE)
+        .unwrap()
+        .with_icc_cache_bytes(allowance);
+    assert_eq!(bounded_engine.icc_cache_bytes(), Some(allowance));
+    let cached = bounded_engine.transcode_batch(&[
+        BatchItem::new(gray, ImageFormat::Jpeg, opts.clone()),
+        BatchItem::new(gray, ImageFormat::Jpeg, opts),
+    ]);
+    let peak0 = cached[0]
+        .as_ref()
+        .unwrap()
+        .report
+        .batch_icc_cache_peak_bytes;
+    let peak1 = cached[1]
+        .as_ref()
+        .unwrap()
+        .report
+        .batch_icc_cache_peak_bytes;
+    assert_eq!(peak0, peak1);
+    assert!(peak0 > 0 && peak0 <= allowance, "peak={peak0}");
+    assert_eq!(cached[0].as_ref().unwrap().bytes, single.bytes);
+    assert_eq!(cached[1].as_ref().unwrap().bytes, single.bytes);
+}
+
+/// Regression for PR #297 Round-9 review (Finding #1): a `>= 10,000`-pixel
+/// JPEG carrying a valid matrix-shaper RGB profile that maps black to a
+/// nonzero value (so it fails the additivity probe) must admit and produce
+/// byte-identical output for a `1×1` crop under a `4,000`-byte budget both
+/// standalone (cold miss) and after warming the batch negative cache.
+#[cfg(all(feature = "jpeg-read", feature = "webp-write", feature = "icc"))]
+#[test]
+fn non_additive_matrix_shaper_rgb_crop_under_tight_budget_matches_warm_negative_cache() {
+    use crate::pipeline::{
+        BatchItem, Crop, Engine, ImageFormat, InputProfilePolicy, OutputGeometry, OutputSettings,
+        Threads, TransformOptions, WebpLossless, WebpOptions, transcode,
+    };
+
+    let mut profile = moxcms::ColorProfile::new_srgb();
+    profile.cicp = None;
+    let nonzero_black = moxcms::ToneReprCurve::Lut((0_u16..16).map(|i| 4096 + i * 4095).collect());
+    profile.red_trc = Some(nonzero_black.clone());
+    profile.green_trc = Some(nonzero_black.clone());
+    profile.blue_trc = Some(nonzero_black);
+    let non_additive_icc = profile.encode().unwrap();
+
+    let paris = include_bytes!("../tests/fixtures/decoder-work/paris-420.jpg");
+    let mut jpeg = Vec::with_capacity(paris.len() + non_additive_icc.len() + 18);
+    jpeg.extend_from_slice(&paris[..2]);
+    let seg_len = u16::try_from(non_additive_icc.len() + 16).unwrap();
+    jpeg.extend_from_slice(&[0xff, 0xe2]);
+    jpeg.extend_from_slice(&seg_len.to_be_bytes());
+    jpeg.extend_from_slice(b"ICC_PROFILE\0\x01\x01");
+    jpeg.extend_from_slice(&non_additive_icc);
+    jpeg.extend_from_slice(&paris[2..]);
+
+    let tight_1x1 = TransformOptions::new(OutputGeometry::Exact {
+        width: 1,
+        height: 1,
+    })
+    .with_crop(Some(Crop::new(0, 0, 1, 1)))
+    .with_output(OutputSettings::WebP(WebpOptions::Lossless(
+        WebpLossless::new(0),
+    )))
+    .with_profile_policy(InputProfilePolicy::UseRenderedIcc)
+    .with_transform_threads(Threads::ONE)
+    .with_encoder_threads(Threads::ONE)
+    .with_max_managed_bytes(4_000);
+
+    let warm_full = tight_1x1.clone().with_max_managed_bytes(4 << 20);
+
+    let standalone = transcode(&jpeg, ImageFormat::Jpeg, &tight_1x1)
+        .expect("cold miss must probe additivity on stack before reserving 12 KiB");
+
+    let engine = Engine::new(Threads::ONE)
+        .unwrap()
+        .with_icc_cache_bytes(64 * 1024);
+    let batch = engine.transcode_batch(&[
+        BatchItem::new(&jpeg, ImageFormat::Jpeg, warm_full),
+        BatchItem::new(&jpeg, ImageFormat::Jpeg, tight_1x1),
+    ]);
+    assert!(batch[0].is_ok());
+    let warmed = batch[1]
+        .as_ref()
+        .expect("warm negative cache hit must also succeed under 4,000 B budget");
+    assert_eq!(standalone.bytes, warmed.bytes);
+}
+
+/// Regression for PR #297 Round-9 review (Finding #2): ICC lookup-table
+/// admission runs only *after* all request, crop, depth, and encoder dimension
+/// validations pass, while ICC profile validation still runs *first*.
+/// - A `16,384×1` WebP request (exceeding WebP's `16,383` limit) with a
+///   table-eligible Display P3 or gray ICC input and a `4,000`-byte budget
+///   must return `InvalidOptions` (not `ResourceExhausted`), both standalone
+///   and in a warmed batch.
+/// - A corrupt ICC profile on the exact same `16,384×1` WebP + `4,000`-byte
+///   budget request must still return `UnsupportedColor` first.
+#[cfg(all(feature = "jpeg-read", feature = "webp-write", feature = "icc"))]
+#[test]
+fn webp_overlimit_dimensions_beat_icc_table_budget_while_corrupt_icc_beats_options() {
+    use crate::pipeline::{
+        BatchItem, Engine, ImageFormat, InputProfilePolicy, OutputGeometry, OutputSettings,
+        ProcessingErrorKind, Threads, TransformOptions, WebpLossy, WebpOptions, transcode,
+    };
+
+    let inject_icc = |jpeg: &[u8], icc: &[u8]| -> Vec<u8> {
+        let mut out = Vec::with_capacity(jpeg.len() + icc.len() + 18);
+        out.extend_from_slice(&jpeg[..2]);
+        let seg_len = u16::try_from(icc.len() + 16).unwrap();
+        out.extend_from_slice(&[0xff, 0xe2]);
+        out.extend_from_slice(&seg_len.to_be_bytes());
+        out.extend_from_slice(b"ICC_PROFILE\0\x01\x01");
+        out.extend_from_slice(icc);
+        out.extend_from_slice(&jpeg[2..]);
+        out
+    };
+
+    let paris = include_bytes!("../tests/fixtures/decoder-work/paris-420.jpg");
+    let p3_icc = include_bytes!("../tests/fixtures/icc/DisplayP3-v4.icc");
+    let paris_p3 = inject_icc(paris, p3_icc);
+    let paris_corrupt_icc = inject_icc(paris, b"not-a-valid-icc-profile");
+    let gray_icc_jpg = include_bytes!("../tests/fixtures/parity/gray-gray-icc.jpg");
+
+    let warm_opts = TransformOptions::new(OutputGeometry::Exact {
+        width: 32,
+        height: 24,
+    })
+    .with_output(OutputSettings::WebP(WebpOptions::Lossy(
+        WebpLossy::default().with_method(0),
+    )))
+    .with_profile_policy(InputProfilePolicy::UseRenderedIcc)
+    .with_transform_threads(Threads::ONE)
+    .with_encoder_threads(Threads::ONE)
+    .with_max_managed_bytes(4 << 20);
+
+    let overlimit_webp = TransformOptions::new(OutputGeometry::Exact {
+        width: 16_384,
+        height: 1,
+    })
+    .with_output(OutputSettings::WebP(WebpOptions::Lossy(
+        WebpLossy::default().with_method(0),
+    )))
+    .with_profile_policy(InputProfilePolicy::UseRenderedIcc)
+    .with_transform_threads(Threads::ONE)
+    .with_encoder_threads(Threads::ONE)
+    .with_max_managed_bytes(4_000);
+
+    // Valid Display P3 & gray ICC inputs return InvalidOptions (WebP > 16,383).
+    for input in [&paris_p3[..], &gray_icc_jpg[..]] {
+        assert_eq!(
+            transcode(input, ImageFormat::Jpeg, &overlimit_webp)
+                .unwrap_err()
+                .kind(),
+            ProcessingErrorKind::InvalidOptions
+        );
+        let engine = Engine::new(Threads::ONE).unwrap();
+        let batch = engine.transcode_batch(&[
+            BatchItem::new(input, ImageFormat::Jpeg, warm_opts.clone()),
+            BatchItem::new(input, ImageFormat::Jpeg, overlimit_webp.clone()),
+        ]);
+        assert!(batch[0].is_ok());
+        assert_eq!(
+            batch[1].as_ref().unwrap_err().kind(),
+            ProcessingErrorKind::InvalidOptions
+        );
+    }
+
+    // Corrupt ICC profile still takes precedence over invalid WebP dimensions.
+    assert_eq!(
+        transcode(&paris_corrupt_icc, ImageFormat::Jpeg, &overlimit_webp)
+            .unwrap_err()
+            .kind(),
+        ProcessingErrorKind::UnsupportedColor
+    );
+}
