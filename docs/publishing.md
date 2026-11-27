@@ -1,11 +1,9 @@
 # Publishing the crates.io dependency chain
 
-This document defines which packages must reach crates.io for `ferrisma` to be
-installable, in which order, what still blocks the first functional
-publication, and the exact procedure for the maintainer. It answers #137. It
-does not authorize publication: every package remains `publish = false`, and
-no version has changed. The `ferrisma` 0.0.0 crate and npm placeholders are
-documented separately in [`publishing/ferrisma`](../publishing/ferrisma/README.md).
+Ferrisma's first functional release is **0.1.0**. The workspace uses one
+version for the engine and its codec crates. The [maintainer procedure](#release-procedure-for-the-maintainer)
+covers the manual upload and the switch to Trusted Publishing. The 0.0.0
+placeholders are documented in [`publishing/ferrisma`](../publishing/ferrisma/README.md).
 
 ## Why the codec ports must be published
 
@@ -39,7 +37,8 @@ committed); dev-dependencies are not resolved for consumers.
 
 ## Packages
 
-Compressed sizes come from the packaging run of 2026-11-14 below
+The table records historical package names, versions, and compressed sizes
+from the packaging run of 2026-11-14 below
 (`aarch64-apple-darwin`, `main` at `776747fd` plus this branch). crates.io's
 upload limit is 10 MiB per `.crate` (Cargo reference, "Publishing on
 crates.io").
@@ -120,8 +119,8 @@ has to decide.
 | 2 | `ferrisma-libaom` exceeded the 10 MiB upload limit (#208) | **Resolved** 2026-11-21: one owned translation (libavif-rs ADR 0063), 16.9 MiB to 4.8 MiB (section 2) | none |
 | 3 | AVIF packages need profile settings dependents do not inherit (#209) | Reproduced with outside consumers: no overflow failure found in the default `dev` profile; `panic = "abort"` is a compile-time error; the documented block works for dependents. **Decided** (owner, 2026-11-15): option (a) (section 3). The dav1d kernels' opt-level-0 crash found on 2026-11-20 is fixed in the code (section 3). The block is in the README since 2026-11-20 | Codec owners: the AOM kernel tier and the debug translation with overflow checks on |
 | 4 | Exact `libc` and `c2rust-bitfields` pins | Fixed on `main` since `aba85c54`: caret requirements, same minimum, `Cargo.lock` unchanged | Codec owners: ABI checks against a newer `libc` (not run) |
-| 5 | Versions (the AVIF bridges are 0.0.0) | **Decided** (owner, 2026-11-15, O3): one shared version for all packages (section 5) | Owner: the first version number |
-| 6 | License review gates | **Decided** (owner, 2026-11-15): the #136 policy is confirmed; the documented self-review is accepted for 1.0, without an independent legal review before 1.0; the scope of the patent grants for the translated ports stays named as not assessed (section 6) | After the rename: regenerate the inventory and bundles, re-bind the JPEG evidence |
+| 5 | Versions (the AVIF bridges are 0.0.0) | **Decided** (owner, 2026-11-15, O3): one shared version for all packages (section 5) | Prepared at 0.1.0 |
+| 6 | License review gates | **Decided** (owner, 2026-11-15): the #136 policy is confirmed; the documented self-review is accepted for 1.0, without an independent legal review before 1.0; the scope of the patent grants for the translated ports stays named as not assessed (section 6) | Generate and review the bundles for the release commit |
 | 7 | crates.io account setup: team owner, first-publish token, Trusted Publishing per crate | Open, outside Git | Owner |
 | 8 | Release Please key mismatch (#248) | Fixed on `main` (`86f9e0df`); rehearsal clean on 2026-11-14 ([release automation](release-automation.md)) | Nobody |
 
@@ -384,11 +383,9 @@ only for opaque storage types passed back to `libc` functions
 
 ### 5. Versions
 
-`ferrisma-avif-read` and `ferrisma-avif-write` are 0.0.0. **Decided (owner,
-2026-11-15, O3):** every package shares one version, configuration A of
-[release automation](release-automation.md); configuration B stays possible
-later. Still to do: choose the first version (ADR-0040 proposes the SemVer
-policy) and update each dependent's `version` requirement.
+The workspace uses 0.1.0 under the shared-version policy (owner decision O3,
+2026-11-15). Both AVIF bridges use 0.1.0, and the engine requires them at
+`=0.1.0`. See configuration A of [release automation](release-automation.md).
 
 ### 6. License review gates
 
@@ -478,63 +475,65 @@ file.
 
 ## Release procedure for the maintainer
 
-Run from a clean checkout of the release commit, with the pinned toolchain.
+Run from a clean checkout of the release commit with the pinned toolchain.
 
-1. Resolve the blockers above and record the decisions (package rename,
-   versions, size limit, consumer profile) in the owning ADRs.
-2. Change `publish = false` to `publish = ["crates-io"]` on exactly the
-   packages in the table, and set their versions and dependency version
-   requirements. Leave `ferrisma-xtask` and `ferrisma-libavif` unpublished.
-3. Run the local gates: `cargo fmt --all --check`, the engine checks from
+1. Review the release commit. The Python script checks the version, the
+   crates.io allowlist, and the order of all 15 crates. The compatibility
+   adapter (`ferrisma-avif-adapter`) and tooling (`ferrisma-xtask`) stay internal.
+2. Run `cargo fmt --all --check`, the engine checks in
    [codec development](codecs.md), `cargo xtask codecs --stage pr` for each
-   codec, and the consumer self-check:
-   `cargo run --example consumer --features jpeg-read,webp-read,webp-write -- --self-check`.
-   Then require the hosted tiers on the same commit (engine ADR-0027,
-   amendment 2026-11-17): the last [nightly](../.github/workflows/nightly.yml)
-   and the last [deep](../.github/workflows/deep.yml) run of the release
-   commit passed. If the commit has none, dispatch both on it
-   (`gh workflow run nightly.yml --ref <commit's branch>` and
-   `gh workflow run deep.yml --ref <commit's branch>`) and wait for them. A
-   red job blocks the release until a change fixes it and both tiers pass on
-   the new commit.
-4. Generate and review the license bundles for every published feature set
-   and target ([license audit](license-audit.md)); attach them to the release.
-5. Dry-run the chain exactly as above, without `--allow-dirty`, then
-   `cargo publish --dry-run` with the same package list.
-6. Log in (`cargo login`) and publish in order, one level at a time:
+   codec, and the consumer self-check.
 
    ```sh
-   cargo publish -p ferrisma-sharpyuv
-   cargo publish -p ferrisma-kernels
-   cargo publish -p ferrisma-libjpeg-turbo
-   cargo publish -p ferrisma-libjxl
-   cargo publish -p ferrisma-libaom
-   cargo publish -p ferrisma-dav1d-kernels
-   cargo publish -p ferrisma-dav1d
-   cargo publish -p ferrisma-libwebp
-   cargo publish -p ferrisma-libavif-sharpyuv
-   cargo publish -p ferrisma-libavif
-   cargo publish -p ferrisma-avif-read
-   cargo publish -p ferrisma-avif-write
-   cargo publish -p ferrisma-jxl-decoder
-   cargo publish -p ferrisma-jxl-encoder
-   cargo publish -p ferrisma
+   cargo run --example consumer --features jpeg-read,webp-read,webp-write -- --self-check
    ```
 
-   Cargo can also publish the list in one `cargo publish -p … -p …`
-   invocation; publishing level by level makes a partial failure easier to
-   resume. A published version cannot be replaced, only yanked.
-7. Add the project's crates.io team as an owner of every new crate
-   (`cargo owner --add`), so publication does not depend on one account.
-8. Verify from outside the workspace: create a new crate, depend on the
-   published `ferrisma` with `jpeg-read,webp-read,webp-write`, copy
-   `examples/consumer.rs` into it, and run `--self-check` with the
-   repository fixtures. Repeat with an AVIF feature on the pinned nightly,
-   once with the profile block above and once without it (the 2026-11-14
-   rehearsal of this step used `[patch.crates-io]` to the unpacked
-   `.crate` files; see the evidence section).
-9. Tag the release commit and attach the license bundles and source
-   identities.
+   Require a passing [Nightly](../.github/workflows/nightly.yml) and
+   [Deep](../.github/workflows/deep.yml) run on that commit (ADR-0027,
+   2026-11-17). Dispatch a missing run with
+   `gh workflow run <workflow> --ref <branch-at-release-commit>`.
+3. Generate and review the [license bundles](license-audit.md) for the
+   release candidate. Keep the source identities for the GitHub release.
+4. Rehearse the whole chain. The script checks all archive sizes and builds
+   the CLI with all codecs from the packaged first-party sources.
+
+   ```sh
+   python3 scripts/publish-initial-crates.py --dry-run
+   ```
+5. Sign in as a publisher of the existing `ferrisma` placeholder. Create a
+   short-lived [crates.io token](https://crates.io/settings/tokens) with
+   `publish-new` for the new crates and `publish-update` for the placeholder.
+   Paste it into Cargo's prompt and publish from the same clean commit.
+
+   ```sh
+   cargo login --registry crates-io
+   python3 scripts/publish-initial-crates.py --publish
+   ```
+
+   If crates.io rate-limits the upload, wait for the registry and rerun
+   `--publish` from the same commit. The script skips published versions
+   after verifying each archive's checksum and embedded commit.
+6. From outside the checkout, verify a CLI install and a consumer build
+   against crates.io.
+
+   ```sh
+   cargo install --locked --version '=0.1.0' --features cli ferrisma
+   ```
+
+   Run the repository's `examples/consumer.rs` self-check in a project
+   depending on `ferrisma = "=0.1.0"` with `jpeg-read,webp-read,webp-write`.
+   Exercise AVIF with and without the
+   [documented profile settings](#3-consumer-profile-requirements-of-the-avif-packages-209).
+7. Add the project's crates.io owner team to the new crates. Configure
+   [Trusted Publishing](https://crates.io/docs/trusted-publishing) for all
+   15 crates in crates.io Settings. Set the GitHub organization to
+   `sebastian-software`, repository to `ferrisma`, and workflow filename to
+   `publish.yml`. Leave Environment empty to match the draft. Revoke the
+   temporary token and run `cargo logout --registry crates-io`.
+8. Tag the published commit `ferrisma-v0.1.0` and attach the license bundles
+   and source identities to the GitHub release. Follow the
+   [Release Please activation procedure](release-automation.md#activation-after-the-manual-010-release)
+   to enable automated publishing.
 
 ## Review when
 

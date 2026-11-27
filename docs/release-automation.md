@@ -6,8 +6,8 @@ quality gate completely; releases use Release Please the way the
 organization's other packages do"). Nothing here runs: the configurations and
 the workflow live in [`publishing/release-please/`](../publishing/release-please/),
 which GitHub and Release Please do not read, the workflow file has a
-non-`.yml` extension, every package keeps `publish = false`, and no version
-changed. **O3 is decided (owner, 2026-11-15): one shared version for all
+non-`.yml` extension. The Cargo manifests are prepared separately for the
+[manual 0.1.0 release](publishing.md#release-procedure-for-the-maintainer). **O3 is decided (owner, 2026-11-15): one shared version for all
 packages, configuration A below.** The owner's reason: the organization's
 other packages do the same. Configuration B stays documented as the option
 to switch to later. Nothing was activated with the decision.
@@ -46,10 +46,9 @@ Ferrisma differs from the blueprint repositories in four ways that matter:
 1. **The workspace root is also the engine package** (`ferrisma`), and it
    lists `"."` in `members`. ferromark has the same root-package shape but
    does not list `"."`; ferrugo has a virtual root.
-2. **Fourteen packages would be published** (the table in
-   [publishing](publishing.md): engine, kernels, four bridges, four codec ports,
-   the three AVIF sub-crates, and `libsharpyuv-core`), plus two members that
-   stay internal (`ferrisma-xtask`, `ferrisma-libavif`).
+2. **Fifteen packages ship** in the order in
+   [the bootstrap script](../scripts/publish-initial-crates.py). Two members
+   stay internal (`ferrisma-xtask` and `ferrisma-avif-adapter`).
 3. **Several first-party dependencies were renamed** when these drafts were
    written: `webp = { package = "libwebp-rs" }` and
    `jxl = { package = "libjxl-rs" }` in the engine, `jxl = { package =
@@ -437,12 +436,12 @@ is the blueprint's skeleton for crates only (no npm, no native matrix):
 2. `validate-release` resolves the release commit (the push SHA, or the tag on
    a manual retry) and checks that every tag at that commit names a
    publishable package at that version (`cargo metadata`, `jq`).
-3. `publish-crates` checks out that commit, installs the pinned nightly from
-   `rust-toolchain.toml`, packages and verifies the whole chain once
-   (`cargo package --locked -p …`, the command from
-   [publishing](publishing.md)), then calls project-infra `publish-crates` with
-   the fourteen names in dependency order and Trusted Publishing. A commented
-   `token:` line documents the one-time bootstrap for the very first publish.
+3. `publish-crates` checks out that commit, installs the pinned toolchain
+   from `rust-toolchain.toml`, and packages the chain. The project-infra
+   `publish-crates` action verifies and publishes the 15 crates in dependency
+   order using Trusted Publishing. The
+   [manual 0.1.0 upload](publishing.md#release-procedure-for-the-maintainer)
+   creates the initial crates before the workflow is activated.
 
 It works unchanged for A and B, because the shared action skips versions that
 already exist. It does not run the engine and codec test gates; the release
@@ -548,7 +547,7 @@ State on 2026-11-14; the evidence is in [publishing](publishing.md#blockers-befo
 | 3 | AVIF packages and the dependent's build profile. | Decided (owner, 2026-11-15): option (a), `unwind` required, overflow overrides recommended | The README block with the rename; codec owners: an AOM test run with overflow checks | #209 |
 | 4 | Exact `libc = "=0.2.191"` and `c2rust-bitfields = "=0.3.0"` pins. | Fixed on branch `v1/release-plumbing`: caret requirements, same minimum, lockfile unchanged | Codec owners: ABI checks against a newer `libc` | #209 |
 | 5 | Renamed first-party dependency keys broke Release Please's version updates. | Fixed on `main` (`86f9e0df`); rehearsal clean for A and B on 2026-11-14 | Nobody | #248 |
-| 6 | Every package is `publish = false`; first-publication versions (the AVIF bridges are 0.0.0) and the published set. | O3 decided: one shared version (configuration A) | Owner: the first version | #137 |
+| 6 | Prepare the shared version and publishable crates | The 15 crates are enabled for crates.io at 0.1.0 (configuration A) | Manual upload | #137 |
 | 7 | License review gates for redistributing source crates (IJG terms, `simd_helpers` notice, independent review). Per-crate license files and `include` lists are complete (the JPEG port's since 2026-11-14). | Decided (owner, 2026-11-15): policy confirmed, documented self-review accepted for 1.0, patent-grant scope named as not assessed; `simd_helpers` left the lockfile with rav1e | Done: inventory and bundles regenerated (2026-11-21), JPEG evidence re-bound (2026-11-22) | #66, #136 |
 | 8 | Configuration B only: move the engine package out of the workspace root. | Not needed: O3 chose configuration A | Nobody, unless B is chosen later | none |
 | 9 | Repository and registry setup outside Git: `RELEASE_PLEASE_TOKEN`, the crates.io team as co-owner, a one-time token for the first publish, Trusted Publishing per crate, branch protection that lets the release pull request run CI. | Open | Owner | #137 |
@@ -581,15 +580,19 @@ to be presented to the owner later in one batch, with defaults.
    at the peeled commit (project-infra) or the tag object (ferromark, ferriki).
 8. Approving the release-pull-request exception to the push-to-main rule.
 
-## Activation (for later; not done)
+## Activation after the manual 0.1.0 release
 
-1. Resolve the blockers above and record them in the owning ADRs.
-2. Copy the chosen `config-*.json` to `release-please-config.json` and the
-   matching manifest to `.release-please-manifest.json` at the repository root;
-   set `bootstrap-sha`.
-3. Rename `publish.workflow.yml.draft` to `.github/workflows/publish.yml`.
-4. Set `publish = ["crates-io"]` on exactly the fourteen packages.
-5. Rehearse (all steps above), then push with a `Release-As: 0.1.0` footer.
+1. Finish the [manual upload and registry setup](publishing.md#release-procedure-for-the-maintainer)
+   and create the `ferrisma-v0.1.0` tag and GitHub release from the exact
+   published commit.
+2. Copy `config-shared-version.json` to `release-please-config.json` and
+   `manifest-shared-version.json` to `.release-please-manifest.json` at the
+   repository root. Set the active manifest's `"."` entry to `"0.1.0"` and
+   remove the historical `bootstrap-sha`. Release Please starts from the
+   existing `ferrisma-v0.1.0` tag.
+3. Move `publish.workflow.yml.draft` to `.github/workflows/publish.yml`.
+   Check that the first generated release PR starts from 0.1.0 and runs CI
+   before merging it. Future releases authenticate through Trusted Publishing.
 
 ## Review when
 

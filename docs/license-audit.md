@@ -214,6 +214,15 @@ one `REVIEW` (`ferrisma-libjpeg-turbo`); `production-license-bundle.py
 linked for `ferrisma-libjpeg-turbo`. Any later change under
 `codecs/libjpeg-turbo-rs` changes the hash and unlinks the evidence again.
 
+#### 0.1.0 publishing metadata
+
+The release candidate's tracked hash is
+`62924c6c7d228dca1398d1ad6578be75f1246003885af73c48b5e6e57d2d603d`.
+The diff from the reviewed `6896c2ef` tree covers the ADR index's status
+wording and the manifest's crates.io target. The source, packaged file list,
+license expression, and notices are unchanged. The bundle generator binds
+the same review evidence to this exact hash.
+
 ## v1.0 distribution inventory (2026-11-12)
 
 Bundles were regenerated for each supported feature set with the tool above,

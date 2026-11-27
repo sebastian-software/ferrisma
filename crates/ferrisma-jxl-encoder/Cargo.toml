@@ -8,7 +8,7 @@ description = "Safe, bounded-output JPEG XL write bridge to the workspace libjxl
 homepage = "https://ferrisma.dev"
 repository = "https://github.com/sebastian-software/ferrisma"
 include = ["/Cargo.toml", "/README.md", "/LICENSE-MIT", "/LICENSE-APACHE", "/src/**"]
-publish = false
+publish = ["crates-io"]
 
 [dependencies]
 ferrisma-libjxl = { path = "../../codecs/libjxl-rs", version = "0.1.0" }

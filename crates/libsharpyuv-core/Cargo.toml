@@ -8,7 +8,7 @@ description = "Shared SharpYUV 0.4.2 RGB to YUV conversion core"
 homepage = "https://ferrisma.dev"
 repository = "https://github.com/sebastian-software/ferrisma"
 include = ["/Cargo.toml", "/README.md", "/LICENSES/**", "/src/**"]
-publish = false
+publish = ["crates-io"]
 
 [features]
 default = []

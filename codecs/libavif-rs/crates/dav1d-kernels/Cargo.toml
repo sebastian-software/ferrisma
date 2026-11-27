@@ -8,7 +8,7 @@ description = "dav1d's CDEF and inverse transforms written from the algorithm on
 homepage = "https://ferrisma.dev"
 repository = "https://github.com/sebastian-software/ferrisma"
 include = ["/Cargo.toml", "/README.md", "/NOTICE.md", "/LICENSES/**", "/src/**"]
-publish = false
+publish = ["crates-io"]
 
 [lib]
 name = "dav1d_kernels"

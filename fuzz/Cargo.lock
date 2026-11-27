@@ -75,14 +75,14 @@ dependencies = [
 
 [[package]]
 name = "ferrisma-avif-read"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "ferrisma-libavif",
 ]
 
 [[package]]
 name = "ferrisma-avif-write"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "ferrisma-libavif",
 ]

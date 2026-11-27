@@ -54,15 +54,26 @@ def validate_workspace() -> None:
         "--format-version", "1", capture=True,
     ))
     packages = {package["name"]: package for package in data["packages"]}
-    publishable = {name for name, package in packages.items() if package["publish"] != []}
-    if publishable != set(CRATES):
-        raise RuntimeError(f"Unexpected publishable crates: {sorted(publishable ^ set(CRATES))}")
+    missing = sorted(set(CRATES) - packages.keys())
+    if missing:
+        raise RuntimeError(f"Release crates missing from the workspace: {', '.join(missing)}")
+    wrong_registry = [name for name in CRATES if packages[name]["publish"] != ["crates-io"]]
+    if wrong_registry:
+        raise RuntimeError(
+            'Release manifests must set publish = ["crates-io"]. '
+            f"Check out the Ferrisma {VERSION} release commit. Affected crates: {', '.join(wrong_registry)}"
+        )
+    unexpected = sorted(
+        name for name, package in packages.items() if name not in CRATES and package["publish"] != []
+    )
+    if unexpected:
+        raise RuntimeError(f"Crates outside the release set allow publication: {', '.join(unexpected)}")
 
     earlier = set()
     for name in CRATES:
         package = packages[name]
-        if package["version"] != VERSION or package["publish"] != ["crates-io"]:
-            raise RuntimeError(f"{name} must be {VERSION} and publish only to crates.io")
+        if package["version"] != VERSION:
+            raise RuntimeError(f"{name} is {package['version']}; the release version must be {VERSION}")
         for dependency in package["dependencies"]:
             if not dependency.get("path") or (dependency["kind"] == "dev" and dependency["req"] == "*"):
                 continue

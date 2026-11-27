@@ -9,7 +9,7 @@ homepage = "https://ferrisma.dev"
 repository = "https://github.com/sebastian-software/ferrisma"
 # Upstream submodules, oracle tooling, and test data stay in the repository.
 include = ["/Cargo.toml", "/README.md", "/LICENSE", "/PATENTS", "/AUTHORS", "/docs/PROVENANCE.md", "/src/**"]
-publish = false
+publish = ["crates-io"]
 
 [dependencies]
 ferrisma-sharpyuv = { path = "../../crates/libsharpyuv-core", version = "0.1.0" }

@@ -149,15 +149,14 @@ jobs:
         with:
           ref: ${{ needs.validate-release.outputs.source_sha }}
 
-      # The pinned nightly from rust-toolchain.toml: the AVIF packages need it
-      # (ADR-0026), and `cargo publish` verifies each package by building it.
-      # GNU Linux x86-64 is a supported target of the translated AVIF code.
+      # Use the same pinned toolchain as the locally rehearsed release.
       - name: Install the pinned toolchain
         run: rustup show active-toolchain || rustup toolchain install
 
-      - name: Package and verify the whole chain before the first upload
+      # The individual uploads build against the actual crates.io index.
+      - name: Package the whole chain before uploading
         run: |
-          cargo package --locked \
+          cargo package --locked --no-verify --registry crates-io \
             -p ferrisma-sharpyuv -p ferrisma-kernels -p ferrisma-libjpeg-turbo \
             -p ferrisma-libjxl -p ferrisma-libaom -p ferrisma-dav1d-kernels -p ferrisma-dav1d \
             -p ferrisma-libwebp \
@@ -187,8 +186,3 @@ jobs:
             ferrisma-jxl-decoder
             ferrisma-jxl-encoder
             ferrisma
-          # A first-ever publish cannot use Trusted Publishing because the
-          # crate does not exist yet. For that one release only, pass a
-          # bootstrap token, then enable Trusted Publishing per crate and
-          # remove this line (project-infra guidance).
-          # token: ${{ secrets.CARGO_BOOTSTRAP_TOKEN }}

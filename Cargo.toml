@@ -103,7 +103,7 @@ include = [
     "/src/**",
     "/examples/**",
 ]
-publish = false
+publish = ["crates-io"]
 
 # docs.rs builds with its own nightly; keep the generated AVIF code (pinned
 # nightly, native targets only) out of the documentation build.
@@ -142,8 +142,8 @@ cli = ["jpeg-read", "webp-read", "jpeg-xl-read", "avif-read", "avif-write", "web
 # the `=`; `publishing/release-please/preserve-exact-pins.mjs` restores it.
 # First-party, unconditional: the engine's kernels with runtime ISA dispatch.
 ferrisma-kernels = { path = "crates/ferrisma-kernels", version = "=0.1.0" }
-ferrisma-avif-read = { path = "crates/ferrisma-avif-read", version = "=0.0.0", optional = true }
-ferrisma-avif-write = { path = "crates/ferrisma-avif-write", version = "=0.0.0", optional = true }
+ferrisma-avif-read = { path = "crates/ferrisma-avif-read", version = "=0.1.0", optional = true }
+ferrisma-avif-write = { path = "crates/ferrisma-avif-write", version = "=0.1.0", optional = true }
 moxcms = { version = "0.9.1", optional = true, features = ["extended_range"] }
 # The workspace decoder exposes safe RGB scanlines; SIMD stays inside its codec boundary.
 ferrisma-libjpeg-turbo = { path = "codecs/libjpeg-turbo-rs", version = "0.1.0", optional = true }

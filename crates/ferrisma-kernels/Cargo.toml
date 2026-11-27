@@ -9,7 +9,7 @@ homepage = "https://ferrisma.dev"
 repository = "https://github.com/sebastian-software/ferrisma"
 license = "MIT OR Apache-2.0"
 include = ["/Cargo.toml", "/README.md", "/LICENSE-MIT", "/LICENSE-APACHE", "/src/**", "/tests/**", "/examples/**"]
-publish = false
+publish = ["crates-io"]
 
 [dependencies]
 

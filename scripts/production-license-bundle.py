@@ -136,7 +136,7 @@ def validate_recovered(entry: dict, source_hash: str, directory: Path, recovered
 def jpeg_source_review(package: dict, source_hash: str) -> str | None:
     if (package["name"], package["version"], package.get("license"), source_hash) == (
         "ferrisma-libjpeg-turbo", "0.1.0", "IJG AND Zlib",
-        "a985272ac08c3098122aab0eabd25f1a945333f539c0e153f93d4f1d68311211"):
+        "62924c6c7d228dca1398d1ad6578be75f1246003885af73c48b5e6e57d2d603d"):
         return "docs/license-audit.md#jpeg-source-bound-evidence"
     return None
 
