@@ -1672,6 +1672,7 @@ fn run_sequential<const C: usize>(
     let mut output = OutputBuffer::allocate(plan.depth, row_samples, budget)?;
 
     let mut emitted = 0_usize;
+    let mut needed_cursor = 0_usize;
     let mut decoded_rows = 0_u32;
     let mut expected_y = plan.source_y;
     let mut transform_time = Duration::ZERO;
@@ -1688,7 +1689,12 @@ fn run_sequential<const C: usize>(
         expected_y = expected_y.checked_add(1).ok_or(Error::GeometryOverflow)?;
         let semantic_y = plan.semantic_y(decoder_y)?;
 
-        if let Ok(row_rank) = plan.needed.binary_search(&semantic_y) {
+        while needed_cursor < plan.needed.len() && plan.needed[needed_cursor] < semantic_y {
+            needed_cursor += 1;
+        }
+        if needed_cursor < plan.needed.len() && plan.needed[needed_cursor] == semantic_y {
+            let row_rank = needed_cursor;
+            needed_cursor += 1;
             source_row_to_linear::<C>(plan, row, &mut conversion, kernels, linear.as_mut_slice())?;
             let slot = row_rank % capacity;
             ring_rank[slot] = row_rank;

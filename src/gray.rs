@@ -97,6 +97,10 @@ impl DecodeSource for GrayToRgb<'_> {
         self.source.prepare_conversion(expected_pixels, budget)
     }
 
+    fn set_downstream_headroom(&mut self, bytes: usize) {
+        self.source.set_downstream_headroom(bytes);
+    }
+
     fn read_region(
         &mut self,
         region: Rect,

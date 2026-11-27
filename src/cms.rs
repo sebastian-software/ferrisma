@@ -1760,6 +1760,9 @@ impl DecodeSource for IccSrgbSource<'_> {
         self.deferred = true;
         Some(conversion.clone())
     }
+    fn set_downstream_headroom(&mut self, bytes: usize) {
+        self.source.set_downstream_headroom(bytes);
+    }
     fn read_region(
         &mut self,
         region: Rect,

@@ -1177,6 +1177,15 @@ pub struct ProcessingReport {
     /// reports its concurrent RGBA and YUV(A) frames. Known bytes are charged to the managed budget.
     pub encoder_output_frame_bytes: usize,
     /// Peak engine-managed bytes charged against `max_managed_bytes`.
+    ///
+    /// With one transform thread (`Threads::ONE`) this high-water mark is
+    /// deterministic for a given input and options. With multiple transform
+    /// threads, worker scratch, in-flight row strips, and pooled row buffers
+    /// are strictly bounded by the queue and in-flight strip windows
+    /// (ADR-0022), but the exact observed peak can still vary slightly between
+    /// runs depending on thread scheduling (how soon completed horizontal or
+    /// output buffers recycle before the next strip allocates). Output bytes
+    /// are unaffected and remain byte-identical across thread counts.
     pub peak_managed_bytes: usize,
     /// Peak engine-managed bytes retained in the batch-scoped ICC lookup-table
     /// cache across the enclosing [`Engine::transcode_batch`] call, charged
@@ -1536,6 +1545,9 @@ impl DecodeSource for ExplicitSrgb<'_> {
         budget: &MemoryBudget,
     ) -> Result<(), Error> {
         self.decoder.prepare_conversion(expected_pixels, budget)
+    }
+    fn set_downstream_headroom(&mut self, bytes: usize) {
+        self.decoder.set_downstream_headroom(bytes);
     }
     fn read_region(
         &mut self,

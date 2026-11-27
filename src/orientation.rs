@@ -133,6 +133,9 @@ pub(crate) struct OrientedSource<'a> {
     info: DecoderInfo,
     /// Threads that gather upright rows from the stored-order buffer.
     threads: usize,
+    /// Downstream working-set headroom (bytes) to preserve when deciding how
+    /// many optional gather blocks beyond block 0 to pre-allocate.
+    downstream_headroom: usize,
 }
 
 impl<'a> OrientedSource<'a> {
@@ -145,6 +148,7 @@ impl<'a> OrientedSource<'a> {
             orientation,
             info,
             threads: 1,
+            downstream_headroom: 0,
         })
     }
 
@@ -278,31 +282,59 @@ const BLOCK_ROWS: u32 = 16;
 
 type Block<T> = Result<(usize, ManagedBuffer<T>), Error>;
 
+struct GatherJob<T> {
+    block: usize,
+    buffer: ManagedBuffer<T>,
+}
+
 /// Gather blocks of display rows on `threads` workers and hand the rows to
-/// `sink` in order on the calling thread. At most `threads + 1` blocks are
-/// ever live at once (the emitting block is dropped before submitting the next
-/// job), which bounds the block memory. Errors, including a cancelling sink,
-/// close the job queue; the workers exit and the scope joins them before this
-/// returns (as in ADR-0022's pipeline).
+/// `sink` in order on the calling thread. Block 0 is pre-allocated mandatorily
+/// and optional additional blocks up to `min(threads + 1, blocks)` are
+/// pre-allocated only while `budget.available() >= block_bytes +
+/// downstream_headroom`, so at most `threads + 1` blocks are ever live at once,
+/// gather workers perform zero `MemoryBudget` allocations once callbacks begin,
+/// tight budgets gracefully shrink to `1..=max_window` reusable blocks, and
+/// budget admission stays strictly monotonic. Errors, including a cancelling
+/// sink, close the job queue; the workers exit and the scope joins them before
+/// this returns (as in ADR-0022's pipeline).
 fn emit_parallel<T: RowSample>(
     pixels: &[T],
     layout: &Layout,
     threads: usize,
     budget: &MemoryBudget,
+    downstream_headroom: usize,
     sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
 ) -> Result<(), Error> {
     let blocks = usize::try_from(layout.display.height.div_ceil(BLOCK_ROWS))
         .map_err(|_| Error::GeometryOverflow)?;
-    let window = threads.saturating_add(1);
-    let (jobs, job_receiver) = mpsc::sync_channel::<usize>(window);
+    let max_window = threads.saturating_add(1).min(blocks);
+    let mut preallocated = Vec::with_capacity(max_window);
+    for block in 0..max_window {
+        let (_, count) = block_rows(layout, block)?;
+        let len = usize::try_from(count)
+            .ok()
+            .and_then(|rows| rows.checked_mul(layout.row_len))
+            .ok_or(Error::GeometryOverflow)?;
+        if block > 0 {
+            let block_bytes = len
+                .checked_mul(std::mem::size_of::<T>())
+                .ok_or(Error::GeometryOverflow)?;
+            if budget.available() < block_bytes.saturating_add(downstream_headroom) {
+                break;
+            }
+        }
+        preallocated.push(budget.allocate_typed::<T>(len)?);
+    }
+    let window = preallocated.len();
+    let (jobs, job_receiver) = mpsc::sync_channel::<GatherJob<T>>(window);
     let job_receiver = Mutex::new(job_receiver);
     let (done_sender, done) = mpsc::channel::<Block<T>>();
     thread::scope(|scope| {
-        for _ in 0..threads.min(blocks) {
+        for _ in 0..threads.min(window) {
             let done_sender = done_sender.clone();
             let job_receiver = &job_receiver;
             if crate::thread_spawn::spawn(scope, move || {
-                gather_worker(pixels, layout, budget, job_receiver, &done_sender);
+                gather_worker(pixels, layout, job_receiver, &done_sender);
             })
             .is_err()
             {
@@ -312,15 +344,14 @@ fn emit_parallel<T: RowSample>(
             }
         }
         drop(done_sender);
-        emit_blocks(layout, blocks, window, jobs, &done, sink)
+        emit_blocks(layout, blocks, preallocated, jobs, &done, sink)
     })
 }
 
 fn gather_worker<T: RowSample>(
     pixels: &[T],
     layout: &Layout,
-    budget: &MemoryBudget,
-    jobs: &Mutex<Receiver<usize>>,
+    jobs: &Mutex<Receiver<GatherJob<T>>>,
     done: &Sender<Block<T>>,
 ) {
     loop {
@@ -328,8 +359,11 @@ fn gather_worker<T: RowSample>(
             Ok(receiver) => receiver.recv(),
             Err(_) => return,
         };
-        let Ok(block) = job else { return };
-        let result = gather_block(pixels, layout, budget, block).map(|rows| (block, rows));
+        let Ok(job) = job else {
+            return;
+        };
+        let block = job.block;
+        let result = gather_block(pixels, layout, job).map(|rows| (block, rows));
         if done.send(result).is_err() {
             return;
         }
@@ -348,17 +382,20 @@ fn block_rows(layout: &Layout, block: usize) -> Result<(u32, u32), Error> {
 fn gather_block<T: RowSample>(
     pixels: &[T],
     layout: &Layout,
-    budget: &MemoryBudget,
-    block: usize,
+    mut job: GatherJob<T>,
 ) -> Result<ManagedBuffer<T>, Error> {
-    let (first, count) = block_rows(layout, block)?;
+    let (first, count) = block_rows(layout, job.block)?;
     let rows = usize::try_from(count).map_err(|_| Error::GeometryOverflow)?;
-    let mut buffer = budget.allocate_typed::<T>(
-        rows.checked_mul(layout.row_len)
-            .ok_or(Error::GeometryOverflow)?,
-    )?;
-    gather_rows(pixels, buffer.as_mut_slice(), layout, first)?;
-    Ok(buffer)
+    let len = rows
+        .checked_mul(layout.row_len)
+        .ok_or(Error::GeometryOverflow)?;
+    let slice = job
+        .buffer
+        .as_mut_slice()
+        .get_mut(..len)
+        .ok_or(Error::OutOfBounds)?;
+    gather_rows(pixels, slice, layout, first)?;
+    Ok(job.buffer)
 }
 
 /// Display columns per tile of a transposing gather.
@@ -520,15 +557,18 @@ fn gather_transpose<T: Copy, const N: usize>(
 fn emit_blocks<T: RowSample>(
     layout: &Layout,
     blocks: usize,
-    window: usize,
-    jobs: SyncSender<usize>,
+    preallocated: Vec<ManagedBuffer<T>>,
+    jobs: SyncSender<GatherJob<T>>,
     done: &Receiver<Block<T>>,
     sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
 ) -> Result<(), Error> {
-    let closed = |_| Error::IncompleteDecoderOutput;
     let mut submitted = 0;
-    while submitted < blocks.min(window) {
-        jobs.send(submitted).map_err(closed)?;
+    for buffer in preallocated {
+        jobs.send(GatherJob {
+            block: submitted,
+            buffer,
+        })
+        .map_err(|_| Error::IncompleteDecoderOutput)?;
         submitted += 1;
     }
     let mut finished = BTreeMap::new();
@@ -540,15 +580,24 @@ fn emit_blocks<T: RowSample>(
             let (block, rows) = done.recv().map_err(|_| Error::IncompleteDecoderOutput)??;
             finished.insert(block, rows);
         };
-        let (first, _) = block_rows(layout, next)?;
-        for (y, row) in (first..).zip(rows.as_slice().chunks_exact(layout.row_len)) {
+        let (first, count) = block_rows(layout, next)?;
+        let len = usize::try_from(count)
+            .ok()
+            .and_then(|rows| rows.checked_mul(layout.row_len))
+            .ok_or(Error::GeometryOverflow)?;
+        let slice = rows.as_slice().get(..len).ok_or(Error::OutOfBounds)?;
+        for (y, row) in (first..).zip(slice.chunks_exact(layout.row_len)) {
             sink(y, T::wrap(row))?;
         }
-        // Release the emitting block before queuing the next job so at most
-        // `window` (`threads + 1`) blocks are ever live simultaneously.
-        drop(rows);
+        // Reuse the emitting block for the next job so at most `window`
+        // (`<= threads + 1`) blocks are ever live simultaneously with zero
+        // allocations during callbacks.
         if submitted < blocks {
-            jobs.send(submitted).map_err(closed)?;
+            jobs.send(GatherJob {
+                block: submitted,
+                buffer: rows,
+            })
+            .map_err(|_| Error::IncompleteDecoderOutput)?;
             submitted += 1;
         }
     }
@@ -602,7 +651,7 @@ fn reorient_stream_flip_x<T: RowSample>(
 /// once so the decoder can release its frame before downstream resize buffers
 /// are allocated (parallel gather only for transposing orientations 5–8 when
 /// `threads > 1`).
-#[allow(clippy::too_many_arguments)] // Geometry, threads, budget and sink.
+#[allow(clippy::too_many_arguments)] // Geometry, threads, budget, headroom and sink.
 fn reorient<T: RowSample>(
     source: &mut dyn DecodeSource,
     orientation: Orientation,
@@ -611,6 +660,7 @@ fn reorient<T: RowSample>(
     channels: usize,
     threads: usize,
     budget: &MemoryBudget,
+    downstream_headroom: usize,
     sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
 ) -> Result<(DecodeReport, usize, u64), Error> {
     let region_pixels = u64::from(stored.width).saturating_mul(u64::from(stored.height));
@@ -663,7 +713,7 @@ fn reorient<T: RowSample>(
     // 3 and 4 are single-row copy/reverse passes where a thread pool and
     // parallel block queue add memory and latency overhead (issue #68).
     if orientation.transpose && threads > 1 && display.height >= PARALLEL_MIN_ROWS {
-        emit_parallel(pixels, &layout, threads, budget, sink)?;
+        emit_parallel(pixels, &layout, threads, budget, downstream_headroom, sink)?;
     } else {
         // A transposing gather fills blocks of display rows so that it can
         // tile (`gather_rows`); this holds BLOCK_ROWS rows instead of one.
@@ -732,6 +782,10 @@ impl DecodeSource for OrientedSource<'_> {
         self.source.prepare_conversion(expected_pixels, budget)
     }
 
+    fn set_downstream_headroom(&mut self, bytes: usize) {
+        self.downstream_headroom = bytes;
+    }
+
     fn read_region(
         &mut self,
         region: Rect,
@@ -746,6 +800,7 @@ impl DecodeSource for OrientedSource<'_> {
             .stored_rect(region, self.source.info().size)?;
         let channels = usize::from(self.info.layout.channels());
         let source = &mut *self.source;
+        let downstream_headroom = self.downstream_headroom;
         let (inner, bytes, copied_bytes) = match self.info.sample {
             SampleType::U8 => reorient::<u8>(
                 source,
@@ -755,6 +810,7 @@ impl DecodeSource for OrientedSource<'_> {
                 channels,
                 self.threads,
                 budget,
+                downstream_headroom,
                 sink,
             )?,
             SampleType::F32 => reorient::<f32>(
@@ -765,6 +821,7 @@ impl DecodeSource for OrientedSource<'_> {
                 channels,
                 self.threads,
                 budget,
+                downstream_headroom,
                 sink,
             )?,
         };
