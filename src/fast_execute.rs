@@ -838,7 +838,8 @@ fn linearize_f32_rgba_row(
     Ok(())
 }
 
-/// Per-thread buffers for a deferred source conversion; empty without one.
+/// Per-thread buffers for a deferred source conversion; empty without one or
+/// when the conversion fuses directly into `linear`.
 pub(crate) struct ConversionScratch {
     scratch: crate::memory::ManagedBuffer<f32>,
     converted: crate::memory::ManagedBuffer<f32>,
@@ -846,14 +847,24 @@ pub(crate) struct ConversionScratch {
 
 impl ConversionScratch {
     pub(crate) fn new(plan: &RowPlan, budget: &MemoryBudget) -> Result<Self, Error> {
-        let len = if plan.conversion.is_some() {
-            plan.source_samples
-        } else {
-            0
+        let (scratch_len, converted_len) = match &plan.conversion {
+            Some(conversion) => {
+                let pixels = plan.linear_samples / 4;
+                let (scratch_ch, converted_ch) = conversion.scratch_channels();
+                (
+                    pixels
+                        .checked_mul(scratch_ch)
+                        .ok_or(Error::GeometryOverflow)?,
+                    pixels
+                        .checked_mul(converted_ch)
+                        .ok_or(Error::GeometryOverflow)?,
+                )
+            }
+            None => (0, 0),
         };
         Ok(Self {
-            scratch: budget.allocate_typed::<f32>(len)?,
-            converted: budget.allocate_typed::<f32>(len)?,
+            scratch: budget.allocate_typed::<f32>(scratch_len)?,
+            converted: budget.allocate_typed::<f32>(converted_len)?,
         })
     }
 }
@@ -868,6 +879,9 @@ pub(crate) fn source_row_to_linear<const C: usize>(
 ) -> Result<(), Error> {
     let row = match &plan.conversion {
         Some(conversion) => {
+            if conversion.convert_to_linear_rgba(row, linear)? {
+                return Ok(());
+            }
             conversion.convert(
                 row,
                 buffers.scratch.as_mut_slice(),
@@ -1107,8 +1121,13 @@ impl RowPlan {
         let row_samples = output_width.checked_mul(4).ok_or(Error::GeometryOverflow)?;
         let source_width =
             usize::try_from(plan.source.width).map_err(|_| Error::GeometryOverflow)?;
-        // Decoded rows carry `C` samples per pixel; linearized rows carry four.
-        let source_samples = source_width.checked_mul(C).ok_or(Error::GeometryOverflow)?;
+        // Decoded rows carry `input_channels` samples per pixel (`C` unless a
+        // deferred conversion expands gray 1/2 -> 3/4); linearized rows carry
+        // four.
+        let input_channels = conversion.as_ref().map_or(C, |conv| conv.input_channels());
+        let source_samples = source_width
+            .checked_mul(input_channels)
+            .ok_or(Error::GeometryOverflow)?;
         let linear_samples = source_width.checked_mul(4).ok_or(Error::GeometryOverflow)?;
 
         let columns = TapTable::build(
@@ -1225,6 +1244,30 @@ impl RowPlan {
 /// Below this many needed source rows, threads cost more than they save.
 const PARALLEL_MIN_ROWS: usize = 64;
 
+/// Partition `used_threads` between a transposing orientation gather and the
+/// parallel row pipeline without nested oversubscription (issue #68, ADR-0019).
+///
+/// Only splits off gather threads when `OrientedSource` will actually spawn a
+/// gather pool (`has_transposing_orientation`, `source_height >= PARALLEL_MIN_ROWS`,
+/// and `gather >= 2`, i.e. `used_threads >= 6`). Whenever gathering stays
+/// serial (`gather == 1`), all `used_threads` go to `parallel_execute` so
+/// `ProcessingReport::transform_threads` reflects the actual worker count.
+pub(crate) fn partition_transform_threads(
+    used_threads: usize,
+    has_transposing_orientation: bool,
+    source_height: u32,
+) -> (usize, usize) {
+    if has_transposing_orientation
+        && source_height >= crate::orientation::PARALLEL_MIN_ROWS
+        && used_threads >= 6
+    {
+        let gather = (used_threads / 3).clamp(2, 4);
+        (gather, used_threads - gather)
+    } else {
+        (1, used_threads)
+    }
+}
+
 #[allow(clippy::too_many_arguments)] // Graph binding, budget, kernels, threads, depth and sink.
 fn run<const C: usize>(
     graph: &Graph,
@@ -1261,10 +1304,26 @@ fn run<const C: usize>(
     } else {
         1
     };
-    let (report, source_time, transform_time) = if used_threads > 1 {
-        crate::parallel_execute::run::<C>(&plan, source, budget, kernels, used_threads, sink)?
+    let (report, source_time, transform_time, worker_threads) = if used_threads > 1 {
+        let (gather_threads, worker_threads) = partition_transform_threads(
+            used_threads,
+            source.has_transposing_orientation(),
+            plan.source_height,
+        );
+        source.set_orientation_threads(gather_threads);
+        let (report, source_time, transform_time) = crate::parallel_execute::run::<C>(
+            &plan,
+            source,
+            budget,
+            kernels,
+            worker_threads,
+            sink,
+        )?;
+        (report, source_time, transform_time, worker_threads)
     } else {
-        run_sequential::<C>(&plan, source, budget, kernels, sink)?
+        let (report, source_time, transform_time) =
+            run_sequential::<C>(&plan, source, budget, kernels, sink)?;
+        (report, source_time, transform_time, 1)
     };
     Ok(QualityReport {
         decoder: report,
@@ -1272,7 +1331,7 @@ fn run<const C: usize>(
         decoder_requests: 1,
         peak_engine_managed_bytes: budget.snapshot().peak,
         explicit_full_frame_intermediates: 0,
-        transform_threads: used_threads,
+        transform_threads: worker_threads,
         used_kernels: true,
         source_time,
         transform_time,

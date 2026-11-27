@@ -2,7 +2,7 @@
 
 - **Status:** Accepted (decisions 1 and 2 implemented; 3 and 4 not implemented)
 - **Date:** 2026-11-06
-- **Last reviewed:** 2026-11-26
+- **Last reviewed:** 2026-11-27
 - **Supersedes:** None
 - **Related:** [0012](0012-codec-source-contract.md), [0014](0014-linear-srgb-straight-alpha.md), [0015](0015-typed-output-color-signals.md), [0016](0016-working-color-space-and-transform-boundaries.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0019](0019-source-side-orientation.md), [0021](0021-working-precision-policy.md), [0022](0022-parallel-row-pipeline-and-engine.md), [codec capability audit](../research/2026-11-05-decode-scaling-and-encoder-capabilities.md), [M2 milestone](../milestones/M2-performance-architecture.md) work package 5
 
@@ -129,3 +129,16 @@ the counts above do not depend on load.
 The ICC adapter (`src/cms.rs`) now runs ADR-0015's bounded header check before moxcms (moxcms 0.9.1 accepted a declared size beyond the data), and rejects HDR, unknown or contradicting CICP beside the profile (ADR-0016, 2026-11-12). Hostile inputs (empty, truncated, oversized declared size, overflowing tag count, out-of-range tag offsets, over 4 MiB) are controlled `UnsupportedColorEncoding` errors in `cms::tests`. A real photograph with a compact sRGB ICC v4 profile, and the same crop as Display P3 with 103 out-of-sRGB samples, match LittleCMS 2.19 within `8e-4` linear (`tests/icc_photo.rs`). Observed limits: matrix-shaper RGB profiles only; LUT-based profiles keep moxcms' default path with no extended-range or LittleCMS evidence; only relative colorimetric is compared; ICC-signalled alpha input is rejected (`UnsupportedInput`); one photograph, not a corpus.
 - 2026-11-26 — Finalized as a living record, owner decision: status Accepted (decision 3 partly superseded by ADR-0025); stale passages corrected in place, dropped decisions marked, open questions limited to open issues.
 - 2026-11-26 — `WebpSource` now implements `DecodeSource::set_decode_threads`, enabling `libwebp-rs`'s bit-identical multithreaded lossy decode (`Config::multithreaded(threads > 1)`) while keeping `threads <= 1` and batch workers single-threaded (issue #280; evidence in [ADR-0029](0029-webp-still-input.md)).
+- 2026-11-27 — Remaining ICC `ChannelTable`/`GrayTable` optimizations (#219, [ADR-0016](0016-working-color-space-and-transform-boundaries.md)) and `OrientedSource` streaming/gather/thread-partitioning optimizations (#68, [ADR-0019](0019-source-side-orientation.md)). Interleaved A/B (5 repetitions, median, Apple M1 Ultra, macOS 27.2.1, load 9–11, `--webp-method=0`, all outputs byte-identical `EQ`) comparing `503007eb` vs `perf/epic-287-icc-and-orientation`:
+
+| ICC case | open ms (B → A) | decode ms (B → A) | transform ms (B → A) | total ms (B → A) | managed MB (B → A) | max RSS MB (B → A) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 24 MP sRGB ICC (`paris-srgb.icc`), t=1 | 0.77 → 0.77 | 70.45 → 70.73 | 112.26 → 93.94 | 221.08 → 203.96 | 30.26 → 30.12 | 27.95 → 28.28 |
+| 24 MP Display P3 ICC (`DisplayP3-v4.icc`), t=1 | 0.80 → 0.83 | 71.68 → 71.26 | 113.33 → 94.20 | 223.68 → 206.13 | 30.26 → 30.12 | 29.75 → 28.11 |
+| 24 MP sRGB ICC, t=8 | 0.79 → 0.78 | 73.56 → 73.76 | 13.73 → 14.05 | 126.56 → 128.96 | 32.95 → 31.81 | 31.72 → 30.87 |
+| 24 MP Gray ICC (`gray-gamma22.icc`), t=1 | 0.97 → 0.97 | 159.54 → 54.53 | 80.84 → 66.18 | 277.34 → 159.28 | 30.20 → 30.10 | 29.05 → 27.84 |
+| 24 MP Gray ICC, t=8 | 0.97 → 0.93 | 158.10 → 54.60 | 28.77 → 9.38 | 224.77 → 102.53 | 31.47 → 31.43 | 30.39 → 29.95 |
+| 64×64 Display P3 ICC, t=1 | 0.26 → 0.07 | 0.08 → 0.09 | 0.04 → 0.12 | 1.08 → 0.99 | 0.32 → 0.32 | 4.95 → 4.72 |
+| 64×64 Gray ICC, t=1 | 0.38 → 0.38 | 0.07 → 0.05 | 0.03 → 0.03 | 1.11 → 1.13 | 0.32 → 0.32 | 4.77 → 4.78 |
+
+In 10-image `Engine::transcode_batch` runs sharing one ICC profile (`examples/icc_orientation_bench.rs`, byte-identical to single-image `transcode`, batch-scoped `MemoryBudget`-backed cache accounting for `Vec` capacity, `Arc` headers, profile keys and lookup tables — never `moxcms` executors or ineligible LUT profiles — bounded by `batch_icc_cache_allowance` defaulting to `min(512 KiB, smallest_item_budget / 16)` on multi-item batches, observable via `ProcessingReport::batch_icc_cache_peak_bytes`, and dropped before returning so `Engine` retains 0 bytes between calls): `paris-420` + Display P3 (`403×302`, `t=1`) dropped aggregate `open` time from 1.76 ms (10 uncached calls) to 0.36 ms (batch); `1600×1200` + Display P3 (`t=1`) dropped `open` from 1.87 ms to 0.42 ms; `gray-gray-icc` (`t=1`) dropped `open` from 3.27 ms to 0.47 ms, total batch time 4.48 → 1.57 ms. Orientation 24–48 MP results are recorded in [ADR-0019](0019-source-side-orientation.md).

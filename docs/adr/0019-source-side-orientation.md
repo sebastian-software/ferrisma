@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-11-05
-- **Last reviewed:** 2026-11-26
+- **Last reviewed:** 2026-11-27
 - **Supersedes:** None
 - **Related:** [0003](0003-demand-driven-regions.md), [0004](0004-buffer-ownership-and-budget.md), [0012](0012-codec-source-contract.md), [0016](0016-working-color-space-and-transform-boundaries.md), [0017](0017-minimal-public-facade-and-cli.md), [0018](0018-optional-codec-and-cms-dependencies.md)
 
@@ -136,3 +136,41 @@ Remaining before **Accepted**: a clean re-measurement of gather time and
 process RSS on an unloaded host, and a lossy JPEG XL photograph at camera size
 (no JPEG XL encoder for lossy output is available in the workspace).
 - 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.
+- 2026-11-27 — Streaming EXIF orientation 2 (`flip_x` only) in O(1 row) memory, fast whole-row copy/reverse for orientations 3 and 4, hoisted-bounds transpose for orientations 5–8, and zero-oversubscription thread partitioning with `parallel_execute` (issue #68; reverses the 2026-11-12 decision to retain full-region materialization for orientation 2; see the section below).
+
+## 2026-11-27: streaming orientation 2, fast non-transpose gather, thread partitioning, and 24–48 MP A/B measurements (issue #68)
+
+**Revised decision — orientation 2 streams row by row for row-streaming sources above one scanline.** On 2026-11-12 the record retained full-region materialization for mirror-only orientation 2 (`flip_x` only) because it had not yet been justified by workload evidence. On 24 MP and 48 MP RGB8 JPEG inputs, orientation 2 previously allocated 72 MB and 144 MB of engine-managed memory and copied the full frame twice — identical to a 90° rotation despite requiring no vertical reordering. `OrientedSource` now streams orientation 2 row by row through a single budgeted row buffer (`O(1 row)` memory: 18 KB at 24 MP, 24 KB at 48 MP) whenever the underlying decoder reports `DecodeSource::streams_rows() == true` (currently scanline JPEG) **and** the requested stored region exceeds one full-width source scanline (`stored.width * stored.height > source.info().size.width`), reversing each incoming row in place and emitting it immediately. Accounting reflects the actual work: `orientation_buffer_bytes = 0` (no stored-region buffer) and `wrapper_copied_bytes = 1 × region_bytes` (one copy instead of two). Tiny crops whose region is no larger than one source scanline (e.g. a `1×1` crop of a JPEG) and frame-backed decoders (`streams_rows() == false`, i.e., WebP, AVIF, and JPEG XL — including lossy WebP, which holds a multi-row decoded frame in `MemoryBudget` across `sink` calls) retain the region-buffered copy (using the fast fixed-channel row reverse) so the decoder releases its scanline or decoded frame before downstream resize buffers are allocated, avoiding overlapping decode + resize peak budgets on small crops. Orientations 3 (`180°`) and 4 (`flip_y`) still require the stored region because top-down decoders emit the bottom display row last, so they retain full-region materialization.
+
+**Fast non-transpose gather and hoisted transpose bounds.** Orientation 4 (`flip_y`) now copies whole stored rows with `copy_from_slice`; orientation 3 (`180°`) reverses whole stored rows with fixed-channel `as_chunks::<N>()` reverse iteration. Transposing orientations (5–8) keep the 16×64 cache-tiled gather with per-row bounds checks hoisted once per tile span instead of per-pixel `stored_point`/`try_from`/`get` lookups.
+
+**Eliminating nested thread-pool oversubscription.** Previously `OrientedSource::with_threads(transform_threads)` spawned `N` gather threads with a `2 * N`-block (`32 * N` rows) queue *inside* `parallel_execute::run`'s `N` worker threads (2`N` concurrent threads and 10–20 MB of extra gather blocks). Now:
+- Non-transposing orientations (3 and 4) never spawn parallel gather threads (single-row sequential copy/reverse keeps managed peak at `frame + 1 row`).
+- For transposing orientations (5–8), `emit_parallel` drops each emitting block before queuing the next job so at most `threads + 1` blocks are ever live simultaneously. When `parallel_execute::run` runs with `used_threads > 1`, `fast_execute::partition_transform_threads` only splits off gather threads when `OrientedSource` actually spawns a pool (`source_height >= PARALLEL_MIN_ROWS` and `used_threads >= 6`: `gather = (used_threads / 3).clamp(2, 4)`, `workers = used_threads - gather`, so `gather + workers == used_threads`); whenever gathering stays serial (`gather == 1`), all `used_threads` go to `parallel_execute`. `QualityReport::transform_threads` reports the actual row-pipeline `worker_threads` spawned. `1:1` identity pass-through runs without `parallel_execute` workers and retains the full gather thread allowance.
+
+**24 MP and 48 MP before/after measurements.** Interleaved A/B (5 repetitions each, median reported, `/usr/bin/time -l` maximum RSS) comparing `503007eb` (before) vs `perf/epic-287-icc-and-orientation` (after) on Apple M1 Ultra (20 cores, 64 GiB RAM, macOS 27.2.1, `rustc 1.100.0-nightly 2026-09-06`, load average 9.0–11.0 during run — indicative under background load; interleaved A/B pairs control for drift). Inputs: deterministic `magick -seed 42 -size WxH plasma:fractal -strip -quality 90 -sampling-factor 4:2:0` with identical JPEG payloads and minimal 36-byte EXIF APP1 orientation tags (`24mp-o1`: 4,322,110 B `sha256:4b5c68fe2138a060`; `24mp-o2`: `0cc9a3cc03d9fcbf`; `24mp-o3`: `e401d492cb2872f7`; `24mp-o4`: `eab4b41f17fc0f95`; `24mp-o6`: `55f3589f81aa5c21`; `48mp-o1`: 8,019,996 B `bfbd0945d334ab90`; `48mp-o2`: `eff1f3d6a9bc8f82`; `48mp-o3`: `ca71b292510adce8`; `48mp-o4`: `3a19b9b32f230f0b`; `48mp-o6`: `3a4265b3331081fd`), transcoded to WebP (`--webp-method=0`, `1600×1067` / `1067×1600` for 24 MP, `1600×1200` / `1200×1600` for 48 MP). Every case produced **byte-identical** WebP output between before and after (`EQ`):
+
+| case | decode ms (B → A) | transform ms (B → A) | total ms (B → A) | orient buf MB (B → A) | managed peak MB (B → A) | max RSS MB (B → A) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 24 MP o1, t=1 | 69.91 → 69.47 | 79.83 → 78.82 | 188.67 → 187.66 | 0.00 → 0.00 | 30.12 → 30.12 | 27.79 → 28.05 |
+| 24 MP o2, t=1 | 99.30 → 78.64 | 79.48 → 79.31 | 217.27 → 198.04 | 72.00 → 0.00 | 102.12 → 30.13 | 100.01 → 28.18 |
+| 24 MP o3, t=1 | 97.29 → 85.69 | 79.26 → 79.04 | 213.81 → 205.01 | 72.00 → 72.00 | 102.12 → 102.12 | 100.01 → 100.29 |
+| 24 MP o4, t=1 | 97.21 → 79.57 | 78.12 → 78.00 | 213.01 → 196.62 | 72.00 → 72.00 | 102.12 → 102.12 | 99.89 → 99.83 |
+| 24 MP o6, t=1 | 107.99 → 101.57 | 81.14 → 79.25 | 227.53 → 220.10 | 72.00 → 72.00 | 102.05 → 102.05 | 100.07 → 99.78 |
+| 24 MP o1, t=8 | 70.14 → 70.06 | 11.68 → 11.44 | 119.93 → 121.02 | 0.00 → 0.00 | 31.64 → 31.74 | 30.67 → 30.16 |
+| 24 MP o2, t=8 | 80.50 → 78.37 | 15.66 → 10.99 | 134.56 → 128.85 | 72.00 → 0.00 | 109.34 → 31.63 | 114.88 → 30.51 |
+| 24 MP o3, t=8 | 78.23 → 87.66 | 15.48 → 13.26 | 131.47 → 141.36 | 72.00 → 72.00 | 109.19 → 103.91 | 114.54 → 102.76 |
+| 24 MP o4, t=8 | 79.32 → 80.43 | 15.41 → 13.10 | 132.89 → 132.79 | 72.00 → 72.00 | 109.00 → 104.24 | 114.39 → 103.38 |
+| 24 MP o6, t=8 | 83.29 → 83.60 | 24.02 → 23.39 | 147.43 → 148.20 | 72.00 → 72.00 | 106.60 → 103.66 | 110.17 → 104.89 |
+| 48 MP o1, t=1 | 134.71 → 135.79 | 129.53 → 131.36 | 306.24 → 312.04 | 0.00 → 0.00 | 37.32 → 37.32 | 33.90 → 33.78 |
+| 48 MP o2, t=1 | 192.43 → 152.82 | 129.64 → 129.80 | 364.40 → 327.93 | 144.00 → 0.00 | 181.32 → 37.35 | 177.54 → 33.93 |
+| 48 MP o3, t=1 | 198.50 → 179.86 | 133.69 → 131.86 | 374.67 → 356.93 | 144.00 → 144.00 | 181.32 → 181.32 | 177.85 → 177.65 |
+| 48 MP o4, t=1 | 202.96 → 170.70 | 135.20 → 133.80 | 381.13 → 350.94 | 144.00 → 144.00 | 181.32 → 181.32 | 179.06 → 178.13 |
+| 48 MP o6, t=1 | 215.45 → 203.77 | 136.29 → 134.59 | 395.09 → 384.39 | 144.00 → 144.00 | 181.36 → 181.36 | 178.08 → 178.13 |
+| 48 MP o1, t=8 | 138.18 → 138.44 | 18.47 → 18.94 | 199.48 → 202.26 | 0.00 → 0.00 | 39.24 → 39.24 | 37.18 → 36.90 |
+| 48 MP o2, t=8 | 158.81 → 155.17 | 29.07 → 19.66 | 232.24 → 220.27 | 144.00 → 0.00 | 190.57 → 39.24 | 197.98 → 36.83 |
+| 48 MP o3, t=8 | 156.07 → 171.52 | 25.96 → 20.61 | 224.86 → 237.22 | 144.00 → 144.00 | 190.52 → 183.46 | 199.10 → 181.09 |
+| 48 MP o4, t=8 | 152.55 → 157.92 | 26.24 → 20.58 | 220.67 → 223.34 | 144.00 → 144.00 | 190.37 → 183.69 | 197.75 → 181.17 |
+| 48 MP o6, t=8 | 153.39 → 152.07 | 33.20 → 38.24 | 229.84 → 235.13 | 144.00 → 144.00 | 188.12 → 183.63 | 205.60 → 193.17 |
+
+At 20 threads (`t=20`, all M1 Ultra cores), orientation 6 managed peak dropped from 112.77 → 105.83 MB (RSS 118.75 → 107.54 MB) at 24 MP and from 196.97 → 186.17 MB (RSS 228.64 → 202.95 MB, −25.7 MB RSS) at 48 MP while eliminating 20 oversubscribed threads. Validation: `orientation::tests::{orientation_2_streams_in_one_row_budget_and_cancels_cleanly, orientations_3_and_4_match_reference_and_avoid_parallel_gather_blocks, camera_size_orientation_costs_are_reported_exactly}` and `examples/icc_orientation_bench.rs`.

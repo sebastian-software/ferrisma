@@ -73,8 +73,28 @@ impl DecodeSource for GrayToRgb<'_> {
         self.source.set_decode_threads(threads);
     }
 
+    fn set_orientation_threads(&mut self, threads: usize) {
+        self.source.set_orientation_threads(threads);
+    }
+
+    fn has_transposing_orientation(&self) -> bool {
+        self.source.has_transposing_orientation()
+    }
+
     fn discarded(&self) -> DiscardedSet {
         self.source.discarded()
+    }
+
+    fn streams_rows(&self) -> bool {
+        self.source.streams_rows()
+    }
+
+    fn prepare_conversion(
+        &mut self,
+        expected_pixels: u64,
+        budget: &MemoryBudget,
+    ) -> Result<(), Error> {
+        self.source.prepare_conversion(expected_pixels, budget)
     }
 
     fn read_region(

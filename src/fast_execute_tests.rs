@@ -948,6 +948,121 @@ fn deferred_icc_conversion_is_byte_identical_to_converting_in_the_adapter() {
     }
 }
 
+/// Issue #219: Gray and `GrayAlpha` ICC conversions (both 8-bit `GrayTable` and
+/// float `moxcms` fallback) defer onto worker threads and stay byte-identical
+/// across thread counts and against non-deferred conversion.
+#[cfg(feature = "icc")]
+#[test]
+fn deferred_gray_and_gray_alpha_icc_are_byte_identical_across_thread_counts() {
+    use crate::cms::IccSrgbSource;
+
+    struct Converted<'a>(IccSrgbSource<'a>);
+    impl DecodeSource for Converted<'_> {
+        fn info(&self) -> &DecoderInfo {
+            self.0.info()
+        }
+        fn read_region(
+            &mut self,
+            region: Rect,
+            budget: &MemoryBudget,
+            sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
+        ) -> Result<DecodeReport, Error> {
+            self.0.read_region(region, budget, sink)
+        }
+    }
+
+    let gray_icc = include_bytes!("../tests/fixtures/parity/gray-gamma22.icc").to_vec();
+    let in_size = Size::new(80, 160).unwrap();
+    let out_size = Size::new(40, 80).unwrap();
+    let kernels = Kernels::best();
+
+    let run = |source: &mut dyn DecodeSource, threads: usize| -> Vec<u8> {
+        let (graph, input, output) =
+            graph_for_info(source.info(), None, out_size, Filter::Lanczos3);
+        let budget = MemoryBudget::new(64 << 20);
+        let mut pixels = Vec::new();
+        execute_fast_srgb8(
+            &graph,
+            output,
+            input,
+            source,
+            Rect::new(0, 0, out_size.width, out_size.height).unwrap(),
+            &budget,
+            &kernels,
+            threads,
+            |_, row| {
+                pixels.extend_from_slice(row);
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(budget.snapshot().live, 0);
+        pixels
+    };
+
+    for (layout, alpha) in [
+        (ChannelLayout::Gray, AlphaMode::Opaque),
+        (ChannelLayout::GrayAlpha, AlphaMode::Straight),
+    ] {
+        let channels = usize::from(layout.channels());
+        let u8_samples: Vec<u8> = (0..(80 * 160))
+            .flat_map(|i| {
+                let g = u8::try_from((i * 37 + i / 80 * 13) % 256).unwrap();
+                let a = [0_u8, 1, 128, 254, 255][i % 5];
+                [g, a].into_iter().take(channels)
+            })
+            .collect();
+        let f32_samples: Vec<f32> = u8_samples.iter().map(|&v| f32::from(v) / 255.0).collect();
+
+        for (label, samples) in [
+            ("u8", Samples::U8(u8_samples)),
+            ("f32", Samples::F32(f32_samples)),
+        ] {
+            let mut raw = TestSource::new(in_size, layout, SRGB, samples);
+            raw.info.alpha = alpha;
+            raw.info.rendered_icc = Some(gray_icc.clone());
+            raw.info.rendered_cicp = None;
+            let adapter = || IccSrgbSource::new(Box::new(raw.clone())).unwrap();
+            let reference = run(&mut Converted(adapter()), 1);
+            for threads in [1, 2, 8] {
+                assert_eq!(
+                    run(&mut adapter(), threads),
+                    reference,
+                    "{layout:?} {label} deferred t={threads}"
+                );
+            }
+        }
+    }
+}
+
+/// Issue #68: `partition_transform_threads` only splits off gather threads when
+/// `OrientedSource` actually spawns a gather pool (`has_transposing_orientation`,
+/// `source_height >= PARALLEL_MIN_ROWS`, and `used_threads >= 6`); whenever
+/// gathering stays serial (`gather == 1`), all `used_threads` remain available
+/// to `parallel_execute`.
+#[test]
+fn partition_transform_threads_keeps_all_workers_when_gather_is_serial() {
+    use crate::fast_execute::partition_transform_threads;
+
+    for threads in [1, 2, 3, 4, 5] {
+        assert_eq!(
+            partition_transform_threads(threads, true, 1000),
+            (1, threads),
+            "serial gather at t={threads} keeps all {threads} transform workers"
+        );
+    }
+    assert_eq!(partition_transform_threads(6, true, 1000), (2, 4));
+    assert_eq!(partition_transform_threads(8, true, 1000), (2, 6));
+    assert_eq!(partition_transform_threads(9, true, 1000), (3, 6));
+    assert_eq!(partition_transform_threads(20, true, 1000), (4, 16));
+    // Short height (< PARALLEL_MIN_ROWS = 64) stays serial in OrientedSource.
+    assert_eq!(partition_transform_threads(8, true, 63), (1, 8));
+    assert_eq!(partition_transform_threads(8, true, 64), (2, 6));
+    // Non-transposing orientation never splits transform workers.
+    assert_eq!(partition_transform_threads(8, false, 1000), (1, 8));
+    assert_eq!(partition_transform_threads(20, false, 4000), (1, 20));
+}
+
 #[test]
 fn partial_parallel_worker_start_failure_releases_buffers_and_returns_error() {
     let sources = tall_sources();
@@ -3774,4 +3889,93 @@ fn vertical_downscale_above_64_taps_matches_oracle_sequential_and_parallel() {
             }
         }
     }
+}
+
+/// Issue #68 / ADR-0022: `QualityReport::transform_threads` reports the actual
+/// row-pipeline worker count spawned by `parallel_execute::run` after thread
+/// partitioning with a transposing `OrientedSource`.
+#[test]
+fn transform_threads_report_matches_actual_worker_count_with_transposing_orientation() {
+    use crate::orientation::{Orientation, OrientedSource};
+
+    struct OrientedTestSource {
+        inner: TestSource,
+        orientation: Orientation,
+    }
+    impl DecodeSource for OrientedTestSource {
+        fn info(&self) -> &DecoderInfo {
+            self.inner.info()
+        }
+        fn orientation(&self) -> Orientation {
+            self.orientation
+        }
+        fn read_region(
+            &mut self,
+            region: Rect,
+            budget: &MemoryBudget,
+            sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
+        ) -> Result<DecodeReport, Error> {
+            self.inner.read_region(region, budget, sink)
+        }
+    }
+
+    let stored_size = Size::new(100, 80).unwrap();
+    let samples: Vec<u8> = (0..100 * 80)
+        .flat_map(|i| {
+            [
+                u8::try_from((i * 7) % 256).unwrap(),
+                u8::try_from((i * 13 + 31) % 256).unwrap(),
+                u8::try_from((i * 19 + 73) % 256).unwrap(),
+            ]
+        })
+        .collect();
+    let base = TestSource::new(
+        stored_size,
+        ChannelLayout::Rgb,
+        [1, 13, 0, 1],
+        Samples::U8(samples),
+    );
+    let target_size = Size::new(40, 50).unwrap();
+    let request = Rect::new(0, 0, target_size.width, target_size.height).unwrap();
+    let kernels = Kernels::best();
+
+    let run_with = |threads: usize| {
+        let mut src = OrientedSource::new(Box::new(OrientedTestSource {
+            inner: base.clone(),
+            orientation: Orientation::from_exif(6).unwrap(),
+        }))
+        .unwrap();
+        let (graph, input, target) =
+            graph_for_info(src.info(), None, target_size, Filter::Lanczos3);
+        let budget = MemoryBudget::new(8 << 20);
+        let mut out = Vec::new();
+        let report = execute_fast_srgb8(
+            &graph,
+            target,
+            input,
+            &mut src,
+            request,
+            &budget,
+            &kernels,
+            threads,
+            |_, row| {
+                out.extend_from_slice(row);
+                Ok(())
+            },
+        )
+        .unwrap();
+        (report, out)
+    };
+
+    let (r1, out1) = run_with(1);
+    let (r5, out5) = run_with(5);
+    let (r8, out8) = run_with(8);
+    assert_eq!(r1.transform_threads, 1);
+    // At threads=5, gather stays serial (1), so all 5 threads go to workers.
+    assert_eq!(r5.transform_threads, 5);
+    // At threads=8 on a 100-row transposing source (>= PARALLEL_MIN_ROWS=64),
+    // gather takes 2 threads and row-pipeline workers take 6.
+    assert_eq!(r8.transform_threads, 6);
+    assert_eq!(out5, out1);
+    assert_eq!(out8, out1);
 }

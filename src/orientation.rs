@@ -84,6 +84,12 @@ impl Orientation {
         self == Self::IDENTITY
     }
 
+    /// True for EXIF orientation 2 (`flip_x` only), which can stream row by
+    /// row in O(1 row) memory without buffering the stored region.
+    fn is_horizontal_mirror(self) -> bool {
+        !self.transpose && self.flip_x && !self.flip_y
+    }
+
     /// Upright dimensions of a stored image.
     pub(crate) fn display_size(self, stored: Size) -> Result<Size, Error> {
         if self.transpose {
@@ -117,20 +123,6 @@ impl Orientation {
             y
         };
         Rect::new(x, y, width, height)
-    }
-
-    /// Stored coordinates of display pixel `(x, y)`; the caller guarantees
-    /// that the pixel lies inside the display image.
-    fn stored_point(self, x: u32, y: u32, stored: Size) -> (u32, u32) {
-        let (u, v) = if self.transpose { (y, x) } else { (x, y) };
-        (
-            if self.flip_x { stored.width - 1 - u } else { u },
-            if self.flip_y {
-                stored.height - 1 - v
-            } else {
-                v
-            },
-        )
     }
 }
 
@@ -209,30 +201,89 @@ struct Layout {
     row_len: usize,
 }
 
-/// Fill display row `y`. Fixed-size pixel copies: a slice copy of
-/// `channels` elements per pixel compiles to one `memmove` call per pixel.
+/// Reverse interleaved pixels of `N` samples each from `src` into `out`.
+#[inline]
+fn reverse_pixels<T: Copy, const N: usize>(src: &[T], out: &mut [T]) {
+    for (dst, &pixel) in out
+        .as_chunks_mut::<N>()
+        .0
+        .iter_mut()
+        .zip(src.as_chunks::<N>().0.iter().rev())
+    {
+        *dst = pixel;
+    }
+}
+
+/// Reverse one row of interleaved pixels (`1..=4` channels) from `src` into `out`.
+fn reverse_row<T: Copy>(src: &[T], out: &mut [T], channels: usize) -> Result<(), Error> {
+    if src.len() != out.len() || !src.len().is_multiple_of(channels) {
+        return Err(Error::OutOfBounds);
+    }
+    match channels {
+        1 => reverse_pixels::<T, 1>(src, out),
+        2 => reverse_pixels::<T, 2>(src, out),
+        3 => reverse_pixels::<T, 3>(src, out),
+        4 => reverse_pixels::<T, 4>(src, out),
+        _ => return Err(Error::UnsupportedCodecLayout),
+    }
+    Ok(())
+}
+
+/// Fill display row `y`. Non-transposing orientations copy or reverse a whole
+/// stored row directly; transposing orientations gather fixed-size pixels from
+/// one stored column with row-level bounds checks hoisted outside the loop.
 fn gather_row<T: Copy>(pixels: &[T], out: &mut [T], layout: &Layout, y: u32) -> Result<(), Error> {
+    if !layout.orientation.transpose {
+        let sy = if layout.orientation.flip_y {
+            layout
+                .stored_size
+                .height
+                .checked_sub(1)
+                .and_then(|h| h.checked_sub(y))
+                .ok_or(Error::OutOfBounds)?
+        } else {
+            y
+        };
+        let local_y = usize::try_from(sy.checked_sub(layout.stored.y).ok_or(Error::OutOfBounds)?)
+            .map_err(|_| Error::GeometryOverflow)?;
+        let start = local_y
+            .checked_mul(layout.stride)
+            .ok_or(Error::GeometryOverflow)?;
+        let end = start
+            .checked_add(layout.row_len)
+            .ok_or(Error::GeometryOverflow)?;
+        let src_row = pixels.get(start..end).ok_or(Error::OutOfBounds)?;
+        if out.len() != src_row.len() {
+            return Err(Error::OutOfBounds);
+        }
+        if layout.orientation.flip_x {
+            return reverse_row(src_row, out, layout.channels);
+        }
+        out.copy_from_slice(src_row);
+        return Ok(());
+    }
     match layout.channels {
-        1 => gather::<T, 1>(pixels, out, layout, y),
-        2 => gather::<T, 2>(pixels, out, layout, y),
-        3 => gather::<T, 3>(pixels, out, layout, y),
-        4 => gather::<T, 4>(pixels, out, layout, y),
+        1 => gather_transpose::<T, 1>(pixels, out, layout, y),
+        2 => gather_transpose::<T, 2>(pixels, out, layout, y),
+        3 => gather_transpose::<T, 3>(pixels, out, layout, y),
+        4 => gather_transpose::<T, 4>(pixels, out, layout, y),
         _ => Err(Error::UnsupportedCodecLayout),
     }
 }
 
 /// Below this many display rows, gather threads cost more than they save.
-const PARALLEL_MIN_ROWS: u32 = 64;
+pub(crate) const PARALLEL_MIN_ROWS: u32 = 64;
 /// Display rows per parallel gather job.
 const BLOCK_ROWS: u32 = 16;
 
 type Block<T> = Result<(usize, ManagedBuffer<T>), Error>;
 
 /// Gather blocks of display rows on `threads` workers and hand the rows to
-/// `sink` in order on the calling thread. At most `2 * threads` blocks are
-/// submitted and not yet emitted, which bounds the block memory. Errors,
-/// including a cancelling sink, close the job queue; the workers exit and
-/// the scope joins them before this returns (as in ADR-0022's pipeline).
+/// `sink` in order on the calling thread. At most `threads + 1` blocks are
+/// ever live at once (the emitting block is dropped before submitting the next
+/// job), which bounds the block memory. Errors, including a cancelling sink,
+/// close the job queue; the workers exit and the scope joins them before this
+/// returns (as in ADR-0022's pipeline).
 fn emit_parallel<T: RowSample>(
     pixels: &[T],
     layout: &Layout,
@@ -242,7 +293,7 @@ fn emit_parallel<T: RowSample>(
 ) -> Result<(), Error> {
     let blocks = usize::try_from(layout.display.height.div_ceil(BLOCK_ROWS))
         .map_err(|_| Error::GeometryOverflow)?;
-    let window = threads.saturating_mul(2);
+    let window = threads.saturating_add(1);
     let (jobs, job_receiver) = mpsc::sync_channel::<usize>(window);
     let job_receiver = Mutex::new(job_receiver);
     let (done_sender, done) = mpsc::channel::<Block<T>>();
@@ -316,11 +367,10 @@ const TILE_COLUMNS: u32 = 64;
 /// Fill the consecutive display rows from `first` that `out` holds.
 ///
 /// Without a transpose each display row reads one stored row, so rows are
-/// gathered one by one. With a transpose a display row reads a stored
-/// column; the rows are then gathered in tiles of `TILE_COLUMNS` columns, so
-/// that the stored pixels of neighboring display rows, which are adjacent in
-/// one stored row, are read while their cache lines are loaded. Every
-/// sample is the one `gather_row` copies; only the visiting order differs.
+/// copied or reversed one by one. With a transpose a display row reads a
+/// stored column; the rows are then gathered in tiles of `TILE_COLUMNS`
+/// columns, so that the stored pixels of neighboring display rows, which are
+/// adjacent in one stored row, are read while their cache lines are loaded.
 fn gather_rows<T: Copy>(
     pixels: &[T],
     out: &mut [T],
@@ -363,6 +413,104 @@ fn gather_rows<T: Copy>(
     Ok(())
 }
 
+/// Fill one transposing display row (EXIF orientations 5–8) from one column of
+/// the stored-order buffer, `N` samples per pixel. Bounds are checked once for
+/// the span so the inner loop is a straight strided pixel copy.
+fn gather_transpose<T: Copy, const N: usize>(
+    pixels: &[T],
+    out: &mut [T],
+    layout: &Layout,
+    y: u32,
+) -> Result<(), Error> {
+    let out = out.as_chunks_mut::<N>().0;
+    let count = out.len();
+    if count == 0 {
+        return Ok(());
+    }
+    let sx = if layout.orientation.flip_x {
+        layout
+            .stored_size
+            .width
+            .checked_sub(1)
+            .and_then(|w| w.checked_sub(y))
+            .ok_or(Error::OutOfBounds)?
+    } else {
+        y
+    };
+    let local_x = usize::try_from(sx.checked_sub(layout.stored.x).ok_or(Error::OutOfBounds)?)
+        .map_err(|_| Error::GeometryOverflow)?;
+    let stride_px = layout.stride / N;
+    if local_x >= stride_px {
+        return Err(Error::OutOfBounds);
+    }
+    let src_px = pixels.as_chunks::<N>().0;
+    let span = u32::try_from(count - 1).map_err(|_| Error::GeometryOverflow)?;
+    if layout.orientation.flip_y {
+        let sy_first = layout
+            .stored_size
+            .height
+            .checked_sub(1)
+            .and_then(|h| h.checked_sub(layout.display.x))
+            .ok_or(Error::OutOfBounds)?;
+        let sy_last = sy_first.checked_sub(span).ok_or(Error::OutOfBounds)?;
+        let first_y = usize::try_from(
+            sy_first
+                .checked_sub(layout.stored.y)
+                .ok_or(Error::OutOfBounds)?,
+        )
+        .map_err(|_| Error::GeometryOverflow)?;
+        let last_y = usize::try_from(
+            sy_last
+                .checked_sub(layout.stored.y)
+                .ok_or(Error::OutOfBounds)?,
+        )
+        .map_err(|_| Error::GeometryOverflow)?;
+        let mut idx = first_y
+            .checked_mul(stride_px)
+            .and_then(|o| o.checked_add(local_x))
+            .ok_or(Error::GeometryOverflow)?;
+        let last_idx = last_y
+            .checked_mul(stride_px)
+            .and_then(|o| o.checked_add(local_x))
+            .ok_or(Error::GeometryOverflow)?;
+        if idx >= src_px.len() || last_idx >= src_px.len() {
+            return Err(Error::OutOfBounds);
+        }
+        for pixel in out {
+            *pixel = src_px[idx];
+            idx = idx.wrapping_sub(stride_px);
+        }
+    } else {
+        let first_y = usize::try_from(
+            layout
+                .display
+                .x
+                .checked_sub(layout.stored.y)
+                .ok_or(Error::OutOfBounds)?,
+        )
+        .map_err(|_| Error::GeometryOverflow)?;
+        let last_y = first_y
+            .checked_add(count - 1)
+            .ok_or(Error::GeometryOverflow)?;
+        let mut idx = first_y
+            .checked_mul(stride_px)
+            .and_then(|o| o.checked_add(local_x))
+            .ok_or(Error::GeometryOverflow)?;
+        let last_idx = last_y
+            .checked_mul(stride_px)
+            .and_then(|o| o.checked_add(local_x))
+            .ok_or(Error::GeometryOverflow)?;
+        if last_idx >= src_px.len() {
+            return Err(Error::OutOfBounds);
+        }
+        for pixel in out {
+            *pixel = src_px[idx];
+            idx += stride_px;
+        }
+    }
+    Ok(())
+}
+
 /// The calling thread's side of `emit_parallel`. It owns the job sender, so
 /// that returning for any reason closes the queue and the workers exit.
 #[allow(
@@ -392,40 +540,68 @@ fn emit_blocks<T: RowSample>(
             let (block, rows) = done.recv().map_err(|_| Error::IncompleteDecoderOutput)??;
             finished.insert(block, rows);
         };
-        if submitted < blocks {
-            jobs.send(submitted).map_err(closed)?;
-            submitted += 1;
-        }
         let (first, _) = block_rows(layout, next)?;
         for (y, row) in (first..).zip(rows.as_slice().chunks_exact(layout.row_len)) {
             sink(y, T::wrap(row))?;
         }
+        // Release the emitting block before queuing the next job so at most
+        // `window` (`threads + 1`) blocks are ever live simultaneously.
+        drop(rows);
+        if submitted < blocks {
+            jobs.send(submitted).map_err(closed)?;
+            submitted += 1;
+        }
     }
     Ok(())
 }
 
-/// Fill one display row from the stored-order buffer, `N` samples per pixel.
-fn gather<T: Copy, const N: usize>(
-    pixels: &[T],
-    out: &mut [T],
-    layout: &Layout,
-    y: u32,
-) -> Result<(), Error> {
-    let out = out.as_chunks_mut::<N>().0;
-    for (pixel, x) in out.iter_mut().zip(layout.display.x..layout.display.right()) {
-        let (sx, sy) = layout.orientation.stored_point(x, y, layout.stored_size);
-        let local = usize::try_from(sy - layout.stored.y).map_err(|_| Error::GeometryOverflow)?
-            * layout.stride
-            + usize::try_from(sx - layout.stored.x).map_err(|_| Error::GeometryOverflow)? * N;
-        *pixel = *pixels
-            .get(local..local + N)
-            .and_then(|values| values.first_chunk::<N>())
-            .ok_or(Error::OutOfBounds)?;
+/// Stream EXIF orientation 2 (`flip_x` only) row by row in O(1 row) memory
+/// without materializing the stored region (issue #68, ADR-0019).
+fn reorient_stream_flip_x<T: RowSample>(
+    source: &mut dyn DecodeSource,
+    stored: Rect,
+    channels: usize,
+    budget: &MemoryBudget,
+    sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
+) -> Result<(DecodeReport, usize, u64), Error> {
+    if !matches!(channels, 1..=4) {
+        return Err(Error::UnsupportedCodecLayout);
     }
-    Ok(())
+    let stride = usize::try_from(stored.width)
+        .ok()
+        .and_then(|width| width.checked_mul(channels))
+        .ok_or(Error::GeometryOverflow)?;
+    let mut row_buf = budget.allocate_typed::<T>(stride)?;
+    let mut expected_y = stored.y;
+    let report = source.read_region(stored, budget, &mut |y, row| {
+        let samples = T::unwrap(row).ok_or(Error::IncompleteDecoderOutput)?;
+        if y != expected_y || samples.len() != stride {
+            return Err(Error::IncompleteDecoderOutput);
+        }
+        reverse_row(samples, row_buf.as_mut_slice(), channels)?;
+        sink(y, T::wrap(row_buf.as_slice()))?;
+        expected_y += 1;
+        Ok(())
+    })?;
+    if expected_y != stored.bottom() {
+        return Err(Error::IncompleteDecoderOutput);
+    }
+    let copied_bytes = u64::from(stored.height)
+        .checked_mul(u64::try_from(stride).map_err(|_| Error::GeometryOverflow)?)
+        .and_then(|n| n.checked_mul(u64::try_from(std::mem::size_of::<T>()).ok()?))
+        .ok_or(Error::GeometryOverflow)?;
+    Ok((report, 0, copied_bytes))
 }
 
-/// Copy decoded stored rows into one managed region, then emit upright rows.
+/// Reorient decoded stored rows and emit upright rows. Orientation 2 streams
+/// row-by-row with a single row buffer when `source.streams_rows()` is true
+/// (e.g. scanline JPEG) AND the requested stored region exceeds one full-width
+/// source scanline (so tiny crops like `1×1` stay buffered and release the
+/// decoder's scanline before downstream resize buffers allocate); frame-backed
+/// sources (WebP/AVIF/JXL) and orientations 3–8 materialize the stored region
+/// once so the decoder can release its frame before downstream resize buffers
+/// are allocated (parallel gather only for transposing orientations 5–8 when
+/// `threads > 1`).
 #[allow(clippy::too_many_arguments)] // Geometry, threads, budget and sink.
 fn reorient<T: RowSample>(
     source: &mut dyn DecodeSource,
@@ -436,7 +612,14 @@ fn reorient<T: RowSample>(
     threads: usize,
     budget: &MemoryBudget,
     sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
-) -> Result<(DecodeReport, usize), Error> {
+) -> Result<(DecodeReport, usize, u64), Error> {
+    let region_pixels = u64::from(stored.width).saturating_mul(u64::from(stored.height));
+    if orientation.is_horizontal_mirror()
+        && source.streams_rows()
+        && region_pixels > u64::from(source.info().size.width)
+    {
+        return reorient_stream_flip_x::<T>(source, stored, channels, budget, sink);
+    }
     let stored_size = source.info().size;
     let stride = usize::try_from(stored.width)
         .ok()
@@ -476,7 +659,10 @@ fn reorient<T: RowSample>(
         row_len,
     };
     let pixels = region.as_slice();
-    if threads > 1 && display.height >= PARALLEL_MIN_ROWS {
+    // Only transposing orientations (5–8) parallelize the gather; orientations
+    // 3 and 4 are single-row copy/reverse passes where a thread pool and
+    // parallel block queue add memory and latency overhead (issue #68).
+    if orientation.transpose && threads > 1 && display.height >= PARALLEL_MIN_ROWS {
         emit_parallel(pixels, &layout, threads, budget, sink)?;
     } else {
         // A transposing gather fills blocks of display rows so that it can
@@ -513,12 +699,37 @@ fn reorient<T: RowSample>(
     let bytes = length
         .checked_mul(std::mem::size_of::<T>())
         .ok_or(Error::GeometryOverflow)?;
-    Ok((report, bytes))
+    // One copy fills the stored-order region, one gathers it upright.
+    let copied_bytes = u64::try_from(bytes)
+        .ok()
+        .and_then(|bytes| bytes.checked_mul(2))
+        .ok_or(Error::GeometryOverflow)?;
+    Ok((report, bytes, copied_bytes))
 }
 
 impl DecodeSource for OrientedSource<'_> {
     fn info(&self) -> &DecoderInfo {
         &self.info
+    }
+
+    fn set_orientation_threads(&mut self, threads: usize) {
+        self.threads = threads.max(1);
+    }
+
+    fn has_transposing_orientation(&self) -> bool {
+        self.orientation.transpose
+    }
+
+    fn streams_rows(&self) -> bool {
+        self.orientation.is_horizontal_mirror() && self.source.streams_rows()
+    }
+
+    fn prepare_conversion(
+        &mut self,
+        expected_pixels: u64,
+        budget: &MemoryBudget,
+    ) -> Result<(), Error> {
+        self.source.prepare_conversion(expected_pixels, budget)
     }
 
     fn read_region(
@@ -535,7 +746,7 @@ impl DecodeSource for OrientedSource<'_> {
             .stored_rect(region, self.source.info().size)?;
         let channels = usize::from(self.info.layout.channels());
         let source = &mut *self.source;
-        let (inner, bytes) = match self.info.sample {
+        let (inner, bytes, copied_bytes) = match self.info.sample {
             SampleType::U8 => reorient::<u8>(
                 source,
                 self.orientation,
@@ -564,12 +775,8 @@ impl DecodeSource for OrientedSource<'_> {
                 .engine_buffer_bytes
                 .checked_add(bytes)
                 .ok_or(Error::GeometryOverflow)?,
-            // One copy fills the stored-order region, one gathers it upright;
-            // both move every sample of the region exactly once.
-            engine_copied_bytes: u64::try_from(bytes)
-                .ok()
-                .and_then(|bytes| bytes.checked_mul(2))
-                .and_then(|copied| copied.checked_add(inner.engine_copied_bytes))
+            engine_copied_bytes: copied_bytes
+                .checked_add(inner.engine_copied_bytes)
                 .ok_or(Error::GeometryOverflow)?,
             peak_engine_managed_bytes: budget.snapshot().peak,
             ..inner

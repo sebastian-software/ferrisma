@@ -151,10 +151,16 @@ reservation seam; compressed output and opaque codec scratch remain excluded.
 
 JPEG and WebP sources report EXIF orientation; AVIF reports its `irot`/`imir`
 item transforms. A non-identity source is wrapped in `OrientedSource`, which
-maps each display rectangle back to its stored rectangle, reads it once into a
-budgeted buffer and emits upright rows. The graph therefore stays
-orientation-free and crops are display coordinates; the buffer is reported as
-`orientation_buffer_bytes`. Both JPEG XL input backends apply orientation by
+streams EXIF orientation 2 (`flip_x` only) row by row in a single row buffer
+(`orientation_buffer_bytes = 0`) for row-streaming sources such as JPEG, and
+for frame-backed sources (WebP/AVIF) or orientations 3–8 maps each display
+rectangle back to its stored rectangle, reads it once into a budgeted buffer
+reported as `orientation_buffer_bytes` (so frame-backed decoders release their
+frame before downstream resize buffers are allocated), and emits upright rows
+(copying or reversing whole rows for non-transposing orientations and tiling
+transposing gathers for 5–8 without nested thread-pool oversubscription). The
+graph therefore stays orientation-free and crops are display coordinates. Both
+JPEG XL input backends apply orientation by
 default and return upright dimensions and samples, verified against the eight
 independent fixtures. See [ADR-0019](adr/0019-source-side-orientation.md),
 [ADR-0031](adr/0031-workspace-libavif-input-experiment.md) and

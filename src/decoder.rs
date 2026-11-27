@@ -217,14 +217,34 @@ pub(crate) struct DecodeReport {
 /// row it emits, and that it can hand to the executor instead, so that the
 /// conversion runs on the executor's workers rather than on the thread that
 /// drives the decoder (ADR-0023). The converted row is what the wrapper's
-/// `info()` describes; deferred rows have `input_sample()` and the same
-/// number of samples.
+/// `info()` describes; deferred rows have `input_sample()` and
+/// `input_channels()` samples per pixel.
 pub(crate) trait RowConversion: Send + Sync {
     /// Sample type of the rows the source emits once the conversion is
     /// deferred.
     fn input_sample(&self) -> SampleType;
-    /// Convert one deferred row into `out` (same length), using `scratch`
-    /// (same length) as working space.
+    /// Interleaved samples per pixel of the deferred input rows (1–4).
+    fn input_channels(&self) -> usize;
+    /// Per-pixel `f32` scratch and intermediate converted-row lengths needed
+    /// by [`Self::convert`]. Returns `(0, 0)` when
+    /// [`Self::convert_to_linear_rgba`] handles every row directly without
+    /// intermediate buffers.
+    fn scratch_channels(&self) -> (usize, usize);
+    /// Convert one deferred row directly into premultiplied linear-light sRGB
+    /// RGBA (`4` `f32` per pixel, fourth lane `0.0` for opaque output).
+    ///
+    /// Returns `Ok(true)` if handled directly without touching scratch
+    /// buffers, or `Ok(false)` to fall back to [`Self::convert`] followed by
+    /// `linearize_row`.
+    fn convert_to_linear_rgba(
+        &self,
+        _row: DecodedRow<'_>,
+        _linear: &mut [f32],
+    ) -> Result<bool, Error> {
+        Ok(false)
+    }
+    /// Convert one deferred row into `out` (`pixels * output_channels`), using
+    /// `scratch` (`pixels * scratch_channels().0`) as working space.
     fn convert(
         &self,
         row: DecodedRow<'_>,
@@ -246,10 +266,37 @@ pub(crate) trait DecodeSource {
     fn defer_conversion(&mut self) -> Option<std::sync::Arc<dyn RowConversion>> {
         None
     }
+    /// Prepare any deferred conversion resources (such as ICC lookup tables)
+    /// once all request, crop, depth, and encoder validations have passed.
+    fn prepare_conversion(
+        &mut self,
+        _expected_pixels: u64,
+        _budget: &MemoryBudget,
+    ) -> Result<(), Error> {
+        Ok(())
+    }
     /// Allow the codec up to `threads` worker threads for its own decode.
     /// Called before `read_region`; the default ignores it. A source may use
     /// threads only where its emitted samples do not depend on the count.
     fn set_decode_threads(&mut self, _threads: usize) {}
+    /// Limit any source-side orientation gather threads (ADR-0019, ADR-0023).
+    /// Called by the parallel row executor before `read_region` so the gather
+    /// does not spawn a nested thread pool alongside transform workers.
+    fn set_orientation_threads(&mut self, _threads: usize) {}
+    /// True when this source performs a transposing reorientation (EXIF 5–8)
+    /// that benefits from parallel row gathering when sharing a thread budget.
+    fn has_transposing_orientation(&self) -> bool {
+        false
+    }
+    /// True when this source streams rows directly from a single-row decoder
+    /// without holding a multi-row decoded buffer in `budget` while invoking
+    /// `sink`. Orientation 2 (`flip_x` only) streams row-by-row only when this
+    /// is true; frame-backed decoders keep the region-buffered copy so their
+    /// decoded frame is released before downstream resize buffers are
+    /// allocated (ADR-0019).
+    fn streams_rows(&self) -> bool {
+        false
+    }
     /// What this source reads past and the output will not carry
     /// (ADR-0042 D2), known from the headers. Asked of the codec source
     /// before any wrapper; the default is nothing.

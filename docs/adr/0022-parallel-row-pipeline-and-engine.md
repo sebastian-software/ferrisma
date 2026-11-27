@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-11-06
-- **Last reviewed:** 2026-11-26
+- **Last reviewed:** 2026-11-27
 - **Supersedes:** None
 - **Related:** [0003](0003-demand-driven-regions.md), [0004](0004-buffer-ownership-and-budget.md), [0006](0006-cpu-first-gpu-capable-execution.md), [0020](0020-kernel-crate-and-isa-dispatch.md), [0021](0021-working-precision-policy.md), [M2 milestone](../milestones/M2-performance-architecture.md) work package 4, [M2 baseline](../benchmarks/M2-baseline.md)
 
@@ -78,3 +78,4 @@ Decode-side scaling (package 5) gives decoders region access; the `Engine` needs
   buffers are released. OS thread stacks and codec scratch remain outside the
   pixel budget. Worker panics retain the prior scoped-thread behavior.
 - 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.
+- 2026-11-27 — Multi-item `Engine::transcode_batch` calls carry a separate, `MemoryBudget`-backed batch-scoped ICC lookup-table cache allowance (default `min(512 KiB, smallest_item_budget / 16)`, configurable via `Engine::with_icc_cache_bytes`, `0` for single-item batches, dropped before returning so `Engine` retains zero bytes between calls). Combined batch managed memory is bounded by `workers × largest_item_budget + batch_icc_cache_allowance`, with the observed cache peak reported in `ProcessingReport::batch_icc_cache_peak_bytes` (issue #219, [ADR-0016](0016-working-color-space-and-transform-boundaries.md)). For transposing orientations (5–8), `fast_execute::partition_transform_threads` partitions `transform_threads` between gather and row-pipeline workers only when `OrientedSource` actually spawns a pool (`source_height >= 64` and `used_threads >= 6`), and `ProcessingReport::transform_threads` reports the actual row-pipeline worker count (issue #68, [ADR-0019](0019-source-side-orientation.md)).
