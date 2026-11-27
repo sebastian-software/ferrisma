@@ -187,3 +187,7 @@ required-features = ["avif-read"]
 [[example]]
 name = "icc_orientation_bench"
 required-features = ["cli"]
+
+[[example]]
+name = "jxl_decode_threads_bench"
+required-features = ["jpeg-xl-read", "jpeg-xl-write", "webp-read"]

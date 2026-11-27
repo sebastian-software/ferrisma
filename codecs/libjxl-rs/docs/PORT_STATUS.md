@@ -97,8 +97,23 @@ and Image3 writers one row at a time behind their lock; CMS, spot color and
 tone mapping are not concurrent, and a frame whose pipeline has one renders
 serialized. Evidence: `tests/simd_threads.rs` (float, 8-bit, 16-bit and
 the image-out callback; 52 files with the corpus; 0 differing words), the
-scalar `worker-counts` family, and the record's addendum for timing. A
-thread-sanitizer run of `simd_threads` is reported with the branch.
+scalar `worker-counts` family, and the record's addendum for timing.
+
+ThreadSanitizer gate (2026-11-27, issue #100): `.github/workflows/jxl-check.yml`
+adds a dedicated `tsan` job on `ubuntu-latest` (`-Z sanitizer=thread -Z build-std`)
+covering `ferrisma-jxl-decoder --lib` (multithreaded `decode_into_with_threads`,
+`decode_region_into_with_threads`, VarDCT, lossless modular, multi-group
+transposing-orientation worker callbacks, lazy work-sized runner startup, and
+worker-thread callback panic containment),
+`ferrisma-libjxl --lib thread_parallel_runner_internal` (including lazy growth
+and partial-spawn teardown),
+`ferrisma-libjxl --test thread_runners --test dispatch_scope`, and
+`ferrisma-libjxl --features cpp-oracle-simd --test simd_threads`. Local
+macOS ARM64 TSan runs (2026-11-27, `nightly-2026-09-07`, `-Z sanitizer=thread`)
+passed with zero data races or warnings across all four local suites. Row loops
+(modular inverse transforms, AdaptiveDCSmoothing), frames with a
+CMS/spot-color/tone-mapping stage, and encoder `RunOnPool` schedules remain
+serialized.
 
 ## Concurrent AC group decode (2026-11-14)
 

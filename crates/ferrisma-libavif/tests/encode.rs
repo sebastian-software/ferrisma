@@ -194,7 +194,12 @@ fn encodes_what_ferrisma_produced_with_the_same_color_signals() {
         assert_eq!(built_in.report.encoder_backend, "libavif/aom");
         assert_eq!(output.report.encoder_backend, "libavif/aom");
         assert!(output.report.opaque_encoder_memory);
-        assert!(output.report.encoder_output_frame_bytes >= 96 * 64 * 4);
+        let min_plane_bytes = if chroma == ChromaSubsampling::Yuv444 {
+            96 * 64 * 3
+        } else {
+            96 * 64 + 48 * 32 * 2
+        } * if depth > 8 { 2 } else { 1 };
+        assert!(output.report.encoder_output_frame_bytes >= min_plane_bytes);
         assert!(
             output.report.peak_managed_bytes >= output.report.encoder_output_frame_bytes,
             "known adapter frames must count toward the managed peak"
@@ -413,19 +418,34 @@ fn invalid_settings_are_rejected_before_decoding() {
 #[test]
 fn frame_preflight_counts_odd_chroma_and_alpha_planes() {
     let mut request = backend_request(5, 3);
-    // The RGBA frame is 4 B/px at 8 bits and 8 B/px above (the rows arrive
-    // at the depth since 2026-11-15), plus the planes at 1 or 2 B/sample.
+    // Streaming strip (2 rows at 1 thread: 3 ch opaque / 4 ch alpha, 1 B/sample
+    // at 8 bits and 2 B/sample above) plus the YUV(A) planes at 1 or 2 B/sample.
     for (depth, chroma, alpha, expected) in [
-        (8, ChromaSubsampling::Yuv444, false, 60 + 15 * 3),
-        (10, ChromaSubsampling::Yuv444, true, 120 + 2 * 15 * 4),
-        (8, ChromaSubsampling::Yuv420, true, 60 + 15 + 2 * 3 * 2 + 15),
+        (8, ChromaSubsampling::Yuv444, false, 5 * 2 * 3 + 15 * 3),
+        (
+            10,
+            ChromaSubsampling::Yuv444,
+            true,
+            5 * 2 * 4 * 2 + 2 * 15 * 4,
+        ),
+        (
+            8,
+            ChromaSubsampling::Yuv420,
+            true,
+            5 * 2 * 4 + 15 + 2 * 3 * 2 + 15,
+        ),
         (
             10,
             ChromaSubsampling::Yuv420,
             false,
-            120 + 2 * (15 + 2 * 3 * 2),
+            5 * 2 * 3 * 2 + 2 * (15 + 2 * 3 * 2),
         ),
-        (12, ChromaSubsampling::Yuv444, false, 120 + 2 * 15 * 3),
+        (
+            12,
+            ChromaSubsampling::Yuv444,
+            false,
+            5 * 2 * 3 * 2 + 2 * 15 * 3,
+        ),
     ] {
         request.output = OutputSettings::Avif(
             avif_of_request(&request)

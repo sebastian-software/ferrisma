@@ -277,6 +277,18 @@ fn gather_row<T: Copy>(pixels: &[T], out: &mut [T], layout: &Layout, y: u32) -> 
 
 /// Below this many display rows, gather threads cost more than they save.
 pub(crate) const PARALLEL_MIN_ROWS: u32 = 64;
+
+/// Whether [`OrientedSource`] will keep parallel gather workers alive while
+/// delivering rows for a `display_height`-row upright region.
+///
+/// Only transposing orientations (EXIF 5–8) parallelize the gather (issue #68).
+pub(crate) fn will_emit_parallel(
+    has_transposing_orientation: bool,
+    display_height: u32,
+    threads: usize,
+) -> bool {
+    has_transposing_orientation && threads > 1 && display_height >= PARALLEL_MIN_ROWS
+}
 /// Display rows per parallel gather job.
 const BLOCK_ROWS: u32 = 16;
 
@@ -712,7 +724,7 @@ fn reorient<T: RowSample>(
     // Only transposing orientations (5–8) parallelize the gather; orientations
     // 3 and 4 are single-row copy/reverse passes where a thread pool and
     // parallel block queue add memory and latency overhead (issue #68).
-    if orientation.transpose && threads > 1 && display.height >= PARALLEL_MIN_ROWS {
+    if will_emit_parallel(orientation.transpose, display.height, threads) {
         emit_parallel(pixels, &layout, threads, budget, downstream_headroom, sink)?;
     } else {
         // A transposing gather fills blocks of display rows so that it can

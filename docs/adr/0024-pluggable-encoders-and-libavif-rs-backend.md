@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-11-06
-- **Last reviewed:** 2026-11-26
+- **Last reviewed:** 2026-11-27
 - **Supersedes:** None
 - **Partially superseded by:** [0026](0026-codecs-in-one-repository-and-workspace.md), repository/workspace placement and dependency pinning; [0030](0030-still-webp-output-and-format-neutral-encoder-result.md), output result and feature coupling; [0031](0031-workspace-libavif-input-experiment.md), AVIF input and the former duplicate-symbol exclusion
 - **Related:** [0017](0017-minimal-public-facade-and-cli.md), [0020](0020-kernel-crate-and-isa-dispatch.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0022](0022-parallel-row-pipeline-and-engine.md), [M2 milestone](../milestones/M2-performance-architecture.md) work package 2, [Sharp comparison](../benchmarks/M2-sharp-comparison.md), [libavif-rs](../../codecs/libavif-rs), [libwebp-rs plan](../research/2026-11-05-libwebp-port-plan.md)
@@ -79,7 +79,7 @@ The remaining triggers are a stable libavif toolchain or safe API, material chan
 
 ## Open questions
 
-- A direct YUV-to-AOM path is unmeasured and not implemented: #60.
+- None. (Issue #60 was resolved on 2026-11-27 by streaming RGB/RGBA strips directly into pre-allocated `avifImage` YUV(A) planes in `ferrisma-avif-write`; see the amendment below and [ADR-0037](0037-selectable-workspace-avif-encoder.md). AOM itself still requires complete YUV(A) planes before `avifEncoderWrite`, so `explicit_full_frame_intermediates` and YUV plane budgeting remain honest.)
 
 ## Amendment log
 
@@ -167,3 +167,4 @@ The remaining triggers are a stable libavif toolchain or safe API, material chan
   `output: OutputSettings` (only the selected format's settings) instead of
   a format and the settings of all three formats.
 - 2026-11-26 — Finalized as a living record, owner decision: status Accepted; stale passages corrected in place, dropped decisions marked, open questions limited to open issues.
+- 2026-11-27 — Issue #60 resolved: `ferrisma-avif-write` no longer materializes a full RGBA frame alongside `avifImage`'s YUV(A) planes. `Frame::new` pre-allocates `avifImage`'s YUV (or YUVA) planes and a bounded conversion strip (2 rows at 1 thread, up to `64 × bands ≤ 512` rows when parallel; 3-channel `AVIF_RGB_FORMAT_RGB` for opaque frames, 4-channel `AVIF_RGB_FORMAT_RGBA` with alpha), flushing each strip through `avifImageSetViewRect` + `avifImageRGBToYUV` as rows arrive. A failed strip flush poisons the `Frame` permanently so callers cannot retry rows or invoke `avifEncoderWrite` on partially uninitialized planes. `StageTimings` accounts for encoder row intake (including AVIF strip conversion) under `encode` and excludes it from `transform`. Output bytes are bit-identical to the pre-change full-frame RGBA path and the pinned C libavif 1.4.2 + libaom fixtures; `required_frame_bytes` drops by 44–73% at 24 MP (letting 24 MP 10-bit 4:4:4 + alpha fit under the default 256 MB managed budget) and process peak RSS drops by 20–109 MiB. Full 24 MP before/after measurements are recorded in [ADR-0037](0037-selectable-workspace-avif-encoder.md).

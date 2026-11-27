@@ -24,7 +24,7 @@ use crate::pipeline::{OutputFormat, OutputSettings};
 /// request carries only the requested format's settings (before: a format
 /// and the settings of all three formats, the others at their defaults).
 /// Not `Copy`, so that a later field need not be.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct EncodeRequest {
     /// The requested output format and its encoder settings: quality,
@@ -50,6 +50,23 @@ pub struct EncodeRequest {
     /// Encoder threads, resolved (at least 1); 1 means the caller asked
     /// for single-threaded encoding.
     pub threads: usize,
+    /// Internal hint that the engine's transform stage will keep its own
+    /// worker pool alive while delivering rows to `write_row` / `write_row_u16`,
+    /// so row-intake conversion stays serial instead of spawning a second
+    /// concurrent thread pool.
+    #[cfg_attr(not(feature = "avif-write"), allow(dead_code))]
+    pub(crate) concurrent_row_producer: bool,
+}
+
+impl PartialEq for EncodeRequest {
+    fn eq(&self, other: &Self) -> bool {
+        self.output == other.output
+            && self.width == other.width
+            && self.height == other.height
+            && self.has_alpha == other.has_alpha
+            && self.depth == other.depth
+            && self.threads == other.threads
+    }
 }
 
 impl EncodeRequest {
@@ -80,6 +97,7 @@ impl EncodeRequest {
             has_alpha: false,
             depth: 8,
             threads: 1,
+            concurrent_row_producer: false,
         }
     }
 
@@ -182,8 +200,9 @@ impl std::error::Error for EncodeError {}
 /// that keeps an `Rc`, a `RefCell` shared with the backend, or a raw codec
 /// pointer must wrap them (`Arc`, `Mutex`) or assert `Send` for a context the
 /// codec documents as movable between threads. The built-in AVIF encoder
-/// (`LibavifBackend`) holds only its RGBA frame and settings and creates the
-/// libavif objects inside `finish`, so it is `Send` without a change.
+/// (`LibavifBackend`) owns its `avifImage` planes, bounded RGB(A) conversion
+/// strip and settings, and creates the libavif encoder inside `finish`, so it
+/// is `Send`.
 ///
 /// **Rule for every new row axis.** Rows today are top to bottom, RGBA,
 /// straight alpha, sRGB, at 8 bits or one deeper integer depth. Every axis a

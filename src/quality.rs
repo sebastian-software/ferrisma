@@ -155,6 +155,82 @@ pub(crate) fn taps(input: u32, output: u32, at: u32, filter: Filter) -> Result<V
     Ok(weights)
 }
 
+/// Return whether the vertical filter taps for destination rows
+/// `start..start + count` reference at least `N` distinct source rows.
+///
+/// Uses the exact nonzero-weight predicate of [`taps_into`]
+/// (`weight.abs() > f64::EPSILON`) with a fixed `[u32; N]` stack buffer
+/// (zero heap allocations), O(1) upper/lower range short-circuits, and early
+/// exit as soon as the `N`-th distinct source row is observed.
+pub(crate) fn needed_rows_at_least<const N: usize>(
+    input: u32,
+    output: u32,
+    start: u32,
+    count: u32,
+    filter: Filter,
+) -> Result<bool, Error> {
+    if count == 0 || start.checked_add(count).is_none_or(|end| end > output) {
+        return Err(Error::OutOfBounds);
+    }
+    if input == 0 || output == 0 {
+        return Err(Error::InvalidDimensions);
+    }
+    if N == 0 {
+        return Ok(true);
+    }
+    if usize::try_from(input).is_ok_and(|n| n < N) {
+        return Ok(false);
+    }
+    if input == output {
+        return Ok(usize::try_from(count).map_or(true, |n| n >= N));
+    }
+    let geom = TapGeometry::new(input, output, filter);
+    let c0 = geom.center(start);
+    let c1 = geom.center(start + count - 1);
+    let (min_first, _) = geom.candidate_range(c0);
+    let (_, max_last) = geom.candidate_range(c1);
+    let max_possible = u64::from(max_last) - u64::from(min_first) + 1;
+    if usize::try_from(max_possible).is_ok_and(|n| n < N) {
+        return Ok(false);
+    }
+    if input < output {
+        // Upscaling advances `center` by `input / output < 1` per output row,
+        // so every integer source row inside `[c0, c1]` has an output row
+        // within `< 0.5` source pixels, where both Area and Lanczos3 weights
+        // are strictly `> 0.49 >> f64::EPSILON`.
+        let first_guaranteed = c0.max(0.0).ceil();
+        let last_guaranteed = c1.min(f64::from(input - 1)).floor();
+        if last_guaranteed >= first_guaranteed {
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            let guaranteed = (last_guaranteed - first_guaranteed) as u64 + 1;
+            if usize::try_from(guaranteed).map_or(true, |n| n >= N) {
+                return Ok(true);
+            }
+        }
+    }
+    let mut seen = [0_u32; N];
+    let mut len = 0_usize;
+    for offset in 0..count {
+        let at = start + offset;
+        let center = geom.center(at);
+        let (first, last) = geom.candidate_range(center);
+        for index in first..=last {
+            let weight = geom.raw_weight(filter, center, index);
+            if weight.abs() > f64::EPSILON
+                && let Err(pos) = seen[..len].binary_search(&index)
+            {
+                if len + 1 >= N {
+                    return Ok(true);
+                }
+                seen.copy_within(pos..len, pos + 1);
+                seen[pos] = index;
+                len += 1;
+            }
+        }
+    }
+    Ok(false)
+}
+
 fn sinc(x: f64) -> f64 {
     if x.abs() < 1.0e-12 {
         1.0

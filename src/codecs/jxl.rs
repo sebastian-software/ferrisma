@@ -14,7 +14,7 @@ use crate::geometry::{Rect, Size};
 use crate::memory::MemoryBudget;
 use ferrisma_jxl_decoder::{
     ColorSpace, EncodedColor, ImageInfo, Primaries, Region, Transfer, TransferFunction, WhitePoint,
-    decode_into, decode_region_into, inspect,
+    decode_into_with_threads, decode_region_into_with_threads, inspect,
 };
 
 pub(crate) struct JxlSource<'a> {
@@ -23,6 +23,7 @@ pub(crate) struct JxlSource<'a> {
     info: DecoderInfo,
     max_pixels: u64,
     discarded: DiscardedSet,
+    decode_threads: usize,
 }
 
 impl<'a> JxlSource<'a> {
@@ -96,6 +97,7 @@ impl<'a> JxlSource<'a> {
             info,
             max_pixels,
             discarded,
+            decode_threads: 1,
         })
     }
 }
@@ -149,6 +151,7 @@ fn map_error(error: ferrisma_jxl_decoder::Error) -> Error {
             Error::DecodeFailed
         }
         ferrisma_jxl_decoder::Error::Allocation => Error::AllocationFailed,
+        ferrisma_jxl_decoder::Error::ThreadSpawn => Error::ThreadSpawnFailed,
     }
 }
 
@@ -159,6 +162,10 @@ impl DecodeSource for JxlSource<'_> {
 
     fn discarded(&self) -> DiscardedSet {
         self.discarded
+    }
+
+    fn set_decode_threads(&mut self, threads: usize) {
+        self.decode_threads = threads.max(1);
     }
 
     fn read_region(
@@ -185,19 +192,21 @@ impl DecodeSource for JxlSource<'_> {
         let samples = self.image.region_sample_count(wanted).map_err(map_error)?;
         let mut retained = budget.allocate_typed::<f32>(samples)?;
         if full_frame {
-            decode_into(
+            decode_into_with_threads(
                 self.bytes,
                 &self.image,
                 retained.as_mut_slice(),
                 self.max_pixels,
+                self.decode_threads,
             )
         } else {
-            decode_region_into(
+            decode_region_into_with_threads(
                 self.bytes,
                 &self.image,
                 wanted,
                 retained.as_mut_slice(),
                 self.max_pixels,
+                self.decode_threads,
             )
         }
         .map_err(map_error)?;
@@ -221,5 +230,93 @@ impl DecodeSource for JxlSource<'_> {
             engine_copied_bytes: 0,
             work: CodecWork::full_frame(region, self.info.size),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::JxlSource;
+    use crate::decoder::{DecodeSource, DecodedRow};
+    use crate::geometry::Rect;
+    use crate::memory::MemoryBudget;
+
+    fn decode_bits(bytes: &[u8], region: Rect, threads: usize) -> Vec<u32> {
+        let mut source = JxlSource::new_bounded(bytes, 1 << 24).unwrap();
+        source.set_decode_threads(threads);
+        let budget = MemoryBudget::new(64 << 20);
+        let mut out = Vec::new();
+        source
+            .read_region(region, &budget, &mut |_, row| {
+                let DecodedRow::F32(samples) = row else {
+                    panic!("expected F32 rows from JxlSource");
+                };
+                out.extend(samples.iter().map(|sample| sample.to_bits()));
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(budget.snapshot().live, 0);
+        out
+    }
+
+    #[test]
+    fn thread_spawn_and_allocation_errors_map_to_distinct_engine_errors() {
+        assert_eq!(
+            super::map_error(ferrisma_jxl_decoder::Error::ThreadSpawn),
+            crate::error::Error::ThreadSpawnFailed
+        );
+        assert_eq!(
+            super::map_error(ferrisma_jxl_decoder::Error::Allocation),
+            crate::error::Error::AllocationFailed
+        );
+    }
+
+    #[test]
+    fn set_decode_threads_clamps_to_at_least_one() {
+        let bytes = include_bytes!("../../tests/fixtures/sample.jxl");
+        let mut source = JxlSource::new_bounded(bytes, 35).unwrap();
+        assert_eq!(source.decode_threads, 1);
+        for (threads, expected) in [(0, 1), (1, 1), (4, 4), (8, 8), (0, 1)] {
+            source.set_decode_threads(threads);
+            assert_eq!(source.decode_threads, expected);
+        }
+    }
+
+    #[test]
+    fn decode_threads_do_not_change_samples_for_multigroup_full_and_crop() {
+        for (name, bytes) in [
+            (
+                "vardct-multigroup",
+                include_bytes!("../../tests/fixtures/jxl-deep/d10-2049x40-a0-d1.jxl").as_slice(),
+            ),
+            (
+                "lossless-alpha-multigroup",
+                include_bytes!("../../tests/fixtures/jxl-lossless/rgba-2049x40.jxl").as_slice(),
+            ),
+            (
+                "lossless-rgb-multigroup",
+                include_bytes!("../../tests/fixtures/jxl-lossless/rgb-300x260.jxl").as_slice(),
+            ),
+        ] {
+            let source = JxlSource::new_bounded(bytes, 1 << 24).unwrap();
+            let size = source.info().size;
+            let full = Rect::new(0, 0, size.width, size.height).unwrap();
+            let crop = Rect::new(
+                size.width / 5,
+                size.height / 5,
+                (size.width / 2).max(1),
+                (size.height / 2).max(1),
+            )
+            .unwrap();
+            for region in [full, crop] {
+                let serial = decode_bits(bytes, region, 1);
+                for threads in [0, 2, 4, 8] {
+                    assert_eq!(
+                        decode_bits(bytes, region, threads),
+                        serial,
+                        "{name} region={region:?} threads={threads}"
+                    );
+                }
+            }
+        }
     }
 }

@@ -118,6 +118,43 @@ jobs:
     defaults:
       run:
         working-directory: codecs/libjxl-rs
+  tsan:
+    name: 'JXL: ThreadSanitizer (ubuntu-latest, parallel runner & decoder)'
+    # Exercises libjxl-rs's ThreadParallelRunner / ResizableParallelRunner,
+    # concurrent AC/DC group decode and render (`simd_threads`), and
+    # `ferrisma-jxl-decoder`'s multithreaded `decode_into_with_threads` and
+    # `decode_region_into_with_threads` under Rust's ThreadSanitizer (issue #100).
+    if: inputs.tier != 'deep'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - uses: ./codecs/libjxl-rs/.github/actions/prepare
+    - name: Install rust-src for ThreadSanitizer std build
+      run: |
+        nightly="$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)"
+        rustup component add --toolchain "$nightly" rust-src
+    - name: Build the scalar and SIMD oracles for simd_threads
+      working-directory: codecs/libjxl-rs
+      run: python3 tools/check.py --stage oracle
+    - name: Run ThreadSanitizer on ferrisma-jxl-decoder and libjxl-rs runner suites
+      env:
+        CARGO_TARGET_DIR: ${{ github.workspace }}/target/tsan
+        RUSTFLAGS: -Z sanitizer=thread
+        JXL_CPP_ORACLE: ${{ github.workspace }}/codecs/libjxl-rs/target/oracle/jxl_oracle
+        JXL_CPP_ORACLE_SIMD: ${{ github.workspace }}/codecs/libjxl-rs/target/oracle-avx2/jxl_oracle
+      run: |
+        nightly="$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)"
+        cargo +"$nightly" test --target x86_64-unknown-linux-gnu -Z build-std \
+          -p ferrisma-jxl-decoder --lib
+        cargo +"$nightly" test --target x86_64-unknown-linux-gnu -Z build-std \
+          -p ferrisma-libjxl --lib thread_parallel_runner_internal
+        cargo +"$nightly" test --target x86_64-unknown-linux-gnu -Z build-std \
+          -p ferrisma-libjxl --test thread_runners --test dispatch_scope
+        cargo +"$nightly" test --target x86_64-unknown-linux-gnu -Z build-std \
+          -p ferrisma-libjxl --features cpp-oracle-simd --test simd_threads
   parity:
     name: 'JXL: Tests (${{ matrix.os }}, ${{ matrix.oracle }} oracle, ${{ matrix.tier }} ${{ matrix.shard }}/${{ matrix.shards
       }})'
@@ -490,6 +527,7 @@ jobs:
     - plan
     - static
     - toolchain
+    - tsan
     - parity
     - selection
     - capture
@@ -499,14 +537,14 @@ jobs:
     - name: Require every gate job to pass
       env:
         TIER: ${{ inputs.tier }}
-        STATIC: ${{ needs.static.result }} ${{ needs.toolchain.result }}
+        STATIC: ${{ needs.static.result }} ${{ needs.toolchain.result }} ${{ needs.tsan.result }}
         RESULTS: ${{ needs.plan.result }} ${{ needs.parity.result }} ${{ needs.selection.result }} ${{ needs.capture.result
           }} ${{ needs.audit.result }}
       run: |
-        echo "Tier: $TIER; static checks and rust-version tests: $STATIC; plan, tests, selection, captures, audits: $RESULTS"
+        echo "Tier: $TIER; static checks, rust-version and TSan tests: $STATIC; plan, tests, selection, captures, audits: $RESULTS"
         case "$TIER" in
-          nightly) [ "$STATIC" = "success success" ] || exit 1 ;;
-          deep) [ "$STATIC" = "skipped skipped" ] || exit 1 ;;
+          nightly) [ "$STATIC" = "success success success" ] || exit 1 ;;
+          deep) [ "$STATIC" = "skipped skipped skipped" ] || exit 1 ;;
           *) exit 1 ;;
         esac
         for result in $RESULTS; do [ "$result" = success ] || exit 1; done
